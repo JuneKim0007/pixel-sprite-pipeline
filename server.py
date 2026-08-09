@@ -508,6 +508,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(styles.preview(ROOT, merged))
         if path == "/api/style/detail":
             return self._json(style_detail(q.get("name", [""])[0]))
+        if path == "/api/style/training":
+            from pipeline import training
+
+            return self._json(training.preview(_sheet(q.get("name", [""])[0]).home))
 
         if path == "/api/annotation":
             from pipeline import annotate

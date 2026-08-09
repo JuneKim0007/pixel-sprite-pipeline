@@ -34,6 +34,7 @@ export const api = {
       + withStyles.map((s) => `&with=${encodeURIComponent(s)}`).join('')),
   styleDetail: (name) => call(`/api/style/detail?name=${encodeURIComponent(name)}`),
   styleNote:   (name, text) => json('POST', '/api/style/note', { name, text }),
+  styleTraining: (name) => call(`/api/style/training?name=${encodeURIComponent(name)}`),
 
   runs:     () => call('/api/runs'),
   run:      (id) => call(`/api/run?id=${encodeURIComponent(id)}`),

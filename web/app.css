@@ -777,6 +777,58 @@ input.wide { width: 100%; max-width: 420px; }
 .manifest .num { text-align: right; color: var(--ink-dim); }
 .manifest .hash { font-family: var(--mono); color: var(--ink-faint); }
 
+/* Training: the rule and the image that breaks it, on one screen. */
+.verdict {
+  border: 1px solid var(--line); border-left: 3px solid var(--ok);
+  border-radius: 8px; padding: 11px 14px; margin-bottom: 16px;
+  background: var(--panel-2);
+}
+.verdict.notready { border-left-color: var(--warn); }
+.verdicthead { display: flex; justify-content: space-between; align-items: baseline; }
+.verdict .warnline { max-width: none; }
+
+.traincards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.traincard {
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  background: var(--panel-2);
+}
+.traincard.shared { opacity: .8; border-style: dashed; }
+.trainhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.trainlist { margin-top: 9px; }
+.trainlist h5 {
+  margin: 0 0 3px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--ink-faint); font-weight: 500;
+}
+.trainlist ul { margin: 0; padding-left: 15px; }
+.trainlist li { font-size: 11.5px; line-height: 1.5; color: var(--ink-dim); margin-bottom: 3px; }
+.trainlist.vary h5 { color: var(--ok); }
+.trainlist.reject h5 { color: var(--bad); }
+.captionrule {
+  font-size: 11.5px; line-height: 1.5; margin: 10px 0 0; padding-top: 9px;
+  border-top: 1px solid var(--line); color: var(--ink-dim);
+}
+
+.stagedhead { display: flex; align-items: baseline; gap: 8px; margin: 20px 0 4px; font-size: 14px; }
+.stagedlist { display: grid; gap: 8px; }
+.stagedrow {
+  display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: start;
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+}
+.stagedrow.flagged { border-left: 3px solid var(--warn); }
+.stagedrow img {
+  width: 76px; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated;
+  background: var(--panel-2); border-radius: 6px;
+}
+.stagedname { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.bandpill {
+  border-radius: 999px; padding: 1px 8px; font-size: 10.5px;
+  border: 1px solid currentColor;
+}
+.bandpill.ok { color: var(--ok); }
+.bandpill.warn { color: var(--warn); }
+.bandpill.bad { color: var(--bad); }
+.stagedrow .warnline { margin: 5px 0 0; font-size: 11.5px; max-width: none; }
+
 .stylecard {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 14px 16px;
@@ -810,3 +862,23 @@ input.wide { width: 100%; max-width: 420px; }
 .frag.chip.on { opacity: 1; border-color: var(--accent); color: var(--ink); }
 .helpmore { color: var(--ink-dim); }
 .helpmore.hidden { display: none; }
+
+/* Normalisation plan: measured actions, not advice. */
+.planbox {
+  border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.planhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.planstep {
+  display: grid; grid-template-columns: 190px 1fr; gap: 12px;
+  padding: 7px 0; border-top: 1px solid var(--line);
+}
+.planstep code { font-size: 11.5px; color: var(--ink-dim); word-break: break-all; }
+.planaction { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.actionpill {
+  border-radius: 999px; padding: 1px 9px; font-size: 10.5px; white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.actionpill.reduce { color: var(--accent); }
+.actionpill.rescale { color: var(--warn); }
+.mini.soft { color: var(--ink-faint); }

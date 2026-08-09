@@ -356,6 +356,133 @@ function historyPanel(detail, rerender) {
   return panel;
 }
 
+/* -------------------------------------------------------------- training
+ *
+ * Guidance and a reading of what is actually staged, in one panel. Guidance
+ * alone is a document nobody opens; a verdict alone does not say what to do
+ * about it. The pairing is the point: the rule and the image that breaks it
+ * sit on the same screen.
+ */
+
+const BAND = {
+  sprite: { label: 'sprite', tone: 'ok' },
+  clean:  { label: 'clean', tone: 'ok' },
+  soft:   { label: 'soft', tone: 'warn' },
+  render: { label: 'render', tone: 'bad' },
+};
+
+function targetCard(t) {
+  const card = el('div', { className: `traincard ${t.shared_with ? 'shared' : ''}` },
+    el('div', { className: 'trainhead' },
+      el('b', { textContent: t.label }),
+      t.shared_with
+        ? el('span', { className: 'tagpill', textContent: `same set as ${t.shared_with}` })
+        : el('span', { className: 'mini', textContent: t.count })),
+    el('p', { className: 'help', textContent: t.teaches }));
+
+  const section = (title, items, kind) => {
+    if (!items?.length) return null;
+    return el('div', { className: `trainlist ${kind}` },
+      el('h5', { textContent: title }),
+      el('ul', {}, ...items.map((s) => el('li', { textContent: s }))));
+  };
+
+  card.append(
+    section('Vary', t.vary, 'vary'),
+    section('Hold constant', t.hold, 'hold'),
+    section('Never include', t.reject, 'reject'));
+  if (t.caption) {
+    card.append(el('p', { className: 'captionrule' },
+      el('b', { textContent: 'Captions: ' }),
+      el('span', { textContent: t.caption })));
+  }
+  return card;
+}
+
+function stagedRow(image) {
+  const band = BAND[image.band] || BAND.render;
+  const row = el('div', { className: `stagedrow ${image.warnings.length ? 'flagged' : ''}` },
+    el('img', { src: api.fileUrl(image.path), loading: 'lazy', alt: image.name }),
+    el('div', { className: 'stagedmain' },
+      el('div', { className: 'stagedname' },
+        el('span', { textContent: image.name }),
+        el('span', { className: `bandpill ${band.tone}`, textContent: band.label })),
+      el('div', { className: 'mini', textContent:
+        `${image.width}×${image.height} · figure ${image.figure_height}px · `
+        + `${image.colours?.toLocaleString()} colours` }),
+      ...image.warnings.map((w) => el('p', { className: 'warnline', textContent: `⚠ ${w}` })),
+      // Notes are things that look alarming and are not. Saying so beats
+      // leaving them out, because the next person measures the same number.
+      ...(image.notes || []).map((n) => el('p', { className: 'mini soft', textContent: `· ${n}` }))));
+  return row;
+}
+
+async function trainingPanel(name) {
+  const panel = el('div', { className: 'trainpanel' });
+  let data;
+  try {
+    data = await api.styleTraining(name);
+  } catch (e) {
+    panel.append(el('p', { className: 'empty', textContent: e.message }));
+    return panel;
+  }
+
+  const v = data.verdict;
+  panel.append(el('div', { className: `verdict ${v.ready ? 'ok' : 'notready'}` },
+    el('div', { className: 'verdicthead' },
+      el('b', { textContent: v.ready ? 'Ready to train' : 'Not ready to train' }),
+      el('span', { className: 'mini', textContent: `${v.count} staged` })),
+    ...v.problems.map((p) => el('p', { className: 'warnline', textContent: `✗ ${p}` })),
+    ...v.notes.map((n) => el('p', { className: 'mini', textContent: `· ${n}` }))));
+
+  // The plan is the actionable half of the verdict: not "these disagree" but
+  // "reduce this one by 2". Feature scale is measured, so the factor is known
+  // rather than guessed.
+  const plan = data.plan || { steps: [] };
+  if (plan.steps.length || plan.clean) {
+    const box = el('div', { className: 'planbox' },
+      el('div', { className: 'planhead' },
+        el('b', { textContent: 'Normalisation plan' }),
+        el('span', { className: 'mini', textContent:
+          `${plan.clean} conform · target 1px blocks, figure ${plan.target_height}px` })),
+      el('p', { className: 'help', textContent:
+        'Normalising to one logical pixel per image pixel — rather than to the '
+        + 'coarsest or finest member — is the only target defined without '
+        + 'reference to the rest of the set, so adding an image later does not '
+        + 'invalidate the ones already converted.' }));
+    for (const step of plan.steps) {
+      box.append(el('div', { className: 'planstep' },
+        el('code', { textContent: step.name }),
+        el('div', {}, ...step.actions.map((a) => el('div', { className: 'planaction' },
+          el('span', { className: `actionpill ${a.kind}`,
+                       textContent: `${a.kind} ×${a.factor}` }),
+          el('span', { className: 'mini', textContent: a.why }))))));
+    }
+    if (!plan.steps.length) {
+      box.append(el('p', { className: 'ok', textContent:
+        '✓ Every staged image is already at one logical pixel per image pixel.' }));
+    }
+    panel.append(box);
+  }
+
+  panel.append(el('div', { className: 'traincards' },
+    ...data.targets.map(targetCard)));
+
+  panel.append(el('h3', { className: 'stagedhead' },
+    el('span', { textContent: 'Staged images' }),
+    el('span', { className: 'count', textContent: String(data.staged.length) })));
+  panel.append(el('p', { className: 'help', textContent:
+    `Drop files into ${data.dir}. Nothing here is read at generation time — `
+    + 'staging accumulates until there is enough to train on.' }));
+
+  if (!data.staged.length) {
+    panel.append(el('p', { className: 'empty', textContent: 'Nothing staged yet.' }));
+  } else {
+    panel.append(el('div', { className: 'stagedlist' }, ...data.staged.map(stagedRow)));
+  }
+  return panel;
+}
+
 /* -------------------------------------------------------------- resolved */
 
 async function resolvedPanel() {
@@ -417,12 +544,14 @@ export function renderStyles(host, { onChanged }) {
     const detail = showDetail.cache;
 
     const bar = el('div', { className: 'segmented' });
-    for (const [key, label] of [['context', 'Context'], ['history', 'History'],
-                                ['resolved', 'Resolved']]) {
+    for (const [key, label] of [['context', 'Context'], ['training', 'Training'],
+                                ['history', 'History'], ['resolved', 'Resolved']]) {
       const b = el('button', {
         className: `seg ${tab === key ? 'on' : ''}`,
         textContent: key === 'history' && detail.history.length
-          ? `${label} ${detail.history.length}` : label,
+          ? `${label} ${detail.history.length}`
+          : key === 'training' && detail.training.pending
+            ? `${label} ${detail.training.pending}` : label,
       });
       b.onclick = () => { tab = key; showDetail(); };
       bar.append(b);
@@ -440,6 +569,7 @@ export function renderStyles(host, { onChanged }) {
       bar, panelHost);
 
     if (tab === 'context') panelHost.append(contextPanel(detail));
+    else if (tab === 'training') panelHost.append(await trainingPanel(detail.name));
     else if (tab === 'history') panelHost.append(historyPanel(detail, showDetail));
     else panelHost.append(await resolvedPanel());
   };
