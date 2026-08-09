@@ -1,0 +1,168 @@
+"""Palette registry: grouped .hex files, optionally chosen by an LLM.
+
+Palettes live in `palettes/<group>/<name>.hex`, with loose files treated as the
+"general" group. A file may carry metadata in comments:
+
+    // name: Dungeon Steel
+    // tags: cold, metallic, armor, low-saturation
+    // A restrained palette for armoured characters underground.
+    1B1E26
+    ...
+
+Choosing a palette is a semantic judgement — "a knight in steel armour" wants
+cold metals, not tropical pastels — which is the kind of thing a language model
+is good at and a histogram is not. It is also trivially verifiable: the answer
+must be one of N names, so a wrong answer is caught immediately rather than
+producing a bad sprite. Same generate-then-check shape as pose generation.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class Palette:
+    key: str                        # "retro/pico8"
+    group: str
+    name: str
+    path: Path
+    colours: list[tuple[int, int, int]]
+    tags: list[str] = field(default_factory=list)
+    description: str = ""
+
+    @property
+    def size(self) -> int:
+        return len(self.colours)
+
+    def summary(self) -> dict:
+        return {
+            "key": self.key, "group": self.group, "name": self.name,
+            "size": self.size, "tags": self.tags,
+            "description": self.description,
+            "swatch": ["#%02X%02X%02X" % c for c in self.colours[:8]],
+        }
+
+
+def _parse(path: Path, root: Path) -> Palette:
+    colours: list[tuple[int, int, int]] = []
+    meta: dict[str, str] = {}
+    notes: list[str] = []
+
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("//"):
+            body = line[2:].strip()
+            if ":" in body:
+                k, v = body.split(":", 1)
+                if k.strip().lower() in {"name", "tags"}:
+                    meta[k.strip().lower()] = v.strip()
+                    continue
+            notes.append(body)
+            continue
+        token = line.lstrip("#").split()[0][:6]
+        if len(token) == 6:
+            try:
+                colours.append(
+                    (int(token[0:2], 16), int(token[2:4], 16), int(token[4:6], 16))
+                )
+            except ValueError:
+                pass
+
+    rel = path.relative_to(root / "palettes")
+    group = rel.parent.name if rel.parent != Path(".") else "general"
+    key = f"{group}/{path.stem}" if group != "general" else path.stem
+    return Palette(
+        key=key,
+        group=group,
+        name=meta.get("name", path.stem.replace("_", " ").title()),
+        path=path,
+        colours=colours,
+        tags=[t.strip() for t in meta.get("tags", "").split(",") if t.strip()],
+        description=" ".join(notes),
+    )
+
+
+def discover(root: Path) -> dict[str, Palette]:
+    base = root / "palettes"
+    if not base.exists():
+        return {}
+    found = {}
+    for p in sorted(base.rglob("*.hex")):
+        try:
+            pal = _parse(p, root)
+        except Exception:
+            continue
+        if pal.colours:
+            found[pal.key] = pal
+    return found
+
+
+def grouped(root: Path) -> dict[str, list[Palette]]:
+    out: dict[str, list[Palette]] = {}
+    for pal in discover(root).values():
+        out.setdefault(pal.group, []).append(pal)
+    return out
+
+
+CHOOSE_SYSTEM = """You choose a colour palette for pixel art. Output ONLY JSON.
+Judge by mood and subject matter, not by palette size. Prefer a palette whose
+tags match the subject."""
+
+CHOOSE_TEMPLATE = """Subject: {subject}
+Style: {style}
+
+Available palettes:
+{catalogue}
+
+Reply exactly: {{"key": "<one key from the list>", "why": "<short reason>"}}"""
+
+
+def choose(
+    root: Path, subject: str, style: str, client, *, temperature: float = 0.4,
+    attempts: int = 3, verbose: bool = True,
+) -> Palette:
+    """Ask the LLM to pick a palette; verify the pick exists."""
+    available = discover(root)
+    if not available:
+        raise FileNotFoundError("no palettes found under palettes/")
+
+    catalogue = "\n".join(
+        f"- {p.key}: {p.name} ({p.size} colours)"
+        + (f" tags: {', '.join(p.tags)}" if p.tags else "")
+        + (f" — {p.description}" if p.description else "")
+        for p in available.values()
+    )
+    prompt = CHOOSE_TEMPLATE.format(
+        subject=subject, style=style, catalogue=catalogue
+    )
+
+    for attempt in range(1, attempts + 1):
+        raw = client.generate(
+            prompt, system=CHOOSE_SYSTEM, temperature=temperature, json_mode=True
+        )
+        try:
+            picked = json.loads(raw).get("key", "").strip()
+        except json.JSONDecodeError:
+            picked = ""
+
+        if picked in available:
+            if verbose:
+                print(f"   palette chosen: {picked} ({available[picked].name})")
+            return available[picked]
+
+        if verbose:
+            print(f"   attempt {attempt}: invalid pick {picked!r}")
+        prompt += (
+            f"\n\n'{picked}' is not in the list. Reply with one of exactly these "
+            f"keys: {', '.join(available)}"
+        )
+
+    fallback = next(iter(available.values()))
+    if verbose:
+        print(f"   LLM failed to choose; falling back to {fallback.key}")
+    return fallback

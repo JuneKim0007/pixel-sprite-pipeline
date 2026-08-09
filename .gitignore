@@ -1,0 +1,24 @@
+# Vendored ComfyUI checkout and its multi-gigabyte weights. Reinstallable,
+# and 21 of this project's 21 GB live here.
+ComfyUI/
+
+# Generated. Runs are reproducible from their manifest; keeping them would
+# make every generation a commit.
+out/
+exports/
+logs/
+.run/
+
+# Queue state is a live state machine, not source. The examples are.
+queue/pending/
+queue/running/
+queue/done/
+queue/failed/
+queue/held/
+
+# Subagent reports — regenerated on demand.
+audit/
+
+__pycache__/
+*.py[cod]
+.DS_Store

@@ -1,0 +1,21 @@
+# Machine-level defaults. Every pipeline inherits these unless it
+# overrides them. Edit here to change all pipelines at once.
+paths:
+  input_dir: inputs
+  output_dir: out/runs
+  download_dir: exports
+comfy:
+  host: http://127.0.0.1:8188
+compute:
+  torch_threads: 8
+  mps_high_watermark: 0.9
+  cpu_workers:
+  batch: 1
+models:
+  checkpoint: sd_xl_base_1.0.safetensors
+  pixel_lora: pixel-art-xl.safetensors
+  controlnet: controlnet-union-sdxl-promax.safetensors
+  ipadapter: ip-adapter_sdxl_vit-h.safetensors
+ui:
+  suppress_gate_confirm: true
+  suppress_overwrite_confirm: false

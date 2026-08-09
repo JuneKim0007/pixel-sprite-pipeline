@@ -1,0 +1,43 @@
+# One animation for a monster, front-turned, inheriting identity from its sheet.
+name: monster_anim
+module: animation
+
+subject: a monster
+rig: humanoid
+styles: [retro_jrpg]
+
+pipeline:
+  stages: [pose, depth, canonical, frames, palette, export]
+
+pose:
+  source: library
+  name: idle_breathe
+  view: three_quarter_front
+  size: 1024
+
+depth: {near: 255, far: 60, blur: 6.0}
+
+canonical:
+  seed: 1234
+  lcm: false
+frames:
+  lcm: false
+  denoise: 1.0
+  controlnet: {strength: 0.75, start_percent: 0.0, end_percent: 0.55, enabled: true}
+  depth_controlnet: {strength: 0.45, start_percent: 0.0, end_percent: 0.6}
+  ip_adapter: {weight: 0.7, weight_type: style and composition}
+
+# from_run is filled in by the queue when this follows a sheet, so the
+# animation inherits the sheet's identity and palette instead of regenerating.
+references:
+  match: {auto: true, tolerance_degrees: 40, exact_weight: 0.85, far_weight: 0.45}
+  identity: []
+  style: []
+  pose: []
+  palette: []
+
+export: {columns: 5, scale: 4}
+models:
+  checkpoint: illustrious-xl-v01.safetensors
+palette:
+  source: extract

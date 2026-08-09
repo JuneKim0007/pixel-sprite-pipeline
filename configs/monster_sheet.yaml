@@ -1,0 +1,48 @@
+# Character sheet for one monster. Four views, no export beyond the run folder.
+name: monster_sheet
+module: character_sheet
+
+subject: a monster
+rig: humanoid
+styles:
+- retro_jrpg
+
+pipeline:
+  # `export` writes a sheet INSIDE the run folder only. Nothing reaches
+  # exports/ unless Download is pressed in the Result tab.
+  stages: [pose, depth, canonical, frames, palette, export]
+
+pose:
+  source: tpose
+  symmetric: false        # arms down; a T-pose invites limbs drawn as weapons
+  size: 1024
+  set:
+  - {view: front}
+  - {view: three_quarter_front}
+  - {view: side}
+  - {view: rear}
+
+depth: {near: 255, far: 60, blur: 6.0}
+
+canonical:
+  seed: 1234
+  lcm: false
+frames:
+  lcm: false
+  denoise: 1.0
+  controlnet: {strength: 0.75, start_percent: 0.0, end_percent: 0.55, enabled: false}
+  depth_controlnet: {strength: 0.55, start_percent: 0.0, end_percent: 0.6}
+  ip_adapter: {weight: 0.7, weight_type: style and composition}
+
+references:
+  match: {auto: true, tolerance_degrees: 40, exact_weight: 0.85, far_weight: 0.45}
+  identity: []
+  style: []
+  pose: []
+  palette: []
+
+export: {columns: 4, scale: 4}
+models:
+  checkpoint: illustrious-xl-v01.safetensors
+palette:
+  source: extract

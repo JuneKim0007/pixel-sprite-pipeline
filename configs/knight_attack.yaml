@@ -1,0 +1,273 @@
+# =============================================================================
+# Six-frame knight attack animation.
+#
+# Every knob is documented. Where a value matters more than it looks, the
+# comment says why — those are the ones worth understanding before changing.
+#
+# These comments now survive edits from the web UI: saving applies only the
+# leaves you changed onto this file instead of rewriting it wholesale.
+# =============================================================================
+
+name: knight_attack
+
+# What this pipeline is for. Scopes the settings UI so a T-pose sheet
+# does not show knobs about LLM-authored motion.
+module: animation
+
+# What you're making. Both stages that write prompts read these, so the
+# character description lives in exactly one place.
+subject: a knight in steel armor holding a sword
+style: pixel art, game sprite, side view, plain flat background
+
+pipeline:
+  # Execution order. Validated before anything runs: a stage needing an
+  # artifact that no earlier stage produces is rejected with an explanation.
+  # The UI checks the same rule live and offers an Auto-order fix.
+  #
+  # Consecutive CPU stages that don't depend on each other run concurrently.
+  # GPU stages never do — there is one Metal device and SDXL already fills
+  # most of 16 GB, so overlapping them just causes swapping.
+  stages: [pose, depth, canonical, frames, softbody, palette, export]
+
+comfy:
+  host: http://127.0.0.1:8188
+
+# -----------------------------------------------------------------------------
+# COMPUTE — how much work reaches the GPU.
+#
+# There is deliberately no "GPU cores" setting: Metal exposes no way to
+# partition the GPU between processes, so a core slider would be fiction.
+# These are the levers that are real.
+# -----------------------------------------------------------------------------
+compute:
+  torch_threads: 8      # CPU threads for tensor work. The M4 has 4 performance
+                        # and 6 efficiency cores; more is not always faster.
+  mps_high_watermark: 0.9   # fraction of unified memory PyTorch may claim.
+                        # 0.0 disables the cap. Lower leaves room for other
+                        # apps; too low causes OOM mid-generation.
+
+# -----------------------------------------------------------------------------
+# 1. POSE — skeletons are authored input, never estimated from an image.
+#    Pose estimators are trained on photographs and fail on sprites.
+# -----------------------------------------------------------------------------
+pose:
+  source: library       # 'library' reads poses/*.json (hand-authored, best
+                        # quality). 'llm' generates from `action` below.
+  name: attack          # poses/attack.json — see tools/make_poses.py
+  frames: 6             # blank = all frames in the file; a number truncates
+
+  # Viewing angle. Poses are stored in body space and projected here, so one
+  # pose file serves every camera. Named views:
+  #   front(0) three_quarter_front(40) side(90)
+  #   three_quarter_rear(145) rear_turned(170) rear(180)
+  # Any number of degrees also works — `view: 160` for a touch more turn.
+  #
+  # This is also what fixes front/back views collapsing into each other: past
+  # ~100 degrees the nose and eye keypoints are dropped automatically, which
+  # is how a skeleton tells ControlNet the character is facing away.
+  view: three_quarter_front
+
+  size: 1024            # must match the generation resolution below
+  thickness:            # blank = auto-scale OpenPose's 4px-at-368 convention
+  depth_scale: 1.0      # exaggerate forward/back motion without re-authoring
+  lateral_scale: 1.0    # widen or narrow the character's stance
+
+  # Instead of `name`, a list of independent poses — a pose SET rather than an
+  # animation. Same code path; a turnaround is one pose at several yaws.
+  # set:
+  #   - {name: idle,   view: front}
+  #   - {name: idle,   view: three_quarter_rear}
+  #   - {name: attack, frame: 4, view: side}
+
+  # Only read when source: llm.
+  action: a character swinging a sword downward, ending in follow-through
+  llm:
+    model: qwen3:4b
+    temperature: 0.7    # LLM creativity. Nothing to do with image variance.
+    attempts: 3         # retries; failures are fed back as explicit criticism
+    tolerance: 0.3      # allowed bone-length drift after anatomy snapping
+    cache: true         # write accepted poses to poses/generated/ for reuse
+    keep_alive: 0       # unload immediately — 16GB can't hold this and SDXL
+
+# -----------------------------------------------------------------------------
+# 1b. DEPTH (optional) — the channel a 2D skeleton cannot carry.
+#
+# Three-quarter-rear and full-rear project to almost identical keypoints, since
+# horizontal spread barely changes between them. Depth distinguishes them: at
+# 145 degrees the shoulders sit at different distances, at 180 they are level.
+#
+# Computed from the pose's own depth coordinates, not estimated, and consumed
+# by the same ControlNet Union model as `depth` — no extra weights.
+# Remove `depth` from pipeline.stages to switch it off.
+# -----------------------------------------------------------------------------
+depth:
+  view:                 # blank = follow pose.view
+  size:                 # blank = follow pose.size
+  near: 255             # brightness of the closest surface
+  far: 60               # brightness of the farthest. A narrower near/far gap
+                        # gives flatter, less directive depth.
+  blur: 6.0             # real depth maps are smooth; hard polygon edges read
+                        # as geometry and condition less well
+
+# -----------------------------------------------------------------------------
+# 2. CANONICAL — the one sprite that defines the character.
+#    Generated at full quality: every frame inherits its identity and colours,
+#    so weakness here propagates everywhere. Worth the extra ~2 minutes.
+# -----------------------------------------------------------------------------
+canonical:
+  seed: 1234            # PIN THIS. Frames reuse it; changing it changes the
+                        # character entirely.
+  lcm: false            # false = 25 steps @ CFG 7. LCM is ~3x faster but drops
+                        # prompt details (it lost "holding a sword" in testing).
+  steps: 25
+  cfg: 7.0              # prompt adherence. 7 is the SDXL default sweet spot.
+  lora_strength: 1.2    # pixel-art-xl; 1.2 is the author's recommendation
+  width: 1024
+  height: 1024
+  # prompt:             # uncomment to override the subject+style composition
+
+# -----------------------------------------------------------------------------
+# 3. FRAMES — one sprite per skeleton. ONLY the skeleton varies between them.
+# -----------------------------------------------------------------------------
+frames:
+  # MEASURED: pose control does not work under LCM. At 8 steps the skeleton is
+  # only partly obeyed even at end_percent 0.85, because LCM settles the
+  # composition in its first couple of steps and ControlNet cannot redirect it
+  # afterwards. At 20 steps the pose lands correctly. Cost is ~210s/frame.
+  # Set lcm: true only for quick style drafts where the pose does not matter.
+  lcm: false
+  steps: 20
+  cfg: 7.0              # with lcm: true this must drop to ~1.5
+  lora_strength: 1.2
+  denoise: 1.0          # 1.0 = generate fresh. Below 1.0 carries over the
+                        # previous latent — only meaningful for img2img chains.
+  width: 1024
+  height: 1024
+  # seed:               # defaults to canonical.seed. Keep them equal.
+
+  controlnet:           # pins the POSE
+    union_type: openpose  # ESSENTIAL. The Union model covers ten conditioning
+                        # types and defaults to guessing ("auto"). Telling it
+                        # the input is a skeleton is the difference between the
+                        # pose being applied and silently ignored.
+    strength: 0.75      # how hard the skeleton is enforced
+    start_percent: 0.0
+    end_percent: 0.55   # fraction of sampling the control steers for. Common
+                        # advice says ~0.2 to protect style, but that assumes
+                        # 25-30 steps; 0.2 of 20 steps is only 4 and the pose
+                        # does not take. 0.8 works here without visible style
+                        # loss. Lower it if output starts looking flat.
+
+  depth_controlnet:     # only used when the depth stage ran. Stacks with the
+                        # pose control above, same Union model.
+    strength: 0.45      # keep BELOW the pose strength. Depth describes body
+                        # volume, and pushing it hard makes sprites look
+                        # rendered rather than drawn.
+    start_percent: 0.0
+    end_percent: 0.6
+
+  ip_adapter:           # pins the IDENTITY, from the canonical sprite
+    weight: 0.7         # 0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity
+                        # lock. Measured: 0.85 fights the pose control, 0.7
+                        # keeps identity while letting the skeleton win.
+                        # Ignored when references.match.auto is true.
+    weight_type: style and composition
+    start_at: 0.0
+    end_at: 1.0
+
+# -----------------------------------------------------------------------------
+# REFERENCES (optional) — view-labelled images for identity.
+#
+# Without this, the canonical sprite is the only reference. With it, each frame
+# is matched to the closest reference by viewing angle.
+#
+# The counter-intuitive part: when NO close reference exists, weight goes DOWN,
+# not up. A front reference forced at 0.85 onto a rear generation produces a
+# front-facing sprite that fights the pose. Constraint where there is evidence,
+# latitude where there is not.
+# -----------------------------------------------------------------------------
+references:
+  match:
+    auto: true          # derive weight per frame from angular distance
+    tolerance_degrees: 40   # within this, treat as an exact match
+    exact_weight: 0.85  # weight when a reference matches the view
+    far_weight: 0.45    # weight at a full 180-degree mismatch
+
+# -----------------------------------------------------------------------------
+# 3b. SOFTBODY (optional) — secondary motion: jiggle, sway, flutter.
+#
+# Spring bones. Loose mass trails the skeleton, so a belly keeps moving after
+# the torso stops and a cape lags a turn. You author WHERE mass hangs and WHAT
+# it is made of; the per-frame motion is simulated, never posed — it is a
+# reaction to the primary motion, not an independent animation.
+#
+# These are NOT skeleton joints, and the distinction matters: skeleton joints
+# are fixed at 18 because the OpenPose ControlNet was trained on that exact
+# layout. Soft nodes never reach that ControlNet — they drive a pixel warp —
+# so you can add as many as you like, anywhere.
+#
+# Runs before pixelization, so the warp happens at 1024 and is then downscaled.
+# Deterministic: identical poses give identical displacement, so frames cannot
+# disagree with each other.
+#
+# LIMIT: a warp moves pixels that already exist; it cannot invent silhouette.
+# A cape flapping outside the drawn outline has nothing to move, and past ~4px
+# at 128 output the stretching shows. For silhouette-changing motion, raise
+# the depth stage's influence instead so the model draws the deformed shape.
+# -----------------------------------------------------------------------------
+  identity: []
+  style: []
+  pose: []
+  palette: []
+softbody:
+  fps: 12               # playback rate the simulation assumes
+  loop: true            # cyclic motion — pre-rolls so frame 0 is not at rest
+  preroll_cycles: 2     # settling passes before recording
+  nodes: []             # empty = no secondary motion. Example:
+                        # - name: belly
+                        #   anchor: neck
+                        #   offset: [0.0, 0.055, 0.19]
+                        #   radius: 0.16
+                        #   stiffness: 70     # higher = tracks body closely
+                        #   damping: 4.5      # higher = settles sooner
+                        #   mass: 1.0         # higher = more lag/overshoot
+                        #   max_displacement: 0.03
+                        #   influence: 1.0    # 0 disables without deleting
+                        #   axis: [1.0, 1.0]  # [0,1] = vertical jiggle only
+                        # - name: cape
+                        #   anchor: neck
+                        #   offset: [0.0, -0.07, 0.30]
+                        #   radius: 0.20
+                        #   stiffness: 35     # cloth trails further than flesh
+                        #   damping: 2.5
+                        #   max_displacement: 0.045
+
+# -----------------------------------------------------------------------------
+# 4. PALETTE — where colour consistency is actually won, deterministically.
+#    Extract once from the canonical, impose on every frame. Frames cannot
+#    drift in colour because they are quantised to an identical fixed set.
+# -----------------------------------------------------------------------------
+palette:
+  source: extract       # 'extract' derives from the canonical's SUBJECT — the
+                        # background is keyed out first, because a sprite is
+                        # ~15% of the canvas and median cut would otherwise
+                        # spend the whole budget subdividing background grey.
+                        # 'file' reuses a committed palette (keeps separate
+                        # runs on-model). 'llm' picks one from palettes/ by
+                        # subject — selection only; application stays exact.
+  # file: character/dungeon_steel
+  size: 12              # target palette size
+  factor: 8             # 1024 / 8 = 128px sprites. Verified as the true grid
+                        # size for this LoRA by intra-block variance sweep.
+  reduce: median        # median | mode | mean. median measured 100% structural
+                        # accuracy on ground truth; mode only 70%.
+  alpha_tolerance: 14   # edge-connected background keyed to transparent
+  upscale: 1            # nearest-neighbour scale-up of each frame
+  workers:              # blank = one per CPU core. Frames are independent.
+
+# -----------------------------------------------------------------------------
+# 5. EXPORT — sprite sheet plus the cell geometry an engine needs.
+# -----------------------------------------------------------------------------
+export:
+  columns:              # blank = single row
+  scale: 4              # nearest-neighbour upscale of the finished sheet

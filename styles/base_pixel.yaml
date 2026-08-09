@@ -1,0 +1,26 @@
+name: base_pixel
+label: Base pixel art
+notes: >
+  The shared floor every other sheet builds on. Holds only what is true of all
+  pixel art here, so a sheet that extends it can disagree about mood without
+  restating the basics.
+
+vocabulary:
+  medium: [pixel art, game sprite]
+  render: [crisp hard edges, no anti-aliasing, flat colour blocks]
+
+modules:
+  character_sheet:
+    style: "{medium}, {render}, clean reference pose, plain flat background"
+  animation:
+    style: "{medium}, {render}, plain flat background"
+
+settings:
+  # The generation canvas belongs to the style, because it has to agree with
+  # the palette factor: canvas / factor is the sprite size, and pinning one
+  # without the other silently changes the output resolution.
+  canonical: {width: 1024, height: 1024}
+  frames: {width: 1024, height: 1024}
+  palette:
+    reduce: median
+    factor: 8

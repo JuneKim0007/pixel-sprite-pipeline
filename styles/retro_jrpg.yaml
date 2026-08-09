@@ -1,0 +1,70 @@
+name: retro_jrpg
+label: Retro JRPG (RPG Maker / Pokemon era)
+extends: [base_pixel]
+notes: >
+  Chunky readable sprites in the RPG Maker and early Pokemon idiom: large flat
+  colour areas inside a firm dark outline, rather than fine per-pixel rendering.
+
+  A style sheet is not only prompt words — most of what separates a flat,
+  muddy sprite from a crisp one lives in the numbers below, so they are part
+  of the style.
+
+vocabulary:
+  style:
+    - retro JRPG sprite
+    - chunky pixels
+    - thick dark outline around the whole figure
+    - flat colour blocks
+  shading:
+    - simple cel shading
+    - two-tone shadows
+    - no gradients
+    - no dithering
+  framing:
+    - full body filling the frame
+    - centred
+    - facing the viewer
+  palette_words:
+    - clean saturated palette
+    - strong value contrast
+
+modules:
+  character_sheet:
+    style: "{medium}, {style}, {shading}, {palette_words}, {framing}, plain flat background"
+  animation:
+    style: "{medium}, {style}, {shading}, {palette_words}, {framing}, plain flat background"
+
+settings:
+  palette:
+    source: extract
+    # Measured: at 12 colours a silver-armoured sprite collapsed to two greys
+    # and read as monochrome. Reference art of this class runs 20-40. Colour
+    # count IS detail once the shapes are flat.
+    size: 28
+    factor: 8            # verified as the LoRA's true grid by variance sweep
+    reduce: median       # 100% structural accuracy against ground truth
+    alpha_tolerance: 16
+
+  canonical:
+    # The anchor is generated once and every frame inherits from it, so it is
+    # the cheapest place to spend steps.
+    steps: 40
+    cfg: 7.5
+    lora_strength: 1.2   # the LoRA author's figure; higher speckles the blocks
+    sampler: dpmpp_3m_sde
+    scheduler: karras
+
+  frames:
+    # More steps mainly buys cleaner block edges here. Below ~20 the source is
+    # noisy and median reduction turns that noise into scattered pixels.
+    steps: 30
+    cfg: 7.5
+    lora_strength: 1.2
+    sampler: dpmpp_3m_sde
+    scheduler: karras
+    # Speckle and mush are what this style fails as, so they are named.
+    negative: >
+      blurry, soft, antialiased, smooth gradient, jpeg artifacts, noisy,
+      speckled, dithered, photo, realistic, 3d render, watermark, signature,
+      text, extra limbs, deformed, low contrast, muddy colors, washed out,
+      monochrome, desaturated

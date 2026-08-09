@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprite Pipeline</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">▚</span>
+      <div>
+        <div class="brand-name">Sprite Pipeline</div>
+        <div class="brand-sub">local · SDXL + MPS</div>
+      </div>
+    </div>
+
+    <label class="sidelabel" for="configPicker">Pipeline</label>
+    <select id="configPicker" class="select block"></select>
+
+    <ul class="nav" id="nav">
+      <li data-view="input" class="active"><span class="ico">✎</span>Input</li>
+      <li data-view="run"><span class="ico">▶</span>Run</li>
+      <li data-view="result"><span class="ico">▦</span>Result</li>
+      <li data-view="styles"><span class="ico">◈</span>Styles</li>
+      <li data-view="settings"><span class="ico">⚙</span>Settings</li>
+    </ul>
+
+    <label class="sidelabel" for="runPicker">Run</label>
+    <select id="runPicker" class="select block"></select>
+
+    <div class="nav-section">Stage flow</div>
+    <ol class="stageflow" id="stageflow"></ol>
+
+    <div class="services" id="services"></div>
+  </nav>
+
+  <main class="main">
+    <section class="view active" id="view-input"></section>
+    <section class="view" id="view-run"></section>
+    <section class="view" id="view-result"></section>
+    <section class="view" id="view-styles"></section>
+    <section class="view" id="view-settings"></section>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

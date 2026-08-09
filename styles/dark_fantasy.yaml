@@ -1,0 +1,21 @@
+name: dark_fantasy
+label: Dark fantasy
+extends: [base_pixel]
+notes: >
+  Grim, desaturated, heavy shadow. Pairs with the character rig palettes.
+
+vocabulary:
+  style: [grim dark fantasy, heavy shadows, desaturated]
+  mood: [ominous, weathered]
+
+modules:
+  character_sheet:
+    style: "{medium}, {style}, {render}, clean reference pose"
+  animation:
+    style: "{medium}, {style}, {mood}, {render}"
+
+settings:
+  palette:
+    source: file
+    file: character/dungeon_steel
+    size: 16

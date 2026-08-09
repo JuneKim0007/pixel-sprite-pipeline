@@ -1,0 +1,36 @@
+name: hi_fidelity
+label: High fidelity pixel art
+extends: [retro_jrpg]
+notes: >
+  For sprites that should stand up to being looked at closely: more colours,
+  more steps, and a larger generation canvas so the 128px result is a
+  downscale of something detailed rather than an upscale of something thin.
+
+  Costs roughly three times the GPU time of retro_jrpg. Worth it for a hero
+  or a boss, wasteful for a field mob.
+
+vocabulary:
+  style:
+    - detailed pixel art sprite
+    - crisp clean pixel clusters
+    - firm dark outline
+    - readable silhouette
+  shading:
+    - deliberate cel shading
+    - three-tone shading with a rim light
+    - no gradients
+
+settings:
+  canonical:
+    steps: 60
+    width: 1280         # 1280/10 = 128, so the sprite is a downscale
+    height: 1280
+    cfg: 8.0
+  frames:
+    steps: 45
+    width: 1280
+    height: 1280
+    cfg: 8.0
+  palette:
+    size: 40
+    factor: 10          # matches the larger canvas back to a 128px sprite

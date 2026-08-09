@@ -1,0 +1,134 @@
+# =============================================================================
+# Character sheet — one creature, four views, T-pose.
+#
+# This is the module that runs FIRST for a new character: it produces the base
+# images that the animation pipeline then treats as its reference. You do not
+# need a source image to start from.
+#
+# Mechanically it is an ordinary pose set. Four independent poses that happen
+# to be the same T-pose at four angles, so nothing new runs — the same
+# consistency machinery that keeps an animation on-model keeps the four views
+# on-model with each other.
+# =============================================================================
+
+name: character_sheet
+
+# What this pipeline is for. Scopes the settings UI so a T-pose sheet
+# does not show knobs about LLM-authored motion.
+module: character_sheet
+
+subject: a knight in steel armor
+style: pixel art, game sprite, plain flat background
+
+# Body plan. Decides joint layout, bone hierarchy, and which ControlNet channel
+# the skeleton may legitimately be sent to:
+#
+#   humanoid                    openpose + depth   (the only rig with a
+#                                                   matching pose model)
+#   quadruped dragon wyvern     scribble + depth
+#   insect spider scorpion      scribble + depth
+#   serpent centipede           scribble + depth
+#   octopoid tentacled_4        scribble + depth
+#   avian humanoid_4arm ...     scribble + depth
+#   blob                        depth only
+#
+# Non-humanoid rigs fall back to scribble because OpenPose was trained on 18
+# human joints and reads anything else as a mangled person. Depth is computed
+# by us from body-space coordinates, so it works for every topology.
+rig: humanoid
+
+pipeline:
+  stages: [pose, depth, canonical, frames, palette, export]
+  stop_after: pose
+  # stop_after: pose      # uncomment to check the rig before spending GPU time
+
+comfy:
+  host: http://127.0.0.1:8188
+
+# -----------------------------------------------------------------------------
+# The four views. Same pose, different camera — which is exactly the pose-set
+# mechanism, so no new code path runs here.
+# -----------------------------------------------------------------------------
+pose:
+  source: tpose         # synthesised from the rig; no pose file needed
+  size: 1024
+  set:
+  - {view: front}
+  - {view: side}            # character's left side
+  - {view: rear}
+  - {view: 270}             # right side — the mirror of `side`
+
+depth:
+  near: 255
+  far: 60
+  blur: 6.0
+
+# -----------------------------------------------------------------------------
+# The canonical anchors identity for all four views. Worth full quality: every
+# view inherits from it, and so does every animation generated later.
+# -----------------------------------------------------------------------------
+canonical:
+  seed: 1234            # PIN THIS. It defines who the character is.
+  lcm: false
+  steps: 30
+  cfg: 7.0
+  lora_strength: 1.2
+  width: 1024
+  height: 1024
+  # candidates: 4       # generate several and keep them all, to pick from
+
+frames:
+  lcm: false
+  steps: 25             # a sheet is generated once and reused forever
+  cfg: 7.0
+  lora_strength: 1.2
+  denoise: 1.0
+  width: 1024
+  height: 1024
+
+  controlnet:
+    # union_type:       # blank = follow the rig. Only override deliberately.
+    strength: 0.75
+    start_percent: 0.0
+    end_percent: 0.55
+
+  depth_controlnet:
+    strength: 0.45      # keep below the pose strength or sprites look rendered
+    start_percent: 0.0
+    end_percent: 0.6
+
+  ip_adapter:
+    weight: 0.7
+    weight_type: style and composition
+    start_at: 0.0
+    end_at: 1.0
+
+# Each view is matched to the closest labelled reference. With none supplied,
+# the canonical is the only anchor and weight falls off as views turn away
+# from it — which is what stops a front reference forcing a front-facing rear.
+references:
+  match:
+    auto: true
+    tolerance_degrees: 40
+    exact_weight: 0.85
+    far_weight: 0.45
+
+  identity:
+  - path: /Users/personal_jk/pixel/inputs/9e142d87-7b73-481a-9ea3-477a6c3d6a13-4.png
+    view: front
+    weight_scale: 1
+  style: []
+  pose: []
+  palette: []
+palette:
+  source: extract       # from the canonical's subject, background keyed out
+  size: 16              # sheets carry a whole character, so a little wider
+  factor: 8
+  reduce: median
+  alpha_tolerance: 14
+  upscale: 1
+
+# Writes per-view PNGs AND joined sheets for sprites, skeletons and depth maps.
+export:
+  columns: 4            # front · side · rear · right
+  scale: 4

@@ -1,0 +1,81 @@
+name: verify_short
+
+# What this pipeline is for. Scopes the settings UI so a T-pose sheet
+# does not show knobs about LLM-authored motion.
+module: animation
+subject: a knight in steel armor holding a sword
+style: pixel art, game sprite, side view, plain flat background
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+comfy:
+  host: http://127.0.0.1:8188
+pose:
+  source: library
+  name: attack
+  frames: 3
+  view: side
+  size: 1024
+  thickness: null
+  depth_scale: 1.0
+  lateral_scale: 1.0
+  action: a character swinging a sword downward, ending in follow-through
+  llm:
+    model: qwen3:4b
+    temperature: 0.7
+    attempts: 3
+    tolerance: 0.3
+    cache: true
+    keep_alive: 0
+depth:
+  view: null
+  size: null
+  near: 255
+  far: 60
+  blur: 6.0
+canonical:
+  seed: 1234
+  lcm: false
+  steps: 25
+  cfg: 7.0
+  lora_strength: 1.2
+  width: 1024
+  height: 1024
+frames:
+  lcm: false
+  steps: 20
+  cfg: 7.0
+  lora_strength: 1.2
+  denoise: 1.0
+  width: 1024
+  height: 1024
+  controlnet:
+    union_type: openpose
+    strength: 1.0
+    start_percent: 0.0
+    end_percent: 0.8
+  depth_controlnet:
+    strength: 0.45
+    start_percent: 0.0
+    end_percent: 0.6
+  ip_adapter:
+    weight: 0.7
+    weight_type: style and composition
+    start_at: 0.0
+    end_at: 1.0
+palette:
+  source: extract
+  size: 12
+  factor: 8
+  reduce: median
+  alpha_tolerance: 14
+  upscale: 1
+  workers: null
+export:
+  columns: null
+  scale: 4
