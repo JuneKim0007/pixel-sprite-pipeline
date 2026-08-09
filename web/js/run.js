@@ -11,6 +11,7 @@
 
 import { api, getPath, setPath } from './api.js';
 import { orderProblems } from './fields.js';
+import { ROLES } from './input.js';
 import { annotator } from './annotate.js';
 import { rigEditor, savePoses } from './rig.js';
 import { confirmDialog, draftConfig, el, state, toast } from './store.js';
@@ -46,7 +47,11 @@ function reviewStep(rerender) {
   const gate = getPath(cfg, 'pipeline.stop_after') || '';
   const poseSource = getPath(cfg, 'pose.source') || 'library';
   const frames = getPath(cfg, 'pose.frames');
-  const refs = (getPath(cfg, 'references.images') || []).length;
+  // Per role, because "3 references" hides the thing worth checking before a
+  // run: whether they are three identity images or three style exemplars.
+  const refs = ROLES
+    .map((r) => [r.label, (getPath(cfg, `references.${r.key}`) || []).length])
+    .filter(([, n]) => n);
 
   const box = el('div', { className: 'group' },
     el('h2', { textContent: 'About to run' }),
@@ -54,7 +59,9 @@ function reviewStep(rerender) {
       summary('Subject', getPath(cfg, 'subject') || '(unset)'),
       summary('Stages', stages.join(' → ') || '(none)'),
       summary('Pose', `${poseSource}${frames ? ` · ${frames} frames` : ''} · ${getPath(cfg, 'pose.view') || 'side'}`),
-      summary('References', refs ? `${refs} labelled image(s)` : 'canonical sprite only'),
+      summary('References', refs.length
+        ? refs.map(([label, n]) => `${n} ${label.toLowerCase()}`).join(' · ')
+        : 'canonical sprite only'),
       summary('Palette', getPath(cfg, 'palette.source') || 'extract')));
 
   /* Gate picker — where the flow should pause for review. */
@@ -298,6 +305,12 @@ export function renderRun(host, { onStarted, goTo }) {
     }
 
     try {
+      // Read the underscore-prefixed draft entries first. They are run-scoped
+      // rather than config-scoped, so committing the draft clears them — and
+      // reading them afterwards silently sent every run without its style
+      // picks.
+      const picks = state.draft['_stylePicks'];
+
       // Commit pending edits, then start.
       if (Object.keys(state.draft).length) {
         const own = structuredClone(state.own);
@@ -309,7 +322,6 @@ export function renderRun(host, { onStarted, goTo }) {
         state.own = own;
         state.draft = {};
       }
-      const picks = state.draft['_stylePicks'];
       const { run_id } = await api.start({
         config: state.current,
         ...(picks ? { style_picks: picks } : {}),

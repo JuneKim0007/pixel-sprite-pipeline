@@ -155,12 +155,46 @@ export const ROLES = [
     blurb: 'Colours to lock to. Imposed exactly, so frames cannot drift.' },
 ];
 
+/* Move one image from one role's list to another, as a single edit.
+ *
+ * Re-tagging matters more than it looks. The mistake people actually make is
+ * dropping eight images in at once and only then noticing that two of them
+ * were style references, not identity — and delete-then-re-add loses the view
+ * label and the weight that had already been set. */
+function moveRole(fromKey, toKey, index, onChange) {
+  const fromPath = `references.${fromKey}`;
+  const toPath = `references.${toKey}`;
+  const from = getPath(draftConfig(), fromPath) || [];
+  const to = getPath(draftConfig(), toPath) || [];
+  const moving = from[index];
+  if (!moving) return;
+
+  // Both arrays are derived from one snapshot before either write, so the
+  // re-render the first write triggers cannot make the second one stale.
+  const nextFrom = from.filter((_, i) => i !== index);
+  const nextTo = [...to, { ...moving, weight: 1 }];
+  onChange(fromPath, nextFrom);
+  onChange(toPath, nextTo);
+}
+
+/* Which role new uploads join. Module-level so switching tabs, uploading, and
+ * coming back to the view all agree on it. */
+let activeRole = 'identity';
+
 function referenceCards(role, onChange) {
   const path = `references.${role.key}`;
   const images = getPath(draftConfig(), path) || [];
   const grid = el('div', { className: 'refgrid' });
 
   images.forEach((ref, index) => {
+    const roleSel = el('select', { className: 'select rolesel', title: 'What this image is for' });
+    for (const other of ROLES) {
+      roleSel.append(el('option', {
+        value: other.key, textContent: other.label, selected: other.key === role.key,
+      }));
+    }
+    roleSel.onchange = () => moveRole(role.key, roleSel.value, index, onChange);
+
     const viewSel = el('select', { className: 'select' });
     for (const name of VIEW_OPTIONS) {
       viewSel.append(el('option', { value: name, textContent: name, selected: ref.view === name }));
@@ -189,15 +223,18 @@ function referenceCards(role, onChange) {
 
     grid.append(el('div', { className: 'refcard' },
       el('img', { src: api.fileUrl(ref.path), loading: 'lazy' }),
-      el('div', { className: 'refcard-foot' },
-        role.key === 'palette' ? null : el('span', { className: 'mini', textContent: 'shows' }),
-        role.key === 'palette' ? null : viewSel,
-        remove),
+      el('div', { className: 'refcard-foot' }, roleSel, remove),
+      role.key === 'palette' ? null : el('div', { className: 'refcard-foot' },
+        el('span', { className: 'mini', textContent: 'shows' }), viewSel),
       el('div', { className: 'refcard-weight' },
         el('span', { className: 'mini', textContent: 'weight' }), weight, readout),
       el('div', { className: 'refcard-path mono', textContent: ref.path, title: ref.path })));
   });
 
+  if (!images.length) {
+    grid.append(el('p', { className: 'empty',
+      textContent: `No ${role.label.toLowerCase()} references.` }));
+  }
   return grid;
 }
 
@@ -248,6 +285,10 @@ export function renderInput(host, { onChange, onContinue }) {
   const paths = state.system?.paths || {};
   host.replaceChildren();
 
+  // Which role tab is open is view state, not config, so it does not go
+  // through onChange — that would write a draft entry for a UI preference.
+  const render = () => renderInput(host, { onChange, onContinue });
+
   /* --- prompt composer --- */
   const secondary = el('div', { className: 'secondary hidden' },
     promptBox({
@@ -283,11 +324,15 @@ export function renderInput(host, { onChange, onContinue }) {
     creaturePicker(onChange)));
 
   /* --- references --- */
+  // Uploads land in whichever role is selected. The backend rejects the old
+  // flat `references.images` outright, so writing it here would produce a
+  // config that cannot run.
   const upload = el('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none' });
   const addRefs = (items) => {
-    const current = getPath(draftConfig(), 'references.images') || [];
-    onChange('references.images',
-      [...current, ...items.map((p) => ({ path: p, view: 'front', weight_scale: 1 }))]);
+    const path = `references.${activeRole}`;
+    const current = getPath(draftConfig(), path) || [];
+    onChange(path,
+      [...current, ...items.map((p) => ({ path: p, view: 'front', weight: 1 }))]);
   };
   upload.onchange = async () => {
     if (!upload.files.length) return;
@@ -315,17 +360,37 @@ export function renderInput(host, { onChange, onContinue }) {
     if (picked?.length) addRefs(picked);
   };
 
-  const images = getPath(draftConfig(), 'references.images') || [];
+  const counts = Object.fromEntries(ROLES.map((r) =>
+    [r.key, (getPath(draftConfig(), `references.${r.key}`) || []).length]));
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const role = ROLES.find((r) => r.key === activeRole) || ROLES[0];
+
+  // Role tabs rather than four separate drop zones. One target that you aim
+  // first is less to hit than four you must aim between, and every card can
+  // be re-tagged afterwards anyway.
+  const roleTabs = el('div', { className: 'segmented roletabs' });
+  for (const r of ROLES) {
+    const b = el('button', {
+      className: `seg ${r.key === activeRole ? 'on' : ''}`,
+      textContent: counts[r.key] ? `${r.label} ${counts[r.key]}` : r.label,
+    });
+    b.onclick = () => { activeRole = r.key; render(); };
+    roleTabs.append(b);
+  }
+
   host.append(el('section', { className: 'group' },
     el('h2', {}, 'Reference images',
       el('span', { className: 'headnote',
-        textContent: images.length
-          ? `${images.length} attached · label each with the view it shows`
+        textContent: total
+          ? `${total} attached across ${
+              ROLES.filter((r) => counts[r.key]).length} role(s)`
           : 'optional' })),
     el('div', { className: 'fields' },
+      roleTabs,
+      el('p', { className: 'help', textContent: role.blurb }),
       dropZone(sendFiles),
       el('div', { className: 'row' }, uploadBtn, pickBtn, upload),
-      referenceCards(onChange))));
+      referenceCards(role, onChange))));
 
   /* --- folders --- */
   const dirRow = (label, value, help, path) => {

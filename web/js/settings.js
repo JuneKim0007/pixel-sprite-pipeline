@@ -11,12 +11,30 @@ import { api, delPath, getPath, setPath } from './api.js';
 import { renderGroup } from './fields.js';
 import { el, state, toast } from './store.js';
 
-/* Ordered so the common edits sit near the top. */
-const SECTIONS = [
+/* An ordering hint, not a whitelist.
+ *
+ * This used to be the list of sections that got rendered, and a group missing
+ * from it was simply unreachable — `Export` and `Quality` were declared in the
+ * schema, consumed by the pipeline, and editable nowhere, because nobody
+ * remembered to add two strings here. Deriving the list from the schema and
+ * using this only for order means a new group appears by existing; coverage
+ * cannot silently regress.
+ */
+const ORDER = [
   'Asset', 'Proportions', 'Pipeline', 'Pose', 'Depth', 'Canonical', 'Frames',
   'Pose control', 'Identity', 'References', 'Props', 'Softbody', 'Palette',
-  'LLM', 'Models', 'Compute', 'Services', 'Paths',
+  'Quality', 'Export', 'LLM', 'Models', 'Compute', 'Services', 'Paths',
 ];
+
+/* Groups with no schema fields yet, which still need a home in the sidebar
+ * because their editor is hand-written rather than generated. */
+const ALWAYS = new Set(['Paths', 'Softbody', 'References']);
+
+function sectionOrder(counts) {
+  const known = new Set(ORDER);
+  const extra = Object.keys(counts).filter((g) => g && !known.has(g)).sort();
+  return [...ORDER, ...extra];
+}
 
 const GLOBAL_ONLY = new Set(['Models', 'Compute', 'Services', 'Paths']);
 
@@ -52,8 +70,7 @@ export function renderSettings(host, { onSaved }) {
   const nav = el('nav', { className: 'subnav' });
   const body = el('div', { className: 'subbody' });
 
-  const shown = SECTIONS.filter((s) =>
-    counts[s] || s === 'Paths' || s === 'Softbody' || s === 'References');
+  const shown = sectionOrder(counts).filter((s) => counts[s] || ALWAYS.has(s));
 
   for (const name of shown) {
     if (!isGlobal && GLOBAL_ONLY.has(name) && name !== 'Models' && name !== 'Compute') continue;

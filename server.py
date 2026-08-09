@@ -213,6 +213,86 @@ def run_detail(run_id: str) -> dict:
     return info
 
 
+def _sheet(name: str) -> styles.Style:
+    found = styles.discover(ROOT).get(name)
+    if not found:
+        raise FileNotFoundError(f"no style sheet '{name}'")
+    return found
+
+
+def style_detail(name: str) -> dict:
+    """Everything the Styles tab shows for one sheet.
+
+    Split deliberately into *context* — what is true now and is editable — and
+    *history* — what happened and is not. They answer different questions, and
+    a panel that mixes them makes the second one unreadable.
+    """
+    from pipeline import stylelog
+
+    sheet = _sheet(name)
+    images = []
+    for path in sheet.exemplars:
+        if not path.exists():
+            images.append({"path": str(path), "name": path.name, "missing": True})
+            continue
+        images.append({
+            "path": str(path), "name": path.name,
+            "bytes": path.stat().st_size, "missing": False,
+        })
+
+    pending = sheet.training_images
+    archives = []
+    archive_root = sheet.home / "training" / "archive"
+    if archive_root.is_dir():
+        for folder in sorted(archive_root.iterdir(), reverse=True):
+            if folder.is_dir():
+                archives.append({
+                    "name": folder.name,
+                    "count": sum(1 for _ in folder.iterdir()),
+                })
+
+    return {
+        "name": sheet.name,
+        "label": sheet.label,
+        "foldered": sheet.foldered,
+        "home": str(sheet.home),
+        "summary": sheet.summary(ROOT),
+        "context": {
+            # Two kinds, because they are edited differently: one is a folder
+            # of files, the other is text in a document.
+            "images": images,
+            "prompts": {
+                "vocabulary": sheet.vocabulary,
+                "notes": sheet.notes,
+                "token": sheet.token,
+            },
+        },
+        "training": {
+            "pending": len(pending),
+            "pending_names": [p.name for p in pending[:24]],
+            "archives": archives,
+            "lora": sheet.lora,
+        },
+        "tuning": sheet.tuning,
+        "history": stylelog.read(sheet.home),
+    }
+
+
+def add_style_note(name: str, text: str) -> dict:
+    from pipeline import stylelog
+
+    if not text.strip():
+        raise ValueError("a note needs some text")
+    sheet = _sheet(name)
+    if not sheet.foldered:
+        raise ValueError(
+            f"'{name}' is a single file, so it has nowhere to keep a history. "
+            f"Move it to styles/{name}/style.yaml first."
+        )
+    stylelog.append(sheet.home, stylelog.note_event(text))
+    return {"ok": True, "history": stylelog.read(sheet.home)}
+
+
 def start_run(config_name: str, overrides: dict | None, resume: str | None,
               style_picks: dict | None = None) -> str:
     cmd = [sys.executable, "-u", str(ROOT / "run.py")]
@@ -426,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
                 merged["styles"] = list(dict.fromkeys(
                     list(merged.get("styles") or []) + extra))
             return self._json(styles.preview(ROOT, merged))
+        if path == "/api/style/detail":
+            return self._json(style_detail(q.get("name", [""])[0]))
 
         if path == "/api/annotation":
             from pipeline import annotate
@@ -541,6 +623,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self._save_poses(body))
             if u.path == "/api/annotation":
                 return self._json(self._save_annotation(body))
+            if u.path == "/api/style/note":
+                return self._json(add_style_note(
+                    body.get("name", ""), body.get("text", "")))
             raise FileNotFoundError(u.path)
         except FileNotFoundError as e:
             self._error(404, str(e))
@@ -630,11 +715,21 @@ class Handler(BaseHTTPRequestHandler):
         existing["entries"] = entries
         (pose_dir / "pose.json").write_text(json.dumps(existing, indent=1))
 
+        # The rig has to come along. Without it the renderer falls back to the
+        # humanoid's 18-joint OpenPose layout and happily draws a spider's
+        # eight legs as a mangled person — a control image that is wrong in a
+        # way nothing downstream can detect, since it is still a valid PNG.
+        from pipeline import rigs as rig_lib
+
+        rig = rig_lib.get(cfg.get("rig") if cfg.get("rig") != "auto" else rig_lib.DEFAULT)
+        thickness = pose_cfg.get("thickness")
+
         for i, entry in enumerate(entries):
             keypoints = project(
                 entry["pose"], entry["yaw"], depth_scale=ds, lateral_scale=ls
             )
-            render(keypoints, size, size).save(pose_dir / f"skeleton_{i:03d}.png")
+            render(keypoints, size, size, thickness=thickness, rig=rig).save(
+                pose_dir / f"skeleton_{i:03d}.png")
 
         depth_dirs = sorted(run.glob("*_depth"))
         if depth_dirs:

@@ -209,8 +209,11 @@ def _reference_falloff() -> None:
     """
     from pipeline.references import Reference, pick
 
-    refs = [Reference(Path("front.png"), 0, "front"),
-            Reference(Path("rear.png"), 180, "rear")]
+    # Keywords, not positions. `role` was inserted as the second field and
+    # positional construction silently made yaw="front" — a TypeError deep in
+    # the arithmetic rather than at the call site that was actually wrong.
+    refs = [Reference(path=Path("front.png"), yaw=0, label="front"),
+            Reference(path=Path("rear.png"), yaw=180, label="rear")]
 
     _, near_w, near_d = pick(refs, 0, tolerance=40)
     _, far_w, far_d = pick(refs[:1], 180, tolerance=40)

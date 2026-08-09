@@ -151,5 +151,70 @@ for (const file of readdirSync(JS).filter((f) => f.endsWith('.js'))) {
   });
 }
 
+/* ------------------------------------------------- schema coverage is total
+ *
+ * Every field the pipeline declares must be reachable in the UI. This is not a
+ * style preference: a schema-declared, pipeline-consumed setting that no view
+ * renders is invisible, and the only way anyone finds out is when a run
+ * behaves as though the value were never set — which it was not.
+ *
+ * `Export` and `Quality` were exactly this. The settings sidebar filtered its
+ * groups through a hardcoded list, and a group absent from that list rendered
+ * nowhere. The list is now an ordering hint with a derived fallback, and this
+ * test is what keeps it that way.
+ */
+const schemaSrc = readFileSync(join(ROOT, 'pipeline/schema.py'), 'utf8');
+const settingsSrc = readFileSync(join(JS, 'settings.js'), 'utf8');
+
+const declaredGroups = new Set(
+  [...schemaSrc.matchAll(/"group":\s*"([^"]+)"/g)].map((m) => m[1]));
+
+test('schema declares groups at all', () => {
+  assert.ok(declaredGroups.size > 5, `only found ${declaredGroups.size} groups`);
+});
+
+test('the settings sidebar derives its groups, never whitelists them', () => {
+  // A literal array used as a filter is the regression. An array used only for
+  // ordering, with unknown groups appended, is the fix.
+  assert.ok(/sectionOrder/.test(settingsSrc),
+    'settings.js should derive its section list from the schema');
+  assert.ok(!/const SECTIONS\s*=/.test(settingsSrc),
+    'SECTIONS was the whitelist that dropped Export and Quality');
+});
+
+test('every schema group is reachable', () => {
+  const order = new Set(
+    [...(settingsSrc.match(/const ORDER = \[([\s\S]*?)\]/) || ['', ''])[1]
+      .matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  // Groups missing from ORDER still render — they are appended — but naming
+  // them keeps the sidebar in a deliberate order rather than alphabetical.
+  const unordered = [...declaredGroups].filter((g) => !order.has(g));
+  assert.deepEqual(unordered, [],
+    `schema groups not placed in ORDER: ${unordered.join(', ')}`);
+});
+
+/* Typed references: the roles the backend accepts and the roles the UI offers
+ * have to be the same four, or an image gets tagged with a role that fails
+ * validation only once the job reaches the queue. */
+test('reference roles match the backend', () => {
+  const backend = [...readFileSync(join(ROOT, 'pipeline/references.py'), 'utf8')
+    .match(/ROLES = \(([^)]+)\)/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const frontend = [...readFileSync(join(JS, 'input.js'), 'utf8')
+    .match(/export const ROLES = \[([\s\S]*?)\n\];/)[1]
+    .matchAll(/key:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(frontend, backend);
+});
+
+test('nothing writes the retired references.images', () => {
+  for (const file of readdirSync(JS).filter((f) => f.endsWith('.js'))) {
+    const src = readFileSync(join(JS, file), 'utf8');
+    for (const line of src.split('\n')) {
+      if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
+      assert.ok(!/references\.images/.test(line),
+        `${file} still touches references.images: ${line.trim()}`);
+    }
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

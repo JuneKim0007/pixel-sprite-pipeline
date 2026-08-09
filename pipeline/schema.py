@@ -128,6 +128,26 @@ FIELDS: list[dict[str, Any]] = [
      "min": 0.0, "max": 2.5, "step": 0.05, "group": "Pose",
      "help": "Scales the character's left/right spread."},
 
+    # --------------------------------------------------------------- depth
+    #
+    # Depth carries the viewing angle, which a skeleton alone cannot express,
+    # and it is the only control channel that works for every topology — we
+    # compute it from body space rather than estimating it from an image, so a
+    # serpent or a blob gets a correct one where OpenPose has nothing to say.
+    {"path": "depth.near", "label": "Nearest brightness", "type": "int",
+     "min": 0, "max": 255, "step": 5, "group": "Depth",
+     "help": "Grey value for the part of the body closest to the camera. "
+             "255 is the convention the ControlNet was trained on."},
+    {"path": "depth.far", "label": "Farthest brightness", "type": "int",
+     "min": 0, "max": 255, "step": 5, "group": "Depth",
+     "help": "Grey value for the farthest part. Raising it flattens the map, "
+             "which weakens the sense of rotation; lowering it past ~40 starts "
+             "losing the far limb into the background."},
+    {"path": "depth.blur", "label": "Softness", "type": "float",
+     "min": 0.0, "max": 24.0, "step": 0.5, "group": "Depth",
+     "help": "Gaussian radius over the rendered limbs. Some blur is wanted: a "
+             "hard-edged depth map reads as geometry and the model draws tubes."},
+
     # ----------------------------------------------------------------- llm
     {"modules": ["animation"], "path": "pose.llm.model", "label": "Model", "type": "select",
      "options_from": "ollama", "group": "LLM", "when": {"pose.source": "llm"},

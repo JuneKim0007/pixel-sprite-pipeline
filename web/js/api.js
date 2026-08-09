@@ -32,6 +32,8 @@ export const api = {
   stylePreview: (config, withStyles = []) =>
     call(`/api/style/preview?config=${encodeURIComponent(config)}`
       + withStyles.map((s) => `&with=${encodeURIComponent(s)}`).join('')),
+  styleDetail: (name) => call(`/api/style/detail?name=${encodeURIComponent(name)}`),
+  styleNote:   (name, text) => json('POST', '/api/style/note', { name, text }),
 
   runs:     () => call('/api/runs'),
   run:      (id) => call(`/api/run?id=${encodeURIComponent(id)}`),
