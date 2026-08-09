@@ -378,6 +378,15 @@ export function renderInput(host, { onChange, onContinue }) {
     roleTabs.append(b);
   }
 
+  // Identity references are matched to each frame by viewing angle, and the
+  // weight falls off with distance. One front drawing therefore steers a rear
+  // frame at roughly half strength, and the model invents the back of the
+  // costume differently every time. Saying so here is cheaper than the run
+  // that teaches it.
+  const identity = getPath(draftConfig(), 'references.identity') || [];
+  const angles = new Set(identity.map((r) => r.view || 'front'));
+  const oneSided = identity.length > 0 && angles.size === 1;
+
   host.append(el('section', { className: 'group' },
     el('h2', {}, 'Reference images',
       el('span', { className: 'headnote',
@@ -388,6 +397,14 @@ export function renderInput(host, { onChange, onContinue }) {
     el('div', { className: 'fields' },
       roleTabs,
       el('p', { className: 'help', textContent: role.blurb }),
+      oneSided && role.key === 'identity'
+        ? el('p', { className: 'warnline', textContent:
+            `⚠ Every identity reference shows '${[...angles][0]}'. Frames facing `
+            + 'other ways will take it at about half strength and invent the '
+            + 'rest, so the costume can change as the character turns. Add a '
+            + 'reference for each side you care about, and label its view — '
+            + 'or generate a character sheet first and use its views.' })
+        : null,
       dropZone(sendFiles),
       el('div', { className: 'row' }, uploadBtn, pickBtn, upload),
       referenceCards(role, onChange))));

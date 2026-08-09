@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
+from . import cooling
 from .stage import Context, Resource, Stage, get
 
 
@@ -131,6 +132,13 @@ def run(
     started = time.time()
     ctx.completed = list(skip)
 
+    # Rest between GPU stages so a long queue does not hold the machine at its
+    # throttle point all night. Counted up front so the last one can be skipped
+    # - nothing follows it, so it protects nothing and only holds the queue.
+    gpu_batches = [b for b in batches
+                   if any(s.resource == Resource.GPU for s in b.stages)]
+    gpu_left = len(gpu_batches)
+
     if skip and verbose:
         print(f"resuming — skipping completed: {', '.join(sorted(skip))}")
 
@@ -155,6 +163,15 @@ def run(
                 print(f"\n== {stage.name} ==")
             ctx.artifacts.update(_one(stage, ctx, verbose))
             ctx.completed.append(stage.name)
+
+        if any(s.resource == Resource.GPU for s in batch.stages):
+            gpu_left -= 1
+            cooling.rest(
+                ctx.config,
+                after=", ".join(s.name for s in batch.stages),
+                last=gpu_left <= 0,
+                report=print if verbose else (lambda _m: None),
+            )
 
         if stop_after and stop_after in [s.name for s in batch.stages]:
             ctx.stopped_at = stop_after

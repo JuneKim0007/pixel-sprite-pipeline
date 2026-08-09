@@ -274,7 +274,7 @@ FIELDS: list[dict[str, Any]] = [
      "help": "8 gives 128px sprites from 1024. Verified as this LoRA's true "
              "pixel grid by an intra-block variance sweep."},
     {"path": "palette.reduce", "label": "Block reduction", "type": "select",
-     "options": ["median", "mode", "mean"], "group": "Palette",
+     "options": ["median", "salient", "mode", "mean"], "group": "Palette",
      "help": "median measured 100% structural accuracy against ground truth; "
              "mode only 70% (noise makes every colour unique)."},
     {"path": "palette.alpha_tolerance", "label": "Background tolerance",
@@ -478,6 +478,18 @@ FIELDS: list[dict[str, Any]] = [
     # to partition the GPU between processes — no equivalent of
     # CUDA_VISIBLE_DEVICES or MIG. The honest levers are memory ceiling, VRAM
     # policy, CPU threads, and how much work you ask for.
+    {"path": "cooling.enabled", "label": "Rest between GPU tasks", "type": "bool",
+     "group": "Compute",
+     "help": "Pause after each GPU task so a long queue does not hold the "
+             "machine at its throttle point all night. Nothing needs the pause "
+             "to work — it is there because sustained heat shortens a battery "
+             "and a throttling machine finishes anyway, quietly aged."},
+    {"path": "cooling.seconds", "label": "Rest length (seconds)", "type": "int",
+     "min": 0, "max": 1800, "step": 30, "group": "Compute",
+     "help": "Per rest, and rests fall between tasks — between stages, between "
+             "candidates, between frames — never before the first or after the "
+             "last. At 180s a fifty-image night spends two and a half hours "
+             "resting; that is the trade being made."},
     {"path": "compute.vram_mode", "label": "VRAM policy", "type": "select",
      "options": ["gpu-only", "highvram", "normalvram", "lowvram", "cpu"],
      "group": "Compute",

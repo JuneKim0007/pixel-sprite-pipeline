@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import comfy
+from .. import cooling
 from .. import rigs as rig_lib
 from ..bodyspace import resolve_view
 from .. import references as refs_mod
@@ -50,6 +51,7 @@ def _anchor_view(ctx, cfg) -> str | float:
 class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
+    optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     produces = frozenset({"canonical"})
 
     def run(self, ctx: Context) -> dict[str, Any]:
@@ -82,6 +84,45 @@ class CanonicalStage(Stage):
             chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
             print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
 
+        # The anchor gets the same structural conditioning a frame gets.
+        #
+        # It did not, and that was the largest defect in the pipeline. The pose
+        # and depth stages run first and their output was sitting there unused:
+        # the canonical was generated from prompt and IP-Adapter alone, with no
+        # ControlNet, no depth map and no prop geometry. Three symptoms came
+        # out of that one gap.
+        #
+        #   Two bows.        Props reached the canonical as words with no
+        #                    volume, which is exactly the failure props.py
+        #                    warns about - told only "holding a bow", the model
+        #                    decides for itself where it goes, and sometimes
+        #                    decides twice.
+        #   Broken anatomy.  Nothing said where the limbs were.
+        #   Worse the more   An identity reference in a dynamic pose disagrees
+        #   dynamic the      with a standing prompt, and with no ControlNet
+        #   reference.       nothing arbitrates. The disagreement scales with
+        #                    the pose difference, so a running archer degrades
+        #                    where a standing knight does not.
+        #
+        # The anchor is conceptually the first frame, so it is conditioned like
+        # one. Optional rather than required: a run that skips the pose stage
+        # still works, it just gets the old unconditioned behaviour.
+        skeletons = ctx.artifacts.get("skeletons") or []
+        depthmaps = ctx.artifacts.get("depthmaps") or []
+        guide = skeletons[0] if skeletons else None
+        depth = depthmaps[0] if depthmaps else None
+        cn = opt(cfg, "controlnet", {})
+        use_control = bool(opt(cn, "enabled", True)) and (guide or depth)
+
+        control_names: dict = {}
+        if use_control:
+            channel = opt(cn, "union_type", None) or ctx.rig().skeleton_control
+            if guide and channel:
+                control_names["pose"] = (client.upload_image(guide), channel)
+            if depth:
+                control_names["depth"] = (client.upload_image(depth), "depth")
+            print(f"   conditioned by {', '.join(control_names) or 'nothing'}")
+
         # Candidates run one at a time, not as a batch.
         #
         # A batch of four at 1024 does not cost four times one image on 16 GB
@@ -102,7 +143,9 @@ class CanonicalStage(Stage):
                 prompt=prompt,
                 negative=", ".join(p for p in (
                     opt(cfg, "negative", comfy.NEGATIVE),
-                    comfy.BACKDROP_NEGATIVE if backdrop else "") if p),
+                    comfy.BACKDROP_NEGATIVE if backdrop else "",
+                    # Naming the failure is what stops the guide being drawn.
+                    comfy.POSE_NEGATIVE if control_names.get("pose") else "") if p),
                 lora_strength=opt(cfg, "lora_strength", 1.2),
                 lcm=lcm,
                 models=ctx.config.get("models") or {},
@@ -141,6 +184,19 @@ class CanonicalStage(Stage):
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
                     ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+                )
+            for kind, (name, channel) in control_names.items():
+                control = g.out(g.add("LoadImage", image=name), 0)
+                strong = kind == "pose"
+                pos, neg = comfy.apply_controlnet(
+                    g, pos, neg, control, vae,
+                    # Same figures the frames stage uses. 1.0 held late makes
+                    # the model trace the guide and return a stick figure.
+                    strength=opt(cn, "strength", 0.75 if strong else 0.45),
+                    start_percent=opt(cn, "start_percent", 0.0),
+                    end_percent=opt(cn, "end_percent", 0.55 if strong else 0.6),
+                    union_type=channel,
+                    controlnet=(ctx.config.get("models") or {}).get("controlnet"),
                 )
             return g, model, pos, neg, vae
 
@@ -193,6 +249,8 @@ class CanonicalStage(Stage):
             images += client.generate(g.build(), timeout=timeout)
             if wanted > 1:
                 print(f"   candidate {n + 1}/{wanted} (seed {base_seed + n})")
+                cooling.rest(ctx.config, after=f"candidate {n + 1}",
+                             last=n == wanted - 1)
 
         outdir = ctx.stage_dir("canonical")
         dst: Path = outdir / "canonical.png"

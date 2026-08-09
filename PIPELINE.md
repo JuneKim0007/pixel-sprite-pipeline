@@ -254,9 +254,16 @@ back toward the front, fighting the pose control.
 
 ```yaml
 references:
-  images:
+  # Typed by the job each image does. The flat `images:` list this used to
+  # show now raises an error: the weights differ by an order of magnitude
+  # between roles, so a style exemplar in an identity slot overwrites the
+  # character with the exemplar.
+  identity:
     - {path: refs/knight_front.png, view: front}
     - {path: refs/knight_rear.png,  view: rear}
+  style: []      # good sprites in the target idiom, at ~0.35 weight
+  pose: []       # a composition to reproduce
+  palette: []    # colours to lock to
   match:
     tolerance_degrees: 40
     exact_weight: 0.85     # a reference that matches this view
@@ -329,7 +336,7 @@ that run actually used — which matters when order is configurable.
 ## Training with per-image weights
 
 ```bash
-tools/train_prep.py add out/runs/*/03_palette/*_px.png --tier hero --caption "knight"
+tools/train_prep.py add out/runs/*/0?_palette/*_px.png --tier hero --caption "knight"
 tools/train_prep.py add newer/*.png --tier good --boost 2
 tools/train_prep.py status
 tools/train_prep.py config > training/sprite/dataset_config.toml
@@ -382,7 +389,7 @@ directly. Loopback only, no auth — don't expose it.
 | **Settings** | Every knob, category sidebar, global defaults with per-pipeline overrides |
 
 The split is by *rate of change*, not by feature: Settings holds how the
-machine behaves (58 fields, set once), Input holds what you're making this
+machine behaves (87 fields, set once), Input holds what you're making this
 time, Run is the flow, Result is what came out.
 
 Forms are generated from `pipeline/schema.py`, so a setting is defined in one

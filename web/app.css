@@ -998,3 +998,56 @@ input.wide { width: 100%; max-width: 420px; }
 .fact b { font-family: var(--mono); font-size: 13px; }
 .fact.measured b { color: var(--accent); }
 .wide { width: 100%; }
+
+/* ------------------------------------------------- result history + audit
+ *
+ * These shipped with the history strip and had no rules at all, so the strip
+ * rendered as unstyled buttons in a column. Caught by an audit rather than by
+ * looking at the page, which is the argument for the audit.
+ */
+.histbox, .auditbox {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px;
+}
+.histstrip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 10px 2px 4px;
+  scrollbar-width: thin;
+}
+.histcard {
+  flex: 0 0 auto; width: 96px; position: relative; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px; text-align: left;
+  color: var(--ink); font: inherit;
+}
+.histcard:hover { border-color: var(--accent); }
+.histcard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.histcard img, .histblank {
+  width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 5px;
+  background: var(--bg); image-rendering: pixelated; display: block;
+}
+.histblank { display: grid; place-items: center; color: var(--ink-faint); }
+.histmeta { display: grid; gap: 1px; margin-top: 5px; }
+.histproto { font-size: 11px; }
+.histbadge {
+  position: absolute; top: 4px; right: 6px; font-size: 9px; line-height: 1;
+}
+.histbadge.run { color: var(--accent); }
+.histbadge.gate { color: var(--warn); }
+
+.auditgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 18px; }
+.auditrow { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.auditrow > span:last-child { text-align: right; word-break: break-word; }
+.auditsubject {
+  grid-column: 1 / -1; margin: 8px 0 0; padding-top: 8px;
+  border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-dim);
+}
+
+/* Also missing rules for containers the newer tabs render. */
+.jobmain { min-width: 0; }
+.evmain, .stagedmain { min-width: 0; }
+.histpanel, .segpanel, .trainpanel { display: block; }
+.roletabs { margin-bottom: 8px; }
+.rolesel { font-size: 11px; padding: 2px 5px; }
+.pilotstate.on b { color: var(--ok); }
+.refcard-weight { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+.refweight { flex: 1; min-width: 0; }

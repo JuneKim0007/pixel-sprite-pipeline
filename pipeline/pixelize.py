@@ -66,6 +66,13 @@ def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
 # ------------------------------------------------------------ block reduce
 
 
+# Per-channel standard deviation inside a block, above which the block is
+# treated as containing a feature rather than a surface. 34 was chosen by
+# sweeping a generated canonical: below about 25 it starts firing on ordinary
+# cloth shading, above about 45 it stops catching eyes.
+SALIENT_THRESHOLD = 34.0
+
+
 def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str) -> np.ndarray:
     blocks = _blocks(arr, factor, ox, oy)
     bh, bw, _, _, c = blocks.shape
@@ -96,6 +103,31 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str) -> n
                 if c == 4:
                     out[y, x, 3] = int(np.median(flat[y, x, :, 3]))
         return out
+
+    if how == "salient":
+        # Median everywhere except where a block has real contrast in it, and
+        # there keep the pixel furthest from the median instead.
+        #
+        # This exists for eyes. At a 128px sprite a face is about eighteen
+        # pixels and an eye is two or three; the model draws that eye at 1024
+        # as an anti-aliased gradient twenty pixels across, and taking the
+        # median of an 8x8 block containing a dark pupil against light skin
+        # returns the skin. The pupil does not survive, and neither does any
+        # other small dark feature - which includes the outline.
+        #
+        # Mode does not help: on anti-aliased input almost every pixel is a
+        # unique colour, so the most frequent one is arbitrary.
+        #
+        # Measured on a generated canonical: 3% of blocks exceed the threshold,
+        # which is about the share a face and its outlines occupy. Flat cloth
+        # and background are untouched, so this is not a global contrast boost.
+        med = np.median(flat, axis=2)
+        deviation = np.abs(flat - med[:, :, None, :]).sum(axis=3)
+        extreme = np.take_along_axis(
+            flat, deviation.argmax(axis=2)[:, :, None, None], axis=2)[:, :, 0, :]
+        spread = flat.std(axis=2).mean(axis=2)
+        contrasty = spread > SALIENT_THRESHOLD
+        return np.where(contrasty[..., None], extreme, med).round().astype(np.uint8)
 
     raise ValueError(f"unknown reduce mode: {how}")
 

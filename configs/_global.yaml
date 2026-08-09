@@ -21,10 +21,25 @@ ui:
   suppress_overwrite_confirm: false
 
 # How long a single GPU stage may wait on ComfyUI before giving up. Ninety
-# minutes: a 1024 image takes about 280 s on this machine, so this covers a
+# Four hours: a 1024 image takes about 280 s on this machine, so this covers a
 # slow candidate sequence or a cold model load without a hung job holding the
 # queue overnight. Per image, not per stage - candidates are sequential.
 canonical:
   timeout: 14400
 frames:
   timeout: 14400
+
+# Rest between GPU tasks - between stages, between candidates, between frames.
+#
+# Not because anything needs the pause to work. A laptop generating for twenty
+# hours holds its SoC near the throttle point for the whole night, and sustained
+# heat is what shortens a battery rather than any single hot moment. The machine
+# will not fail; it will throttle, finish anyway, and quietly age.
+#
+# The cost is real and worth stating: at three minutes a rest, a fifty-image
+# night spends two and a half hours resting. That is the trade.
+#
+# Rests happen AFTER a task and never before, and never after the last one.
+cooling:
+  enabled: true
+  seconds: 180

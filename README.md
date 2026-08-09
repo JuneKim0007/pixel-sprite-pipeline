@@ -112,8 +112,11 @@ consequences that are not obvious:
 - **Fewer steps hits a floor.** 1 step and 4 steps both take 39.3 s. Below
   ~8 steps you are paying overhead for worse images.
 
-`--gpu-only` was worth ~8%. It is in `start.sh`. Flux was never an option here:
-it wants ~64 GB of unified memory to be usable.
+`--gpu-only` was worth ~8% for plain SDXL, and is **deliberately not set** —
+see `scripts/ctl.sh`. Once ControlNet and IP-Adapter are loaded the working set
+exceeds 16 GB, and the flag forbids offloading, so macOS swaps to disk instead:
+measured ~5× slower end to end. Flux was never an option here: it wants ~64 GB
+of unified memory to be usable.
 
 ---
 

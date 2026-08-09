@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import comfy
+from .. import cooling
 from .. import props as props_mod
 from .. import rigs as rig_lib
 from ..bodyspace import resolve_view
@@ -309,6 +310,8 @@ class FramesStage(Stage):
             dst = outdir / f"frame_{i:03d}.png"
             dst.write_bytes(images[0])
             written.append(dst)
+            cooling.rest(ctx.config, after=f"frame {i + 1}",
+                         last=i == len(skeletons) - 1)
             print(
                 f"   frame {i + 1}/{len(skeletons)} -> {dst.name}  "
                 f"[{explain(chosen, weight, dist, tolerance)}"

@@ -21,6 +21,11 @@ vocabulary:
     - no gradients
 
 settings:
+  # This sheet costs roughly three times retro_jrpg per image - larger canvas,
+  # more steps - so each task leaves the machine hotter and the rest is longer.
+  cooling:
+    seconds: 240
+
   canonical:
     # Exemplars carry rendering, not colour. At the 0.35 role default the
     # silver-haired exemplars in this sheet pulled a crimson-haired
