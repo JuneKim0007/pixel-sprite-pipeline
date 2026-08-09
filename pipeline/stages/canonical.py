@@ -82,68 +82,95 @@ class CanonicalStage(Stage):
             chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
             print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
 
-        g = comfy.Graph()
-        model, pos, neg, vae = comfy.base_graph(
-            g,
-            prompt=prompt,
-            negative=", ".join(p for p in (
-                opt(cfg, "negative", comfy.NEGATIVE),
-                comfy.BACKDROP_NEGATIVE if backdrop else "") if p),
-            lora_strength=opt(cfg, "lora_strength", 1.2),
-            lcm=lcm,
-            models=ctx.config.get("models") or {},
-        )
-
-        # No img2img from an identity reference, deliberately. Those are
-        # usually illustrations, and denoising from one traces its rendering —
-        # gradients, soft edges, anti-aliasing — which is the opposite of a
-        # sprite. Identity goes through IP-Adapter only and the pixelation
-        # comes from generation, so this samples from noise every time.
+        # Candidates run one at a time, not as a batch.
         #
-        # comfy.encode_image is kept for the illustrate → pixelise pass, which
-        # is a different thing: there the source is already in the target style
-        # and tracing it is the point.
-        if chosen is not None:
-            ref_name = client.upload_image(chosen.path)
-            ref_img = g.out(g.add("LoadImage", image=ref_name), 0)
-            model = comfy.apply_ipadapter(
-                g, model, ref_img,
-                weight=float(opt(from_ref, "weight", chosen.base_weight)),
-                weight_type=opt(from_ref, "weight_type", "linear"),
-                start_at=0.0, end_at=1.0,
-                ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+        # A batch of four at 1024 does not cost four times one image on 16 GB
+        # of unified memory — it blew through a 1800 s timeout where a single
+        # image takes 280 s, because the working set stops fitting and macOS
+        # swaps. Same failure as --gpu-only, which measured 4.9x slower for the
+        # same reason. Sequential keeps peak memory flat and reports progress.
+        #
+        # The graph is rebuilt per candidate rather than resampled, because a
+        # ComfyUI graph carries its seed inside a node: reusing one would need
+        # the node mutated in place, and building it again costs nothing.
+        uploads: dict = {}
+
+        def build():
+            g = comfy.Graph()
+            model, pos, neg, vae = comfy.base_graph(
+                g,
+                prompt=prompt,
+                negative=", ".join(p for p in (
+                    opt(cfg, "negative", comfy.NEGATIVE),
+                    comfy.BACKDROP_NEGATIVE if backdrop else "") if p),
+                lora_strength=opt(cfg, "lora_strength", 1.2),
+                lcm=lcm,
+                models=ctx.config.get("models") or {},
             )
 
-        # Style exemplars ride on top at a much lower weight: they say how the
-        # art should look, not who the character is.
-        for exemplar in lib.style[:2]:
-            name = client.upload_image(exemplar.path)
-            model = comfy.apply_ipadapter(
-                g, model, g.out(g.add("LoadImage", image=name), 0),
-                weight=refs_mod.style_weight([exemplar], opt(cfg, "style_weight", None)),
-                weight_type="style transfer",
-                start_at=0.0, end_at=0.8,
-                ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
-            )
+            # No img2img from an identity reference, deliberately. Those are
+            # usually illustrations, and denoising from one traces its
+            # rendering — gradients, soft edges, anti-aliasing — which is the
+            # opposite of a sprite. Identity goes through IP-Adapter only and
+            # the pixelation comes from generation.
+            #
+            # comfy.encode_image is kept for the illustrate → pixelise pass,
+            # which is a different thing: there the source is already in the
+            # target style and tracing it is the point.
+            if chosen is not None:
+                if chosen.path not in uploads:
+                    uploads[chosen.path] = client.upload_image(chosen.path)
+                ref_img = g.out(g.add("LoadImage", image=uploads[chosen.path]), 0)
+                model = comfy.apply_ipadapter(
+                    g, model, ref_img,
+                    weight=float(opt(from_ref, "weight", chosen.base_weight)),
+                    weight_type=opt(from_ref, "weight_type", "linear"),
+                    start_at=0.0, end_at=1.0,
+                    ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+                )
+
+            # Style exemplars ride on top at a much lower weight: they say how
+            # the art should look, not who the character is.
+            for exemplar in lib.style[:2]:
+                if exemplar.path not in uploads:
+                    uploads[exemplar.path] = client.upload_image(exemplar.path)
+                model = comfy.apply_ipadapter(
+                    g, model, g.out(g.add("LoadImage", image=uploads[exemplar.path]), 0),
+                    weight=refs_mod.style_weight(
+                        [exemplar], opt(cfg, "style_weight", None)),
+                    weight_type="style transfer",
+                    start_at=0.0, end_at=0.8,
+                    ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+                )
+            return g, model, pos, neg, vae
+
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
 
-        batch = max(1, int(opt(cfg, "candidates", 1)))
-        comfy.sample_and_save(
-            g, model, pos, neg, vae,
-            width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
-            batch=batch,
-            seed=opt(cfg, "seed", 1234),
-            steps=opt(cfg, "steps", 8 if lcm else 25),
-            cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-            lcm=lcm,
-            denoise=1.0,
-            sampler=opt(cfg, "sampler", None),
-            scheduler=opt(cfg, "scheduler", None),
-            prefix=f"{ctx.run_id}_canonical",
-        )
+        wanted = max(1, int(opt(cfg, "candidates", 1)))
+        base_seed = opt(cfg, "seed", 1234)
+        timeout = opt(cfg, "timeout", 1800)
+        images: list[bytes] = []
 
-        images = client.generate(g.build(), timeout=opt(cfg, "timeout", 1800))
+        for n in range(wanted):
+            g, model, pos, neg, vae = build()
+            comfy.sample_and_save(
+                g, model, pos, neg, vae,
+                width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                batch=1,
+                seed=base_seed + n,
+                steps=opt(cfg, "steps", 8 if lcm else 25),
+                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
+                lcm=lcm,
+                denoise=1.0,
+                sampler=opt(cfg, "sampler", None),
+                scheduler=opt(cfg, "scheduler", None),
+                prefix=f"{ctx.run_id}_canonical{n:02d}",
+            )
+            images += client.generate(g.build(), timeout=timeout)
+            if wanted > 1:
+                print(f"   candidate {n + 1}/{wanted} (seed {base_seed + n})")
+
         outdir = ctx.stage_dir("canonical")
         dst: Path = outdir / "canonical.png"
         dst.write_bytes(images[0])

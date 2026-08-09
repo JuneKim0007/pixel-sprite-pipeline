@@ -31,14 +31,14 @@ settings:
   pose:
     fill: 0.88
 
-  # Six heads rather than five. The shipped rig is 5.2 heads, which reads as
-  # stocky; the anime idiom these sheets aim at sits nearer 6-7. Set here
+  # Seven heads rather than five. The shipped rig is 5.2, which reads as
+  # stocky; the sprite sheets this aims at specify 7. Set here
   # rather than in rigs.py because changing the rig's neutral would re-scale
   # every stored pose through bone-length snapping - and because a stubby
   # brawler should be able to override it in one config line.
   proportions:
-    legs: 1.35
-    torso: 1.10
+    legs: 1.75
+    torso: 1.30
 
   palette:
     reduce: median
