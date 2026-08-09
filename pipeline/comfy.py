@@ -246,8 +246,14 @@ def base_graph(
 def apply_ipadapter(
     g: Graph, model: Link, reference_image: Link, *, weight: float,
     weight_type: str, start_at: float, end_at: float,
+    ipadapter: str | None = None,
 ) -> Link:
-    """Splice IP-Adapter in to carry character identity from a reference."""
+    """Splice IP-Adapter in to carry character identity from a reference.
+
+    The adapter file is overridable because it has to match the checkpoint's
+    family: an SDXL adapter on an SDXL finetune is fine, but a SD1.5 adapter on
+    either produces silent nonsense rather than an error.
+    """
     ip_model = g.add("IPAdapterModelLoader",
                      ipadapter_file=ipadapter or IPADAPTER)
     clip_vision = g.add("CLIPVisionLoader", clip_name=CLIP_VISION)

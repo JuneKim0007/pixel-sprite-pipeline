@@ -13,6 +13,7 @@ SHELL := /bin/bash
 
 ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 PY   := $(ROOT)/ComfyUI/.venv/bin/python
+RUFF := $(ROOT)/ComfyUI/.venv/bin/ruff
 CTL  := $(ROOT)/scripts/ctl.sh
 
 # Which config `make run` uses.
@@ -56,7 +57,7 @@ run:
 
 # _global.yaml holds machine-level defaults, not a pipeline — it has no stages
 # to validate, so it is skipped rather than reported as broken.
-check:
+check: lint
 	@rc=0; for c in configs/*.yaml; do \
 	  case "$$c" in */_global.yaml) continue;; esac; \
 	  printf '  %-32s ' "$$c"; \
@@ -64,6 +65,25 @@ check:
 	    then printf '\033[32mok\033[0m\n'; \
 	    else printf '\033[31minvalid\033[0m\n'; rc=1; fi; \
 	done; exit $$rc
+
+# Undefined names are the one defect class that compiles cleanly, survives
+# review, and then crashes six GPU-minutes into a run. `apply_ipadapter` shipped
+# reading a name that was never a parameter; py_compile was happy, --explain was
+# happy, and only calling it would have told us. pyflakes reads every branch
+# without executing any of them, which is exactly the coverage a pipeline whose
+# error paths cost real time needs.
+#
+# Only the rules that catch crashes are enabled. Unused imports are excluded
+# deliberately: several of them are load-bearing. `from . import stages` looks
+# unused and is the line that populates the stage registry — deleting it made
+# every queued job fail validation once already.
+lint:
+	@printf '\033[1mstatic\033[0m\n'
+	@$(RUFF) check --quiet --select F821,F811,F502,F506,F601,F632,B018 \
+	  pipeline/ tools/ tests/ *.py \
+	  || { printf '\033[31mstatic analysis failed\033[0m\n'; exit 1; }
+	@for f in web/js/*.js; do node --check "$$f" || exit 1; done
+	@printf '  \033[32mno undefined names\033[0m\n'
 
 test:
 	@printf '\033[1mfrontend\033[0m\n'; node tests/test_frontend.mjs

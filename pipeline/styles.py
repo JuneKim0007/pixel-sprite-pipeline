@@ -26,6 +26,27 @@ from words into trained weights:
                     Strong, no training.
     token / lora    a textual-inversion pseudo-word, then a style LoRA. The
                     strongest, and the only ones that need training.
+
+A sheet may be a single file or a directory, and both are discovered:
+
+    styles/dark_fantasy.yaml            a look that is only words and numbers
+
+    styles/retro_jrpg/
+        style.yaml                      the same document
+        context/exemplars/*.png         dropped in, no YAML edit needed
+        context/notes.md                prose, for the LLM orchestrator
+        training/images/*.png           outputs promoted as future LoRA data
+        tuning/history.jsonl            every trial this look has been through
+
+The directory form exists because the three strengthening mechanisms have
+different shapes: exemplars are files, training data is files, and tuning
+history is an append-only log. None of them fit inside a YAML document, and
+scattering them across the project would break the one property that makes a
+style sheet worth having — that a look is one thing you can copy, share, and
+delete.
+
+Relative paths inside a sheet resolve against its own directory, so a style
+folder is self-contained and can be moved without editing it.
 """
 
 from __future__ import annotations
@@ -40,7 +61,9 @@ import yaml
 from .settings import deep_merge
 
 DIRNAME = "styles"
+SHEET = "style.yaml"
 PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
+IMAGES = (".png", ".jpg", ".jpeg", ".webp")
 
 
 class StyleError(RuntimeError):
@@ -51,8 +74,16 @@ class StyleError(RuntimeError):
 class Style:
     name: str
     label: str
-    path: Path
+    path: Path                                    # the YAML document itself
+    home: Path                                    # what relative paths mean
     data: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def foldered(self) -> bool:
+        return self.path.name == SHEET
+
+    def resolve(self, relative: str) -> Path:
+        return (self.home / relative).resolve()
 
     @property
     def vocabulary(self) -> dict[str, list[str]]:
@@ -60,8 +91,32 @@ class Style:
         return {k: list(v) for k, v in raw.items() if isinstance(v, list)}
 
     @property
-    def exemplars(self) -> list[str]:
-        return list((self.data.get("references") or {}).get("exemplars") or [])
+    def exemplars(self) -> list[Path]:
+        """Listed exemplars, then whatever was dropped into context/exemplars.
+
+        Auto-discovery is the point of the directory form. Adding a reference
+        image should be a file copy, not a file copy plus a YAML edit, because
+        the YAML edit is the step people skip and then wonder why the look did
+        not change.
+        """
+        out: list[Path] = []
+        for rel in (self.data.get("references") or {}).get("exemplars") or []:
+            out.append(self.resolve(str(rel)))
+
+        for found in sorted((self.home / "context" / "exemplars").glob("*")):
+            if found.suffix.lower() in IMAGES and found not in out:
+                out.append(found)
+        return out
+
+    @property
+    def notes(self) -> str:
+        """Prose about the look. The sheet's own `notes:`, then context/notes.md."""
+        written = str(self.data.get("notes", "") or "")
+        sidecar = self.home / "context" / "notes.md"
+        if sidecar.exists():
+            extra = sidecar.read_text().strip()
+            return f"{written}\n\n{extra}".strip() if written else extra
+        return written
 
     @property
     def token(self) -> str:
@@ -71,18 +126,33 @@ class Style:
     def lora(self) -> dict[str, Any]:
         return dict(self.data.get("lora") or {})
 
+    @property
+    def tuning(self) -> dict[str, Any]:
+        """Which settings this look permits a tuner to move, and how far."""
+        return dict(self.data.get("tuning") or {})
+
+    @property
+    def training_images(self) -> list[Path]:
+        """Outputs promoted as future LoRA data. Accumulates; never read at run time."""
+        folder = self.home / "training" / "images"
+        return sorted(p for p in folder.glob("*") if p.suffix.lower() in IMAGES)
+
     def summary(self, root: Path) -> dict:
         return {
             "name": self.name,
             "label": self.label,
             "extends": list(self.data.get("extends") or []),
             "vocabulary": self.vocabulary,
-            "exemplars": [str(root / p) for p in self.exemplars],
+            "exemplars": [str(p) for p in self.exemplars],
             "token": self.token,
             "lora": self.lora,
             "palette": (self.data.get("settings") or {}).get("palette", {}).get("file"),
             "modules": sorted((self.data.get("modules") or {})),
-            "notes": self.data.get("notes", ""),
+            "notes": self.notes,
+            "foldered": self.foldered,
+            "home": str(self.home),
+            "tuning": self.tuning,
+            "training_images": len(self.training_images),
         }
 
 
@@ -92,17 +162,38 @@ def styles_dir(root: Path) -> Path:
     return path
 
 
+def _read(path: Path, home: Path) -> Style | None:
+    try:
+        data = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError:
+        return None
+    # A foldered sheet is named by its folder unless it says otherwise, so
+    # renaming the directory renames the style.
+    default = home.name if path.name == SHEET else path.stem
+    name = data.get("name", default)
+    return Style(name=name, label=data.get("label", name),
+                 path=path, home=home, data=data)
+
+
 def discover(root: Path) -> dict[str, Style]:
+    """Every sheet, in both layouts. A name may only be claimed once."""
+    base = styles_dir(root)
     found: dict[str, Style] = {}
-    for f in sorted(styles_dir(root).glob("*.yaml")):
-        try:
-            data = yaml.safe_load(f.read_text()) or {}
-        except yaml.YAMLError:
+
+    candidates = [(f, root) for f in sorted(base.glob("*.yaml"))]
+    candidates += [(d / SHEET, d) for d in sorted(base.iterdir())
+                   if d.is_dir() and (d / SHEET).exists()]
+
+    for path, home in candidates:
+        style = _read(path, home)
+        if style is None:
             continue
-        name = data.get("name", f.stem)
-        found[name] = Style(
-            name=name, label=data.get("label", name), path=f, data=data
-        )
+        if style.name in found:
+            raise StyleError(
+                f"two style sheets both call themselves '{style.name}': "
+                f"{found[style.name].path} and {path}"
+            )
+        found[style.name] = style
     return found
 
 
@@ -208,7 +299,7 @@ def layer(
         base = deep_merge(base, expand(style.data.get("settings") or {}, vocabulary))
         per_module = (style.data.get("modules") or {}).get(module) or {}
         base = deep_merge(base, expand(per_module, vocabulary))
-        exemplars += [str((root / p)) for p in style.exemplars]
+        exemplars += [str(p) for p in style.exemplars]
         if style.token:
             tokens.append(style.token)
 
