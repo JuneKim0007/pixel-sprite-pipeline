@@ -498,6 +498,20 @@ FIELDS: list[dict[str, Any]] = [
      "type": "float", "min": 0.0, "max": 1.2, "step": 0.05, "group": "Identity",
      "help": "How hard the canonical pulls. Too high and every frame becomes "
              "the canonical's pose; too low and the frames drift apart."},
+    {"path": "frames.ip_adapter.anchor_weight_type", "label": "Anchor transfer",
+     "type": "select",
+     "options": ["linear", "style transfer", "style and composition", "strong style transfer"],
+     "group": "Identity",
+     "help": "What the anchor carries. Keep 'linear'. 'style and composition' "
+             "also copies the canonical's LAYOUT, and the canonical is "
+             "front-facing — at anchor weight 0.9 it outvoted the depth map "
+             "that carries yaw and every side and rear frame came back facing "
+             "front, with the canonical's backdrop over the keyed one."},
+    {"path": "frames.ip_adapter.anchor_end_at", "label": "Anchor end %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity",
+     "help": "Fraction of sampling the anchor steers for. 1.0 holds identity "
+             "throughout. Lower it if frames still inherit the anchor's pose "
+             "after switching transfer to linear."},
     {"path": "models.vae", "label": "VAE", "type": "select",
      "options_from": "vae", "group": "Models",
      "help": "Must match the checkpoint's family. A mismatched VAE does not "

@@ -66,6 +66,10 @@ canonical:
   style_weight: 0.25
 frames:
   style_weight: 0.25
+  depth_controlnet:
+    strength: 0.75
+    start_percent: 0.0
+    end_percent: 0.75
 cooling:
   enabled: true
   seconds: 420

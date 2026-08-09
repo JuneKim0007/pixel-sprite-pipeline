@@ -81,3 +81,8 @@ settings:
       weight_type: linear
       anchor: true
       anchor_weight: 0.9
+      # Same argument as weight_type above, and it applies to the anchor even
+      # more strongly: the anchor is FRONT-FACING and identical on every frame,
+      # so `style and composition` makes every view inherit a front pose.
+      anchor_weight_type: linear
+      anchor_end_at: 1.0

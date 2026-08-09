@@ -219,12 +219,25 @@ class FramesStage(Stage):
             # The anchor goes on first and identically every frame. It is the
             # only input that does not vary, so it is what the frames have in
             # common — which is the definition of staying on-model.
+            #
+            # weight_type is `linear`, NOT `style and composition`. The anchor
+            # is a front-facing canonical, and `style and composition` carries
+            # composition: at 0.9 over the whole sample it outweighed the depth
+            # map that carries yaw (0.45, and only to 60%), so a side frame came
+            # back front-facing and the canonical's grey backdrop bled over the
+            # magenta the prompt asked for. base_pixel.yaml already rejected
+            # that weight_type for the identity reference and for the same
+            # reason; the anchor had it hardcoded and ignored the config.
+            #
+            # Keeping the weight high is deliberate - measured, an anchor at
+            # 0.55 under an 0.85 identity reference lost on rendering and the
+            # frames drifted. The fix is to drop composition, not strength.
             if anchor_name:
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
                     weight=float(opt(ip, "anchor_weight", 0.9)),
-                    weight_type="style and composition",
-                    start_at=0.0, end_at=1.0,
+                    weight_type=opt(ip, "anchor_weight_type", "linear"),
+                    start_at=0.0, end_at=float(opt(ip, "anchor_end_at", 1.0)),
                     ipadapter=models.get("ipadapter"),
                 )
 
