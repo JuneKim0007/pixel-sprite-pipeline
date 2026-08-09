@@ -65,4 +65,4 @@ canonical:
 frames: {}
 cooling:
   enabled: true
-  seconds: 360
+  seconds: 420

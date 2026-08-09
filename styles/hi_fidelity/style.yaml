@@ -2,9 +2,12 @@ name: hi_fidelity
 label: High fidelity pixel art
 extends: [retro_jrpg]
 notes: >
-  For sprites that should stand up to being looked at closely: more colours,
-  more steps, and a larger generation canvas so the 128px result is a
-  downscale of something detailed rather than an upscale of something thin.
+  For sprites that should stand up to being looked at closely: more colours
+  and more steps, at the canvas that keeps the reduction gentlest.
+
+  It used to generate at 1280/factor 10. Same 128px sprite, but a 5:1
+  reduction against 1024/8's 4:1 - a larger canvas is only a finer source
+  if the factor does not grow with it, and here it did.
 
   Costs roughly three times the GPU time of retro_jrpg. Worth it for a hero
   or a boss, wasteful for a field mob.
@@ -33,8 +36,14 @@ settings:
     # prompt keep the palette.
     style_weight: 0.18
     steps: 60
-    width: 1280         # 1280/10 = 128, so the sprite is a downscale
-    height: 1280
+    # 1024/8 = 128. Was 1280/10, also 128, but measured worse on the ratio
+    # DECISIONS.md says governs mush: reduction is (canvas / native block) /
+    # sprite, so 1280 averaged 25 logical pixels into each output pixel where
+    # 1024 averages 16. It also would not fit - one 1280 canonical with
+    # ControlNet and IP-Adapter loaded peaks over the 10.67 GiB MPS ceiling
+    # on a 16 GB machine.
+    width: 1024
+    height: 1024
     cfg: 8.0
   frames:
     # Exemplars carry rendering, not colour. At the 0.35 role default the
@@ -43,9 +52,10 @@ settings:
     # prompt keep the palette.
     style_weight: 0.18
     steps: 45
-    width: 1280
-    height: 1280
+    width: 1024
+    height: 1024
     cfg: 8.0
   palette:
     size: 40
-    factor: 10          # matches the larger canvas back to a 128px sprite
+    factor: 8           # 1024/8 = 128. Moves WITH the canvas above - changing
+                        # one without the other silently resizes the sprite.

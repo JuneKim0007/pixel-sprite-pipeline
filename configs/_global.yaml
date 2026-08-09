@@ -7,8 +7,40 @@ paths:
 comfy:
   host: http://127.0.0.1:8188
 compute:
-  torch_threads: 8
-  mps_high_watermark: 0.9
+  # Offload submodules instead of holding every model resident.
+  #
+  # Measured here: SDXL 4897 MB + CLIP 1561 MB + CLIPVision 1208 MB +
+  # ControlNet 2397 MB all came back "full load: True" - ~9.8 GiB of weights
+  # against a 10.67 GiB ceiling, leaving nothing for activations. It OOM'd
+  # identically at 1024 and 1280, which is the tell that the canvas was never
+  # the problem.
+  #
+  # NOT --gpu-only, which is the opposite flag and measured ~5x slower here
+  # because it FORBIDS offloading and macOS swaps instead. --lowvram keeps
+  # only the active submodule on device, trading some speed for fitting.
+  vram_mode: --lowvram
+  # 6 of this M2's 8 cores = 75%, the closest step inside an 80+-5% target
+  # (7 would be 87.5%). Leaves the 2 spare for the OS so the machine stays
+  # usable during a long run. CPU only - there is no GPU equivalent, see the
+  # cooling note below.
+  torch_threads: 6
+  # 0.0 = no hard ceiling on torch's MPS allocator. NOT recklessness: this
+  # stack does not fit under one, and the ceiling turns "evict and retry" into
+  # a fatal RuntimeError.
+  #
+  # Measured on a 16 GB M2 (recommended working set 10.67 GiB). Weights alone:
+  # SDXL 4897 + CLIP 1561 + CLIPVision 1208 + ControlNet 2397 = ~9.8 GiB,
+  # leaving ~0.8 GiB for activations. It died at 10.66 GiB with the canvas at
+  # BOTH 1280 and 1024 - identical figure, which is how we know the canvas was
+  # never the cause - and again with --lowvram on.
+  #
+  # With --lowvram (see vram_mode) ComfyUI keeps residency down on its own;
+  # this just stops torch refusing the last 5 MiB. Above the recommended set
+  # macOS pages, which is slower but not harmful - the SoC throttles rather
+  # than damages, and thermal duty cycling is handled by `cooling` below.
+  #
+  # ctl.sh pins the LOW watermark to this value too; torch rejects low > high.
+  mps_high_watermark: 0.0
   cpu_workers:
   batch: 1
 models:
@@ -26,6 +58,18 @@ ui:
 # queue overnight. Per image, not per stage - candidates are sequential.
 canonical:
   timeout: 14400
+  # Sequential candidates, not one batch. Two reasons, both machine-level.
+  #
+  # Memory: batching candidates at hi_fidelity's 1280 canvas needs ~10.2 GiB
+  # against a 9.6 GiB MPS ceiling on 16 GB, and dies with "MPS backend out of
+  # memory" partway into the anchor. 1280 is 1.6x the pixels of 1024, so a
+  # batch of 2 here costs what a batch of 3 does at the benchmarked size.
+  #
+  # Thermal: sequential is the ONLY path that can rest between candidates, so
+  # an overnight run with cooling on wants it regardless. See CONFIGURING.md -
+  # it is ~14% slower per DECISIONS.md, which an unattended queue does not care
+  # about.
+  batch_candidates: false
 frames:
   timeout: 14400
 

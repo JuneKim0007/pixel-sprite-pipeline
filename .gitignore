@@ -2,6 +2,12 @@
 # and 21 of this project's 21 GB live here.
 ComfyUI/
 
+# Reference art and the prepared character batches. Local only - these are
+# source images, not code, and a public repo has no business redistributing
+# them. overnight/README.md stays tracked; it is documentation.
+inputs/
+overnight/char_*/
+
 # Generated. Runs are reproducible from their manifest; keeping them would
 # make every generation a commit.
 out/

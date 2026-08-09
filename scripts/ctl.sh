@@ -43,7 +43,14 @@ read_compute() {
       vram_mode)          VRAM_MODE="${VRAM_MODE:-$value}" ;;
       torch_threads)      export OMP_NUM_THREADS="${OMP_NUM_THREADS:-$value}"
                           export MKL_NUM_THREADS="${MKL_NUM_THREADS:-$value}" ;;
-      mps_high_watermark) export PYTORCH_MPS_HIGH_WATERMARK_RATIO="${PYTORCH_MPS_HIGH_WATERMARK_RATIO:-$value}" ;;
+      # The MPS allocator has TWO ratios and rejects low > high. Low defaults to
+      # 1.4, so exporting only high=0.9 leaves 1.4 > 0.9 and torch raises
+      # "invalid low watermark ratio 1.4" — inside the prompt worker thread, so
+      # ComfyUI comes up healthy, answers /system_stats, and then kills the
+      # thread on the first generation. Pin low alongside high.
+      mps_high_watermark) export PYTORCH_MPS_HIGH_WATERMARK_RATIO="${PYTORCH_MPS_HIGH_WATERMARK_RATIO:-$value}"
+                          export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
+      mps_low_watermark)  export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
     esac
   done < <("$PY" - "$ROOT/configs/_global.yaml" <<'EOF'
 import sys, yaml
