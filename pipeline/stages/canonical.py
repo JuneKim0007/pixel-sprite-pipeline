@@ -152,6 +152,29 @@ class CanonicalStage(Stage):
         timeout = opt(cfg, "timeout", 1800)
         images: list[bytes] = []
 
+        # `batch_candidates` exists to be measured against, not because it is
+        # recommended. Keeping the losing path runnable is the only way the
+        # claim stays checkable on a different machine, where a card with real
+        # VRAM would likely reverse it.
+        if bool(opt(cfg, "batch_candidates", False)) and wanted > 1:
+            g, model, pos, neg, vae = build()
+            comfy.sample_and_save(
+                g, model, pos, neg, vae,
+                width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                batch=wanted,
+                seed=base_seed,
+                steps=opt(cfg, "steps", 8 if lcm else 25),
+                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
+                lcm=lcm,
+                denoise=1.0,
+                sampler=opt(cfg, "sampler", None),
+                scheduler=opt(cfg, "scheduler", None),
+                prefix=f"{ctx.run_id}_canonical",
+            )
+            print(f"   {wanted} candidates as one batch")
+            images = client.generate(g.build(), timeout=timeout)
+            wanted = 0                       # the loop below has nothing to do
+
         for n in range(wanted):
             g, model, pos, neg, vae = build()
             comfy.sample_and_save(

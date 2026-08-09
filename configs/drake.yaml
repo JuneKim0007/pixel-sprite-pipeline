@@ -1,0 +1,46 @@
+# drake - dragon rig, prompt-only (no identity reference).
+#
+# Views chosen for this topology rather than copied from the humanoid
+# sheet. Measured joint-overlap at front vs 3/4 vs side put front last
+# for this rig, so the sheet leads with the angle the body reads in.
+name: drake
+module: character_sheet
+subject: a lean four-legged drake with tattered membrane wings, ridged spine, dark
+  iron-green scales and amber eyes, long counterbalancing tail
+style: pixel art, game sprite, plain flat background
+rig: dragon
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+  stop_after: null
+comfy:
+  host: http://127.0.0.1:8188
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: three_quarter_front
+  - view: side
+  - view: three_quarter_rear
+  - view: rear
+canonical:
+  seed: 25963
+  candidates: 2
+frames: {}
+references:
+  match:
+    auto: true
+    tolerance_degrees: 40
+    exact_weight: 0.85
+    far_weight: 0.45
+  identity: []
+  style: []
+  pose: []
+  palette: []
+styles:
+- hi_fidelity
