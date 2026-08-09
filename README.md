@@ -237,8 +237,20 @@ and no palette setting recovers detail that reduction already destroyed.
 
 ### Style sheets
 
-A look is a reusable file, not a prompt you paste around. Five ship with the
-repo:
+**A look is a reusable file, not a prompt you paste around.** This is the part
+worth understanding, because it is where most of the control lives.
+
+An aesthetic decision used to have nowhere to sit. "Pokémon-like, monochrome,
+chunky" got retyped into every config and drifted between them — while the
+settings that *also* carry a look (palette size, LoRA strength, sampler, step
+count) lived somewhere else entirely. A style sheet is one file that holds both,
+applied as a layer:
+
+    global defaults  →  style sheets  →  pipeline config  →  job overrides
+
+A pipeline config still beats a style, and a single job still beats everything.
+
+Five sheets ship with the repo:
 
 | sheet | for |
 |---|---|
@@ -247,6 +259,32 @@ repo:
 | `hi_fidelity` | more colours, steps and canvas; ~3× the time. A hero or a boss. |
 | `pokemon_mono` | limited palette, single-creature framing |
 | `dark_fantasy` | muted, high contrast |
+
+A sheet can strengthen a look four ways, in increasing order of effort:
+
+| mechanism | changes | needs | to undo |
+|---|---|---|---|
+| **vocabulary** | prompt fragments | nothing | delete a line |
+| **settings** | palette, sampler, steps | nothing | delete a line |
+| **exemplars** | image conditioning | one image | delete a file |
+| **token / LoRA** | model weights | 20–40 images, hours of GPU | delete a file |
+
+Exemplars are auto-discovered from the sheet's folder, so adding a reference is
+a file copy — not a file copy *plus* a YAML edit, because the YAML edit is the
+step people skip before wondering why the look did not change.
+
+**A sheet may set any config subtree, and that breadth is deliberate** — but it
+is also the honest catch. You *can* control this at a very fine grain, and once
+you are several sheets deep it is genuinely hard to keep every weight, strength
+and step count straight in your head. Which sheet set `lora_strength`? Did the
+pipeline config override it, or the job?
+
+**In practice, do not track it by hand.** Point an AI agent at this README and
+let it set the values as you go — "make this chunkier at 64×64", "this is
+washing out the red, what is pulling it" — and let it find which layer is
+responsible. That is a much better use of the layering than memorising it.
+`CONFIGURING.md` and `DECISIONS.md` carry the numbers and the measurements
+behind them if you want to go deeper.
 
 ### Body plans
 
@@ -288,6 +326,26 @@ identity, not composition.
 
 ---
 
+## Driving this with an AI agent
+
+If you are pointing an agent at this project, **just tell it to read this
+README first.** That is usually enough for it to work out what is going on and
+start configuring things sensibly. The code base is not large, and an agent can
+read the relevant file faster than either of us can look up which knob lives
+where.
+
+That is also why there is **no MCP server here.** I might add one if there turns
+out to be enough interest, but I do not really see the value: MCP earns its
+keep when a model needs a door into something it cannot otherwise reach, and
+this is a small local repo of YAML and Python that any coding agent can already
+read, edit and run. Pointing it at the docs gets you the same result without a
+protocol in the middle.
+
+Same reasoning for the web UI. It is deliberately plain — no build step, forms
+generated from the schema — and it is a **local** frontend, for one person on
+one machine, not something being dressed up for an audience. I may polish it,
+but it is not where the value is.
+
 ## Roadmap
 
 **Where it is now:** 2D character illustration and animation, which work end to
@@ -313,6 +371,12 @@ end.
   sprite sizes. See [Using a different checkpoint](#using-a-different-checkpoint).
 - **Non-Apple-Silicon paths.** Everything is CUDA-compatible in principle; only
   the launcher flags and the benchmarks are Metal-specific today.
+
+**Maybe, if there is interest:**
+
+- **An MCP server**, and **more polish on the local web UI**. Neither is a
+  priority — see [Driving this with an AI agent](#driving-this-with-an-ai-agent)
+  for why I think an agent plus this README already covers it.
 
 **Not planned:** a hosted service. See above — the economics only work because
 you run it yourself.
