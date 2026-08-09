@@ -197,6 +197,26 @@ list.
 A style reference at identity strength overwrites your character with the
 exemplar. That is the failure the split exists to prevent.
 
+**Give the sheet a reference with no weapon in it.**
+
+Turning `props` off stops the pipeline from *placing* a weapon, and that is a
+different thing from the reference not *having* one. Identity runs through
+IP-Adapter at 0.80, and IP-Adapter carries content, not just style — a
+reference of an archer holding a bow teaches the model that this character
+comes with a bow, and one will appear whether or not anything asked for it.
+Measured: a sheet generated from a bow-holding reference came back with three
+bows and a scatter of loose arrows.
+
+The order that works:
+
+1. **Sheet** — a weapon-free reference, `props` off (the default for a sheet).
+   You get a clean read of the body from four sides.
+2. **Animation** — the sheet becomes the reference, and `props` place the
+   weapon where the hand actually is.
+
+If your only reference has a weapon, painting it out first is worth the two
+minutes. Cropping to the torso is not — the sheet needs the whole figure.
+
 **Label the view honestly.** A reference's weight falls off with angular
 distance from the frame being generated: a front reference gets 0.85 on a front
 frame and 0.45 on a rear one. Adding a correctly-labelled rear reference nearly

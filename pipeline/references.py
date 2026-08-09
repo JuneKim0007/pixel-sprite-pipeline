@@ -8,6 +8,10 @@ into the other's slot produces the wrong sprite.
 
     identity   who the character is. Illustrations, concept art, photographs
                — anything, and deliberately not required to be pixel art.
+               Best without a held weapon: IP-Adapter carries content, so a
+               bow in the reference becomes a bow in the output whether or not
+               anything placed one. Weapons belong to the animation, via
+               props, where the geometry says where the hand is.
                Matched to each frame by viewing angle, driven through
                IP-Adapter at a high weight.
 

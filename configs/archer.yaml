@@ -36,7 +36,7 @@ pose:
   - view: 270
 canonical:
   seed: 41207
-  candidates: 4
+  candidates: 2
 frames: {}
 references:
   match:
