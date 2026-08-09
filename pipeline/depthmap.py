@@ -21,7 +21,7 @@ from typing import Mapping, Sequence
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from .bodyspace import project, view_depth
+from .bodyspace import frame_scale, project, view_depth
 
 # Rough limb thickness as a fraction of canvas, per bone. A torso reads as a
 # much thicker volume than a forearm, and uniform limbs look like a wire model.
@@ -78,6 +78,7 @@ def render_depth(
     blur: float = 6.0,
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
+    fill: float = 0.0,
     rig=None,
     props=None,
 ) -> Image.Image:
@@ -92,8 +93,12 @@ def render_depth(
 
     rig = rig if rig is not None else _rigs.HUMANOID
     keypoints = project(
-        pose, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale, rig=rig
+        pose, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
+        fill=fill, rig=rig,
     )
+    # Capsule radii are canvas fractions, so they have to grow with the figure
+    # or a scaled-up body is drawn with the limbs of a smaller one.
+    grow = frame_scale(pose, fill)
     screen = {
         joint: (kp[0] * width, kp[1] * height)
         for joint, kp in zip(rig.joints, keypoints)
@@ -132,13 +137,13 @@ def render_depth(
     for parent, child in bones:
         _capsule(
             draw, screen[parent], screen[child],
-            widths[(parent, child)] * scale, shade(parent, child),
+            widths[(parent, child)] * scale * grow, shade(parent, child),
         )
 
     # Head last: it is nearly always the nearest large volume.
     head = screen.get(rig.head_joint) or screen.get(rig.root)
     if head:
-        r = rig.head_radius * scale
+        r = rig.head_radius * scale * grow
         draw.ellipse(
             [head[0] - r, head[1] - r, head[0] + r, head[1] + r],
             fill=shade(rig.head_joint, rig.root),

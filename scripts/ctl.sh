@@ -29,6 +29,36 @@ OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-60}"
 # offloading, so macOS swaps to disk instead.
 VRAM_MODE="${VRAM_MODE:-}"
 
+# configs/_global.yaml has a `compute:` block, and until now nothing read it:
+# the Settings form wrote values that reached no process. These are launcher
+# concerns - they have to be set before ComfyUI imports torch - so the launcher
+# is where they belong. An environment variable still wins, so a one-off
+# experiment does not require editing the file.
+read_compute() {
+  [[ -f "$ROOT/configs/_global.yaml" ]] || return 0
+  local line
+  while IFS='=' read -r key value; do
+    [[ -n "$key" ]] || continue
+    case "$key" in
+      vram_mode)          VRAM_MODE="${VRAM_MODE:-$value}" ;;
+      torch_threads)      export OMP_NUM_THREADS="${OMP_NUM_THREADS:-$value}"
+                          export MKL_NUM_THREADS="${MKL_NUM_THREADS:-$value}" ;;
+      mps_high_watermark) export PYTORCH_MPS_HIGH_WATERMARK_RATIO="${PYTORCH_MPS_HIGH_WATERMARK_RATIO:-$value}" ;;
+    esac
+  done < <("$PY" - "$ROOT/configs/_global.yaml" <<'EOF'
+import sys, yaml
+try:
+    cfg = yaml.safe_load(open(sys.argv[1])) or {}
+except Exception:
+    sys.exit(0)
+for k, v in (cfg.get("compute") or {}).items():
+    if v not in (None, ""):
+        print(f"{k}={v}")
+EOF
+)
+}
+read_compute
+
 if [[ -t 1 ]]; then
   G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; O=$'\033[0m'; W=$'\033[33m'
 else

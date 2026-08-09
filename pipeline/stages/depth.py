@@ -62,6 +62,7 @@ class DepthStage(Stage):
                 near=opt(cfg, "near", 255),
                 far=opt(cfg, "far", 60),
                 blur=opt(cfg, "blur", 6.0),
+                fill=float(opt(ctx.stage_config("pose"), "fill", 0.0) or 0.0),
                 depth_scale=opt(pose_cfg, "depth_scale", 1.0),
                 lateral_scale=opt(pose_cfg, "lateral_scale", 1.0),
                 rig=rig,

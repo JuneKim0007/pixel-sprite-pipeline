@@ -96,6 +96,73 @@ def visible(joint: str, yaw_deg: float, rig=None) -> bool:
     return f > 0.05               # eyes drop at profile
 
 
+def frame_scale(pose: Mapping[str, Sequence[float]], fill: float) -> float:
+    """The factor frame_fit would apply. Callers need it for line thickness.
+
+    Bone thicknesses are fractions of the canvas, so enlarging a figure without
+    enlarging them draws a bigger skeleton out of the same thin sticks — the
+    depth capsules stop matching the limbs they represent, and the model reads
+    a heavy character as a wiry one.
+    """
+    if fill <= 0 or not pose:
+        return 1.0
+    # Whichever axis is tightest decides. Scaling on height alone sent a
+    # dragon to 94% of the canvas width at 88% fill, and a wingspan that
+    # touches both edges is a wingspan the export crop cannot breathe around.
+    # Lateral and depth are checked together because a yaw of 90 degrees swaps
+    # which of them is on screen.
+    spans = [
+        max(p[axis] for p in pose.values()) - min(p[axis] for p in pose.values())
+        for axis in (0, 1, 2)
+    ]
+    widest = max(spans)
+    return fill / widest if widest > 1e-6 else 1.0
+
+
+def frame_fit(
+    pose: Mapping[str, Sequence[float]],
+    *,
+    fill: float,
+    margin: float = 0.06,
+) -> dict[str, list[float]]:
+    """Scale a pose about its own centre so it fills `fill` of the frame.
+
+    The rigs are authored at a size, and the size is small: the humanoid's
+    neutral spans height 0.14 to 0.81, so a figure occupies 68% of the canvas
+    and 32% is empty air. That is 32% of the generation resolution spent on
+    background, and after reducing 1024 by a factor of 8 it is the difference
+    between a character 87 logical pixels tall and one 112 tall — a third more
+    detail for the same GPU time.
+
+    This scales rather than re-authoring the coordinates, and it happens at
+    projection time, so:
+
+      * stored pose files keep meaning what they meant,
+      * bone-length snapping still measures against the rig's own neutral,
+      * and the depth map cannot disagree with the skeleton, because both go
+        through this same function.
+
+    Lateral and depth scale by the same factor as height. Scaling only height
+    would stretch the character rather than enlarge it.
+    """
+    if fill <= 0:
+        return {k: list(v) for k, v in pose.items()}
+
+    if not pose:
+        return {k: list(v) for k, v in pose.items()}
+    scale = frame_scale(pose, fill)
+    if abs(scale - 1.0) < 1e-9:
+        return {k: list(v) for k, v in pose.items()}
+    top = min(p[2] for p in pose.values())
+    # Sit the figure `margin` from the top, which leaves the remainder under
+    # its feet — a sprite standing on nothing looks wrong hard against the
+    # bottom edge, and export crops to the subject anyway.
+    return {
+        joint: [p[0] * scale, p[1] * scale, margin + (p[2] - top) * scale]
+        for joint, p in pose.items()
+    }
+
+
 def project(
     pose: Mapping[str, Sequence[float]],
     yaw_deg: float,
@@ -103,14 +170,23 @@ def project(
     centre: float = 0.5,
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
+    fill: float = 0.0,
     rig=None,
 ) -> list[list[float] | None]:
     """Body-space pose -> screen keypoints, in the rig's joint order.
 
     None marks a joint that is not visible at this angle, which is how the
     control image tells the model which way the creature faces.
+
+    `fill` enlarges the figure to occupy that fraction of the frame; 0 leaves
+    the pose at its authored size. It lives here rather than in the callers so
+    the skeleton and the depth map cannot be scaled differently — they are two
+    views of one pose, and a control image that disagrees with its depth map is
+    worse than either alone.
     """
     rig = rig if rig is not None else _rigs.HUMANOID
+    if fill:
+        pose = frame_fit(pose, fill=fill)
     yaw = math.radians(yaw_deg)
     sin_y, cos_y = math.sin(yaw), math.cos(yaw)
 

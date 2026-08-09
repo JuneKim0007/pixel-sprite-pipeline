@@ -21,6 +21,25 @@ settings:
   # without the other silently changes the output resolution.
   canonical: {width: 1024, height: 1024}
   frames: {width: 1024, height: 1024}
+  # The figure fills the frame. The rigs are authored small - the humanoid's
+  # neutral spans 68% of the canvas height - so a third of the generation
+  # resolution went to empty background. At 1024 reduced by 8 this is the
+  # difference between a character 87 logical pixels tall and one 113 tall,
+  # for the same GPU time. Applied at projection, so stored poses and bone
+  # snapping are untouched, and the tightest axis decides so a wingspan
+  # cannot run off the sides.
+  pose:
+    fill: 0.88
+
+  # Six heads rather than five. The shipped rig is 5.2 heads, which reads as
+  # stocky; the anime idiom these sheets aim at sits nearer 6-7. Set here
+  # rather than in rigs.py because changing the rig's neutral would re-scale
+  # every stored pose through bone-length snapping - and because a stubby
+  # brawler should be able to override it in one config line.
+  proportions:
+    legs: 1.35
+    torso: 1.10
+
   palette:
     reduce: median
     factor: 8

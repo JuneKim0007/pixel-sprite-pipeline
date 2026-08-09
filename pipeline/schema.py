@@ -117,6 +117,14 @@ FIELDS: list[dict[str, Any]] = [
     {"path": "pose.frames", "label": "Frame count", "type": "int",
      "min": 1, "max": 24, "group": "Pose",
      "help": "Blank uses every frame in the pose file."},
+    {"path": "pose.fill", "label": "Frame fill", "type": "float",
+     "min": 0.0, "max": 0.98, "step": 0.02, "group": "Pose",
+     "help": "Fraction of the canvas the figure occupies. 0 leaves the pose at "
+             "the size the rig was authored at, which is small — the humanoid "
+             "spans 68%, so a third of the generation resolution goes to empty "
+             "background. 0.88 makes a 128px sprite's character 113 pixels tall "
+             "instead of 87, for the same GPU time. The tightest axis decides, "
+             "so a wingspan cannot run off the sides."},
     {"path": "pose.size", "label": "Skeleton size", "type": "int",
      "min": 256, "max": 2048, "step": 64, "group": "Pose",
      "help": "Should match the generation resolution."},

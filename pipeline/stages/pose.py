@@ -15,7 +15,7 @@ from typing import Any
 
 from .. import props as props_mod
 from .. import rigs as rig_lib
-from ..bodyspace import project, resolve_view, validate_pose
+from ..bodyspace import frame_scale, project, resolve_view, validate_pose
 from ..openpose import render
 from ..stage import Context, Resource, Stage, opt, register
 
@@ -118,14 +118,21 @@ class PoseStage(Stage):
             props = props_mod.load(ctx.config.get("props"))
             if props:
                 entry["pose"] = props_mod.pull_second_hand(props, entry["pose"], rig)
+            fill = float(opt(cfg, "fill", 0.0) or 0.0)
             keypoints = project(
                 entry["pose"], entry["yaw"],
                 depth_scale=opt(cfg, "depth_scale", 1.0),
                 lateral_scale=opt(cfg, "lateral_scale", 1.0),
+                fill=fill,
                 rig=rig,
             )
             dst = outdir / f"skeleton_{i:03d}.png"
-            render(keypoints, size, size, thickness=cfg.get("thickness"), rig=rig).save(dst)
+            # Sticks thicken with the figure, or a larger skeleton is drawn out
+            # of the same thin lines and reads as a wiry character.
+            grow = frame_scale(entry["pose"], fill)
+            thickness = cfg.get("thickness")
+            render(keypoints, size, size, rig=rig,
+                   thickness=(thickness * grow) if thickness else None).save(dst)
             written.append(dst)
 
         serialisable = [
