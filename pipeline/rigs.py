@@ -631,6 +631,11 @@ _GENERATED: tuple[Rig, ...] = (
 # Which bones a named proportion controls. Matched against joint names, so one
 # table serves every rig: a dragon's neck and a humanoid's neck are both "neck"
 # because both connect a head to a torso.
+# How much of a length change carries into limb thickness. 1.0 would make a
+# tall character a wide one; 0.0 makes an elongated limb spindly. 0.35 turns a
+# 1.75x lengthening into a 1.21x widening.
+THICKNESS_EXPONENT = 0.35
+
 PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
     "head":      ("nose", "head", "eye", "ear"),
     "neck":      ("neck",),
@@ -644,18 +649,34 @@ PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Joints that belong to the head, for telling a neck bone from a torso bone.
+_HEADWARD = ("nose", "head", "eye", "ear", "skull", "jaw", "horn")
+
+
 def _group_of(parent: str, child: str) -> str | None:
     """Classify a bone, not just its far end.
 
-    A humanoid's only neck bone runs neck->nose, so matching on the child alone
-    files it under "head" and a request to lengthen the neck does nothing.
-    Whichever end names the group wins, with the more specific ends checked
-    first.
+    Direction matters at the neck, and getting it wrong silently disabled a
+    knob. A humanoid's only true neck bone runs neck->nose; the bone running
+    neck->hip is the TORSO. The first version returned "neck" whenever either
+    end was named neck, so neck->hip was filed as neck — and since no rig has
+    a separate torso bone, `proportions.torso` scaled nothing at all on the
+    humanoid. It was set in a shipped style sheet and measured as a no-op:
+    5.21 heads with it, 5.21 heads without.
+
+    So the neck case is direction-aware. Everything else classifies by the
+    child, which is the end that names the limb.
     """
-    if "neck" in parent or "neck" in child:
+    if "neck" in parent:
+        return "neck" if any(n in child for n in _HEADWARD) else _by_name(child)
+    if "neck" in child:
         return "neck"
+    return _by_name(child)
+
+
+def _by_name(joint: str) -> str | None:
     for group, needles in PROPORTION_GROUPS.items():
-        if any(n in child for n in needles):
+        if any(n in joint for n in needles):
             return group
     return None
 
@@ -721,10 +742,26 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
     described = ", ".join(f"{k} x{v:g}" for k, v in sorted(factors.items()))
     # Head "size" is mostly the depth-map skull, not the tiny nose-to-ear bones.
     head_radius = rig.head_radius * factors.get("head", 1.0)
+
+    # Bones get a little thicker when they get longer, and only a little.
+    #
+    # Leaving thickness alone was wrong in a visible way: legs lengthened 1.75x
+    # kept their 0.055 capsule width and came out proportionally 1.75x thinner
+    # than the rig they were derived from, so the depth map read as a stick
+    # insect and the step between thigh and shin widths became a seam.
+    #
+    # Scaling thickness by the full factor is wrong in the other direction - a
+    # taller character is not a wider one, and "lanky" is the point. The 0.35
+    # exponent is the compromise: a 1.75x limb gets 1.21x width, which keeps
+    # the slenderness while stopping the capsule from disappearing.
+    bones = tuple(
+        (a, b, thickness * (factors.get(_group_of(a, b) or "", 1.0) ** THICKNESS_EXPONENT))
+        for a, b, thickness in rig.bones
+    )
     return Rig(
         name=rig.name, label=f"{rig.label} ({described})",
         joints=rig.joints, tree=rig.tree, root=rig.root, neutral=neutral,
-        bones=rig.bones, skeleton_control=rig.skeleton_control,
+        bones=bones, skeleton_control=rig.skeleton_control,
         depth_control=rig.depth_control, face_joints=rig.face_joints,
         head_joint=rig.head_joint, head_radius=head_radius,
         prompt_hint=rig.prompt_hint, note=rig.note,

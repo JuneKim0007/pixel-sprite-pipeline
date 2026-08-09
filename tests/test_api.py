@@ -92,6 +92,7 @@ def test_pipeline() -> None:
     check("bone groups scale by their factor", _proportions)
     check("scaling keeps the skeleton connected", _proportions_connected)
     check("unknown proportion groups are rejected", _proportions_reject)
+    check("every proportion group actually moves something", _proportions_effective)
     check("rig 'none' has no geometry and no control channels", _rig_free)
 
     print("\nstage contracts")
@@ -202,6 +203,53 @@ def _reference_pose() -> None:
                     _assert(abs(want - got) < 1e-6,
                             f"{name}: bone {a}->{b} changed length "
                             f"{want:.4f} -> {got:.4f}")
+
+
+def _proportions_effective() -> None:
+    """A named group must change the skeleton, or the knob is a lie.
+
+    `proportions.torso` was a no-op on the humanoid and nobody noticed, because
+    a no-op looks exactly like a subtle change. The bone from neck to hip is
+    the torso, but `_group_of` returned "neck" for anything with neck at either
+    end, so the only bone torso could have scaled was filed elsewhere. It was
+    set in a shipped style sheet and measured 5.21 heads with and without.
+
+    This checks each group moves at least one joint on a rig that has it,
+    rather than checking one case by hand.
+    """
+    from pipeline import rigs
+
+    cases = [
+        ("humanoid", "legs", "l_ankle"),
+        ("humanoid", "torso", "l_hip"),
+        ("humanoid", "arms", "l_wrist"),
+        ("humanoid", "neck", "nose"),
+        ("quadruped", "tail", "tail_tip"),
+        ("dragon", "wings", None),
+    ]
+    for rig_name, group, joint in cases:
+        rig = rigs.get(rig_name)
+        scaled = rigs.scale(rig, {group: 1.5})
+        if joint:
+            before, after = rig.neutral[joint], scaled.neutral[joint]
+            _assert(before != tuple(after),
+                    f"proportions.{group} did not move {joint} on {rig_name}")
+        else:
+            moved = [j for j in rig.neutral
+                     if tuple(rig.neutral[j]) != tuple(scaled.neutral[j])]
+            _assert(moved, f"proportions.{group} moved nothing on {rig_name}")
+
+    # And the thickness has to follow, or a lengthened limb goes spindly.
+    thick_before = {(a, b): w for a, b, w in rigs.HUMANOID.bones}
+    thick_after = {(a, b): w for a, b, w in rigs.scale(rigs.HUMANOID, {"legs": 1.75}).bones}
+    leg = ("l_hip", "l_knee")
+    arm = ("l_shoulder", "l_elbow")
+    _assert(thick_after[leg] > thick_before[leg],
+            "a lengthened leg kept its original capsule width")
+    _assert(thick_after[leg] / thick_before[leg] < 1.75,
+            "thickness scaled with the full factor; a taller figure is not a wider one")
+    _assert(thick_after[arm] == thick_before[arm],
+            "scaling legs changed arm thickness")
 
 
 def _softbody_stage() -> None:

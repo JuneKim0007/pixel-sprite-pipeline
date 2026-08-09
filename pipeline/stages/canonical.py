@@ -123,13 +123,26 @@ class CanonicalStage(Stage):
                 control_names["depth"] = (client.upload_image(depth), "depth")
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}")
 
-        # Candidates run one at a time, not as a batch.
+        # Candidates go out as one batch by default, and the reason is a
+        # correction rather than a design.
         #
-        # A batch of four at 1024 does not cost four times one image on 16 GB
-        # of unified memory — it blew through a 1800 s timeout where a single
-        # image takes 280 s, because the working set stops fitting and macOS
-        # swaps. Same failure as --gpu-only, which measured 4.9x slower for the
-        # same reason. Sequential keeps peak memory flat and reports progress.
+        # A four-candidate run once died on a 1800 s timeout, and that was read
+        # here as the working set exceeding 16 GB and macOS swapping — the same
+        # story as --gpu-only. Sequential generation was written to fix it. Then
+        # the two paths were actually measured against each other, four
+        # candidates at 1024 each:
+        #
+        #     sequential   2096 s   2,809,129 swapins
+        #     batch        1806 s   1,281,996 swapins
+        #
+        # Batch is 14% faster and swaps *less than half* as much. The original
+        # failure was not a swap catastrophe at all: batch takes 1806 s and the
+        # timeout was 1800 s. It missed by six seconds.
+        #
+        # Sequential is kept, and is not merely a curiosity — it is the only
+        # path that can rest between candidates, so a queue that runs all night
+        # for thermal reasons wants it despite being slower. That is a real
+        # trade and it belongs to whoever is running the machine.
         #
         # The graph is rebuilt per candidate rather than resampled, because a
         # ComfyUI graph carries its seed inside a node: reusing one would need
@@ -208,11 +221,7 @@ class CanonicalStage(Stage):
         timeout = opt(cfg, "timeout", 1800)
         images: list[bytes] = []
 
-        # `batch_candidates` exists to be measured against, not because it is
-        # recommended. Keeping the losing path runnable is the only way the
-        # claim stays checkable on a different machine, where a card with real
-        # VRAM would likely reverse it.
-        if bool(opt(cfg, "batch_candidates", False)) and wanted > 1:
+        if bool(opt(cfg, "batch_candidates", True)) and wanted > 1:
             g, model, pos, neg, vae = build()
             comfy.sample_and_save(
                 g, model, pos, neg, vae,

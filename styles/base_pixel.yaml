@@ -31,14 +31,18 @@ settings:
   pose:
     fill: 0.88
 
-  # Seven heads rather than five. The shipped rig is 5.2, which reads as
-  # stocky; the sprite sheets this aims at specify 7. Set here
+  # Seven heads rather than five (6.94 measured). The shipped rig is 5.2,
+  # which reads as stocky; the sprite sheets this aims at specify 7.
+  #
+  # These numbers changed once `proportions.torso` started working: it was a
+  # silent no-op on the humanoid, so legs alone had been carrying the whole
+  # ratio at 1.75. With torso contributing, the same 1.75 reached 7.47. Set here
   # rather than in rigs.py because changing the rig's neutral would re-scale
   # every stored pose through bone-length snapping - and because a stubby
   # brawler should be able to override it in one config line.
   proportions:
-    legs: 1.75
-    torso: 1.30
+    legs: 1.60
+    torso: 1.20
 
   palette:
     reduce: median

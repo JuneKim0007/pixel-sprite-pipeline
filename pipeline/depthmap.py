@@ -21,7 +21,7 @@ from typing import Mapping, Sequence
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from .bodyspace import frame_scale, project, view_depth
+from .bodyspace import frame_fit, frame_scale, project, view_depth
 
 # Rough limb thickness as a fraction of canvas, per bone. A torso reads as a
 # much thicker volume than a forearm, and uniform limbs look like a wire model.
@@ -92,19 +92,25 @@ def render_depth(
     from . import rigs as _rigs
 
     rig = rig if rig is not None else _rigs.HUMANOID
-    keypoints = project(
-        pose, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
-        fill=fill, rig=rig,
-    )
-    # Capsule radii are canvas fractions, so they have to grow with the figure
-    # or a scaled-up body is drawn with the limbs of a smaller one.
+    # Fit once, then use the fitted pose for everything downstream.
+    #
+    # This used to project with `fill=` and then hand the RAW pose to the prop
+    # renderer, so the body was drawn at 1.3x and its weapons were computed
+    # from unscaled body space: a bow anchored to a hand that was no longer
+    # where the prop thought it was, at a length that had not grown with the
+    # figure. It ran off the canvas.
+    fitted = frame_fit(pose, fill=fill) if fill else pose
     grow = frame_scale(pose, fill)
+    keypoints = project(
+        fitted, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
+        rig=rig,
+    )
     screen = {
         joint: (kp[0] * width, kp[1] * height)
         for joint, kp in zip(rig.joints, keypoints)
         if kp is not None
     }
-    depths = view_depth(pose, yaw_deg)
+    depths = view_depth(fitted, yaw_deg)
     if not depths:
         return Image.new("L", (width, height), 0)
 
@@ -156,7 +162,7 @@ def render_depth(
         from . import props as props_mod
 
         props_mod.draw_depth(
-            draw, props, pose, rig, yaw_deg, width, height, shade_scalar,
+            draw, props, fitted, rig, yaw_deg, width, height, shade_scalar,
             depth_scale=depth_scale, lateral_scale=lateral_scale, floor=far,
         )
 

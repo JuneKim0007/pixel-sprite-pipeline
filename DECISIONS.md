@@ -57,6 +57,30 @@ it was borrowing SDXL's fp16-fix VAE and being fed natural-language prompts
 rather than booru tags. A fair test needs its own VAE and tag prompts.
 `models.vae` exists for that. **SDXL base remains the default.**
 
+### Batched candidates beat sequential ones here, and the first diagnosis was wrong
+
+A four-candidate canonical died on a 1800 s timeout. That was read as the
+working set exceeding 16 GB and macOS swapping — the `--gpu-only` story again —
+and sequential generation was written to fix it.
+
+Measuring the two paths against each other says otherwise:
+
+| | wall | swapins |
+|---|---|---|
+| sequential | 2096 s | 2,809,129 |
+| batch | **1806 s** | **1,281,996** |
+
+Batch is 14% faster and swaps less than half as much. The original failure was
+not swap thrashing: batch takes 1806 s and the timeout was 1800 s, so it missed
+by six seconds. The correct fix was the timeout, which is now four hours.
+
+Sequential is kept as an option because it is the only path that can rest
+between candidates, which an overnight thermal-limited queue wants.
+
+**The lesson is the one this file exists for.** A plausible mechanism, a
+matching prior failure, and a real symptom produced a confident wrong diagnosis.
+Nothing about it was checkable until both paths were run.
+
 ---
 
 ## Identity and references

@@ -109,7 +109,7 @@ Give these to someone with a faster machine, or to your own overnight queue.
 
 | setting | change | cost | what it buys |
 |---|---|---|---|
-| `canonical.candidates` | 1 → 4 | 4× **the canonical only** | The best value here. Every frame inherits the anchor, so improving it once improves everything. Candidates run sequentially, not as a batch — see below. |
+| `canonical.candidates` | 1 → 4 | 4× **the canonical only** | The best value here. Every frame inherits the anchor, so improving it once improves everything. Batched by default; see the measurement below. |
 | `canonical.steps` / `frames.steps` | 30 → 45 | +50% | Cleaner block edges. |
 | canvas + factor | 1024/8 → 1280/10 | ×1.6 | The same 128px sprite reduced from a more detailed source. |
 | `sampler` / `scheduler` | → `dpmpp_3m_sde` / `karras` | +10% | Fewer speckles. |
@@ -117,12 +117,22 @@ Give these to someone with a faster machine, or to your own overnight queue.
 | `palette.size` | 40 → 20 | **free** | Larger flat areas. Often what people mean by "chunkier". |
 | `pose.fill` | → 0.88 | **free** | The figure fills the frame instead of 68% of it. |
 
-**Candidates are generated one at a time on purpose.** A batch of four at 1024
-does not cost four times one image on a 16 GB unified-memory Mac — it blew
-through a thirty-minute timeout where a single image takes 280 seconds, because
-the working set stops fitting and the machine swaps. If you have a discrete GPU
-with real VRAM, set `canonical.batch_candidates: true` and it will likely be
-faster. Measure it; do not assume either way.
+**Candidates go out as one batch, and there is a measurement behind that.**
+Four candidates at 1024 on a 16 GB Mac:
+
+| | wall | swapins |
+|---|---|---|
+| sequential | 2096 s | 2,809,129 |
+| **batch** | **1806 s** | **1,281,996** |
+
+Batch is 14% faster and swaps less than half as much. This reverses what was
+originally written here: a four-candidate run had died on a thirty-minute
+timeout and that was assumed to be swap thrashing. It was not — batch takes
+1806 s and the timeout was 1800 s. It missed by six seconds.
+
+Sequential is still worth choosing for one reason: it is the only path that can
+**rest between candidates**, so an overnight queue run for thermal reasons wants
+it despite being slower. Set `canonical.batch_candidates: false` for that.
 
 ---
 
