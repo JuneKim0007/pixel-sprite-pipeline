@@ -1,0 +1,68 @@
+# Character 3 - from a four-view reference sheet.
+#
+# The look comes from styles/hi_fidelity. This file holds only who the
+# character is, which views to make, and the two things specific to this
+# body: the build and the seed.
+#
+# Weapon: the reference sheet shows an icy bow and a quiver of crystal arrows. Deliberately absent -
+# a sheet drops props by default, because a weapon occludes the torso it
+# crosses and is a rigid volume the model traces instead of the limb
+# behind it. It will be drawn by hand, or added to an animation config.
+name: char_3
+module: character_sheet
+rig: humanoid
+styles:
+- hi_fidelity
+subject: an elf archer with pale mint-green hair in a high ponytail, long pointed
+  ears, blue eyes, a deep teal high-collared robe with gold and white pauldrons, translucent
+  pale blue layered sleeves and skirt panels edged with ice crystals, a brown leather
+  waist wrap, tall silver and gold armoured heeled boots
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+  stop_after: null
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+  - view: side
+  - view: rear
+  - view: 270
+references:
+  match:
+    auto: true
+    tolerance_degrees: 40
+    exact_weight: 0.85
+    far_weight: 0.45
+  identity:
+  - path: overnight/char_3/refs/front.png
+    view: front
+  - path: overnight/char_3/refs/side.png
+    view: side
+  - path: overnight/char_3/refs/rear.png
+    view: rear
+  - path: overnight/char_3/refs/side_right.png
+    view: 270
+  style: []
+  pose: []
+  palette: []
+depth:
+  build:
+    torso: 1.24
+    arms: 1.24
+    legs: 1.24
+    neck: 1.24
+    head: 1.02
+canonical:
+  seed: 33940
+  candidates: 2
+frames: {}
+cooling:
+  enabled: true
+  seconds: 420
