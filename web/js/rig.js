@@ -331,7 +331,9 @@ export function rigEditor({ runId, onDirty } = {}) {
       }
       // Prefer whatever this pipeline already references, else the first
       // upload: opening the editor with no underlay wastes the feature.
-      const configured = (state.effective?.references?.images || [])[0]?.path;
+      // The underlay is an identity reference: it is the character, drawn
+      // behind the skeleton so joints can be placed against it.
+      const configured = (state.effective?.references?.identity || [])[0]?.path;
       const preferred = configured
         || state.overlay.refPath
         || images[0]?.path;

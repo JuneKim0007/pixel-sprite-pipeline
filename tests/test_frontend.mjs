@@ -210,7 +210,9 @@ test('nothing writes the retired references.images', () => {
     const src = readFileSync(join(JS, file), 'utf8');
     for (const line of src.split('\n')) {
       if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
-      assert.ok(!/references\.images/.test(line),
+      // `references?.images` is the same bug and slipped past a literal dot:
+      // two live call sites survived the first sweep because of it.
+      assert.ok(!/references\??\.images/.test(line),
         `${file} still touches references.images: ${line.trim()}`);
     }
   }

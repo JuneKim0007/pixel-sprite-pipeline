@@ -139,7 +139,12 @@ function summary(label, value) {
 function rigStep() {
   const runId = state.selectedRun;
   const box = el('div', { className: 'group' });
-  const refs = (state.effective?.references?.images || []);
+  // Identity and pose references only. A palette swatch has no anatomy to
+  // mark up and a style exemplar is not this character, so neither belongs in
+  // an annotation picker. Matches annotate.gather() on the backend.
+  const refs = ['identity', 'pose'].flatMap((role) =>
+    (getPath(state.effective || {}, `references.${role}`) || [])
+      .map((r) => ({ ...r, role })));
 
   // Two different jobs, so two modes rather than one confused editor:
   // authoring a pose you intend to generate, versus marking up an image that

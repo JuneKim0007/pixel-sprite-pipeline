@@ -26,10 +26,10 @@ from ..stage import Context, Resource, Stage, opt, register
 
 def _one_frame(args: tuple) -> str:
     """Pool worker. Arguments stay primitive so they pickle cheaply."""
-    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase = args
+    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase, match = args
     pixelize(
         Path(src), Path(dst), factor, reduce,
-        colours=0, palette=palette, dither=dither,
+        colours=0, palette=palette, dither=dither, match=match,
         alpha_tol=alpha_tol, upscale=upscale, phase=phase, verbose=False,
     )
     return dst
@@ -92,6 +92,10 @@ class PaletteStage(Stage):
         # the sprite shimmers. Locking it to the canonical's phase is what
         # stops that, so `auto` here means "measure once, apply to all".
         dither = bool(opt(cfg, "dither", False))
+        # How "nearest colour" is decided. Only matters when a palette is
+        # imposed rather than extracted — an extracted palette already came
+        # from these pixels, so every metric agrees.
+        match = str(opt(cfg, "match", "weighted"))
         phase_mode = opt(cfg, "phase", "per_frame")
         shared_phase = None
         if phase_mode == "locked":
@@ -103,7 +107,7 @@ class PaletteStage(Stage):
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
                 factor, reduce, palette, alpha_tol, upscale,
-                dither, shared_phase,
+                dither, shared_phase, match,
             )
             for src in frames
         ]

@@ -280,6 +280,17 @@ FIELDS: list[dict[str, Any]] = [
      "min": 1, "max": 16, "group": "Palette",
      "help": "Blank uses one per core. Frames are independent."},
 
+    {"path": "palette.match", "label": "Colour matching", "type": "select",
+     "options": ["weighted", "luma", "lab", "rgb"], "group": "Palette",
+     "help": "How 'nearest colour' is decided when snapping to a fixed "
+             "palette. 'weighted' applies luminance weights and costs nothing "
+             "over plain RGB. 'luma' matches brightness first and is the one "
+             "built for sprites — a sprite reads by its value structure, so "
+             "an entry of the wrong lightness collapses the form even when "
+             "the hue is right. 'lab' is perceptually uniform and the most "
+             "faithful for recolouring, at roughly ten times the cost. 'rgb' "
+             "is what earlier outputs used. Irrelevant when the palette is "
+             "extracted, since it already came from these pixels."},
     {"path": "palette.dither", "label": "Dither", "type": "bool", "group": "Palette",
      "help": "Trades flat blocks for apparent colour depth. Leave off for the "
              "chunky RPG-Maker idiom; turn on when a small palette has to "

@@ -154,12 +154,83 @@ def save_palette(palette: list[tuple[int, int, int]], path: Path, note: str = ""
     path.write_text("\n".join(lines) + "\n")
 
 
-def apply_fixed_palette(rgb: np.ndarray, palette: list[tuple[int, int, int]]) -> np.ndarray:
-    """Snap every pixel to its nearest palette entry (euclidean in RGB)."""
+# Rec. 709 luminance. Green carries most of perceived brightness, which is
+# why plain RGB distance misjudges: it weighs a shift in blue as heavily as
+# the same shift in green, and the eye does not.
+LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+
+MATCH_METHODS = ("rgb", "weighted", "luma", "lab")
+
+
+def _to_lab(rgb: np.ndarray) -> np.ndarray:
+    """sRGB to CIELAB. Approximate D65, which is close enough to rank by."""
+    a = rgb.astype(np.float32) / 255.0
+    lin = np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
+    m = np.array([[0.4124, 0.3576, 0.1805],
+                  [0.2126, 0.7152, 0.0722],
+                  [0.0193, 0.1192, 0.9505]], dtype=np.float32)
+    xyz = lin @ m.T / np.array([0.95047, 1.0, 1.08883], dtype=np.float32)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[..., 1] - 16,
+                     500 * (f[..., 0] - f[..., 1]),
+                     200 * (f[..., 1] - f[..., 2])], axis=-1)
+
+
+def apply_fixed_palette(
+    rgb: np.ndarray,
+    palette: list[tuple[int, int, int]],
+    method: str = "weighted",
+) -> np.ndarray:
+    """Snap every pixel to its nearest palette entry.
+
+    "Nearest" is a choice, not a fact, and for sprites it is a consequential
+    one. Four metrics, in order of how much they cost:
+
+    rgb        Plain euclidean in RGB. Fast, and perceptually the worst — it
+               treats a shift in blue as equal to the same shift in green.
+               Kept because it is what every earlier output used.
+
+    weighted   Euclidean with the luminance weights applied per channel. Costs
+               nothing extra and fixes most of what rgb gets wrong.
+
+    luma       Match on brightness first, hue only to break ties. This is the
+               one built for pixel art specifically: a sprite reads by its
+               value structure, and snapping a mid-tone to an entry of the
+               wrong lightness collapses the form even when the hue is right.
+               Use it when remapping between palettes that do not share a
+               colour scheme.
+
+    lab        Euclidean in CIELAB — perceptually near-uniform, so it picks
+               the colour a person would call closest. The most faithful for
+               recolouring, and the slowest by roughly an order of magnitude.
+
+    Every metric is a nearest-neighbour search over the palette, so cost grows
+    with pixels x palette entries. A 128x128 sprite against 136 entries is two
+    million comparisons: nothing. A 1024x1024 frame is 140 million, which is
+    why this runs after reduction rather than before.
+    """
+    if method not in MATCH_METHODS:
+        raise ValueError(
+            f"unknown palette match method '{method}'; expected one of {MATCH_METHODS}")
+
     pal = np.asarray(palette, dtype=np.float32)
     flat = rgb.reshape(-1, 3).astype(np.float32)
-    # (N, 1, 3) - (1, P, 3) -> (N, P)
-    dist = ((flat[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2)
+
+    if method == "lab":
+        a, b = _to_lab(flat), _to_lab(pal)
+    elif method == "weighted":
+        a, b = flat * LUMA, pal * LUMA
+    elif method == "luma":
+        # Lightness dominates; chroma is a tiebreaker at a tenth of the
+        # weight, which is enough to choose between two entries of equal
+        # brightness without letting hue override the value ramp.
+        a = np.concatenate([(flat @ LUMA)[:, None], flat * 0.1], axis=1)
+        b = np.concatenate([(pal @ LUMA)[:, None], pal * 0.1], axis=1)
+    else:
+        a, b = flat, pal
+
+    # (N, 1, K) - (1, P, K) -> (N, P)
+    dist = ((a[:, None, :] - b[None, :, :]) ** 2).sum(axis=2)
     idx = dist.argmin(axis=1)
     return pal[idx].astype(np.uint8).reshape(rgb.shape)
 
@@ -248,6 +319,7 @@ def pixelize(
     colours: int,
     palette: list[tuple[int, int, int]] | None,
     dither: bool,
+    match: str,
     alpha_tol: int | None,
     upscale: int,
     phase: tuple[int, int] | None,
@@ -265,7 +337,7 @@ def pixelize(
         print(f"  reduced: {img.width}x{img.height} -> {small.shape[1]}x{small.shape[0]}")
 
     if palette is not None:
-        small = apply_fixed_palette(small, palette)
+        small = apply_fixed_palette(small, palette, method=match)
         if verbose:
             print(f"  snapped to fixed palette ({len(palette)} colours)")
     elif colours > 0:
@@ -318,6 +390,12 @@ def main() -> int:
     p.add_argument("--palette", type=Path, help="fixed palette file (hex per line)")
     p.add_argument("--dither", action="store_true", help="Floyd-Steinberg dithering")
     p.add_argument(
+        "--match", default="weighted", choices=list(MATCH_METHODS),
+        help="how 'nearest colour' is decided when snapping to a fixed palette: "
+             "rgb (fast, perceptually worst), weighted (default), luma "
+             "(preserves the value ramp — best for remapping between unrelated "
+             "palettes), lab (most faithful, slowest)")
+    p.add_argument(
         "--alpha", type=int, metavar="TOL", nargs="?", const=10, default=None,
         help="key out edge-connected background, tolerance 0-255 (default 10)",
     )
@@ -356,7 +434,7 @@ def main() -> int:
             print(src.name)
         pixelize(
             src, dst, a.factor, a.reduce, a.colors, palette, a.dither,
-            a.alpha, a.upscale, phase, not a.quiet,
+            a.match, a.alpha, a.upscale, phase, not a.quiet,
         )
     return 0
 
