@@ -81,6 +81,44 @@ between candidates, which an overnight thermal-limited queue wants.
 matching prior failure, and a real symptom produced a confident wrong diagnosis.
 Nothing about it was checkable until both paths were run.
 
+### Batching changes nothing about the images, and that is provable
+
+The two paths were compared per candidate:
+
+| | sequential vs batch |
+|---|---|
+| candidate 0 | **byte-identical** |
+| candidates 1–3 | completely different |
+
+Candidate 0 matching to the byte is the whole answer. If batching coupled its
+samples in any way, the same seed in a batch of four could not produce exactly
+the image it produces alone.
+
+It cannot, because nothing in a diffusion UNet crosses the batch dimension.
+Convolutions slide within one image. Self-attention attends over one image's
+spatial positions; cross-attention attends to the text embedding. And SDXL
+normalises with **GroupNorm, not BatchNorm** — BatchNorm would couple samples,
+since it normalises using statistics computed across the batch, and that is the
+classic case where batch size changes results. Diffusion architectures use
+GroupNorm precisely so it does not.
+
+So batching is an execution strategy, not a different computation. The only
+thing that differs is which noise each slot receives: sequential steps the seed
+explicitly (90210, 90211, …), while a batch derives four noises from one seed by
+advancing its generator. Different samples, identical distribution.
+
+Measured diversity confirms it — mean pairwise difference 62.8 sequential
+against 65.6 batched, inside the spread of either — and mean gradient magnitude
+is 2.59 for both, to two decimal places.
+
+**Why batch is nevertheless faster** is the part that reverses the original
+guess. The pressure was assumed to be four latents resident at once. A latent at
+1024 is small; the checkpoint is 6.9 GB. Four separate graph executions read
+those weights from memory four times, and one batched pass reads them once for
+all four images. On unified memory, where bandwidth is the constraint rather
+than capacity, that is the dominant term — and it is the likely reason the
+sequential path recorded *more* than twice the swapins.
+
 ---
 
 ## Identity and references
