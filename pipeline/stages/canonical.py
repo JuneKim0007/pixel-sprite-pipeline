@@ -121,7 +121,17 @@ class CanonicalStage(Stage):
                 control_names["pose"] = (client.upload_image(guide), channel)
             if depth:
                 control_names["depth"] = (client.upload_image(depth), "depth")
-            print(f"   conditioned by {', '.join(control_names) or 'nothing'}")
+            # Say WHERE the geometry came from, not just that there was some.
+            # A skeleton synthesised from the rig and a skeleton traced off an
+            # annotated drawing are different claims about the output, and the
+            # log is the only place that distinction survives the run.
+            entries = ctx.artifacts.get("pose_frames") or []
+            origin = (entries[0] or {}).get("from_annotation") if entries else None
+            source = ctx.stage_config("pose").get("source", "library")
+            where = (f"annotation of {Path(origin).name}" if origin
+                     else f"{source} pose, {ctx.rig().label}")
+            print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
+                  f"  <- {where}")
 
         # Candidates go out as one batch by default, and the reason is a
         # correction rather than a design.

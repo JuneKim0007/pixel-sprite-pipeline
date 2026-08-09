@@ -135,9 +135,21 @@ def run(
     # Rest between GPU stages so a long queue does not hold the machine at its
     # throttle point all night. Counted up front so the last one can be skipped
     # - nothing follows it, so it protects nothing and only holds the queue.
-    gpu_batches = [b for b in batches
-                   if any(s.resource == Resource.GPU for s in b.stages)]
-    gpu_left = len(gpu_batches)
+    #
+    # "Last" has to mean the last one that will ACTUALLY RUN, not the last in
+    # the plan. A gated run stops early, and counting the whole plan made the
+    # stage before the gate look like it had work after it: `stop_after:
+    # canonical` slept three minutes and then returned, which is the exact
+    # opposite of what gating is for - you gate in order to look at something
+    # quickly.
+    executed = batches
+    if stop_after:
+        for i, b in enumerate(batches):
+            if stop_after in [s.name for s in b.stages]:
+                executed = batches[: i + 1]
+                break
+    gpu_left = sum(1 for b in executed
+                   if any(s.resource == Resource.GPU for s in b.stages))
 
     if skip and verbose:
         print(f"resuming — skipping completed: {', '.join(sorted(skip))}")

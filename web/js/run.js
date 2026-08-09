@@ -41,6 +41,55 @@ function stepper(onGo) {
 
 /* ------------------------------------------------------------------ steps */
 
+/* What the run will spend resting, before it is started rather than after.
+ *
+ * A pause that only appears in the log is one people discover by watching a
+ * run seem to hang. Editable here too: the reason to rest is thermal, and
+ * whoever is at the machine is the one who knows whether it matters today. */
+function coolingLine(cfg, rerender) {
+  const on = getPath(cfg, 'cooling.enabled') !== false;
+  const secs = Number(getPath(cfg, 'cooling.seconds') ?? 180);
+  const stages = getPath(cfg, 'pipeline.stages') || [];
+  const frames = Number(getPath(cfg, 'pose.frames')
+    ?? (getPath(cfg, 'pose.set') || []).length || 1);
+  const candidates = Number(getPath(cfg, 'canonical.candidates') ?? 1);
+  const batched = getPath(cfg, 'canonical.batch_candidates') !== false;
+
+  // Rests fall between GPU tasks: candidates inside the canonical (only when
+  // they are sequential), then frames, and never after the last one.
+  let tasks = 0;
+  if (stages.includes('canonical')) tasks += batched ? 1 : candidates;
+  if (stages.includes('frames')) tasks += frames;
+  const total = on && secs > 0 ? Math.max(0, tasks - 1) * secs : 0;
+
+  const box = el('div', { className: 'coolrow' });
+  const value = el('input', {
+    type: 'number', className: 'num', min: 0, max: 1800, step: 30,
+    value: on ? secs : 0,
+  });
+  value.onchange = () => {
+    const v = Math.max(0, Number(value.value));
+    state.draft['cooling.seconds'] = v;
+    state.draft['cooling.enabled'] = v > 0;
+    rerender();
+  };
+
+  box.append(
+    el('div', { className: 'key' }, 'Cooling'),
+    el('div', {},
+      el('div', { className: 'row' },
+        value, el('span', { className: 'mini', textContent: 's between GPU tasks' })),
+      el('p', { className: 'help', textContent: total
+        ? `${tasks} GPU task(s) — about ${Math.round(total / 60)} min of resting, `
+          + 'added to the generation time. Nothing needs the pause to work; it is '
+          + 'there so a long queue does not hold the machine at its throttle point.'
+        : tasks > 1
+          ? 'Off. The machine will run continuously.'
+          : 'One GPU task, so nothing to rest between.' })));
+  return box;
+}
+
+
 function reviewStep(rerender) {
   const cfg = draftConfig();
   const stages = getPath(cfg, 'pipeline.stages') || [];
@@ -62,7 +111,8 @@ function reviewStep(rerender) {
       summary('References', refs.length
         ? refs.map(([label, n]) => `${n} ${label.toLowerCase()}`).join(' · ')
         : 'canonical sprite only'),
-      summary('Palette', getPath(cfg, 'palette.source') || 'extract')));
+      summary('Palette', getPath(cfg, 'palette.source') || 'extract'),
+      coolingLine(cfg, rerender)));
 
   /* Gate picker — where the flow should pause for review. */
   const gateSel = el('select', { className: 'select' });

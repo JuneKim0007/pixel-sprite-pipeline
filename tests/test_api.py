@@ -104,6 +104,7 @@ def test_pipeline() -> None:
         ),
         "an artifact is required but never produced",
     ))
+    check("a gated run does not rest before it stops", _cooling_gate)
     check("gpu stages are marked", lambda: _assert(
         {n for n, s in registry.items() if s.resource == "gpu"} == {"canonical", "frames"},
         "GPU stage set changed — parallelism assumptions depend on this",
@@ -251,6 +252,38 @@ def _proportions_effective() -> None:
     _assert(thick_after[arm] == thick_before[arm],
             "scaling legs changed arm thickness")
 
+
+def _cooling_gate() -> None:
+    """Rests fall between GPU tasks that will actually run.
+
+    Counting the whole plan made the stage before a gate look like it had work
+    after it, so `stop_after: canonical` slept three minutes and then returned.
+    Gating exists so you can look at something quickly; a wrong sleep here is
+    invisible, because it presents as the machine being slow.
+    """
+    from pipeline import cooling, runner
+    from pipeline.stage import Resource
+
+    stages = runner.build(["pose", "depth", "canonical", "frames", "palette"])
+    batches = runner.plan(stages)
+
+    def gpu_after(stop_after):
+        executed = batches
+        if stop_after:
+            for i, b in enumerate(batches):
+                if stop_after in [s.name for s in b.stages]:
+                    executed = batches[: i + 1]
+                    break
+        return sum(1 for b in executed
+                   if any(s.resource == Resource.GPU for s in b.stages))
+
+    _assert(gpu_after(None) == 2, "expected canonical and frames to be GPU work")
+    _assert(gpu_after("canonical") == 1,
+            "a run gated at canonical still counted frames as upcoming")
+    _assert(cooling.estimate({}, gpu_after("canonical")) == 0,
+            "a gated run would rest before returning")
+    _assert(cooling.estimate({}, gpu_after(None)) > 0,
+            "an ungated two-stage run should rest once")
 
 def _softbody_stage() -> None:
     """The stage had unit-tested physics but had never actually executed.

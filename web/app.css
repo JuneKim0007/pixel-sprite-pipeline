@@ -1051,3 +1051,7 @@ input.wide { width: 100%; max-width: 420px; }
 .pilotstate.on b { color: var(--ok); }
 .refcard-weight { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
 .refweight { flex: 1; min-width: 0; }
+
+.coolrow { display: grid; grid-template-columns: 120px 1fr; gap: 14px; padding: 11px 0; }
+.coolrow .key { font-weight: 550; font-size: 13px; }
+.coolrow .row { align-items: center; gap: 8px; }

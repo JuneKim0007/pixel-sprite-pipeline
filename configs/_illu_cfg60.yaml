@@ -1,0 +1,85 @@
+# Illustrious retest at cfg 6.0, booru-tag prompt and negative.
+# Only cfg varies across the three. Delete after measuring.
+name: illu_cfg60
+module: character_sheet
+subject: a knight in steel armor
+style: pixel art, game sprite, plain flat background
+rig: humanoid
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: null
+comfy:
+  host: http://127.0.0.1:8188
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+depth:
+  near: 255
+  far: 60
+  blur: 6.0
+canonical:
+  seed: 20260809
+  lcm: false
+  steps: 30
+  cfg: 6.0
+  lora_strength: 1.2
+  width: 1024
+  height: 1024
+  candidates: 1
+  prompt: 1girl, solo, knight, full body, plate armor, standing, pixel art, game sprite,
+    chunky pixels, thick dark outline, flat colors, simple background, white background
+  negative: worst quality, low quality, blurry, jpeg artifacts, lowres, bad anatomy,
+    bad hands, watermark, signature, text, realistic, 3d, photo, smooth shading, gradient
+frames:
+  lcm: false
+  steps: 25
+  cfg: 7.0
+  lora_strength: 1.2
+  denoise: 1.0
+  width: 1024
+  height: 1024
+  controlnet:
+    strength: 0.75
+    start_percent: 0.0
+    end_percent: 0.55
+  depth_controlnet:
+    strength: 0.45
+    start_percent: 0.0
+    end_percent: 0.6
+  ip_adapter:
+    weight: 0.7
+    weight_type: style and composition
+    start_at: 0.0
+    end_at: 1.0
+references:
+  match:
+    auto: true
+    tolerance_degrees: 40
+    exact_weight: 0.85
+    far_weight: 0.45
+  identity:
+  - path: inputs/knight_front.png
+    view: front
+    weight_scale: 1
+  style: []
+  pose: []
+  palette: []
+palette:
+  source: extract
+  size: 16
+  factor: 8
+  reduce: median
+  alpha_tolerance: 14
+  upscale: 1
+export:
+  columns: 4
+  scale: 4
+styles:
+- retro_jrpg
+models:
+  checkpoint: illustrious-xl-v01.safetensors

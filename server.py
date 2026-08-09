@@ -65,8 +65,23 @@ def load_roundtrip(path: Path):
 
 
 def dump_roundtrip(data, path: Path) -> None:
-    with path.open("w") as fh:
-        _RT.dump(data, fh)
+    """Write via a temp file and rename, so a failure cannot truncate the file.
+
+    Opening the target with "w" truncates it before a single byte is written,
+    and what is being truncated here is a hand-authored document: a style sheet
+    or a config, carrying prose comments that exist nowhere else and are the
+    whole reason this round-trips instead of using safe_dump. A dump that
+    raised partway, or a process killed mid-write on a machine running long GPU
+    jobs, would take those with it. os.replace is atomic on the same
+    filesystem, so the original survives until a complete file exists.
+    """
+    tmp = path.with_name(f".{path.name}.tmp")
+    try:
+        with tmp.open("w") as fh:
+            _RT.dump(data, fh)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def global_cfg() -> dict:
@@ -229,8 +244,25 @@ def run_audit(run_dir: Path) -> dict:
     canonical = cfg.get("canonical") or {}
     palette = cfg.get("palette") or {}
 
+    # Where the pose geometry came from, read back from what the run recorded.
+    pose_cfg = cfg.get("pose") or {}
+    rig_source = pose_cfg.get("source", "library")
+    annotated = None
+    for meta in sorted(run_dir.glob("*_pose/pose.json")):
+        try:
+            data = json.loads(meta.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        first = (data.get("entries") or [{}])[0]
+        annotated = first.get("from_annotation")
+        break
+
     return {
         "protocol": cfg.get("module", "animation"),
+        "rig_source": rig_source,
+        "annotated_from": Path(annotated).name if annotated else "",
+        "proportions": cfg.get("proportions") or {},
+        "pose_fill": pose_cfg.get("fill"),
         "subject": cfg.get("subject", ""),
         "styles": list(cfg.get("styles") or []),
         "rig": cfg.get("rig", ""),
