@@ -70,8 +70,64 @@ class Prop:
         return cls(**data)
 
 
-def load(specs: Sequence[dict] | None) -> list[Prop]:
-    return [Prop.from_config(s) for s in (specs or []) if s]
+DIRNAME = "props"
+
+
+def discover(root) -> dict[str, dict]:
+    """Reusable prop definitions from props/*.yaml, keyed by name.
+
+    poses and palettes have had libraries since the beginning and props did
+    not, so every weapon had to be dimensioned by hand in the config that used
+    it — six numbers describing where a sword points, retyped per character.
+    A prop is exactly as reusable as a palette: a longsword is a longsword.
+    """
+    import yaml
+
+    base = root / DIRNAME
+    if not base.exists():
+        return {}
+    found: dict[str, dict] = {}
+    for path in sorted(base.rglob("*.yaml")):
+        try:
+            data = yaml.safe_load(path.read_text()) or {}
+        except yaml.YAMLError:
+            continue
+        for entry in (data.get("props") or []):
+            if isinstance(entry, dict) and entry.get("name"):
+                found[entry["name"]] = entry
+    return found
+
+
+def load(specs: Sequence[dict | str] | None, root=None) -> list[Prop]:
+    """Build props from a config block.
+
+    An entry may be a bare name from the library, or a dict. A dict carrying a
+    `from` key starts from the library entry and overrides it, so "a longsword
+    but shorter" costs one line instead of seven.
+    """
+    library = discover(root) if root is not None else {}
+    out: list[Prop] = []
+    for spec in (specs or []):
+        if not spec:
+            continue
+        if isinstance(spec, str):
+            if spec not in library:
+                raise KeyError(
+                    f"no prop '{spec}' in the library. Available: "
+                    f"{', '.join(sorted(library)) or '(none)'}")
+            entry = dict(library[spec])
+        elif spec.get("from"):
+            base_name = spec["from"]
+            if base_name not in library:
+                raise KeyError(
+                    f"prop '{spec.get('name', base_name)}' extends '{base_name}', "
+                    f"which is not in the library. Available: "
+                    f"{', '.join(sorted(library)) or '(none)'}")
+            entry = {**library[base_name], **{k: v for k, v in spec.items() if k != "from"}}
+        else:
+            entry = dict(spec)
+        out.append(Prop.from_config(entry))
+    return out
 
 
 def _normalise(vec: Sequence[float]) -> tuple[float, float, float]:

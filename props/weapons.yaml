@@ -1,0 +1,74 @@
+# Reusable weapon definitions. Reference one by name from a config:
+#
+#   props: [longsword, round_shield]
+#
+# or start from one and change a value:
+#
+#   props:
+#     - {from: longsword, name: greatsword, length: 0.46, width: 0.030}
+#
+# Dimensions are in body space, where 1.0 is the character's full height. A
+# prop is drawn as a tapered line into the depth map, so anything long and
+# thin works and anything broad comes out a slab - see the note in props.py.
+props:
+  - name: longsword
+    socket: r_wrist
+    aim: [0.0, 0.35, -1.0]
+    length: 0.34
+    width: 0.020
+    prompt: holding a longsword
+
+  - name: greatsword
+    socket: r_wrist
+    second_socket: l_wrist        # both hands pulled to the grip
+    aim: [0.0, 0.30, -1.0]
+    length: 0.48
+    width: 0.032
+    prompt: holding a two-handed greatsword
+
+  - name: dagger
+    socket: r_wrist
+    aim: [0.0, 0.35, -1.0]
+    length: 0.14
+    width: 0.014
+    prompt: holding a dagger
+
+  - name: staff
+    socket: r_wrist
+    aim: [0.0, 0.10, -1.0]
+    length: 0.62
+    width: 0.016
+    prompt: holding a long wooden staff
+
+  - name: spear
+    socket: r_wrist
+    second_socket: l_wrist
+    aim: [0.0, 0.25, -1.0]
+    length: 0.66
+    width: 0.014
+    prompt: holding a spear
+
+  - name: bow
+    socket: l_wrist
+    second_socket: r_wrist
+    aim: [0.0, 0.15, -1.0]
+    length: 0.46
+    width: 0.014
+    prompt: holding a long curved bow
+
+  - name: quiver
+    socket: neck
+    offset: [-0.09, -0.06, 0.06]
+    aim: [-0.25, -0.3, -1.0]
+    length: 0.20
+    width: 0.030
+    prompt: a quiver of arrows on the back
+
+  - name: whip
+    socket: r_wrist
+    aim: [0.0, 0.30, -0.6]
+    length: 0.52
+    width: 0.010
+    flex: 0.7                     # sags along its length rather than staying rigid
+    segments: 6
+    prompt: holding a coiled whip

@@ -115,7 +115,7 @@ class PoseStage(Stage):
                 entry["crop"] = ann.infer_crop(annotation)
                 continue
 
-            props = props_mod.load(ctx.config.get("props"))
+            props = props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props:
                 entry["pose"] = props_mod.pull_second_hand(props, entry["pose"], rig)
             fill = float(opt(cfg, "fill", 0.0) or 0.0)

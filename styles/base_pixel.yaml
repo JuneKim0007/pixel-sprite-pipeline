@@ -11,9 +11,9 @@ vocabulary:
 
 modules:
   character_sheet:
-    style: "{medium}, {render}, clean reference pose, plain flat background"
+    style: "{medium}, {render}, clean reference pose, full body, head to feet visible, centred"
   animation:
-    style: "{medium}, {render}, plain flat background"
+    style: "{medium}, {render}, full body, head to feet visible"
 
 settings:
   # The generation canvas belongs to the style, because it has to agree with
