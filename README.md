@@ -7,6 +7,14 @@ sides, in a fixed palette.
 Everything runs on your own machine. No API key, no per-image cost, no content
 filter, no upload. Built and benchmarked on Apple Silicon (M-series, 16 GB).
 
+Today it does **2D character illustration and animation**. UI elements and
+tilemaps are what I am working toward next.
+
+**There is no hosted version, and there is not going to be one.** Serving this
+would mean renting GPUs to generate other people's sprites, which costs real
+money per image — and the whole point is that the models are open weights that
+run on hardware you already own. So it runs on your laptop instead of my bill.
+
 ---
 
 ## What it actually does
@@ -90,6 +98,12 @@ name, so save them exactly as shown.
 
 A separate fp16-fix VAE is not optional: SDXL's baked-in VAE overflows in fp16
 and decodes to black or NaN on some backends.
+
+**These are the weights I happen to use, not the only ones that work.** They are
+all open weights, and I picked this set because it captures the art style I am
+personally going for. Everything here is swappable — if you want a different
+look, download different open weights and point the config at them. See
+[Using a different checkpoint](#using-a-different-checkpoint) below.
 
 **Ollama is optional.** It is only used if you want an LLM to draft new poses.
 Everything else works without it.
@@ -186,6 +200,41 @@ logical pixel. A bigger factor is blockier, a smaller one is fussier.
 | `palette.size` | 40 → 20 | **free** | larger flat areas — often what "chunkier" means |
 | `pose.fill` | → 0.88 | **free** | figure fills the frame instead of 68% of it |
 
+### Using a different checkpoint
+
+The weights in the setup table are the ones I use, chosen because they capture
+the art style I am going for. They are not the only open weights that work —
+any SDXL-family checkpoint can be dropped into `ComfyUI/models/checkpoints/`
+and named in `models.checkpoint`.
+
+**If you want a chunkier, flatter look, Illustrious XL is the one I would try.**
+Measured here on the same seed, same prompt, same LoRA, changing only the
+checkpoint:
+
+| | native block | native detail | sprite | reduction |
+|---|---|---|---|---|
+| Illustrious XL | **4 px** | 256 px | 128 px | **2.0 : 1** |
+| SDXL base | 2 px | 512 px | 128 px | 4.0 : 1 |
+
+That last column is what matters. It is how many logical pixels get averaged
+into each output pixel — at 2:1 an output pixel decides between four inputs, at
+4:1 it averages sixteen. Averaging sixteen hand-sized details into one pixel is
+what "the dots look broken" actually is: structure destroyed before it can be
+quantised, not noise added after. Illustrious draws at roughly the feature scale
+this kind of work wants.
+
+**The catch, so you do not waste a night on it:** at SDXL's CFG of 7.5 it
+oversaturates and crushes blacks, giving a colour cast. Anime finetunes
+generally want CFG 4–6, and it is trained on booru tags rather than natural
+language. The shipped `_illu_cfg40` / `_illu_cfg50` / `_illu_cfg60` configs
+sweep exactly that. SDXL base stays the default here only because that sweep
+has not been run to conclusion.
+
+The general lesson transfers to any checkpoint you try: **look at the block size
+the model natively draws in**, not at how good its samples look at full
+resolution. A model that draws coarser gives you a gentler reduction for free,
+and no palette setting recovers detail that reduction already destroyed.
+
 ### Style sheets
 
 A look is a reusable file, not a prompt you paste around. Five ship with the
@@ -221,6 +270,8 @@ identity, not composition.
 - **Character sheets** — one character, four labelled views, consistent identity
 - **Animations** — one action as N temporally related frames, with props placed
   at the hand the rig knows about
+- **Swappable open weights** — nothing is hardcoded to one model; point the
+  config at a different checkpoint, LoRA or VAE for a different style
 - **Deterministic pixelization** — grid-phase detection, block reduction, and
   palette snapping, validated against synthetic ground truth
 - **Fixed palettes** — bring a `.hex` file (PICO-8 and DawnBringer-32 included)
@@ -239,17 +290,32 @@ identity, not composition.
 
 ## Roadmap
 
+**Where it is now:** 2D character illustration and animation, which work end to
+end.
+
+**What I am building next:**
+
+- **UI elements** — buttons, frames, panels, icons. Different problem from
+  characters: no rig, and the constraint is crisp edges at small sizes rather
+  than anatomy.
+- **Tilemaps** — seamless, edge-matched tiles. There is experimental tileset
+  support already; making it reliable is the work.
+
+**Further out:**
+
 - **A character LoRA trained from generated frames.** Identity conditioning is
   strong but not a guarantee; a LoRA trained on ~20 frames of a character is.
   The training-data preparation already exists.
-- **Frame-to-frame coherence for animation.** Currently each frame is
-  independently conditioned. Real in-betweening wants an external rigging step.
-- **Tilesets and backgrounds** beyond the current experimental support.
-- **Non-Apple-Silicon paths.** Everything is CUDA-compatible in principle;
-  only the launcher flags and the benchmarks are Metal-specific today.
-- **A faster base checkpoint.** A model that natively draws in coarser blocks
-  would cut the reduction ratio for free, which is the main source of mush at
-  small sprite sizes.
+- **Frame-to-frame coherence for animation.** Each frame is currently
+  conditioned independently. Real in-betweening wants an external rigging step.
+- **Finishing the checkpoint sweep.** A model drawing in coarser native blocks
+  cuts the reduction ratio for free, which is the main source of mush at small
+  sprite sizes. See [Using a different checkpoint](#using-a-different-checkpoint).
+- **Non-Apple-Silicon paths.** Everything is CUDA-compatible in principle; only
+  the launcher flags and the benchmarks are Metal-specific today.
+
+**Not planned:** a hosted service. See above — the economics only work because
+you run it yourself.
 
 ---
 
