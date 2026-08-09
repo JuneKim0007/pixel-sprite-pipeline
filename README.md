@@ -5,6 +5,16 @@ Built and benchmarked on **M4 / 16 GB / macOS 15.5**.
 
 ---
 
+## Documentation
+
+| file | for |
+|---|---|
+| `CONFIGURING.md` | changing settings for a different sprite size or look. Start here. |
+| `STYLES.md` | the style-sheet format, and what a "look" is allowed to contain |
+| `DECISIONS.md` | every default that was measured rather than guessed, and the measurement |
+| `PIPELINE.md` | how the stages fit together |
+| `AGENTS.md` | working in this repository, for an AI assistant or a new contributor |
+
 ## Why this shape
 
 Diffusion models cannot actually draw pixel art. They draw a *picture of*
