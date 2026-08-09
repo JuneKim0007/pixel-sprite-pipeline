@@ -124,6 +124,10 @@ class FramesStage(Stage):
         seed = opt(cfg, "seed", ctx.stage_config("canonical").get("seed", 1234))
 
         rig = ctx.rig()
+        # The adapter and ControlNet files are settings for the same reason the
+        # checkpoint is: they have to match the checkpoint's family, and a
+        # mismatched pair produces plausible nonsense rather than an error.
+        models = ctx.config.get("models") or {}
         cn = opt(cfg, "controlnet", {})
         ip = opt(cfg, "ip_adapter", {})
         outdir = ctx.stage_dir("frames")
@@ -172,8 +176,15 @@ class FramesStage(Stage):
             )
             # Turning off automatic falloff pins every frame to the fixed
             # Identity weight instead of deriving it from angular distance.
+            #
+            # The per-image scale applies either way. It used to be dropped on
+            # the manual path — pick() multiplies it in, and this branch threw
+            # that away — so every weight slider in the UI was silently
+            # ignored the moment automatic matching was turned off. A control
+            # that does nothing is worse than one that is not there.
             auto = bool(opt(match_cfg, "auto", True))
-            weight = auto_weight if auto else float(opt(ip, "weight", 0.85))
+            weight = (auto_weight if auto
+                      else float(opt(ip, "weight", 0.85)) * chosen.weight_scale)
 
             ref = g.out(g.add("LoadImage", image=uploaded[chosen.path]), 0)
             model = comfy.apply_ipadapter(
@@ -182,6 +193,7 @@ class FramesStage(Stage):
                 weight_type=opt(ip, "weight_type", "style and composition"),
                 start_at=opt(ip, "start_at", 0.0),
                 end_at=opt(ip, "end_at", 1.0),
+                ipadapter=models.get("ipadapter"),
             )
 
             # Only the humanoid rig has a matching OpenPose model. Every other
@@ -201,6 +213,7 @@ class FramesStage(Stage):
                     weight=refs_mod.style_weight([exemplar], opt(cfg, "style_weight", None)),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
+                    ipadapter=models.get("ipadapter"),
                 )
 
             channel = opt(cn, "union_type", None) or rig.skeleton_control
@@ -218,6 +231,7 @@ class FramesStage(Stage):
                     start_percent=opt(cn, "start_percent", 0.0),
                     end_percent=opt(cn, "end_percent", 0.55),
                     union_type=channel,
+                    controlnet=models.get("controlnet"),
                 )
 
             # Depth stacks on top of pose when the depth stage ran. Both use
@@ -234,6 +248,7 @@ class FramesStage(Stage):
                     start_percent=opt(dcn, "start_percent", 0.0),
                     end_percent=opt(dcn, "end_percent", 0.6),
                     union_type="depth",
+                    controlnet=models.get("controlnet"),
                 )
 
             comfy.sample_and_save(

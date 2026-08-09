@@ -26,11 +26,11 @@ from ..stage import Context, Resource, Stage, opt, register
 
 def _one_frame(args: tuple) -> str:
     """Pool worker. Arguments stay primitive so they pickle cheaply."""
-    src, dst, factor, reduce, palette, alpha_tol, upscale = args
+    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase = args
     pixelize(
         Path(src), Path(dst), factor, reduce,
-        colours=0, palette=palette, dither=False,
-        alpha_tol=alpha_tol, upscale=upscale, phase=None, verbose=False,
+        colours=0, palette=palette, dither=dither,
+        alpha_tol=alpha_tol, upscale=upscale, phase=phase, verbose=False,
     )
     return dst
 
@@ -79,10 +79,31 @@ class PaletteStage(Stage):
             print(f"   extracted {len(palette)} colours from the canonical's subject")
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
+        # Both of these were pinned to their off values, which made two of
+        # pixelize's features unreachable from a pipeline run.
+        #
+        # dither trades flat blocks for apparent colour depth. Off suits the
+        # chunky RPG-Maker idiom, but a 16-colour sprite with a gradient needs
+        # it, and the choice belongs to the style sheet.
+        #
+        # phase is the pixel grid's origin. Searching it per frame is correct
+        # when frames are independent, but an animation wants ONE origin for
+        # the whole sequence or the grid shifts by a pixel between frames and
+        # the sprite shimmers. Locking it to the canonical's phase is what
+        # stops that, so `auto` here means "measure once, apply to all".
+        dither = bool(opt(cfg, "dither", False))
+        phase_mode = opt(cfg, "phase", "per_frame")
+        shared_phase = None
+        if phase_mode == "locked":
+            arr = np.asarray(Image.open(canonical).convert("RGB"))
+            shared_phase = find_phase(arr, factor)
+            print(f"   grid phase locked to the canonical at {shared_phase}")
+
         jobs = [
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
                 factor, reduce, palette, alpha_tol, upscale,
+                dither, shared_phase,
             )
             for src in frames
         ]

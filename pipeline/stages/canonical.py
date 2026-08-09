@@ -60,8 +60,15 @@ class CanonicalStage(Stage):
             models=ctx.config.get("models") or {},
         )
 
-        latent = None
-        denoise = 1.0
+        # No img2img from an identity reference, deliberately. Those are
+        # usually illustrations, and denoising from one traces its rendering —
+        # gradients, soft edges, anti-aliasing — which is the opposite of a
+        # sprite. Identity goes through IP-Adapter only and the pixelation
+        # comes from generation, so this samples from noise every time.
+        #
+        # comfy.encode_image is kept for the illustrate → pixelise pass, which
+        # is a different thing: there the source is already in the target style
+        # and tracing it is the point.
         if chosen is not None:
             ref_name = client.upload_image(chosen.path)
             ref_img = g.out(g.add("LoadImage", image=ref_name), 0)
@@ -70,6 +77,7 @@ class CanonicalStage(Stage):
                 weight=float(opt(from_ref, "weight", chosen.base_weight)),
                 weight_type=opt(from_ref, "weight_type", "style and composition"),
                 start_at=0.0, end_at=1.0,
+                ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
             )
 
         # Style exemplars ride on top at a much lower weight: they say how the
@@ -81,14 +89,10 @@ class CanonicalStage(Stage):
                 weight=refs_mod.style_weight([exemplar], opt(cfg, "style_weight", None)),
                 weight_type="style transfer",
                 start_at=0.0, end_at=0.8,
+                ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
             )
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
-            # Deliberately no img2img from an identity reference. Those are
-            # usually illustrations, and denoising from one traces its
-            # rendering — gradients and soft edges — which is the opposite of
-            # a sprite. The pixelation has to come from generation.
-            denoise = 1.0
 
         batch = max(1, int(opt(cfg, "candidates", 1)))
         comfy.sample_and_save(
@@ -99,8 +103,7 @@ class CanonicalStage(Stage):
             steps=opt(cfg, "steps", 8 if lcm else 25),
             cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
             lcm=lcm,
-            denoise=denoise,
-            latent=latent,
+            denoise=1.0,
             sampler=opt(cfg, "sampler", None),
             scheduler=opt(cfg, "scheduler", None),
             prefix=f"{ctx.run_id}_canonical",

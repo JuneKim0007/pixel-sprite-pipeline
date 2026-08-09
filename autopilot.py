@@ -188,6 +188,9 @@ def work(args) -> int:
             queue.move(job, q.DONE, run_id=run_id, seconds=round(took, 1))
             log(f"✓ {job.id} in {took / 60:.1f}m"
                 + (f" — queued {queued} follow-up(s)" if queued else ""))
+            if args.once:
+                log("--once: one job done — exiting")
+                return 0
             continue
 
         # 4. One retry absorbs a transient fault; a second failure is real.
@@ -255,8 +258,11 @@ def main() -> int:
 
     if a.status:
         return show_status()
+    # --once used to set --drain, which means "exit when the queue empties" —
+    # so it ran every job in the queue rather than one. The loop now returns
+    # after the first job completes; drain still means drain.
     if a.once:
-        a.drain = True
+        a.drain = True          # so an empty queue exits rather than idling
     return work(a)
 
 

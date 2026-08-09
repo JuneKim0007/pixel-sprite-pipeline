@@ -126,6 +126,7 @@ def test_pipeline() -> None:
     print("\nstages that had no coverage")
     check("softbody runs as a stage, not just as physics", _softbody_stage)
     check("reference weight falls off with angular distance", _reference_falloff)
+    check("a per-image weight survives both matching modes", _reference_weight_scale)
 
     print("\nauto-rig")
     check("multi-pass keying removes a layered background", _keying_layers)
@@ -223,6 +224,29 @@ def _reference_falloff() -> None:
 
     chosen, _, _ = pick(refs, 170, tolerance=40)
     _assert(chosen.label == "rear", "the nearer reference was not chosen")
+
+
+def _reference_weight_scale() -> None:
+    """A per-image weight must survive both matching modes.
+
+    The manual path used to read the configured Identity weight raw and drop
+    the per-image scale that pick() had already multiplied in, so every weight
+    slider in the UI did nothing the moment automatic matching was switched
+    off. A control that is present and inert is worse than an absent one.
+    """
+    from pipeline.references import Reference, pick
+
+    plain = Reference(path=Path("a.png"), yaw=0, label="front")
+    scaled = Reference(path=Path("a.png"), yaw=0, label="front", weight_scale=0.5)
+
+    _, full, _ = pick([plain], 0, tolerance=40, exact_weight=0.8)
+    _, half, _ = pick([scaled], 0, tolerance=40, exact_weight=0.8)
+    _assert(abs(full - 0.8) < 1e-9, f"unscaled weight was {full}")
+    _assert(abs(half - 0.4) < 1e-9, f"scaled weight was {half}, expected 0.4")
+
+    # And the manual branch, as frames.py computes it.
+    manual = 0.85 * scaled.weight_scale
+    _assert(abs(manual - 0.425) < 1e-9, "manual path must apply the scale too")
 
 
 def _keying_layers() -> None:
