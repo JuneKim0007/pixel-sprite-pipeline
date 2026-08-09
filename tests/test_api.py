@@ -137,6 +137,7 @@ def test_pipeline() -> None:
     check("two-handed props pull the off hand to the grip", _prop_two_handed)
     check("props never draw darker than the body floor", _prop_floor)
     check("props reach the depth map and the prompt", _prop_wired)
+    check("a sheet drops its weapons, an animation keeps them", _prop_module_default)
 
     print("\nstyles and annotation are actually wired")
     check("style layer composes and the pipeline still wins", _styles_layer)
@@ -284,6 +285,43 @@ def _cooling_gate() -> None:
             "a gated run would rest before returning")
     _assert(cooling.estimate({}, gpu_after(None)) > 0,
             "an ungated two-stage run should rest once")
+
+def _prop_module_default() -> None:
+    """The same prop list serves both modules and they want opposite things.
+
+    A sheet is a reference document: a weapon occludes the torso it crosses and
+    is a long rigid volume the model traces instead of the limb behind it. An
+    attack animation without its weapon is an arm swinging at nothing. So the
+    default is per module, which is exactly the kind of default that gets
+    inverted by a later edit and never noticed.
+    """
+    from types import SimpleNamespace
+
+    from pipeline import props as props_mod
+
+    def ctx(config):
+        return SimpleNamespace(config=config)
+
+    _assert(not props_mod.wanted(ctx({"module": "character_sheet"})),
+            "a character sheet drew its props by default")
+    _assert(props_mod.wanted(ctx({"module": "animation"})),
+            "an animation dropped its props by default")
+    _assert(props_mod.wanted(ctx({"module": "character_sheet",
+                                  "props": {"enabled": True}})),
+            "props.enabled: true did not override the sheet default")
+    _assert(not props_mod.wanted(ctx({"module": "animation",
+                                      "props": {"enabled": False}})),
+            "props.enabled: false did not override the animation default")
+
+    # Both config shapes have to load, since the mapping form is what carries
+    # the switch and it used to fail with "no prop 'enabled' in the library".
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    flat = props_mod.load(["bow"], root=root)
+    mapped = props_mod.load({"enabled": False, "items": ["bow"]}, root=root)
+    _assert([p.name for p in flat] == [p.name for p in mapped] == ["bow"],
+            "the two config shapes disagree")
 
 def _softbody_stage() -> None:
     """The stage had unit-tested physics but had never actually executed.

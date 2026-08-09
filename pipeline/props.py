@@ -73,6 +73,40 @@ class Prop:
 DIRNAME = "props"
 
 
+def wanted(ctx) -> bool:
+    """Whether this module should draw the configured props at all.
+
+    A character sheet and an animation want opposite things from the same
+    prop list, and the list is written once per character.
+
+    A sheet is a reference document. Its job is to show the body clearly from
+    four sides so everything downstream can match it, and a weapon works
+    against that on both channels: it occludes the torso and arm it crosses,
+    and it is a long rigid volume in the depth map that the model will happily
+    trace instead of the limb behind it. The sheet is also where a wrongly
+    placed prop does the most damage, because every animation inherits from it.
+
+    An attack animation is the opposite case: the weapon is the subject of the
+    motion, and without it the arm swings at nothing.
+
+    So the default is per module rather than global, and `props.enabled` (or
+    `props_enabled`) overrides it either way. Splitting weapons into their own
+    layer and compositing them is the other half of this, and belongs to the
+    editor rather than to generation.
+    """
+    from .stage import opt
+
+    cfg = ctx.config.get("props")
+    if isinstance(cfg, dict):
+        explicit = opt(cfg, "enabled", None)
+        if explicit is not None:
+            return bool(explicit)
+    explicit = ctx.config.get("props_enabled")
+    if explicit is not None:
+        return bool(explicit)
+    return ctx.config.get("module", "animation") != "character_sheet"
+
+
 def discover(root) -> dict[str, dict]:
     """Reusable prop definitions from props/*.yaml, keyed by name.
 
@@ -98,13 +132,25 @@ def discover(root) -> dict[str, dict]:
     return found
 
 
-def load(specs: Sequence[dict | str] | None, root=None) -> list[Prop]:
+def load(specs, root=None) -> list[Prop]:
     """Build props from a config block.
 
     An entry may be a bare name from the library, or a dict. A dict carrying a
     `from` key starts from the library entry and overrides it, so "a longsword
     but shorter" costs one line instead of seven.
+
+    The block itself may also be a mapping with a switch, which is the shape a
+    character sheet wants:
+
+        props: [longsword]
+        props: {enabled: false, items: [longsword]}
+
+    Without this the mapping form was read as a list of prop names and failed
+    with "no prop 'enabled' in the library", which is a confusing way to learn
+    that a reasonable-looking config is not the accepted one.
     """
+    if isinstance(specs, dict):
+        specs = specs.get("items") or specs.get("props") or []
     library = discover(root) if root is not None else {}
     out: list[Prop] = []
     for spec in (specs or []):

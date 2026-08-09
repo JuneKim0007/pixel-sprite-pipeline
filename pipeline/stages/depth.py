@@ -43,6 +43,8 @@ class DepthStage(Stage):
         outdir = ctx.stage_dir("depth")
         rig = ctx.rig()
         props = props_mod.load(ctx.config.get("props"), root=ctx.root)
+        if props and not props_mod.wanted(ctx):
+            props = []
         if props:
             print(f"   props: {props_mod.describe(props)}")
 

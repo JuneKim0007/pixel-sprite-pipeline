@@ -137,7 +137,8 @@ class FramesStage(Stage):
         # Props are drawn into the depth map AND named here: the geometry says
         # where, the words say what.
         held = props_mod.prompt_terms(
-            props_mod.load(ctx.config.get("props"), root=ctx.root))
+            props_mod.load(ctx.config.get("props"), root=ctx.root)
+            if props_mod.wanted(ctx) else [])
         bg = ctx.config.get("background") or {}
         backdrop = None if opt(bg, "enabled", True) is False else opt(
             bg, "colour", comfy.BACKDROP)

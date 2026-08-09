@@ -463,6 +463,14 @@ FIELDS: list[dict[str, Any]] = [
     # --------------------------------------------------------------- props
     # Props live in a list editor (see fields.js); this entry documents the
     # group so the settings sidebar has somewhere to put it.
+    {"path": "props.enabled", "label": "Draw held objects", "type": "bool",
+     "group": "Props",
+     "help": "Off by default for a character sheet, on for an animation, and "
+             "the same prop list serves both. A sheet is a reference document "
+             "- a weapon occludes the torso and arm it crosses, and is a long "
+             "rigid volume the model will trace instead of the limb behind it. "
+             "An attack animation is the opposite: without the weapon the arm "
+             "swings at nothing."},
     {"path": "props._doc", "label": "Held objects", "type": "text",
      "group": "Props",
      "help": "Objects attached to a joint, inheriting its motion. Drawn into "
