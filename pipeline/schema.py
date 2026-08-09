@@ -88,10 +88,14 @@ FIELDS: list[dict[str, Any]] = [
 
     # ---------------------------------------------------------------- pose
     {"path": "pose.source", "label": "Pose source", "type": "select",
-     "options": ["library", "llm", "tpose"], "group": "Pose",
+     "options": ["library", "llm", "tpose", "annotation"], "group": "Pose",
      "help": "'library' uses hand-authored poses (best quality). 'llm' drafts "
              "a new action from text and caches it. 'tpose' synthesises the "
-             "rig's reference pose — what a character sheet uses."},
+             "rig's reference pose — what a character sheet uses. 'annotation' "
+             "takes the pose from a reference image you marked up: the joints "
+             "you placed become the control image, so the generation "
+             "reproduces that composition with your character in it. Mark one "
+             "up in the Run tab under 'Annotate reference'."},
     {"modules": ["animation"], "path": "pose.name", "label": "Library pose", "type": "select",
      "options_from": "poses", "group": "Pose", "when": {"pose.source": "library"},
      "help": "A file in poses/. Regenerate with tools/make_poses.py."},
