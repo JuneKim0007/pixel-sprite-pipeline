@@ -52,10 +52,49 @@ Same seed, same prompt, same everything but `models.checkpoint`. SDXL base
 produced a coherent pixel-art knight; Illustrious produced a blue-green cast
 with crushed blacks and a cropped composition.
 
-That is the signature of a **VAE mismatch**, not a verdict on the checkpoint —
-it was borrowing SDXL's fp16-fix VAE and being fed natural-language prompts
-rather than booru tags. A fair test needs its own VAE and tag prompts.
-`models.vae` exists for that. **SDXL base remains the default.**
+**That judgement was half wrong, and the half that was wrong matters more.**
+
+The colour is broken. The *structure* is better, and measurably so. The two A/B
+configs differ in exactly one field, so this is a clean comparison:
+
+| | canvas | native block | native detail | factor | sprite | reduction |
+|---|---|---|---|---|---|---|
+| Illustrious | 1024 | **4 px** | 256 px | 8 | 128 px | **2.0 : 1** |
+| SDXL | 1024 | 2 px | 512 px | 8 | 128 px | 4.0 : 1 |
+
+Illustrious draws in blocks twice as large. Same LoRA at the same strength,
+same seed, same prompt — the checkpoint's own feature scale differs.
+
+That ratio in the last column is the thing to watch, and it had not been named
+before. "Native detail" is how many logical pixels the model actually drew;
+"reduction" is how many of them get averaged into one output pixel. At 2 : 1
+each output pixel is a decision between four inputs. At 4 : 1 it is an average
+of sixteen, and at 5 : 1 — which is where a 1280 canvas at factor 10 lands —
+twenty-five. Averaging twenty-five hand-sized details into one pixel is what
+"the dots look broken" is: it is not noise being added, it is structure being
+destroyed before it can be quantised.
+
+This is why the chunkier, flatter look is hard to reach on SDXL by tuning the
+reduction. You cannot make the reduction gentler without either shrinking the
+canvas (SDXL degrades below 1024) or accepting a larger sprite. The lever that
+would actually work is making the model draw bigger blocks, which is what a
+different checkpoint or a stronger pixel LoRA does.
+
+**The colour failure is still real and still unexplained.** Three candidates,
+none tested, ranked by likelihood:
+
+1. **CFG.** Anime finetunes usually want 4–6 where SDXL base wants 7–7.5, and
+   at 7.5 they oversaturate and crush blacks — which is exactly the symptom.
+   Free to test.
+2. **Prompt idiom.** Illustrious is trained on booru tags; natural language is
+   out of distribution for it.
+3. **VAE.** Least likely — Illustrious is SDXL architecture and the fp16-fix
+   VAE should decode it — but `models.vae` exists to rule it out.
+
+**SDXL base remains the default until that test happens.** But the reason to
+run it is now stronger than "the other one collapsed": one of these two draws
+at the feature scale this project is trying to reach, and it is not the one
+currently selected.
 
 ### Batched candidates beat sequential ones here, and the first diagnosis was wrong
 

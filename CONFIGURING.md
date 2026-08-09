@@ -34,6 +34,25 @@ larger size, not the same art bigger. To get the same chunkiness at 256 you must
 double the canvas, and SDXL is trained at 1024 — beyond about 1280 it starts
 repeating anatomy.
 
+### The ratio that decides whether it looks broken
+
+The factor alone does not tell you the whole story. What matters is how much
+detail the model drew before you reduced it:
+
+    reduction = (canvas ÷ the model's native block size) ÷ sprite size
+
+Measured on this machine, SDXL with the pixel LoRA at strength 1.2 draws in
+**2-pixel blocks**, so a 1024 canvas holds 512 logical pixels of real detail.
+Reducing that to 128 averages sixteen of them into each output pixel. At a 1280
+canvas and factor 10 it is twenty-five.
+
+That averaging is what "the dots look broken" means: structure destroyed before
+quantisation, not noise added after it. A checkpoint that draws in 4-pixel
+blocks halves the problem for free — see `DECISIONS.md`.
+
+If your output looks mushy and no palette setting fixes it, this ratio is
+usually why. Either accept a larger sprite, or use a model that draws coarser.
+
 Everything below assumes you have picked a row from that table first.
 
 ---
