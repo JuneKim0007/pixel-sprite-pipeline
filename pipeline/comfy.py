@@ -39,6 +39,39 @@ NEGATIVE = (
     "deformed, low contrast, muddy colors"
 )
 
+# Naming the backdrop beats asking for a "plain" one, and it closes a loop.
+#
+# "plain flat background" is a description the model interprets, and it
+# interprets it as a lit studio: a soft gradient with a cast shadow, which is
+# what a sprite on a grey card actually looks like. Naming a specific saturated
+# colour gives it a target instead of an adjective.
+#
+# The second half is the part that matters. The palette stage keys the
+# background out by flooding from the corners and guessing what colour it
+# found. If the prompt named the colour, the keyer does not have to guess — it
+# removes that exact hue. Prompt and post-process stop being two independent
+# hopes and become one instruction.
+#
+# Magenta rather than the traditional chroma green: green sits close to the
+# skin, foliage and cloth tones that show up in sprites, and every pixel it
+# bleeds into along an anti-aliased edge is a pixel the palette then has to
+# spend an entry on.
+BACKDROP = "#FF00FF"
+BACKDROP_TERMS = (
+    "solid flat {colour} chroma key background, uniform background colour, "
+    "no shadow, no gradient, no ground plane"
+)
+BACKDROP_NEGATIVE = (
+    "cast shadow, drop shadow, ground shadow, floor, ground plane, vignette, "
+    "background gradient, studio lighting, environment, scenery, backdrop "
+    "texture"
+)
+
+
+def backdrop_prompt(colour: str | None) -> str:
+    return BACKDROP_TERMS.format(colour=colour or BACKDROP)
+
+
 # An OpenPose control image is a figure drawn out of coloured sticks, and a
 # model told to follow it closely will sometimes draw those sticks: the output
 # comes back as a bony, undead-looking figure instead of the subject wearing

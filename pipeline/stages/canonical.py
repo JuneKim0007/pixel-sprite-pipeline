@@ -62,8 +62,12 @@ class CanonicalStage(Stage):
         default_style = "pixel art, game sprite, side view, plain flat background"
         style = ctx.config.get("style", default_style)
         hint = ctx.rig().prompt_hint
+        bg = ctx.config.get("background") or {}
+        backdrop = None if opt(bg, "enabled", True) is False else opt(
+            bg, "colour", comfy.BACKDROP)
         prompt = cfg.get("prompt") or ", ".join(
-            p for p in (subject, hint, style) if p)
+            p for p in (subject, hint, style,
+                        comfy.backdrop_prompt(backdrop) if backdrop else "") if p)
         lcm = bool(opt(cfg, "lcm", False))
 
         # A reference may shape the anchor itself, not just the frames derived
@@ -82,7 +86,9 @@ class CanonicalStage(Stage):
         model, pos, neg, vae = comfy.base_graph(
             g,
             prompt=prompt,
-            negative=opt(cfg, "negative", comfy.NEGATIVE),
+            negative=", ".join(p for p in (
+                opt(cfg, "negative", comfy.NEGATIVE),
+                comfy.BACKDROP_NEGATIVE if backdrop else "") if p),
             lora_strength=opt(cfg, "lora_strength", 1.2),
             lcm=lcm,
             models=ctx.config.get("models") or {},
@@ -103,7 +109,7 @@ class CanonicalStage(Stage):
             model = comfy.apply_ipadapter(
                 g, model, ref_img,
                 weight=float(opt(from_ref, "weight", chosen.base_weight)),
-                weight_type=opt(from_ref, "weight_type", "style and composition"),
+                weight_type=opt(from_ref, "weight_type", "linear"),
                 start_at=0.0, end_at=1.0,
                 ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
             )

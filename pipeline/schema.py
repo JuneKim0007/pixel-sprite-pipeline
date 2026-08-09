@@ -280,6 +280,18 @@ FIELDS: list[dict[str, Any]] = [
      "min": 1, "max": 16, "group": "Palette",
      "help": "Blank uses one per core. Frames are independent."},
 
+    {"path": "background.colour", "label": "Backdrop colour", "type": "text",
+     "group": "Palette",
+     "help": "Named in the prompt and removed by the keyer, so the two agree. "
+             "Asking for a 'plain' background gets a lit studio card with a "
+             "cast shadow, because that is what the words describe. Magenta "
+             "rather than chroma green: green sits close to skin and cloth "
+             "tones, and every pixel it bleeds into is one the palette has to "
+             "spend an entry on."},
+    {"path": "background.enabled", "label": "Force a backdrop", "type": "bool",
+     "group": "Palette",
+     "help": "Off leaves the background to the prompt, which is what you want "
+             "if a scene is part of the art."},
     {"path": "palette.match", "label": "Colour matching", "type": "select",
      "options": ["weighted", "luma", "lab", "rgb"], "group": "Palette",
      "help": "How 'nearest colour' is decided when snapping to a fixed "

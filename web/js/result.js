@@ -26,6 +26,87 @@ const STAGE_NOTE = {
 
 const viewModes = new Map();   // stage dir -> 'grid' | 'anim' | 'sheet'
 
+/* ------------------------------------------------------------- history
+ *
+ * A banner of everything made, newest first, above the run it is showing.
+ * The Result tab used to depend entirely on the sidebar's run picker, which
+ * is a dropdown of timestamps — you cannot recognise a sprite by its
+ * timestamp, and comparing two attempts meant switching, remembering, and
+ * switching back.
+ *
+ * Each card carries a thumbnail and its protocol, because those are the two
+ * things that distinguish one run from another at a glance: what it made and
+ * what kind of thing it was. The audit strip beside the selection answers the
+ * question that comes next — what was this actually run with — and it reads
+ * the config the run recorded for itself, not the config file as it stands
+ * today, so editing a pipeline cannot retroactively relabel its history.
+ */
+
+const PROTOCOL = {
+  character_sheet: { label: 'Sheet', icon: '▦' },
+  animation: { label: 'Animation', icon: '▶' },
+};
+
+function runThumb(run) {
+  // Prefer the latest stage that produced something: the pixelized frames if
+  // they exist, the raw frames otherwise, and the pose guides at worst.
+  for (const stage of [...run.stages].reverse()) {
+    if (stage.images.length) {
+      return `${state.system?.paths?.output_dir || 'out/runs'}/${run.id}/${stage.dir}/${stage.images[0]}`;
+    }
+  }
+  return null;
+}
+
+function historyCard(run, { selected, onPick }) {
+  const proto = PROTOCOL[run.audit?.protocol] || { label: run.audit?.protocol || '—', icon: '·' };
+  const card = el('button', { className: `histcard ${selected ? 'on' : ''}` });
+  card.onclick = () => onPick(run.id);
+
+  const thumb = runThumb(run);
+  card.append(
+    thumb ? el('img', { src: api.fileUrl(thumb), loading: 'lazy', className: 'pixel' })
+          : el('div', { className: 'histblank', textContent: '·' }),
+    el('div', { className: 'histmeta' },
+      el('span', { className: 'histproto' }, `${proto.icon} ${proto.label}`),
+      el('span', { className: 'mini', textContent: run.modified.replace('T', ' ').slice(5, 16) })));
+
+  if (run.running) card.append(el('span', { className: 'histbadge run', textContent: '●' }));
+  else if (run.stopped_at) card.append(el('span', { className: 'histbadge gate', textContent: '⏸' }));
+  return card;
+}
+
+function auditPanel(detail) {
+  const a = detail.audit || {};
+  if (!Object.keys(a).length) {
+    return el('p', { className: 'mini', textContent: 'This run recorded no config.' });
+  }
+  const proto = PROTOCOL[a.protocol] || { label: a.protocol };
+  const ctx = a.contexts || {};
+  const roles = ['identity', 'style', 'pose', 'palette']
+    .filter((r) => ctx[r]).map((r) => `${ctx[r]} ${r}`);
+  if (ctx.style_exemplars) roles.push(`${ctx.style_exemplars} from sheets`);
+
+  const line = (k, v, mono) => el('div', { className: 'auditrow' },
+    el('span', { className: 'mini', textContent: k }),
+    el('span', { className: mono ? 'mono' : '', textContent: v }));
+
+  return el('div', { className: 'auditgrid' },
+    line('protocol', proto.label),
+    line('style sheets', (a.styles || []).join(' + ') || 'none'),
+    line('contexts', roles.length ? `${a.context_total} · ${roles.join(', ')}` : 'none'),
+    line('rig', a.rig || '—'),
+    line('stages', (a.stages || []).join(' → ')),
+    line('checkpoint', (a.models?.checkpoint || '').replace('.safetensors', ''), true),
+    line('vae', (a.models?.vae || '').replace('.safetensors', ''), true),
+    line('seed', a.seed ?? '—', true),
+    line('palette', a.palette?.source
+      ? `${a.palette.source} · ${a.palette.size ?? '?'} colours · ÷${a.palette.factor ?? '?'}`
+        + (a.palette.match ? ` · ${a.palette.match}` : '')
+      : '—'),
+    a.subject ? el('p', { className: 'auditsubject', textContent: a.subject }) : null);
+}
+
 function grid(runId, stage) {
   const box = el('div', { className: 'thumbs' });
   for (const name of stage.images) {
@@ -205,13 +286,45 @@ function gateBanner(runId, detail) {
     el('div', { className: 'banner-actions' }, ...actions));
 }
 
-export function renderResult(host, { runId, detail }) {
+export function renderResult(host, { runId, detail, onPick }) {
   host.replaceChildren();
+
+  const history = el('div', { className: 'histstrip' });
+  const historyBox = el('section', { className: 'histbox' },
+    el('div', { className: 'ovhead' },
+      el('h2', { textContent: 'History' }),
+      el('span', { className: 'mini', textContent: 'newest first' })),
+    history);
+  host.append(historyBox);
+
+  (async () => {
+    try {
+      const { runs } = await api.runs();
+      if (!runs.length) {
+        history.append(el('p', { className: 'empty', textContent: 'Nothing generated yet.' }));
+        return;
+      }
+      for (const run of runs.slice(0, 40)) {
+        history.append(historyCard(run, {
+          selected: run.id === runId,
+          onPick: (id) => onPick?.(id),
+        }));
+      }
+    } catch (e) {
+      history.append(el('p', { className: 'warnline', textContent: e.message }));
+    }
+  })();
 
   if (!detail || !detail.stages?.length) {
     host.append(el('p', { className: 'empty', textContent: 'No output yet. Start a run.' }));
     return;
   }
+
+  host.append(el('section', { className: 'auditbox' },
+    el('div', { className: 'ovhead' },
+      el('h2', { textContent: runId }),
+      el('span', { className: 'mini', textContent: detail.dir })),
+    auditPanel(detail)));
 
   state.runDir = detail.dir;
 

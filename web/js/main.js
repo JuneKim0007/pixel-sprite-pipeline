@@ -68,7 +68,10 @@ async function renderResultTab() {
   }
   try {
     const detail = await api.run(state.selectedRun);
-    renderResult(host, { runId: state.selectedRun, detail });
+    renderResult(host, {
+      runId: state.selectedRun, detail,
+      onPick: (id) => { state.selectedRun = id; renderResultTab(); },
+    });
   } catch (e) {
     host.replaceChildren(el('p', { className: 'empty', textContent: e.message }));
   }

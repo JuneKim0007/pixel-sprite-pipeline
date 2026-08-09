@@ -196,9 +196,57 @@ def list_runs() -> list[dict]:
                     }
                     for s in stage_dirs
                 ],
+                # Enough for a banner card without a round trip per run: what
+                # kind of thing this was, and one picture of it.
+                "audit": run_audit(d),
             }
         )
     return out
+
+
+def run_audit(run_dir: Path) -> dict:
+    """What this run was, read back from what it recorded rather than guessed.
+
+    Every run copies its effective config into its own directory, which is the
+    only reason this can be honest: the answer comes from the document the
+    pipeline actually consumed, not from whatever the config file says today.
+    A config edited after the run would otherwise silently relabel history.
+    """
+    cfg_path = run_dir / "config.yaml"
+    if not cfg_path.exists():
+        return {}
+    try:
+        cfg = yaml.safe_load(cfg_path.read_text()) or {}
+    except yaml.YAMLError as e:
+        return {"error": str(e)}
+
+    refs = cfg.get("references") or {}
+    contexts = {role: len(refs.get(role) or []) for role in
+                ("identity", "style", "pose", "palette")}
+    contexts["style_exemplars"] = len(refs.get("style_exemplars") or [])
+
+    models = cfg.get("models") or {}
+    canonical = cfg.get("canonical") or {}
+    palette = cfg.get("palette") or {}
+
+    return {
+        "protocol": cfg.get("module", "animation"),
+        "subject": cfg.get("subject", ""),
+        "styles": list(cfg.get("styles") or []),
+        "rig": cfg.get("rig", ""),
+        "stages": list((cfg.get("pipeline") or {}).get("stages") or []),
+        "contexts": contexts,
+        "context_total": sum(v for k, v in contexts.items() if k != "style_exemplars"),
+        "models": {
+            "checkpoint": models.get("checkpoint") or "sd_xl_base_1.0.safetensors",
+            "vae": models.get("vae") or "sdxl_vae_fp16fix.safetensors",
+            "lora": models.get("pixel_lora") or "pixel-art-xl.safetensors",
+        },
+        "seed": canonical.get("seed"),
+        "steps": canonical.get("steps"),
+        "palette": {"source": palette.get("source"), "size": palette.get("size"),
+                    "factor": palette.get("factor"), "match": palette.get("match")},
+    }
 
 
 def run_detail(run_id: str) -> dict:
@@ -211,6 +259,7 @@ def run_detail(run_id: str) -> dict:
     cfg = d / "config.yaml"
     info["config"] = cfg.read_text() if cfg.exists() else ""
     info["dir"] = str(d)
+    info["audit"] = run_audit(d)
     return info
 
 

@@ -136,8 +136,12 @@ class FramesStage(Stage):
         # Props are drawn into the depth map AND named here: the geometry says
         # where, the words say what.
         held = props_mod.prompt_terms(props_mod.load(ctx.config.get("props")))
+        bg = ctx.config.get("background") or {}
+        backdrop = None if opt(bg, "enabled", True) is False else opt(
+            bg, "colour", comfy.BACKDROP)
         base_prompt = cfg.get("prompt") or ", ".join(
-            p for p in (subject, hint, held, style) if p)
+            p for p in (subject, hint, held, style,
+                        comfy.backdrop_prompt(backdrop) if backdrop else "") if p)
         # Pose control needs steps to act in. Measured: at 8 LCM steps the
         # skeleton is only partially obeyed even at end_percent 0.85, because
         # LCM's trajectory settles composition in the first couple of steps and
@@ -172,6 +176,8 @@ class FramesStage(Stage):
             # A pose control image invites the model to draw the control image.
             # Naming that failure in the negative is what stops it.
             negative = opt(cfg, "negative", comfy.NEGATIVE)
+            if backdrop:
+                negative = f"{negative}, {comfy.BACKDROP_NEGATIVE}"
             if pose_name and opt(cfg, "guard_against_skeletons", True):
                 negative = f"{negative}, {comfy.POSE_NEGATIVE}"
 
@@ -213,7 +219,7 @@ class FramesStage(Stage):
             if anchor_name:
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
-                    weight=float(opt(ip, "anchor_weight", 0.55)),
+                    weight=float(opt(ip, "anchor_weight", 0.9)),
                     weight_type="style and composition",
                     start_at=0.0, end_at=1.0,
                     ipadapter=models.get("ipadapter"),
@@ -223,7 +229,7 @@ class FramesStage(Stage):
             model = comfy.apply_ipadapter(
                 g, model, ref,
                 weight=weight,
-                weight_type=opt(ip, "weight_type", "style and composition"),
+                weight_type=opt(ip, "weight_type", "linear"),
                 start_at=opt(ip, "start_at", 0.0),
                 end_at=opt(ip, "end_at", 1.0),
                 ipadapter=models.get("ipadapter"),

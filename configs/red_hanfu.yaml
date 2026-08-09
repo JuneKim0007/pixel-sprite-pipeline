@@ -1,8 +1,13 @@
-# A/B: SDXL base vs Illustrious XL. Only models.checkpoint differs.
-# Generated for one comparison; safe to delete afterwards.
-name: ab_sdxl
+# Character sheet from one supplied illustration.
+# Identity: the illustration, at 'linear' so it stops copying the
+# reference's grey-gradient background along with the character.
+# Anchor: the generated canonical at 0.9 - it carries the pixel style
+# and must outweigh a smooth illustration, not sit under it.
+name: red_hanfu
 module: character_sheet
-subject: a knight in steel armor
+subject: a woman with very long flowing crimson red hair, wearing a black and deep
+  red hanfu robe with wide draping sleeves, a gold and jade waist ornament hanging
+  from a red sash, black skirt, geta sandals
 style: pixel art, game sprite, plain flat background
 rig: humanoid
 pipeline:
@@ -10,6 +15,9 @@ pipeline:
   - pose
   - depth
   - canonical
+  - frames
+  - palette
+  - export
   stop_after: null
 comfy:
   host: http://127.0.0.1:8188
@@ -18,18 +26,22 @@ pose:
   size: 1024
   set:
   - view: front
+  - view: side
+  - view: rear
+  - view: 270
 depth:
   near: 255
   far: 60
   blur: 6.0
 canonical:
-  seed: 20260809
+  seed: 77031
   lcm: false
-  steps: 30
+  steps: 45
   cfg: 7.0
   lora_strength: 1.2
   width: 1024
   height: 1024
+  style_weight: 0.18
 frames:
   lcm: false
   steps: 25
@@ -48,9 +60,12 @@ frames:
     end_percent: 0.6
   ip_adapter:
     weight: 0.7
-    weight_type: style and composition
+    weight_type: linear
     start_at: 0.0
     end_at: 1.0
+    anchor: true
+    anchor_weight: 0.9
+  style_weight: 0.18
 references:
   match:
     auto: true
@@ -58,9 +73,9 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: inputs/knight_front.png
+  - path: inputs/red_hanfu_swordswoman.png
     view: front
-    weight_scale: 1
+    weight: 1.0
   style: []
   pose: []
   palette: []
@@ -75,6 +90,7 @@ export:
   columns: 4
   scale: 4
 styles:
-- retro_jrpg
-models:
-  checkpoint: sd_xl_base_1.0.safetensors
+- hi_fidelity
+background:
+  enabled: true
+  colour: '#FF00FF'

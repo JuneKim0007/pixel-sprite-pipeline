@@ -788,22 +788,80 @@ def summaries() -> list[dict]:
     ]
 
 
-def tpose(rig: Rig, symmetric: bool = False) -> dict[str, list[float]]:
+def _swing(pose: dict[str, list[float]], root_joint: str,
+           chain: tuple[str, ...], degrees: float, side: int) -> None:
+    """Rotate a limb chain rigidly about its root, in the lateral/height plane.
+
+    Rigid is the whole point. Placing each joint along a ray from the root
+    preserves root-to-joint distances and silently rescales everything past
+    the first bone, and assigning a coordinate outright preserves nothing.
+    Both were shipped here before this existed.
+    """
+    import math
+
+    if not chain or root_joint not in pose:
+        return
+    root = pose[root_joint]
+    tip = pose[chain[-1]]
+    current = math.atan2(side * (tip[0] - root[0]), tip[2] - root[2])
+    delta = math.radians(degrees) - current
+    sin, cos = math.sin(delta), math.cos(delta)
+
+    for joint in chain:
+        ox = side * (pose[joint][0] - root[0])
+        oz = pose[joint][2] - root[2]
+        pose[joint] = [
+            root[0] + side * (ox * cos + oz * sin),
+            pose[joint][1],
+            root[2] + (-ox * sin + oz * cos),
+        ]
+
+
+# How far apart the feet stand in a symmetric reference pose, from vertical.
+STANCE_DEGREES = 6.0
+
+# Degrees from vertical for the limbs of a reference pose. 40 is the A-pose
+# every character pipeline settles on, and it is a compromise between two
+# measured failures rather than a convention borrowed on faith.
+A_POSE_DEGREES = 40.0
+
+
+def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
+          ) -> dict[str, list[float]]:
     """The reference pose a character sheet is drawn in.
 
     Synthesised from the rig rather than stored as one file per creature.
 
-    `symmetric` is off by default, and that is deliberate. A mirrored T-pose is
-    the right reference only when you are inventing a character from a prompt.
-    When you are working from photographs or existing art, the references are
-    cropped, dynamically posed, or simply do not show both sides — and forcing
-    a symmetric pose asks the model to reconcile a rigid A-frame with evidence
-    that contradicts it. Left asymmetric, the rig keeps its natural resting
-    stance and the references are free to disagree with each other.
+    The arm angle is the whole design, and both extremes were tried:
+
+      88 degrees (a true T)   Two horizontal limbs at shoulder height. A prompt
+                              mentioning a sword or a staff comes back with the
+                              blade drawn along an arm — the model reads a long
+                              horizontal element as the thing you named.
+
+       4 degrees (arms down)  Natural, and what references usually show. But
+                              the arms lie against the torso: measured on the
+                              humanoid rig this produced seven joint pairs
+                              landing within 4% of the canvas of each other at
+                              front view, so the silhouette has no gap between
+                              limb and body and neither a person nor a model
+                              can tell where the arm ends.
+
+      40 degrees (an A-pose)  Limbs clear of the torso, so the silhouette
+                              reads, without a horizontal to mistake for a
+                              weapon. This is why every game-art pipeline
+                              authors its rest pose this way.
+
+    `symmetric` mirrors the two sides. It is off by default because a
+    reference photograph is rarely symmetric, and forcing a rigid A-frame asks
+    the model to reconcile the pose with evidence that contradicts it. The
+    spread applies either way — an asymmetric pose still needs its limbs clear
+    of the body.
     """
+    import math
+
     pose = {k: list(v) for k, v in rig.neutral.items()}
-    if not symmetric:
-        return pose
+    angle = A_POSE_DEGREES if spread is None else float(spread)
 
     arms = [j for j in rig.joints if j.endswith("_shoulder") or "_shoulder_" in j]
     for shoulder in arms:
@@ -812,13 +870,22 @@ def tpose(rig: Rig, symmetric: bool = False) -> dict[str, list[float]]:
         wrist = shoulder.replace("shoulder", "wrist")
         if elbow not in pose or wrist not in pose:
             continue
-        height = pose[shoulder][2]
-        pose[elbow] = [side * 0.170, 0.0, height + 0.004]
-        pose[wrist] = [side * 0.285, 0.0, height + 0.008]
 
-    for ankle, hip in (("l_ankle", "l_hip"), ("r_ankle", "r_hip")):
-        if ankle in pose and hip in pose:
-            pose[ankle][0] = pose[hip][0] * 1.5
+        _swing(pose, shoulder, (elbow, wrist), angle, side)
+
+    if not symmetric:
+        return pose
+
+    # A wider stance, by rotating the leg rather than dragging the foot
+    # sideways. Assigning the ankle's x directly is what this used to do, and
+    # it stretched the shin: measured, knee-to-ankle grew from 0.1600 to
+    # 0.1607 every time a symmetric sheet was generated.
+    for hip, knee, ankle in (("l_hip", "l_knee", "l_ankle"),
+                             ("r_hip", "r_knee", "r_ankle")):
+        if hip in pose and ankle in pose:
+            side = 1 if hip.startswith("l_") else -1
+            _swing(pose, hip, tuple(j for j in (knee, ankle) if j in pose),
+                   STANCE_DEGREES, side)
     return pose
 
 

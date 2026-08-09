@@ -346,7 +346,8 @@ def quantize_median_cut(rgb: np.ndarray, colours: int, dither: bool) -> np.ndarr
 
 
 def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
-                        keep_min: float = 0.04) -> np.ndarray:
+                        keep_min: float = 0.04,
+                        key: tuple[int, int, int] | None = None) -> np.ndarray:
     """Flood fill from the edges; matching regions become transparent.
 
     Only removes background *connected to an edge*, so an enclosed region of
@@ -364,6 +365,17 @@ def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
     """
     h, w = rgb.shape[:2]
     alpha = np.full((h, w), 255, dtype=np.uint8)
+
+    # A named backdrop is removed by colour rather than by connectivity. The
+    # flood below only reaches background touching an edge, which is right when
+    # you are guessing; when the colour was specified in the prompt, a patch of
+    # it showing through a gap in the character is also background, and leaving
+    # it opaque puts a magenta hole in the sprite.
+    if key is not None:
+        want = np.asarray(key, dtype=np.int16)
+        near = (np.abs(rgb[..., :3].astype(np.int16) - want).max(axis=2) <= tol * 3)
+        if near.mean() < 1.0 - keep_min:
+            alpha[near] = 0
 
     for _ in range(max(1, passes)):
         # Seed from whatever is still opaque on the border. After the first
@@ -424,6 +436,7 @@ def pixelize(
     upscale: int,
     phase: tuple[int, int] | None,
     verbose: bool,
+    key: tuple[int, int, int] | None = None,
 ) -> None:
     img = Image.open(src).convert("RGB")
     arr = np.asarray(img)
@@ -446,7 +459,7 @@ def pixelize(
             print(f"  quantised to {colours} colours (dither={dither})")
 
     if alpha_tol is not None:
-        small = background_to_alpha(small, alpha_tol)
+        small = background_to_alpha(small, alpha_tol, key=key)
         if verbose:
             opaque = int((small[..., 3] > 0).sum())
             print(f"  background keyed: {opaque}/{small[..., 3].size} px opaque")

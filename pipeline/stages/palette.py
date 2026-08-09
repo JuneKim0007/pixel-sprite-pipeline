@@ -26,10 +26,10 @@ from ..stage import Context, Resource, Stage, opt, register
 
 def _one_frame(args: tuple) -> str:
     """Pool worker. Arguments stay primitive so they pickle cheaply."""
-    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase, match = args
+    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase, match, key = args
     pixelize(
         Path(src), Path(dst), factor, reduce,
-        colours=0, palette=palette, dither=dither, match=match,
+        colours=0, palette=palette, dither=dither, match=match, key=key,
         alpha_tol=alpha_tol, upscale=upscale, phase=phase, verbose=False,
     )
     return dst
@@ -58,6 +58,16 @@ class PaletteStage(Stage):
         upscale = opt(cfg, "upscale", 1)
         pal_path = outdir / "palette.hex"
 
+        # If the prompt named the backdrop, the keyer knows what to remove
+        # instead of sampling a corner and hoping the corner was background.
+        bg = ctx.config.get("background") or {}
+        key_colour = None
+        if opt(bg, "enabled", True) is not False:
+            raw = str(opt(bg, "colour", "") or "").lstrip("#")
+            if len(raw) == 6:
+                key_colour = tuple(int(raw[i:i+2], 16) for i in (0, 2, 4))
+
+
         # Either reuse a palette you already committed to, or derive one from
         # the canonical sprite. Reuse is what keeps separate runs of the same
         # character on-model.
@@ -75,7 +85,8 @@ class PaletteStage(Stage):
         elif source == "llm":
             palette = self._choose(ctx, cfg)
         else:
-            palette = self._extract_from_subject(canonical, size, factor, reduce, alpha_tol)
+            palette = self._extract_from_subject(
+                canonical, size, factor, reduce, alpha_tol, key_colour)
             print(f"   extracted {len(palette)} colours from the canonical's subject")
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
@@ -107,7 +118,7 @@ class PaletteStage(Stage):
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
                 factor, reduce, palette, alpha_tol, upscale,
-                dither, shared_phase, match,
+                dither, shared_phase, match, key_colour,
             )
             for src in frames
         ]
@@ -123,7 +134,8 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _extract_from_subject(
-        canonical: Path, size: int, factor: int, reduce: str, alpha_tol: int
+        canonical: Path, size: int, factor: int, reduce: str, alpha_tol: int,
+        key_colour: tuple[int, int, int] | None = None,
     ) -> list[tuple[int, int, int]]:
         """Derive the palette from the character, ignoring the backdrop.
 
@@ -140,7 +152,7 @@ class PaletteStage(Stage):
         arr = np.asarray(Image.open(canonical).convert("RGB"))
         ox, oy = find_phase(arr, factor)
         small = reduce_blocks(arr, factor, ox, oy, reduce)
-        keyed = background_to_alpha(small, alpha_tol)
+        keyed = background_to_alpha(small, alpha_tol, key=key_colour)
         rgb, alpha = keyed[..., :3], keyed[..., 3]
 
         opaque = int((alpha > 0).sum())

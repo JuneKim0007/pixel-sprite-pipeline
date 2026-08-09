@@ -86,10 +86,7 @@ def test_pipeline() -> None:
     check("every rig renders both control channels", lambda: [
         _render_rig(rig) for rig in rigs.REGISTRY.values()
     ])
-    check("tpose is asymmetric unless asked", lambda: (
-        _assert(rigs.tpose(rigs.HUMANOID)["l_wrist"][0] < 0.1, "forced arms out"),
-        _assert(rigs.tpose(rigs.HUMANOID, symmetric=True)["l_wrist"][0] > 0.2, "symmetric ignored"),
-    ))
+    check("the reference pose is an A-pose, and keeps its bones", _reference_pose)
 
     print("\nproportions and rig-free")
     check("bone groups scale by their factor", _proportions)
@@ -152,6 +149,59 @@ def test_pipeline() -> None:
     print("\nartifacts manifest")
     check("scratch keys stay out of the manifest", _manifest_excludes_scratch)
     check("rig resolves once and is cached", _rig_cached)
+
+
+def _reference_pose() -> None:
+    """Limbs clear of the torso, and not horizontal.
+
+    Both extremes were measured and both failed. Arms down (4 degrees, the
+    rig's neutral) put the hand two hip-widths out — against the body, so the
+    silhouette has no gap and neither a person nor a model can see where the
+    arm ends. A true T (88 degrees) put a long horizontal element at shoulder
+    height, and a prompt naming a sword came back with the blade drawn along
+    it. 40 degrees is what every character pipeline settles on.
+
+    The rotation must be rigid. Placing each joint along a ray from the
+    shoulder preserves shoulder-to-joint distance and silently rescales the
+    forearm, which is how this shipped the first time.
+    """
+    import math
+
+    from pipeline import rigs
+
+    rig = rigs.HUMANOID
+    neutral = {k: list(v) for k, v in rig.neutral.items()}
+    pose = rigs.tpose(rig)
+
+    def arm_degrees(p):
+        return math.degrees(math.atan2(
+            abs(p["l_wrist"][0] - p["l_shoulder"][0]),
+            abs(p["l_wrist"][2] - p["l_shoulder"][2]) or 1e-9))
+
+    def clearance(p):
+        return abs(p["l_wrist"][0]) / (abs(p["l_hip"][0]) or 1e-9)
+
+    _assert(arm_degrees(neutral) < 15, "the rig's neutral is no longer arms-down")
+    _assert(30 <= arm_degrees(pose) <= 55,
+            f"reference pose arm is {arm_degrees(pose):.0f} degrees, wanted ~40")
+    _assert(clearance(pose) > 2 * clearance(neutral),
+            "the A-pose does not clear the torso any better than arms-down")
+    _assert(arm_degrees(rigs.tpose(rig, spread=88)) > 80, "spread override ignored")
+
+    # Every bone, every humanoid variant, in both symmetry modes.
+    for name in ("humanoid", "humanoid_4arm", "humanoid_6arm", "humanoid_tailed"):
+        r = rigs.get(name)
+        for symmetric in (False, True):
+            p = rigs.tpose(r, symmetric=symmetric)
+            for a, b, _w in r.bones:
+                if a not in r.neutral or b not in r.neutral:
+                    continue
+                want = math.dist(r.neutral[a][:3:2], r.neutral[b][:3:2])
+                got = math.dist(p[a][:3:2], p[b][:3:2])
+                if want > 1e-9:
+                    _assert(abs(want - got) < 1e-6,
+                            f"{name}: bone {a}->{b} changed length "
+                            f"{want:.4f} -> {got:.4f}")
 
 
 def _softbody_stage() -> None:

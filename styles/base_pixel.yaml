@@ -24,3 +24,37 @@ settings:
   palette:
     reduce: median
     factor: 8
+    # Brightness first, hue as tiebreaker. A sprite reads by its value
+    # structure, so an entry of the wrong lightness collapses the form even
+    # when the hue is right.
+    match: luma
+
+  # A named backdrop rather than a described one. "plain flat background" is
+  # an adjective the model interprets, and it interprets it as a lit studio
+  # card with a cast shadow. Naming the colour also lets the keyer remove that
+  # exact hue instead of flooding from a corner and hoping.
+  #
+  # Magenta, not chroma green: green sits close to skin, cloth and foliage
+  # tones, and every pixel it bleeds into along an edge costs a palette entry.
+  background:
+    enabled: true
+    colour: "#FF00FF"
+
+  # Identity conditioning, true of every look here.
+  #
+  # weight_type `linear` rather than `style and composition`: the latter copies
+  # the reference's layout and background along with the character, which is
+  # how a smooth illustration's grey gradient ended up behind a sprite whose
+  # prompt asked for a flat backdrop.
+  #
+  # The anchor is the generated canonical, applied to every frame identically.
+  # It carries the pixel style and must outweigh the reference illustration
+  # rather than sit under it — at 0.55 against an identity reference at 0.85
+  # the illustration won on rendering too, and the frames drifted apart.
+  canonical:
+    from_reference: {weight_type: linear}
+  frames:
+    ip_adapter:
+      weight_type: linear
+      anchor: true
+      anchor_weight: 0.9
