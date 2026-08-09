@@ -13,10 +13,10 @@ module: character_sheet
 rig: humanoid
 styles:
 - hi_fidelity
-subject: a dark-skinned priestess with long dark brown hair, red eyes, a red hooded
-  veil with gold tassel chains, a red and white bandeau top, bare midriff, a red and
-  white layered wrap skirt with gold embroidery, gold jewellery, white arm wraps,
-  strappy sandals
+subject: a dark-skinned priestess with long dark brown hair and red eyes, wearing a deep red hooded 
+  veil with gold tassel chains, a red and white bandeau top, bare midriff, a white layered wrap 
+  skirt with deep red side panels and gold embroidery, gold jewellery, white arm wraps, red strappy 
+  sandals
 pipeline:
   stages:
   - pose
@@ -25,7 +25,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after: null
+  stop_after:
 pose:
   source: tpose
   size: 1024
@@ -51,7 +51,8 @@ references:
     view: 270
   style: []
   pose: []
-  palette: []
+  palette:
+  - path: palettes/char_1.hex
 depth:
   build:
     torso: 1.24
@@ -62,7 +63,13 @@ depth:
 canonical:
   seed: 71104
   candidates: 2
-frames: {}
+  style_weight: 0.25
+frames:
+  style_weight: 0.25
 cooling:
   enabled: true
   seconds: 420
+palette:
+  source: file
+  file: char_1
+  match: luma

@@ -13,10 +13,10 @@ module: character_sheet
 rig: humanoid
 styles:
 - hi_fidelity
-subject: a woman knight with very long silver-white hair fading to lilac, pale grey-blue
-  eyes, a dark brown buttoned waistcoat over a white blouse with a teal cravat, a
-  long black cape with gold trim, a plaid sash at the hip, black pinstriped thigh-high
-  stockings with garters, an ornate gauntlet, heeled armoured boots
+subject: a pale silver-haired knight with long straight hair and blue eyes, wearing a long black 
+  cape with gold trim, a dark charcoal grey buttoned tabard with gold buttons, white puffed 
+  off-shoulder sleeves with bare shoulders, a teal plaid kilt at the hip, dark grey armoured 
+  gauntlets, black pinstriped thigh-high stockings, black armoured heeled boots
 pipeline:
   stages:
   - pose
@@ -25,7 +25,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after: null
+  stop_after:
 pose:
   source: tpose
   size: 1024
@@ -51,7 +51,8 @@ references:
     view: 270
   style: []
   pose: []
-  palette: []
+  palette:
+  - path: palettes/char_2.hex
 depth:
   build:
     torso: 1.24
@@ -62,7 +63,13 @@ depth:
 canonical:
   seed: 58217
   candidates: 2
-frames: {}
+  style_weight: 0.25
+frames:
+  style_weight: 0.25
 cooling:
   enabled: true
   seconds: 600
+palette:
+  source: file
+  file: char_2
+  match: luma

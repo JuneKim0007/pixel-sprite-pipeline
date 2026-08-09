@@ -13,10 +13,10 @@ module: character_sheet
 rig: humanoid
 styles:
 - hi_fidelity
-subject: an elf archer with pale mint-green hair in a high ponytail, long pointed
-  ears, blue eyes, a deep teal high-collared robe with gold and white pauldrons, translucent
-  pale blue layered sleeves and skirt panels edged with ice crystals, a brown leather
-  waist wrap, tall silver and gold armoured heeled boots
+subject: a mint-green haired elf archer with pointed ears, blue eyes and a gold circlet, wearing a 
+  dark teal shoulder mantle with gold trim, a pale ice-blue layered robe dress with a high slit, 
+  sheer translucent ice-blue wide sleeves and side panels with crystal pendants, a brown leather 
+  belt, pale blue armoured greaves with snowflake motifs
 pipeline:
   stages:
   - pose
@@ -25,7 +25,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after: null
+  stop_after:
 pose:
   source: tpose
   size: 1024
@@ -51,7 +51,8 @@ references:
     view: 270
   style: []
   pose: []
-  palette: []
+  palette:
+  - path: palettes/char_3.hex
 depth:
   build:
     torso: 1.24
@@ -62,7 +63,13 @@ depth:
 canonical:
   seed: 33940
   candidates: 2
-frames: {}
+  style_weight: 0.25
+frames:
+  style_weight: 0.25
 cooling:
   enabled: true
   seconds: 600
+palette:
+  source: file
+  file: char_3
+  match: luma
