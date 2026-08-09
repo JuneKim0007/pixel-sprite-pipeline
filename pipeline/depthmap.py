@@ -79,6 +79,7 @@ def render_depth(
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
     fill: float = 0.0,
+    build: float | dict | None = None,
     rig=None,
     props=None,
 ) -> Image.Image:
@@ -101,6 +102,26 @@ def render_depth(
     # figure. It ran off the canvas.
     fitted = frame_fit(pose, fill=fill) if fill else pose
     grow = frame_scale(pose, fill)
+
+    # How heavy the creature is, as distinct from how tall.
+    #
+    # The capsules hang off the bones, so their radius is the only thing that
+    # says "this character is broad" — and the depth map is the channel the
+    # model reads volume from. Lengthening a bone makes a figure taller;
+    # widening its capsule makes the same skeleton read as heavyset.
+    #
+    # A scalar thickens everything. A dict does it per proportion group, which
+    # is what a pot-bellied character with thin arms needs:
+    # {torso: 1.6, arms: 0.9}. It reuses the group names `proportions` uses, so
+    # "torso" means the same thing in both places.
+    def bulk(parent: str, child: str) -> float:
+        if build is None:
+            return 1.0
+        if isinstance(build, dict):
+            from . import rigs as _r
+
+            return float(build.get(_r._group_of(parent, child) or "", 1.0))
+        return float(build)
     keypoints = project(
         fitted, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
         rig=rig,
@@ -143,13 +164,14 @@ def render_depth(
     for parent, child in bones:
         _capsule(
             draw, screen[parent], screen[child],
-            widths[(parent, child)] * scale * grow, shade(parent, child),
+            widths[(parent, child)] * scale * grow * bulk(parent, child),
+            shade(parent, child),
         )
 
     # Head last: it is nearly always the nearest large volume.
     head = screen.get(rig.head_joint) or screen.get(rig.root)
     if head:
-        r = rig.head_radius * scale * grow
+        r = rig.head_radius * scale * grow * bulk(rig.head_joint, rig.head_joint)
         draw.ellipse(
             [head[0] - r, head[1] - r, head[0] + r, head[1] + r],
             fill=shade(rig.head_joint, rig.root),

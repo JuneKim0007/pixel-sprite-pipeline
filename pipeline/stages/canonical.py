@@ -213,11 +213,20 @@ class CanonicalStage(Stage):
                 strong = kind == "pose"
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-                    # Same figures the frames stage uses. 1.0 held late makes
-                    # the model trace the guide and return a stick figure.
-                    strength=opt(cn, "strength", 0.75 if strong else 0.45),
+                    # Weaker than the frames stage, and the reason is
+                    # structural rather than aesthetic. A frame is pulled
+                    # against its ControlNet by two image conditionings - the
+                    # canonical anchor at 0.9 and a matched identity reference
+                    # at 0.85. The canonical has only the reference: it IS the
+                    # anchor, so it cannot have one. Half the counterweight
+                    # meeting the same strength is not the same experiment,
+                    # and copying the frames figures here was an oversight.
+                    strength=opt(cn, "strength", 0.55 if strong else 0.30),
                     start_percent=opt(cn, "start_percent", 0.0),
-                    end_percent=opt(cn, "end_percent", 0.55 if strong else 0.6),
+                    # Released earlier too. The anchor's job is to be a clean
+                    # readable character, not to reproduce a specific pose to
+                    # the pixel; the frames are where pose fidelity is paid for.
+                    end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
                     union_type=channel,
                     controlnet=(ctx.config.get("models") or {}).get("controlnet"),
                 )

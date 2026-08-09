@@ -155,6 +155,15 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Grey value for the farthest part. Raising it flattens the map, "
              "which weakens the sense of rotation; lowering it past ~40 starts "
              "losing the far limb into the background."},
+    {"path": "depth.build", "label": "Build (bulk)", "type": "float",
+     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Depth",
+     "help": "How heavy the creature is, as distinct from how tall. The depth "
+             "capsules hang off the bones, and their radius is the only thing "
+             "that says a character is broad — proportions make a figure "
+             "taller, this makes the same skeleton read as heavyset. A YAML "
+             "mapping works too, for a pot-bellied build with thin arms: "
+             "{torso: 1.6, arms: 0.9}, using the same group names as "
+             "proportions."},
     {"path": "depth.blur", "label": "Softness", "type": "float",
      "min": 0.0, "max": 24.0, "step": 0.5, "group": "Depth",
      "help": "Gaussian radius over the rendered limbs. Some blur is wanted: a "
@@ -388,6 +397,22 @@ FIELDS: list[dict[str, Any]] = [
      "options": ['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], "group": "Quality"},
     {"path": "frames.scheduler", "label": "Scheduler (frames)", "type": "select",
      "options": ['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], "group": "Quality"},
+    {"path": "canonical.controlnet.enabled", "label": "Condition the anchor",
+     "type": "bool", "group": "Canonical",
+     "help": "Send the pose guide and depth map to the anchor as well as to "
+             "the frames. Without it the anchor is generated from prompt and "
+             "reference alone, which is how a bow ended up drawn twice: the "
+             "words said 'holding a bow' and nothing said where. With it too "
+             "strong the anchor traces the depth silhouette instead. The "
+             "strengths below default lower than the frames stage's because "
+             "the anchor has no anchor of its own to pull against."},
+    {"path": "canonical.controlnet.strength", "label": "Anchor pose strength",
+     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Canonical",
+     "help": "0 disables the pose channel without disabling depth."},
+    {"path": "canonical.controlnet.end_percent", "label": "Anchor control end",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Canonical",
+     "help": "Fraction of sampling the control steers for. Held late, the "
+             "model draws the guide rather than a character."},
     {"path": "canonical.timeout", "label": "Timeout (seconds)", "type": "int",
      "min": 60, "max": 21600, "step": 60, "group": "Canonical",
      "help": "How long one image may take before the run gives up. Per image, "
