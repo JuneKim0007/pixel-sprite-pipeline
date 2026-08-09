@@ -384,6 +384,15 @@ FIELDS: list[dict[str, Any]] = [
      "options": ['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], "group": "Quality"},
     {"path": "frames.scheduler", "label": "Scheduler (frames)", "type": "select",
      "options": ['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], "group": "Quality"},
+    {"path": "canonical.timeout", "label": "Timeout (seconds)", "type": "int",
+     "min": 60, "max": 21600, "step": 60, "group": "Canonical",
+     "help": "How long one image may take before the run gives up. Per image, "
+             "not per stage — candidates are generated sequentially, so four "
+             "of them get four separate budgets."},
+    {"path": "frames.timeout", "label": "Timeout (seconds)", "type": "int",
+     "min": 60, "max": 21600, "step": 60, "group": "Frames",
+     "help": "Per frame. A stage that hangs holds the queue, so this is the "
+             "difference between one bad job and a wasted night."},
     {"path": "canonical.candidates", "label": "Canonical candidates", "type": "int",
      "min": 1, "max": 8, "group": "Quality",
      "help": "Generate this many canonical sprites in one batch and keep them "

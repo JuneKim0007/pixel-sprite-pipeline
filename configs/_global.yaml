@@ -19,3 +19,12 @@ models:
 ui:
   suppress_gate_confirm: true
   suppress_overwrite_confirm: false
+
+# How long a single GPU stage may wait on ComfyUI before giving up. Ninety
+# minutes: a 1024 image takes about 280 s on this machine, so this covers a
+# slow candidate sequence or a cold model load without a hung job holding the
+# queue overnight. Per image, not per stage - candidates are sequential.
+canonical:
+  timeout: 5400
+frames:
+  timeout: 5400
