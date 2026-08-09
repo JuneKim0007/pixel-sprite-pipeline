@@ -9,6 +9,7 @@ Built and benchmarked on **M4 / 16 GB / macOS 15.5**.
 
 | file | for |
 |---|---|
+| `OVERNIGHT.md` | setting up a batch on another machine and leaving it running. Start here if that is what you are doing. |
 | `CONFIGURING.md` | changing settings for a different sprite size or look. Start here. |
 | `STYLES.md` | the style-sheet format, and what a "look" is allowed to contain |
 | `DECISIONS.md` | every default that was measured rather than guessed, and the measurement |
