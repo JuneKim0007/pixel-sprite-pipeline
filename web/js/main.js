@@ -1,8 +1,10 @@
-/* Shell: four tabs, shared polling, boot.
+/* Shell: six tabs, shared polling, boot.
  *
  *   Input    what to make this time
  *   Run      the guided flow, with the rig editor inside it
  *   Result   what came out, per stage
+ *   Styles   the looks, their context, and what has been done to them
+ *   Queue    jobs on disk and the autopilot that drains them
  *   Settings how the machine behaves — global, or pinned per pipeline
  */
 
@@ -12,9 +14,12 @@ import { renderResult } from './result.js';
 import { renderRun } from './run.js';
 import { renderSettings } from './settings.js';
 import { renderStyles } from './styles.js';
+import { renderQueue } from './queue.js';
+import { renderEditor } from './editor.js';
+import { renderOverview } from './overview.js';
 import { $, $$, el, loadConfig, state } from './store.js';
 
-const TABS = ['input', 'run', 'result', 'styles', 'settings'];
+const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
 
 function setTab(name) {
   state.tab = name;
@@ -25,7 +30,9 @@ function setTab(name) {
 
 function render() {
   if (!state.schema) return;
-  if (state.tab === 'input') {
+  if (state.tab === 'overview') {
+    renderOverview($('#view-overview'), { goTo: setTab });
+  } else if (state.tab === 'input') {
     renderInput($('#view-input'), {
       onChange: (path, value) => { state.draft[path] = value; render(); },
       onContinue: () => setTab('run'),
@@ -41,6 +48,10 @@ function render() {
     renderStyles($('#view-styles'), {
       onChanged: async () => { await loadConfig(state.current); },
     });
+  } else if (state.tab === 'editor') {
+    renderEditor($('#view-editor'));
+  } else if (state.tab === 'queue') {
+    renderQueue($('#view-queue'));
   } else if (state.tab === 'settings') {
     renderSettings($('#view-settings'), {
       onSaved: async () => { await loadConfig(state.current); },
@@ -160,7 +171,7 @@ async function boot() {
     refreshRuns();
   });
 
-  setTab('input');
+  setTab('overview');
 
   // Poll only while something is live, or while the Result tab is open.
   setInterval(() => {

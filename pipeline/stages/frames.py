@@ -4,12 +4,21 @@ The consistency recipe is that only ONE input varies across frames:
 
     same seed          -- same point in latent space
     same prompt        -- same semantic target
-    same IP-Adapter    -- same reference image (the canonical sprite)
+    same anchor        -- the canonical sprite, on every frame at equal weight
     DIFFERENT skeleton -- the only thing that changes
 
 Vary anything else and the character drifts. This is why the canonical sprite
 has to exist before this stage runs: without a fixed visual reference, each
 frame is an independent sample and identity wanders between them.
+
+A supplied identity reference — an illustration of the character — stacks on
+top of the anchor rather than replacing it. The two carry different things.
+The canonical is already pixel art in the target style and is byte-identical
+across frames, so it is what the frames have in common. The illustration holds
+a face and a costume at a fidelity the canonical cannot at sprite resolution,
+but it is one drawing from one angle, so its weight falls off as the camera
+turns away from it. Using only the illustration leaves a rear view steered by
+a front drawing at a weak weight and anchored to nothing at all.
 """
 
 from __future__ import annotations
@@ -84,24 +93,37 @@ class FramesStage(Stage):
                 f"nodes are installed but the server needs a restart to load them."
             )
 
-        # Reference pool: any view-labelled images the user supplied, plus the
-        # canonical as a labelled fallback so there is always something to
-        # match against.
+        # Two anchors, not one, and they do different jobs.
+        #
+        # The canonical is the CONSISTENCY anchor: it is already pixel art, in
+        # the target style, and identical for every frame, which is the whole
+        # reason this stage requires it. The user's identity references are the
+        # DETAIL source: an illustration carries a face, a costume and a colour
+        # scheme at a fidelity the canonical cannot hold at sprite resolution.
+        #
+        # This used to be either/or — supplying any identity reference replaced
+        # the canonical entirely — and that quietly undid the stage's own
+        # premise. The canonical would be generated from the illustration and
+        # then never used, so every frame was steered by a single front-facing
+        # illustration and the rear views got it at falloff weight with no
+        # pixel-art anchor at all. Frames drifted from each other for exactly
+        # the reason the module docstring warns about.
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
+        ip = opt(cfg, "ip_adapter", {})
         lib = ctx.references()
-        refs = lib.identity
-        if not refs:
-            refs = [
-                Reference(
-                    path=canonical,
-                    yaw=resolve_view(
-                        ctx.stage_config("canonical").get("view")
-                        or ctx.stage_config("pose").get("view", "side")
-                    ),
-                    label="canonical",
-                )
-            ]
+        anchor = Reference(
+            path=canonical,
+            yaw=resolve_view(
+                ctx.stage_config("canonical").get("view")
+                or ctx.stage_config("pose").get("view", "side")
+            ),
+            label="canonical",
+        )
+        refs = lib.identity or [anchor]
+        stack_anchor = bool(lib.identity) and bool(opt(ip, "anchor", True))
+
         uploaded = {r.path: client.upload_image(r.path) for r in refs}
+        anchor_name = client.upload_image(anchor.path) if stack_anchor else None
         style_uploads = [(r, client.upload_image(r.path)) for r in lib.style[:2]]
         if style_uploads:
             print(f"   style from {len(style_uploads)} exemplar(s)")
@@ -129,7 +151,6 @@ class FramesStage(Stage):
         # mismatched pair produces plausible nonsense rather than an error.
         models = ctx.config.get("models") or {}
         cn = opt(cfg, "controlnet", {})
-        ip = opt(cfg, "ip_adapter", {})
         outdir = ctx.stage_dir("frames")
         written: list[Path] = []
 
@@ -185,6 +206,18 @@ class FramesStage(Stage):
             auto = bool(opt(match_cfg, "auto", True))
             weight = (auto_weight if auto
                       else float(opt(ip, "weight", 0.85)) * chosen.weight_scale)
+
+            # The anchor goes on first and identically every frame. It is the
+            # only input that does not vary, so it is what the frames have in
+            # common — which is the definition of staying on-model.
+            if anchor_name:
+                model = comfy.apply_ipadapter(
+                    g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
+                    weight=float(opt(ip, "anchor_weight", 0.55)),
+                    weight_type="style and composition",
+                    start_at=0.0, end_at=1.0,
+                    ipadapter=models.get("ipadapter"),
+                )
 
             ref = g.out(g.add("LoadImage", image=uploaded[chosen.path]), 0)
             model = comfy.apply_ipadapter(
@@ -271,7 +304,8 @@ class FramesStage(Stage):
             written.append(dst)
             print(
                 f"   frame {i + 1}/{len(skeletons)} -> {dst.name}  "
-                f"[{explain(chosen, weight, dist, tolerance)}]"
+                f"[{explain(chosen, weight, dist, tolerance)}"
+                f"{' + anchor' if anchor_name else ''}]"
             )
 
         return {"frames": written}

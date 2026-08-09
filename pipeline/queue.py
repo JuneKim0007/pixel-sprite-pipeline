@@ -79,6 +79,9 @@ class Job:
             "config": self.config,
             "attempts": self.attempts,
             "overrides": self.data.get("overrides", {}),
+            # Which matrix combination this job is, when it came from one. The
+            # overrides carry it too, but mixed in with the job's own.
+            "matrix_cell": self.data.get("matrix_cell"),
             "needs": self.data.get("needs", []),
             "retry_after": self.data.get("retry_after"),
             "error": self.data.get("error"),

@@ -176,6 +176,106 @@ def _to_lab(rgb: np.ndarray) -> np.ndarray:
                      200 * (f[..., 1] - f[..., 2])], axis=-1)
 
 
+def curves(rgb: np.ndarray, *, brightness: float = 0.0, contrast: float = 1.0,
+           gamma: float = 1.0, saturation: float = 1.0) -> np.ndarray:
+    """Tonal adjustment, applied before quantisation rather than after.
+
+    Order matters and this is the useful order. Snapping to a palette is a
+    nearest-neighbour decision, so what you do to the values beforehand
+    decides which entries get chosen: lifting contrast pushes midtones out
+    toward the ends of the ramp and the sprite picks up its light and dark
+    entries instead of collapsing into the middle ones. The same adjustment
+    applied afterwards would just move colours off the palette again.
+
+    gamma is separated from brightness deliberately. Brightness shifts every
+    value equally and flattens the ramp; gamma redistributes within it, which
+    is what "the shadows are too dark but the highlights are fine" needs.
+    """
+    a = rgb.astype(np.float32) / 255.0
+    if gamma != 1.0:
+        a = np.power(np.clip(a, 0.0, 1.0), 1.0 / max(gamma, 1e-3))
+    if contrast != 1.0:
+        a = (a - 0.5) * contrast + 0.5
+    if brightness:
+        a = a + brightness
+    if saturation != 1.0:
+        grey = (a * LUMA).sum(axis=-1, keepdims=True)
+        a = grey + (a - grey) * saturation
+    return (np.clip(a, 0.0, 1.0) * 255.0).round().astype(np.uint8)
+
+
+def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
+                     iterations: int = 12,
+                     alpha: np.ndarray | None = None) -> list[tuple[int, int, int]]:
+    """Derive an N-colour palette by clustering in the chosen metric's space.
+
+    extract_palette does median cut, which subdivides the RGB cube along its
+    widest axis and therefore inherits plain RGB's blind spots — it will spend
+    two entries separating blues a person cannot tell apart while merging two
+    greens they can.
+
+    Clustering in the same space the snapping will use avoids that: choose
+    `lab` and the palette is spaced by perceptual difference, choose `luma`
+    and it is spaced along the value ramp, which for a sprite is often exactly
+    what you want — a guaranteed spread of lightnesses rather than a
+    guaranteed spread of hues.
+
+    k-means, seeded by k-means++ so the result does not depend on which
+    pixels happen to come first, and capped at a few iterations because the
+    centroids stop moving visibly long before they stop moving.
+    """
+    pixels = rgb.reshape(-1, 3)
+    if alpha is not None:
+        pixels = pixels[alpha.reshape(-1) > 0]
+    if len(pixels) == 0:
+        raise ValueError("no opaque pixels to build a palette from")
+    colours = max(1, min(int(colours), len(np.unique(pixels, axis=0))))
+
+    # Cluster in the metric's space, but keep the RGB originals to average.
+    space = {
+        "lab": lambda p: _to_lab(p.astype(np.float32)),
+        "weighted": lambda p: p.astype(np.float32) * LUMA,
+        "luma": lambda p: np.concatenate(
+            [(p.astype(np.float32) @ LUMA)[:, None], p.astype(np.float32) * 0.1], axis=1),
+        "rgb": lambda p: p.astype(np.float32),
+    }[method if method in MATCH_METHODS else "weighted"]
+
+    feats = space(pixels)
+    rng = np.random.default_rng(0)            # deterministic: same image, same palette
+
+    # k-means++ seeding.
+    centres = [int(rng.integers(len(feats)))]
+    d2 = ((feats - feats[centres[0]]) ** 2).sum(axis=1)
+    for _ in range(colours - 1):
+        total = d2.sum()
+        if total <= 0:
+            centres.append(int(rng.integers(len(feats))))
+        else:
+            centres.append(int(rng.choice(len(feats), p=d2 / total)))
+        d2 = np.minimum(d2, ((feats - feats[centres[-1]]) ** 2).sum(axis=1))
+
+    c = feats[centres].copy()
+    labels = np.zeros(len(feats), dtype=np.int64)
+    for _ in range(iterations):
+        labels = ((feats[:, None, :] - c[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
+        moved = False
+        for k in range(len(c)):
+            members = feats[labels == k]
+            if len(members):
+                nxt = members.mean(axis=0)
+                moved |= not np.allclose(nxt, c[k])
+                c[k] = nxt
+        if not moved:
+            break
+
+    out = []
+    for k in range(len(c)):
+        members = pixels[labels == k]
+        if len(members):
+            out.append(tuple(int(v) for v in members.mean(axis=0).round()))
+    return out or [tuple(int(v) for v in pixels[0])]
+
+
 def apply_fixed_palette(
     rgb: np.ndarray,
     palette: list[tuple[int, int, int]],

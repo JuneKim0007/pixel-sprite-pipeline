@@ -28,6 +28,7 @@ import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import ruamel.yaml
 import yaml
@@ -293,6 +294,356 @@ def add_style_note(name: str, text: str) -> dict:
     return {"ok": True, "history": stylelog.read(sheet.home)}
 
 
+# ------------------------------------------------------------------ editor
+#
+# The interactive half of the pixelisation stage. Everything here already
+# existed as pipeline code and as CLI flags; what was missing was a way to see
+# the effect of a choice before committing a night's GPU time to it.
+#
+# One thing this does that the usual converters do not: block size and grid
+# phase are MEASURED rather than guessed with a slider. Both are recoverable
+# from the image — the block size is the largest factor that reduces without
+# loss, the phase is the offset whose blocks are most internally uniform — so
+# offering a slider and no ruler would be withholding an answer we already
+# have.
+
+
+def _editor_source(path_str: str) -> Path:
+    return files_mod.safe_path(path_str, allowed_roots())
+
+
+def edit_preview(body: dict) -> dict:
+    """Apply the pixelisation chain to one image and return it inline."""
+    import base64
+
+    import numpy as np
+    from PIL import Image
+
+    from pipeline import pixelize as px
+    from pipeline import training
+
+    src = _editor_source(body.get("source", ""))
+    original = Image.open(src).convert("RGB")
+    arr = np.asarray(original)
+
+    # Curves run before reduction and before snapping. Snapping is a
+    # nearest-neighbour decision, so what the values look like beforehand
+    # decides which palette entries get chosen at all.
+    cur = body.get("curves") or {}
+    if any(float(cur.get(k, d)) != d for k, d in
+           (("brightness", 0.0), ("contrast", 1.0), ("gamma", 1.0), ("saturation", 1.0))):
+        arr = px.curves(
+            arr,
+            brightness=float(cur.get("brightness", 0.0)),
+            contrast=float(cur.get("contrast", 1.0)),
+            gamma=float(cur.get("gamma", 1.0)),
+            saturation=float(cur.get("saturation", 1.0)),
+        )
+
+    measured_block = training.estimate_block_size(arr)
+    factor = int(body.get("factor") or 0) or max(1, int(round(measured_block)))
+    factor = max(1, min(factor, min(arr.shape[:2]) // 2 or 1))
+
+    phase_mode = body.get("phase", "auto")
+    if phase_mode == "auto":
+        ox, oy = px.find_phase(arr, factor) if factor > 1 else (0, 0)
+    else:
+        ox, oy = int(body.get("phase_x", 0)), int(body.get("phase_y", 0))
+
+    small = px.reduce_blocks(arr, factor, ox, oy, body.get("reduce", "median")) \
+        if factor > 1 else arr.copy()
+
+    palette = None
+    pal_name = body.get("palette") or ""
+    if pal_name:
+        from pipeline.palettes import discover
+
+        found = discover(ROOT).get(pal_name)
+        if not found:
+            raise FileNotFoundError(f"no palette '{pal_name}'")
+        palette = px.load_palette(Path(found.path))
+    elif int(body.get("colours") or 0) > 0:
+        # Clustered in the same space the snapping will use, rather than
+        # median cut. Median cut subdivides the RGB cube and will happily
+        # spend five of eight entries inside one midtone: measured on a
+        # generated knight it returned luminances 52,144,145,145,145,145,148,
+        # 227 — a palette with almost no value range, for a medium that reads
+        # by value.
+        palette = px.generate_palette(small, int(body["colours"]),
+                                      method=body.get("match", "weighted"))
+
+    if palette is not None:
+        if body.get("dither"):
+            small = px.quantize_median_cut(small, len(palette), True)
+        small = px.apply_fixed_palette(small, palette,
+                                       method=body.get("match", "weighted"))
+
+    alpha_tol = body.get("alpha_tolerance")
+    out = small
+    if alpha_tol not in (None, ""):
+        out = px.background_to_alpha(small, int(alpha_tol))
+
+    upscale = max(1, int(body.get("upscale") or 1))
+    image = Image.fromarray(out, mode="RGBA" if out.shape[2] == 4 else "RGB")
+    if upscale > 1:
+        image = image.resize((image.width * upscale, image.height * upscale),
+                             Image.NEAREST)
+
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    after = np.asarray(out)[..., :3].reshape(-1, 3)
+
+    return {
+        "image": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(),
+        "source": str(src),
+        "facts": {
+            "measured_block": measured_block,
+            "factor": factor,
+            "phase": [ox, oy],
+            "before": {"width": original.width, "height": original.height,
+                       "colours": int(len(np.unique(arr.reshape(-1, 3), axis=0)))},
+            "after": {"width": out.shape[1], "height": out.shape[0],
+                      "colours": int(len(np.unique(after, axis=0)))},
+            "palette_size": len(palette) if palette is not None else 0,
+        },
+    }
+
+
+def edit_apply(body: dict) -> dict:
+    import base64
+
+    result = edit_preview(body)
+    src = Path(result["source"])
+    dest = body.get("dest") or str(src.with_name(f"{src.stem}_px.png"))
+    target = files_mod.safe_path(dest, allowed_roots())
+    payload = result["image"].split(",", 1)[1]
+    target.write_bytes(base64.b64decode(payload))
+    return {"written": str(target), "facts": result["facts"]}
+
+
+def palette_list() -> dict:
+    from pipeline.palettes import discover
+
+    out = []
+    for name, pal in sorted(discover(ROOT).items()):
+        out.append({"name": pal.key, "label": name, "size": len(pal.colours),
+                    "colours": [f"#{r:02X}{g:02X}{b:02X}" for r, g, b in pal.colours[:64]]})
+    return {"palettes": out}
+
+
+# ------------------------------------------------------------------- queue
+#
+# The queue and the autopilot were complete and reachable only from a shell.
+# That is a strange place for the feature whose entire purpose is running
+# unattended for hours: the moment you most want to look at it is from
+# somewhere other than the terminal that started it.
+
+_AUTOPILOT: dict[str, Any] = {"proc": None, "started": None}
+AUTOPILOT_LOG = "autopilot.log"
+
+
+def _queue():
+    from pipeline import queue as q
+
+    return q, q.Queue(ROOT)
+
+
+def queue_state() -> dict:
+    """Every job in every state, with preflight run on the pending ones.
+
+    Preflight costs milliseconds and touches no GPU, so showing it here means
+    a job that can never work is visible before the autopilot spends a night
+    discovering it.
+    """
+    # The stage registry is already populated by the module-level import at
+    # the top of this file, which preflight needs in order to validate an
+    # order. Importing it again here would only shadow it.
+    q, queue = _queue()
+    out: dict[str, list[dict]] = {}
+    for state in q.STATES:
+        jobs = []
+        for job in queue.list(state):
+            summary = job.summary()
+            if state == q.PENDING:
+                check = q.preflight(ROOT, job)
+                summary["preflight"] = {
+                    "ok": check.ok,
+                    "problems": check.problems,
+                    "waiting_on": check.waiting_on,
+                    "held": check.held,
+                }
+            jobs.append(summary)
+        out[state] = jobs
+
+    proc = _AUTOPILOT["proc"]
+    alive = bool(proc and proc.poll() is None)
+    ok, why = q.services_up(ROOT)
+    return {
+        "states": out,
+        "counts": {k: len(v) for k, v in out.items()},
+        "autopilot": {"running": alive, "started": _AUTOPILOT["started"]},
+        "services": {"ok": ok, "why": why},
+        "dir": str(queue.root),
+    }
+
+
+def queue_submit(spec: dict, priority: int = 50) -> dict:
+    q, queue = _queue()
+    if not spec.get("config"):
+        raise ValueError("a job needs a 'config'")
+    if not (CONFIGS / f"{spec['config']}.yaml").exists():
+        raise FileNotFoundError(f"no config '{spec['config']}'")
+    created = queue.submit(dict(spec), priority=int(priority))
+    return {"created": [j.id for j in created], "count": len(created)}
+
+
+def queue_act(job_id: str, action: str) -> dict:
+    """Retry, hold or drop one job. Nothing here touches a running job."""
+    q, queue = _queue()
+    for state in q.STATES:
+        for job in queue.list(state):
+            if job.id != job_id:
+                continue
+            if state == q.RUNNING:
+                raise ValueError(
+                    f"{job_id} is running. Stop the autopilot first — moving a "
+                    f"job out from under it would leave two writers on one run.")
+            if action == "retry":
+                # Attempts reset because a human looked at it; the breaker
+                # counts machine failures, not deliberate re-runs.
+                queue.move(job, q.PENDING, attempts=0, error=None)
+            elif action == "hold":
+                queue.move(job, q.HELD, retry_after=time.time() + 3600)
+            elif action == "drop":
+                job.path.unlink()
+            else:
+                raise ValueError(f"unknown queue action '{action}'")
+            return {"ok": True, "job": job_id, "action": action}
+    raise FileNotFoundError(job_id)
+
+
+def autopilot(action: str, args: dict | None = None) -> dict:
+    proc = _AUTOPILOT["proc"]
+    alive = bool(proc and proc.poll() is None)
+
+    if action == "start":
+        if alive:
+            return {"running": True, "started": _AUTOPILOT["started"],
+                    "note": "already running"}
+        cmd = [sys.executable, "-u", str(ROOT / "autopilot.py")]
+        for flag in ("drain", "once"):
+            if (args or {}).get(flag):
+                cmd.append(f"--{flag}")
+        log = open(runs_dir().parent / AUTOPILOT_LOG, "a")
+        started = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
+                                   stderr=subprocess.STDOUT)
+        _AUTOPILOT.update(proc=started,
+                          started=time.strftime("%Y-%m-%d %H:%M:%S"))
+        return {"running": True, "started": _AUTOPILOT["started"]}
+
+    if action == "stop":
+        if not alive:
+            return {"running": False, "note": "not running"}
+        # SIGTERM, which autopilot traps to finish the job it is on rather
+        # than abandoning a half-written run directory.
+        proc.terminate()
+        return {"running": False, "note": "asked to stop after the current job"}
+
+    raise ValueError(f"unknown autopilot action '{action}'")
+
+
+def autopilot_log(tail: int = 4000) -> str:
+    path = runs_dir().parent / AUTOPILOT_LOG
+    if not path.exists():
+        return ""
+    text = path.read_text(errors="replace")
+    return text[-tail:]
+
+
+def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
+    """Add or remove context exemplars, and record it.
+
+    Adding copies rather than links. A style folder that references images
+    scattered across the disk stops being one thing you can move or share, and
+    the whole reason for the directory form is that it is one thing.
+    """
+    from pipeline import stylelog
+
+    sheet = _sheet(name)
+    if not sheet.foldered:
+        raise ValueError(
+            f"'{name}' is a single YAML file, so it has no exemplar folder. "
+            f"Move it to styles/{name}/style.yaml first.")
+
+    folder = sheet.home / "context" / "exemplars"
+    folder.mkdir(parents=True, exist_ok=True)
+    touched: list[Path] = []
+
+    for raw in paths:
+        source = files_mod.safe_path(raw, allowed_roots())
+        if remove:
+            target = folder / source.name
+            if target.exists():
+                target.unlink()
+                touched.append(target)
+            continue
+        if source.parent.resolve() == folder.resolve():
+            continue                      # already here
+        target = files_mod.unique_name(folder, files_mod.safe_filename(source.name))
+        shutil.copy2(source, target)
+        touched.append(target)
+
+    if touched:
+        event = stylelog.context_event(
+            [] if remove else touched, touched if remove else [], home=sheet.home)
+        stylelog.append(sheet.home, event)
+    return {"ok": True, "changed": [p.name for p in touched],
+            "detail": style_detail(name)}
+
+
+def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict:
+    """Rewrite a sheet's vocabulary, and its notes sidecar.
+
+    The YAML goes back through the round-trip loader, because a style sheet
+    documents its own decisions in comments and a plain safe_load/safe_dump
+    cycle deletes every one of them. Notes live in context/notes.md rather
+    than in the document, so prose can grow without reformatting the config.
+    """
+    from pipeline import stylelog
+
+    sheet = _sheet(name)
+    changed = []
+
+    if vocabulary is not None:
+        if not isinstance(vocabulary, dict):
+            raise ValueError("vocabulary must be an object of group -> list")
+        doc = load_roundtrip(sheet.path)
+        clean = {}
+        for group, fragments in vocabulary.items():
+            if not isinstance(fragments, list):
+                raise ValueError(f"vocabulary.{group} must be a list")
+            kept = [str(f).strip() for f in fragments if str(f).strip()]
+            if kept:
+                clean[group] = kept
+        doc["vocabulary"] = clean
+        dump_roundtrip(doc, sheet.path)
+        changed.append(f"{len(clean)} vocabulary group(s)")
+
+    if notes is not None:
+        if not sheet.foldered:
+            raise ValueError(
+                f"'{name}' is a single file, so it has nowhere to keep notes.")
+        sidecar = sheet.home / "context" / "notes.md"
+        sidecar.parent.mkdir(parents=True, exist_ok=True)
+        sidecar.write_text(notes)
+        changed.append("notes")
+
+    if changed and sheet.foldered:
+        stylelog.append(sheet.home, stylelog.Event(
+            kind="context", summary=f"edited {', '.join(changed)}"))
+    return {"ok": True, "changed": changed, "detail": style_detail(name)}
+
+
 def start_run(config_name: str, overrides: dict | None, resume: str | None,
               style_picks: dict | None = None) -> str:
     cmd = [sys.executable, "-u", str(ROOT / "run.py")]
@@ -508,6 +859,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(styles.preview(ROOT, merged))
         if path == "/api/style/detail":
             return self._json(style_detail(q.get("name", [""])[0]))
+        if path == "/api/palettes":
+            return self._json(palette_list())
+        if path == "/api/queue":
+            return self._json(queue_state())
+        if path == "/api/queue/log":
+            return self._json({"log": autopilot_log()})
         if path == "/api/style/training":
             from pipeline import training
 
@@ -627,6 +984,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self._save_poses(body))
             if u.path == "/api/annotation":
                 return self._json(self._save_annotation(body))
+            if u.path == "/api/edit/preview":
+                return self._json(edit_preview(body))
+            if u.path == "/api/edit/apply":
+                return self._json(edit_apply(body))
+            if u.path == "/api/queue/submit":
+                return self._json(queue_submit(body.get("spec") or {},
+                                               body.get("priority", 50)))
+            if u.path == "/api/queue/job":
+                return self._json(queue_act(body.get("id", ""),
+                                            body.get("action", "")))
+            if u.path == "/api/queue/autopilot":
+                return self._json(autopilot(body.get("action", ""), body))
+            if u.path == "/api/style/exemplar":
+                return self._json(style_exemplar(
+                    body.get("name", ""), body.get("paths") or [],
+                    bool(body.get("remove"))))
+            if u.path == "/api/style/prompts":
+                return self._json(style_prompts(
+                    body.get("name", ""), body.get("vocabulary"),
+                    body.get("notes")))
             if u.path == "/api/style/note":
                 return self._json(add_style_note(
                     body.get("name", ""), body.get("text", "")))

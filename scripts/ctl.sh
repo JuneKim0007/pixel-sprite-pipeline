@@ -30,9 +30,9 @@ OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-60}"
 VRAM_MODE="${VRAM_MODE:-}"
 
 if [[ -t 1 ]]; then
-  G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; O=$'\033[0m'
+  G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; O=$'\033[0m'; W=$'\033[33m'
 else
-  G=""; R=""; D=""; B=""; O=""
+  G=""; R=""; D=""; B=""; O=""; W=""
 fi
 
 url_for() {
@@ -145,6 +145,47 @@ stop_one() {
   return 0
 }
 
+# A restart bounces ComfyUI, and ComfyUI holds the connection every in-flight
+# generation is waiting on. Killing it mid-run does not fail loudly: the run
+# script gets ECONNREFUSED from a socket that was fine a second ago, and the
+# run dies with a stack trace that blames the network. This cost two A/B legs
+# before anyone noticed the pattern, so the check is here rather than in the
+# reader's memory.
+runs_in_flight() {
+  # Ask ComfyUI, not the filesystem.
+  #
+  # The first version of this guard looked for a recently-written run.log, and
+  # it never fired for the runs that actually mattered: run.log is written by
+  # the server when IT launches a run, so anything started from a shell was
+  # invisible to it. Three A/B legs died to that. ComfyUI's own queue is the
+  # one signal that is true regardless of who started the work.
+  local body
+  body=$(curl -s -m 2 "http://127.0.0.1:${COMFY_PORT}/queue" 2>/dev/null) || return 1
+  [[ -n "$body" ]] || return 1
+  "$PY" - "$body" <<'EOF'
+import json, sys
+try:
+    q = json.loads(sys.argv[1])
+except Exception:
+    sys.exit(1)
+busy = len(q.get("queue_running") or []) + len(q.get("queue_pending") or [])
+sys.exit(0 if busy else 1)
+EOF
+}
+
+warn_if_busy() {
+  if runs_in_flight; then
+    printf "  %s! ComfyUI has work in its queue right now%s\n" "$W" "$O"
+    printf "  %s  restarting bounces ComfyUI and that run will die with%s\n" "$D" "$O"
+    printf "  %s  'connection refused'. Use 'make down' deliberately, or wait.%s\n" "$D" "$O"
+    if [[ "${FORCE:-}" != "1" ]]; then
+      printf "  %s  refusing; re-run with FORCE=1 to override.%s\n" "$D" "$O"
+      return 1
+    fi
+  fi
+  return 0
+}
+
 cmd_down() {
   local any=1
   # UI first so it stops polling, then the workers.
@@ -208,8 +249,8 @@ cmd_logs() {
 
 case "${1:-status}" in
   up)      cmd_up ;;
-  down)    cmd_down ;;
-  restart) cmd_down; echo; cmd_up ;;
+  down)    warn_if_busy || exit 1; cmd_down ;;
+  restart) warn_if_busy || exit 1; cmd_down; echo; cmd_up ;;
   status)  cmd_status ;;
   logs)    cmd_logs ;;
   *)       echo "usage: ctl.sh {up|down|restart|status|logs}" >&2; exit 2 ;;

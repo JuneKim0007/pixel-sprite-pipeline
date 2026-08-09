@@ -22,10 +22,13 @@
     <select id="configPicker" class="select block"></select>
 
     <ul class="nav" id="nav">
-      <li data-view="input" class="active"><span class="ico">✎</span>Input</li>
+      <li data-view="overview" class="active"><span class="ico">◉</span>Overview</li>
+      <li data-view="input"><span class="ico">✎</span>Input</li>
       <li data-view="run"><span class="ico">▶</span>Run</li>
       <li data-view="result"><span class="ico">▦</span>Result</li>
       <li data-view="styles"><span class="ico">◈</span>Styles</li>
+      <li data-view="editor"><span class="ico">◫</span>Editor</li>
+      <li data-view="queue"><span class="ico">≡</span>Queue</li>
       <li data-view="settings"><span class="ico">⚙</span>Settings</li>
     </ul>
 
@@ -39,10 +42,13 @@
   </nav>
 
   <main class="main">
-    <section class="view active" id="view-input"></section>
+    <section class="view active" id="view-overview"></section>
+    <section class="view" id="view-input"></section>
     <section class="view" id="view-run"></section>
     <section class="view" id="view-result"></section>
     <section class="view" id="view-styles"></section>
+    <section class="view" id="view-editor"></section>
+    <section class="view" id="view-queue"></section>
     <section class="view" id="view-settings"></section>
   </main>
 </div>

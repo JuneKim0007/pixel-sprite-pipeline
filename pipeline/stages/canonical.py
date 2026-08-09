@@ -18,6 +18,34 @@ from .. import references as refs_mod
 from ..stage import Context, Resource, Stage, opt, register
 
 
+def _anchor_view(ctx, cfg) -> str | float:
+    """Which way the anchor faces.
+
+    Three sources, most specific first, and the last one is the fix for a real
+    failure. A character sheet lists its views in `pose.set` and never sets
+    `pose.view`, so this used to fall through to the literal default "side" —
+    the anchor was rendered in profile for a sheet whose first view is front,
+    and a reference labelled `front` was then measured as 90 degrees away and
+    down-weighted by the falloff for being a poor match. It was a poor match
+    only because the target had been chosen wrongly.
+
+    The anchor should face the same way as the first frame that will inherit
+    from it. That is the frame it has the best chance of matching, and every
+    other frame turns away from it symmetrically.
+    """
+    explicit = opt(cfg, "view", None)
+    if explicit is not None:
+        return explicit
+
+    pose_cfg = ctx.stage_config("pose")
+    named = opt(pose_cfg, "view", None)
+    if named is not None:
+        return named
+
+    first = (opt(pose_cfg, "set", []) or [{}])[0]
+    return first.get("view", "side") if isinstance(first, dict) else "side"
+
+
 @register
 class CanonicalStage(Stage):
     name = "canonical"
@@ -43,7 +71,7 @@ class CanonicalStage(Stage):
         # alone, so "here is my character, build a sheet of it" cannot work.
         lib = ctx.references()
         from_ref = opt(cfg, "from_reference", {}) or {}
-        want_view = resolve_view(opt(cfg, "view", ctx.stage_config("pose").get("view", "side")))
+        want_view = resolve_view(_anchor_view(ctx, cfg))
 
         chosen = None
         if lib.identity and opt(from_ref, "enabled", True):

@@ -421,6 +421,22 @@ FIELDS: list[dict[str, Any]] = [
              "against; swapping the base usually means swapping the LoRA too."},
     {"path": "models.pixel_lora", "label": "Style LoRA", "type": "select",
      "options_from": "loras", "group": "Models"},
+    {"path": "frames.ip_adapter.anchor", "label": "Anchor to canonical",
+     "type": "bool", "group": "Identity",
+     "help": "Apply the canonical sprite to every frame at equal weight, "
+             "underneath the matched identity reference. It is the only input "
+             "that does not vary, so it is what keeps frames on-model with "
+             "each other. Turning it off reverts to steering from the "
+             "reference alone, which leaves rear views with no anchor."},
+    {"path": "frames.ip_adapter.anchor_weight", "label": "Anchor weight",
+     "type": "float", "min": 0.0, "max": 1.2, "step": 0.05, "group": "Identity",
+     "help": "How hard the canonical pulls. Too high and every frame becomes "
+             "the canonical's pose; too low and the frames drift apart."},
+    {"path": "models.vae", "label": "VAE", "type": "select",
+     "options_from": "vae", "group": "Models",
+     "help": "Must match the checkpoint's family. A mismatched VAE does not "
+             "error — it decodes to a colour cast with crushed blacks, which "
+             "is what an Illustrious A/B produced while borrowing SDXL's."},
     {"path": "models.controlnet", "label": "ControlNet", "type": "select",
      "options_from": "controlnets", "group": "Models",
      "help": "The Union ProMax model covers openpose, depth, scribble and more "
@@ -520,6 +536,7 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
         "loras": weights("loras"),
         "controlnets": weights("controlnet"),
         "ipadapters": weights("ipadapter"),
+        "vae": weights("vae"),
     }
 
 

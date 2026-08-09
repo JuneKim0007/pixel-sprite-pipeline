@@ -238,7 +238,7 @@ def base_graph(
     pos = g.add("CLIPTextEncode", text=prompt, clip=clip)
     neg = g.add("CLIPTextEncode", text=negative, clip=clip)
     # SDXL's baked VAE overflows in fp16 and can decode to black on MPS.
-    vae = g.add("VAELoader", vae_name=VAE)
+    vae = g.add("VAELoader", vae_name=models.get("vae") or VAE)
 
     return model, g.out(pos, 0), g.out(neg, 0), g.out(vae, 0)
 

@@ -38,6 +38,11 @@ references:
 
 export: {columns: 5, scale: 4}
 models:
-  checkpoint: illustrious-xl-v01.safetensors
+  # Left at the default (SDXL base). Illustrious was pinned here before an
+  # A/B measured it: with SDXL's fp16-fix VAE and natural-language prompts it
+  # collapses to a blue-green cast with crushed blacks — the signature of a
+  # VAE mismatch, not a verdict on the checkpoint. It needs its own VAE and
+  # booru-tag prompts before it can be judged, so it is not the default.
+  # checkpoint: illustrious-xl-v01.safetensors
 palette:
   source: extract

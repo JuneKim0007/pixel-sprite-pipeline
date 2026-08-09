@@ -36,6 +36,21 @@ export const api = {
   styleNote:   (name, text) => json('POST', '/api/style/note', { name, text }),
   styleTraining: (name) => call(`/api/style/training?name=${encodeURIComponent(name)}`),
 
+  palettes:    () => call('/api/palettes'),
+  editPreview: (params) => json('POST', '/api/edit/preview', params),
+  editApply:   (params) => json('POST', '/api/edit/apply', params),
+
+  styleExemplar: (name, paths, remove = false) =>
+    json('POST', '/api/style/exemplar', { name, paths, remove }),
+  stylePrompts: (name, vocabulary, notes) =>
+    json('POST', '/api/style/prompts', { name, vocabulary, notes }),
+
+  queue:       () => call('/api/queue'),
+  queueLog:    () => call('/api/queue/log'),
+  queueSubmit: (spec, priority = 50) => json('POST', '/api/queue/submit', { spec, priority }),
+  queueJob:    (id, action) => json('POST', '/api/queue/job', { id, action }),
+  autopilot:   (payload) => json('POST', '/api/queue/autopilot', payload),
+
   runs:     () => call('/api/runs'),
   run:      (id) => call(`/api/run?id=${encodeURIComponent(id)}`),
   start:    (payload) => json('POST', '/api/run', payload),
