@@ -55,8 +55,8 @@ references:
   - path: palettes/char_1.hex
 depth:
   build:
-    torso: 1.24
-    arms: 1.24
+    torso: 1.55
+    arms: 1.45
     legs: 1.24
     neck: 1.24
     head: 1.02
@@ -67,9 +67,12 @@ canonical:
 frames:
   style_weight: 0.25
   depth_controlnet:
-    strength: 0.75
+    strength: 0.55
     start_percent: 0.0
-    end_percent: 0.75
+    end_percent: 0.65
+  ip_adapter:
+    anchor_falloff: 0.7
+    anchor_far_weight: 0.5
 cooling:
   enabled: true
   seconds: 420

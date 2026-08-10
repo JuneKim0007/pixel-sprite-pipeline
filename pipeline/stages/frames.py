@@ -34,6 +34,9 @@ from ..bodyspace import resolve_view
 from .. import references as refs_mod
 from ..references import Reference, explain, pick
 from ..stage import Context, Resource, Stage, opt, register
+# One definition of which way the anchor faces, shared with the stage that
+# rendered it. Two copies drifted once already.
+from .canonical import _anchor_view
 
 
 def chosen_default(refs) -> float:
@@ -112,14 +115,16 @@ class FramesStage(Stage):
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
         ip = opt(cfg, "ip_adapter", {})
         lib = ctx.references()
-        anchor = Reference(
-            path=canonical,
-            yaw=resolve_view(
-                ctx.stage_config("canonical").get("view")
-                or ctx.stage_config("pose").get("view", "side")
-            ),
-            label="canonical",
-        )
+        # Ask canonical which way it actually rendered the anchor. This used to
+        # repeat the old fallthrough - canonical.view, else pose.view, else the
+        # literal "side" - which DECISIONS.md records as a real failure and
+        # canonical.py already fixed by falling through to pose.set[0].view.
+        # Only one copy was fixed, so a sheet whose first view is front had its
+        # anchor recorded here as facing 90 degrees, and every falloff measured
+        # from that wrong origin: the front reference read as 90 away on the
+        # front frame, and the rear reference as 90 away on the rear frame.
+        anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
+        anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
         refs = lib.identity or [anchor]
         stack_anchor = bool(lib.identity) and bool(opt(ip, "anchor", True))
 
@@ -233,9 +238,23 @@ class FramesStage(Stage):
             # 0.55 under an 0.85 identity reference lost on rendering and the
             # frames drifted. The fix is to drop composition, not strength.
             if anchor_name:
+                # Reference weight falls off with angular distance; the anchor's
+                # did not. On a rear frame the rear reference was down-weighted
+                # for being far from that view while the FRONT canonical stayed
+                # at 0.9, so the anchor outvoted the one image that actually
+                # shows the back of the costume. anchor_falloff scales the
+                # anchor by the same logic: 0.0 keeps the old fixed behaviour,
+                # 1.0 drops it to anchor_far_weight at 180 degrees away.
+                a_weight = float(opt(ip, "anchor_weight", 0.9))
+                falloff = float(opt(ip, "anchor_falloff", 0.0))
+                if falloff > 0.0:
+                    away = abs((frame_yaw - anchor_yaw + 180.0) % 360.0 - 180.0)
+                    far = float(opt(ip, "anchor_far_weight", 0.5))
+                    t = (away / 180.0) * falloff
+                    a_weight = a_weight * (1.0 - t) + far * t
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
-                    weight=float(opt(ip, "anchor_weight", 0.9)),
+                    weight=a_weight,
                     weight_type=opt(ip, "anchor_weight_type", "linear"),
                     start_at=0.0, end_at=float(opt(ip, "anchor_end_at", 1.0)),
                     ipadapter=models.get("ipadapter"),

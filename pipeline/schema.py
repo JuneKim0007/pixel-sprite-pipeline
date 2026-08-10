@@ -507,6 +507,18 @@ FIELDS: list[dict[str, Any]] = [
              "front-facing — at anchor weight 0.9 it outvoted the depth map "
              "that carries yaw and every side and rear frame came back facing "
              "front, with the canonical's backdrop over the keyed one."},
+    {"path": "frames.ip_adapter.anchor_falloff", "label": "Anchor falloff",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity",
+     "help": "How much the anchor weakens as a frame turns away from it. "
+             "Reference weight already falls off with angle; the anchor's did "
+             "not, so on a rear frame the FRONT canonical stayed at full "
+             "weight while the rear reference was discounted for being far "
+             "away — the anchor outvoted the only image showing the back. "
+             "0 keeps the old fixed behaviour. Needs a reference at the far "
+             "views, or nothing holds them together."},
+    {"path": "frames.ip_adapter.anchor_far_weight", "label": "Anchor weight when opposite",
+     "type": "float", "min": 0.0, "max": 1.2, "step": 0.05, "group": "Identity",
+     "help": "What the anchor decays to 180 degrees away, at falloff 1.0."},
     {"path": "frames.ip_adapter.anchor_end_at", "label": "Anchor end %",
      "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity",
      "help": "Fraction of sampling the anchor steers for. 1.0 holds identity "

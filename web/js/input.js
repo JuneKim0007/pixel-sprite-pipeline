@@ -195,14 +195,54 @@ function referenceCards(role, onChange) {
     }
     roleSel.onchange = () => moveRole(role.key, roleSel.value, index, onChange);
 
+    // The named views only span 0-180 - one side of the body. A character's
+    // RIGHT side has no name and is written as a raw angle (270), which
+    // resolve_view accepts. A select built from the names alone cannot hold
+    // that value, so opening this card and touching anything rewrote a
+    // correctly-labelled right-side reference to a named left-side one.
+    // Mislabelling is worse than not labelling: a rear frame takes a
+    // front-labelled image at full weight and comes back facing the wrong way.
     const viewSel = el('select', { className: 'select' });
+    const named = new Set(VIEW_OPTIONS);
     for (const name of VIEW_OPTIONS) {
-      viewSel.append(el('option', { value: name, textContent: name, selected: ref.view === name }));
+      viewSel.append(el('option', { value: name, textContent: name }));
     }
-    viewSel.onchange = () => {
+    // Mirrored right-side angles, so the common cases are one click.
+    for (const [label, deg] of [['three_quarter_front (right)', 320],
+                                ['side (right)', 270],
+                                ['three_quarter_rear (right)', 215]]) {
+      viewSel.append(el('option', { value: String(deg), textContent: `${label} · ${deg}°` }));
+    }
+    const current = ref.view === undefined || ref.view === null ? '' : String(ref.view);
+    // Any other angle already in the config stays selectable rather than being
+    // silently replaced.
+    if (current && !named.has(current)
+        && !['320', '270', '215'].includes(current)) {
+      viewSel.append(el('option', { value: current, textContent: `${current}°` }));
+    }
+    viewSel.append(el('option', { value: '__custom', textContent: 'custom angle…' }));
+    viewSel.value = current || 'front';
+
+    const customDeg = el('input', {
+      type: 'number', min: 0, max: 359, step: 1, className: 'select refangle',
+      value: named.has(current) ? '' : current, title: 'Yaw in degrees',
+    });
+    customDeg.style.display = 'none';
+
+    const commit = (value) => {
       const next = structuredClone(images);
-      next[index].view = viewSel.value;
+      next[index].view = value;
       onChange(path, next);
+    };
+    viewSel.onchange = () => {
+      if (viewSel.value === '__custom') { customDeg.style.display = ''; customDeg.focus(); return; }
+      customDeg.style.display = 'none';
+      // Numeric options round-trip as numbers so the YAML stays an angle.
+      commit(named.has(viewSel.value) ? viewSel.value : Number(viewSel.value));
+    };
+    customDeg.onchange = () => {
+      const deg = Number(customDeg.value);
+      if (Number.isFinite(deg)) commit(((deg % 360) + 360) % 360);
     };
 
     const remove = el('button', { className: 'iconbtn', textContent: '✕', title: 'Remove' });
@@ -225,7 +265,7 @@ function referenceCards(role, onChange) {
       el('img', { src: api.fileUrl(ref.path), loading: 'lazy' }),
       el('div', { className: 'refcard-foot' }, roleSel, remove),
       role.key === 'palette' ? null : el('div', { className: 'refcard-foot' },
-        el('span', { className: 'mini', textContent: 'shows' }), viewSel),
+        el('span', { className: 'mini', textContent: 'shows' }), viewSel, customDeg),
       el('div', { className: 'refcard-weight' },
         el('span', { className: 'mini', textContent: 'weight' }), weight, readout),
       el('div', { className: 'refcard-path mono', textContent: ref.path, title: ref.path })));
