@@ -44,6 +44,29 @@ def chosen_default(refs) -> float:
     return refs[0].base_weight if refs else 0.85
 
 
+def _facing_negative(yaw: float) -> str:
+    """Words that stop a face being drawn on a view that has none.
+
+    Depth cannot say which way a head points - it renders the head as a
+    capsule, and measured on this rig a front and a rear depth map differ by
+    about 6% across the head band while the two SIDE maps are bit-identical
+    under mirroring. The channel that CAN say it is the OpenPose skeleton,
+    whose face keypoints drop past ~100 degrees, and a standing character sheet
+    turns that channel off because it draws the guide as bones.
+
+    So on a rear frame nothing geometric says "no face" and the model draws one
+    anyway. Naming the failure in the negative is this project's existing
+    answer to exactly that shape of problem - it is how the stick-figure
+    tracing was stopped - and it costs nothing.
+    """
+    yaw %= 360
+    if 135 <= yaw <= 225:
+        return "face, eyes, nose, mouth, facial features, front view"
+    if 100 < yaw < 135 or 225 < yaw < 260:
+        return "both eyes visible, front-facing face"
+    return ""
+
+
 def _view_words(yaw: float) -> str:
     """Plain-language camera direction, for runs with no control image."""
     yaw %= 360
@@ -196,6 +219,7 @@ class FramesStage(Stage):
             prompt = base_prompt
             if not pose_name:
                 prompt = f"{base_prompt}, {_view_words(frame_yaw_for_prompt)}"
+            facing_neg = _facing_negative(frame_yaw_for_prompt)
             # An annotated reference knows it was cropped; saying so beats
             # letting the model default to a full-body composition.
             framing = ((entries[i].get("crop") or {}) if i < len(entries) else {}).get("framing")
@@ -209,6 +233,10 @@ class FramesStage(Stage):
                 negative = f"{negative}, {comfy.BACKDROP_NEGATIVE}"
             if pose_name and opt(cfg, "guard_against_skeletons", True):
                 negative = f"{negative}, {comfy.POSE_NEGATIVE}"
+            # Nothing geometric says "this view has no face" once the
+            # skeleton channel is off, so the words have to.
+            if facing_neg and opt(cfg, "guard_against_faces", True):
+                negative = f"{negative}, {facing_neg}"
 
             g = comfy.Graph()
             model, pos, neg, vae = comfy.base_graph(

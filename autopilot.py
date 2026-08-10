@@ -248,8 +248,15 @@ def main() -> int:
                          "ready (default 600)")
     ap.add_argument("--service-wait", type=float, default=60,
                     help="seconds between health checks while paused (default 60)")
-    ap.add_argument("--timeout", type=float, default=7200,
-                    help="seconds before a single job is killed (default 7200)")
+    # Must exceed the SUM of the per-stage timeouts plus every cooling rest,
+    # or it kills work that is progressing normally. It was 7200 while
+    # canonical.timeout alone is 14400 - one stage allowed twice what the whole
+    # job got - and a character sheet measured at 113 minutes of compute plus
+    # ~35 minutes of rests was being killed mid-frames and reported as a
+    # failure. Per-view canonicals multiply the canonical stage, so the ceiling
+    # has to have real headroom rather than track the last measurement.
+    ap.add_argument("--timeout", type=float, default=28800,
+                    help="seconds before a single job is killed (default 28800, 8h)")
     ap.add_argument("--retries", type=int, default=2,
                     help="attempts per job, so 2 means one retry (default 2)")
     ap.add_argument("--breaker", type=int, default=5,

@@ -228,6 +228,14 @@ FIELDS: list[dict[str, Any]] = [
      "min": 0.0, "max": 1.0, "step": 0.05, "group": "Frames",
      "help": "1.0 generates fresh. Below 1.0 carries over the input latent — "
              "this is the 'how much of the previous step survives' dial."},
+    {"path": "frames.guard_against_faces", "label": "Guard against faces on rear views",
+     "type": "bool", "group": "Pose control",
+     "help": "Add face, eyes, nose to the NEGATIVE on rear and near-rear "
+             "frames. Depth renders the head as a capsule - measured, a front "
+             "and rear depth map differ ~6% across the head and the two side "
+             "maps are identical under mirroring - and the skeleton channel, "
+             "which does encode facing, is off for a standing sheet. So "
+             "nothing geometric says 'no face' and the model draws one."},
     {"path": "frames.guard_against_skeletons", "label": "Guard against tracing",
      "type": "bool", "group": "Pose control",
      "help": "Appends anti-skeleton terms to the negative prompt whenever a "
