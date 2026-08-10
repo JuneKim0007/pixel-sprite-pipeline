@@ -109,8 +109,22 @@ class CanonicalStage(Stage):
         # still works, it just gets the old unconditioned behaviour.
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
-        guide = skeletons[0] if skeletons else None
-        depth = depthmaps[0] if depthmaps else None
+
+        # Condition on the geometry for the view being rendered, not index 0.
+        # `canonical.view` already chose the REFERENCE by angle, but the guide
+        # and depth map were pinned to the first pose frame - so asking for a
+        # side anchor gave a side reference conditioned on front geometry, and
+        # the two pulled against each other with nothing in the log to say so.
+        _entries = ctx.artifacts.get("pose_frames") or []
+        _idx = 0
+        if _entries:
+            _idx = min(
+                range(len(_entries)),
+                key=lambda i: refs_mod.angular_distance(
+                    float((_entries[i] or {}).get("yaw", 0.0)), want_view),
+            )
+        guide = skeletons[_idx] if _idx < len(skeletons) else (skeletons[0] if skeletons else None)
+        depth = depthmaps[_idx] if _idx < len(depthmaps) else (depthmaps[0] if depthmaps else None)
         cn = opt(cfg, "controlnet", {})
         use_control = bool(opt(cn, "enabled", True)) and (guide or depth)
 
