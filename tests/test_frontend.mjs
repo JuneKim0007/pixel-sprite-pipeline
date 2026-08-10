@@ -324,6 +324,17 @@ test('label is bound to its control id', () => {
   assert.equal(n.querySelector('.ui-label').getAttribute('for'), f.id);
 });
 
+test('update() swaps in place using replaceWith, not children.indexOf', () => {
+  // children is an HTMLCollection in a browser and has no indexOf: splicing it
+  // is a TypeError at runtime that any array-backed double would pass.
+  const grid = el('div', {});
+  const card = new ui.BaseCard({ data: { title: 'before' } });
+  grid.append(card.render());
+  card.update({ title: 'after' });
+  assert.equal(grid.children.length, 1);
+  assert.equal(grid.querySelector('.ui-card-title').textContent, 'after');
+});
+
 console.log('\nschema coverage');
 test('every schema field carries help, so no (?) is ever empty', async () => {
   // The BaseField marker makes a missing explanation visible rather than

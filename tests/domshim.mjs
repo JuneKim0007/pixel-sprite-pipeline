@@ -60,6 +60,19 @@ class Node {
     if (i >= 0) this.parentNode.children.splice(i, 1);
     this.parentNode = null;
   }
+  /* Real Elements have this and it is the correct way to swap a node without
+   * touching the parent's child list. Present here because code that reaches
+   * INTO `children` to splice it works against this shim (an Array) and throws
+   * in a browser (an HTMLCollection has no indexOf) — a false pass is worse
+   * than a missing method, so the shim offers the API that makes the correct
+   * version writable. */
+  replaceWith(next) {
+    if (!this.parentNode) return;
+    const i = this.parentNode.children.indexOf(this);
+    if (i >= 0) this.parentNode.children.splice(i, 1, next);
+    next.parentNode = this.parentNode;
+    this.parentNode = null;
+  }
   replaceChildren(...kids) { this.children = []; this.append(...kids); }
 
   setAttribute(k, v) { this.attributes[k] = String(v); }

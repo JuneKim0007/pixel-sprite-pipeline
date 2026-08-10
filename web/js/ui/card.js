@@ -63,16 +63,17 @@ export class BaseCard {
 
   /* Re-render in place. Cards live in grids that are rebuilt wholesale today;
    * this is here so a subclass CAN update without its parent knowing, which is
-   * what a card with its own controls needs. */
+   * what a card with its own controls needs.
+   *
+   * Uses replaceWith rather than indexing the parent: `children` is an
+   * HTMLCollection in a browser and has no indexOf, so splicing it is a
+   * TypeError at runtime and a silent pass under any test double backed by an
+   * array. Stick to APIs the real DOM actually has. */
   update(data) {
     this.data = { ...this.data, ...data };
+    const old = this.node;
     const next = this.render();
-    if (this.node && this.node.parentNode) {
-      const parent = this.node.parentNode;
-      const i = parent.children.indexOf(this.node);
-      if (i >= 0) parent.children[i] = next;
-      next.parentNode = parent;
-    }
+    if (old && old.parentNode) old.replaceWith(next);
     this.node = next;
     return next;
   }
