@@ -19,6 +19,20 @@ from .. import references as refs_mod
 from ..stage import Context, Resource, Stage, opt, register
 
 
+def _label_for(yaw: float) -> str:
+    """Filename-safe name for a view, so a canonical can be found by name.
+
+    Named views only span 0-180, so the character's right side has no name and
+    becomes its angle. That is deliberate: `side` already means 90, and giving
+    270 a name that reads like a mirror of it is how the two get swapped.
+    """
+    from ..bodyspace import VIEWS
+    for name, deg in VIEWS.items():
+        if abs(deg - (round(yaw) % 360)) < 0.5:
+            return name
+    return f"{round(yaw) % 360:03d}"
+
+
 def _anchor_view(ctx, cfg) -> str | float:
     """Which way the anchor faces.
 
@@ -52,7 +66,7 @@ class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
-    produces = frozenset({"canonical"})
+    produces = frozenset({"canonical", "canonicals"})
 
     def run(self, ctx: Context) -> dict[str, Any]:
         cfg = ctx.stage_config("canonical")
@@ -78,6 +92,34 @@ class CanonicalStage(Stage):
         lib = ctx.references()
         from_ref = opt(cfg, "from_reference", {}) or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
+
+        def _prepare(view: float) -> None:
+            """Point the closure state at `view`, so build() renders that angle.
+
+            build() reads want_view / chosen / control_names at CALL time, so
+            rebinding them here is what makes one graph builder serve every
+            view without duplicating it.
+            """
+            nonlocal want_view, chosen, guide, depth, control_names
+            want_view = view
+            chosen = None
+            if lib.identity and opt(from_ref, "enabled", True):
+                chosen, _, d = refs_mod.pick(lib.identity, view, tolerance=180.0)
+                print(f"   identity from {chosen.label} ({d:.0f}deg away)")
+            i = 0
+            ents = ctx.artifacts.get("pose_frames") or []
+            if ents:
+                i = min(range(len(ents)), key=lambda k: refs_mod.angular_distance(
+                    float((ents[k] or {}).get("yaw", 0.0)), view))
+            guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
+            depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
+            control_names = {}
+            if bool(opt(cn, "enabled", True)) and (guide or depth):
+                ch = opt(cn, "union_type", None) or ctx.rig().skeleton_control
+                if guide and ch:
+                    control_names["pose"] = (client.upload_image(guide), ch)
+                if depth:
+                    control_names["depth"] = (client.upload_image(depth), "depth")
 
         chosen = None
         if lib.identity and opt(from_ref, "enabled", True):
@@ -249,59 +291,90 @@ class CanonicalStage(Stage):
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
 
-        wanted = max(1, int(opt(cfg, "candidates", 1)))
         base_seed = opt(cfg, "seed", 1234)
         timeout = opt(cfg, "timeout", 1800)
-        images: list[bytes] = []
 
-        if bool(opt(cfg, "batch_candidates", True)) and wanted > 1:
-            g, model, pos, neg, vae = build()
-            comfy.sample_and_save(
-                g, model, pos, neg, vae,
-                width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
-                batch=wanted,
-                seed=base_seed,
-                steps=opt(cfg, "steps", 8 if lcm else 25),
-                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                lcm=lcm,
-                denoise=1.0,
-                sampler=opt(cfg, "sampler", None),
-                scheduler=opt(cfg, "scheduler", None),
-                prefix=f"{ctx.run_id}_canonical",
-            )
-            print(f"   {wanted} candidates as one batch")
-            images = client.generate(g.build(), timeout=timeout)
-            wanted = 0                       # the loop below has nothing to do
-
-        for n in range(wanted):
-            g, model, pos, neg, vae = build()
-            comfy.sample_and_save(
-                g, model, pos, neg, vae,
-                width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
-                batch=1,
-                seed=base_seed + n,
-                steps=opt(cfg, "steps", 8 if lcm else 25),
-                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                lcm=lcm,
-                denoise=1.0,
-                sampler=opt(cfg, "sampler", None),
-                scheduler=opt(cfg, "scheduler", None),
-                prefix=f"{ctx.run_id}_canonical{n:02d}",
-            )
-            images += client.generate(g.build(), timeout=timeout)
-            if wanted > 1:
-                print(f"   candidate {n + 1}/{wanted} (seed {base_seed + n})")
-                cooling.rest(ctx.config, after=f"candidate {n + 1}",
-                             last=n == wanted - 1)
+        # One anchor per view, or the single front anchor as before.
+        #
+        # With one front canonical, three of four frames had to INVENT their
+        # own angle: the anchor gave the right medium and the wrong facing, the
+        # matched reference the right facing and the wrong medium, and the
+        # model fused them. Per view, one input is correct on both axes and the
+        # frames stage stops synthesising.
+        #
+        # These do not drift apart the way four independent generations would,
+        # because each is pinned to a labelled view of the SAME reference sheet
+        # - the coherence is inherited from the sheet, not negotiated between
+        # the anchors.
+        _entries_all = ctx.artifacts.get("pose_frames") or []
+        if bool(opt(cfg, "per_view", False)) and _entries_all:
+            views = [float((e or {}).get("yaw", 0.0)) for e in _entries_all]
+        else:
+            views = [want_view]
 
         outdir = ctx.stage_dir("canonical")
-        dst: Path = outdir / "canonical.png"
-        dst.write_bytes(images[0])
-        # Extra candidates are kept beside the chosen one so a weak anchor can
-        # be swapped without paying for the batch again.
-        for i, blob in enumerate(images[1:], start=1):
-            (outdir / f"candidate_{i:02d}.png").write_bytes(blob)
-        if len(images) > 1:
-            print(f"   {len(images)} candidates kept; canonical.png is the first")
-        print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {opt(cfg, 'seed', 1234)})")
-        return {"canonical": dst}
+        made: dict[float, Path] = {}
+        primary: Path | None = None
+
+        for vi, view in enumerate(views):
+            if len(views) > 1:
+                print(f"   -- anchor {vi + 1}/{len(views)} at {view:g}deg")
+            _prepare(view)
+            wanted = max(1, int(opt(cfg, "candidates", 1)))
+            images: list[bytes] = []
+
+            if bool(opt(cfg, "batch_candidates", True)) and wanted > 1:
+                g, model, pos, neg, vae = build()
+                comfy.sample_and_save(
+                    g, model, pos, neg, vae,
+                    width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                    batch=wanted,
+                    seed=base_seed,
+                    steps=opt(cfg, "steps", 8 if lcm else 25),
+                    cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
+                    lcm=lcm,
+                    denoise=1.0,
+                    sampler=opt(cfg, "sampler", None),
+                    scheduler=opt(cfg, "scheduler", None),
+                    prefix=f"{ctx.run_id}_canonical",
+                )
+                print(f"   {wanted} candidates as one batch")
+                images = client.generate(g.build(), timeout=timeout)
+                wanted = 0                       # the loop below has nothing to do
+
+            for n in range(wanted):
+                g, model, pos, neg, vae = build()
+                comfy.sample_and_save(
+                    g, model, pos, neg, vae,
+                    width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                    batch=1,
+                    seed=base_seed + n,
+                    steps=opt(cfg, "steps", 8 if lcm else 25),
+                    cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
+                    lcm=lcm,
+                    denoise=1.0,
+                    sampler=opt(cfg, "sampler", None),
+                    scheduler=opt(cfg, "scheduler", None),
+                    prefix=f"{ctx.run_id}_canonical{n:02d}",
+                )
+                images += client.generate(g.build(), timeout=timeout)
+                if wanted > 1:
+                    print(f"   candidate {n + 1}/{wanted} (seed {base_seed + n})")
+                    cooling.rest(ctx.config, after=f"candidate {n + 1}",
+                                 last=n == wanted - 1)
+
+            label = _label_for(view)
+            dst = outdir / (f"canonical_{label}.png" if len(views) > 1 else "canonical.png")
+            dst.write_bytes(images[0])
+            for i, blob in enumerate(images[1:], start=1):
+                (outdir / f"candidate_{label}_{i:02d}.png").write_bytes(blob)
+            made[round(view) % 360] = dst
+            if primary is None:
+                primary = dst
+            print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {base_seed})")
+            if len(views) > 1:
+                cooling.rest(ctx.config, after=f"anchor {vi + 1}",
+                             last=vi == len(views) - 1)
+
+        return {"canonical": primary, "canonicals": made}
+

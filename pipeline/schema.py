@@ -615,6 +615,15 @@ FIELDS: list[dict[str, Any]] = [
     # Settings the stages already read but nothing declared, so the form could
     # not show them and they could only be set by hand-editing YAML. Found by
     # diffing every opt(cfg, "...") call against this list.
+    {"path": "canonical.per_view", "label": "One anchor per view", "type": "bool",
+     "group": "Canonical",
+     "help": "Generate a canonical for every view in pose.set instead of one "
+             "for the first. With a single front anchor the other views must "
+             "invent their angle - the anchor is the right medium facing the "
+             "wrong way, the matched reference the right way in the wrong "
+             "medium. Per view one input is correct on both. They do not drift "
+             "apart, because each is pinned to a labelled view of the same "
+             "reference sheet. Costs one generation per view."},
     {"path": "canonical.batch_candidates", "label": "Batch the candidates",
      "type": "bool", "group": "Canonical",
      "help": "One prompt for all candidates instead of one each. Measured 14% "

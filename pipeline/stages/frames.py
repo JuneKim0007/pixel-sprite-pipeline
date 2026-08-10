@@ -67,7 +67,7 @@ class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
     requires = frozenset({"skeletons", "canonical", "pose_frames"})
-    optional = frozenset({"depthmaps"})
+    optional = frozenset({"depthmaps", "canonicals"})
     produces = frozenset({"frames"})
 
     def run(self, ctx: Context) -> dict[str, Any]:
@@ -125,11 +125,32 @@ class FramesStage(Stage):
         # front frame, and the rear reference as 90 away on the rear frame.
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
         anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
+
+        # Per-view anchors, when the canonical stage made them. Each frame gets
+        # the anchor at ITS angle instead of every frame inheriting the front.
+        per_view: dict = ctx.artifacts.get("canonicals") or {}
+        if len(per_view) > 1:
+            print(f"   {len(per_view)} per-view anchors")
+
+        def anchor_for(yaw: float) -> Reference:
+            """The anchor nearest this frame's angle.
+
+            Deliberately NOT falling back to the front canonical on a miss: a
+            silent fallback is exactly how every view came back front-facing in
+            the first place, and it hides in the output rather than the log.
+            With one anchor this returns it and the falloff handles the rest.
+            """
+            if not per_view:
+                return anchor
+            best = min(per_view, key=lambda k: refs_mod.angular_distance(float(k), yaw))
+            return Reference(path=per_view[best], yaw=float(best),
+                             label=f"canonical@{best}")
         refs = lib.identity or [anchor]
         stack_anchor = bool(lib.identity) and bool(opt(ip, "anchor", True))
 
         uploaded = {r.path: client.upload_image(r.path) for r in refs}
         anchor_name = client.upload_image(anchor.path) if stack_anchor else None
+        anchor_cache: dict = {}
         style_uploads = [(r, client.upload_image(r.path)) for r in lib.style[:2]]
         if style_uploads:
             print(f"   style from {len(style_uploads)} exemplar(s)")
@@ -238,6 +259,12 @@ class FramesStage(Stage):
             # 0.55 under an 0.85 identity reference lost on rendering and the
             # frames drifted. The fix is to drop composition, not strength.
             if anchor_name:
+                _a = anchor_for(frame_yaw)
+                if _a.path != anchor.path:
+                    if _a.path not in anchor_cache:
+                        anchor_cache[_a.path] = client.upload_image(_a.path)
+                    anchor_name = anchor_cache[_a.path]
+                    anchor_yaw = _a.yaw
                 # Reference weight falls off with angular distance; the anchor's
                 # did not. On a rear frame the rear reference was down-weighted
                 # for being far from that view while the FRONT canonical stayed
