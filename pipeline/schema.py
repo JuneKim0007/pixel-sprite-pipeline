@@ -577,6 +577,84 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Images per queued prompt. Each prompt costs ~35s of fixed "
              "overhead regardless of steps, so batching amortises it: batch 4 "
              "measured 49s/image versus 71s one at a time."},
+
+    # --------------------------------------------------- previously unreachable
+    # Settings the stages already read but nothing declared, so the form could
+    # not show them and they could only be set by hand-editing YAML. Found by
+    # diffing every opt(cfg, "...") call against this list.
+    {"path": "canonical.batch_candidates", "label": "Batch the candidates",
+     "type": "bool", "group": "Canonical",
+     "help": "One prompt for all candidates instead of one each. Measured 14% "
+             "faster and under half the swapping — but batching cannot rest "
+             "between candidates, so an overnight run with cooling on wants "
+             "this off, and a 1280 canvas may not fit the batch in 16 GB."},
+    {"path": "canonical.style_weight", "label": "Style exemplar strength",
+     "type": "float", "min": 0.0, "max": 0.8, "step": 0.05, "group": "Canonical",
+     "help": "Exemplars carry rendering, not colour. At the 0.35 role default "
+             "silver-haired exemplars pulled a crimson character toward "
+             "lavender; 0.18 keeps the brushwork and lets the prompt keep the "
+             "palette. frames.style_weight was declared and this was not."},
+    {"path": "canonical.view", "label": "Anchor view", "type": "text",
+     "group": "Canonical",
+     "help": "Which way the anchor faces — a named view or degrees. Blank "
+             "follows the first entry in pose.set, which is what a sheet "
+             "wants: every other frame then turns away from it symmetrically."},
+    {"path": "canonical.negative", "label": "Negative prompt", "type": "textarea",
+     "group": "Canonical",
+     "help": "Naming a failure is what stops it. The default names the "
+             "tracing failure (skeleton, bones, stick figure, wireframe)."},
+    {"path": "canonical.controlnet.union_type", "label": "Anchor control type",
+     "type": "text", "group": "Canonical",
+     "help": "The Union model handles ten conditioning types and defaults to "
+             "guessing. Naming the input is the difference between the pose "
+             "being applied and quietly ignored."},
+    {"path": "canonical.controlnet.start_percent", "label": "Anchor control start",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Canonical"},
+
+    {"path": "frames.width", "label": "Width", "type": "int",
+     "min": 512, "max": 2048, "step": 64, "group": "Frames",
+     "help": "Keep equal to canonical.width — the anchor and the frames should "
+             "be drawn at one scale."},
+    {"path": "frames.height", "label": "Height", "type": "int",
+     "min": 512, "max": 2048, "step": 64, "group": "Frames"},
+    {"path": "frames.seed", "label": "Seed", "type": "int",
+     "min": 0, "max": 2147483647, "group": "Frames",
+     "help": "Identical for every frame on purpose: same seed, same prompt, "
+             "same anchor, DIFFERENT skeleton is the consistency recipe."},
+    {"path": "frames.lora_strength", "label": "Pixel LoRA strength",
+     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Frames"},
+    {"path": "frames.negative", "label": "Negative prompt", "type": "textarea",
+     "group": "Frames"},
+    {"path": "frames.controlnet.union_type", "label": "Pose control type",
+     "type": "text", "group": "Pose control"},
+    {"path": "frames.controlnet.start_percent", "label": "ControlNet start %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control"},
+    {"path": "frames.depth_controlnet.strength", "label": "Depth strength",
+     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Pose control",
+     "help": "Depth is the ONLY channel that carries the viewing angle — a 2D "
+             "skeleton cannot express yaw. But the capsules are a bare body, "
+             "so pushing this hard makes a costumed character collapse toward "
+             "the naked silhouette: at 0.75 a veiled figure came back columnar."},
+    {"path": "frames.depth_controlnet.start_percent", "label": "Depth start %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control"},
+    {"path": "frames.depth_controlnet.end_percent", "label": "Depth end %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control",
+     "help": "Hold it long enough to survive the anchor, which runs to 100%."},
+    {"path": "frames.ip_adapter.start_at", "label": "Identity start %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity"},
+    {"path": "frames.ip_adapter.end_at", "label": "Identity end %",
+     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity"},
+
+    {"path": "depth.size", "label": "Depth map size", "type": "int",
+     "min": 256, "max": 2048, "step": 64, "group": "Depth",
+     "help": "Blank follows pose.size. Both are control images, so they should "
+             "match the canvas they steer."},
+    {"path": "softbody.nodes", "label": "Soft-body nodes", "type": "int",
+     "min": 2, "max": 64, "group": "Softbody"},
+    {"path": "softbody.preroll_cycles", "label": "Preroll cycles", "type": "int",
+     "min": 0, "max": 16, "group": "Softbody",
+     "help": "Cycles simulated before the first kept frame, so the wobble "
+             "starts settled instead of springing from rest."},
 ]
 
 

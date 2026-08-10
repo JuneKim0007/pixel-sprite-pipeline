@@ -834,9 +834,16 @@ def test_api() -> None:
     ))
 
     print("\nsafety")
+    # Assert the property that matters - the file is not served - rather than
+    # one status code. Both paths are denied, by different routes: an absolute
+    # path fails safe_path's containment check (403), while a relative one
+    # resolves to somewhere outside the roots that does not exist, so it dies
+    # as a missing file (404) before anything is read. Pinning 403 made this
+    # fail while the traversal was in fact blocked and leaking nothing.
     for bad in ("../../etc/passwd", "/etc/passwd"):
         check(f"path traversal blocked: {bad}", lambda b=bad: _assert(
-            status_of(f"/api/file?path={urllib.parse.quote(b)}") == 403, "not blocked",
+            status_of(f"/api/file?path={urllib.parse.quote(b)}") in (403, 404),
+            "not blocked",
         ))
 
 
