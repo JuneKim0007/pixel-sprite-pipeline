@@ -166,6 +166,12 @@ def cmd_config(a: argparse.Namespace) -> int:
         "#",
         f"#   --network_dim {a.rank}   --network_alpha {alpha}",
         f"#   --max_train_steps {a.steps}   --learning_rate {a.lr}",
+        f"#   --save_every_n_epochs {a.save_every_n_epochs}   --sample_every_n_epochs 1",
+        "#",
+        "# Keep every epoch and pick the winner on a FIXED seed rather than",
+        "# guessing a step count. Overfitting shows as sprites inheriting the",
+        "# training images' poses and compositions, not just their style - which",
+        "# is obvious comparing two epochs and invisible looking at one.",
         "#",
         "# network_dim is CAPACITY, not image count. 8 on twenty images learns a",
         "# style; 32 memorises those twenty images, poses included.",
@@ -234,6 +240,9 @@ def main() -> int:
     p_cfg.add_argument("--steps", type=int, default=1800,
                        help="max_train_steps (default 1800)")
     p_cfg.add_argument("--lr", default="1e-4", help="learning rate (default 1e-4)")
+    p_cfg.add_argument("--save-every-n-epochs", type=int, default=1,
+                       help="keep a checkpoint per epoch so the best can be "
+                            "chosen instead of guessed (default 1)")
     p_cfg.set_defaults(func=cmd_config)
 
     a = ap.parse_args()
