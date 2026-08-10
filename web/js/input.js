@@ -181,6 +181,44 @@ function moveRole(fromKey, toKey, index, onChange) {
  * coming back to the view all agree on it. */
 let activeRole = 'identity';
 
+/* The four views a character sheet is made of.
+ *
+ * `side` is 90 degrees, the character's LEFT. Its mirror has no name and is the
+ * raw angle 270 - the same asymmetry the backend carries, surfaced here so the
+ * two cannot disagree. Naming 270 something that reads like a mirror of `side`
+ * is how the two get swapped. */
+const SHEET_VIEWS = [
+  { view: 'front', label: 'Front' },
+  { view: 'rear', label: 'Back' },
+  { view: 'side', label: 'Side (left)' },
+  { view: '270', label: 'Side (right)' },
+];
+
+/* Slots, not a pile. A generic list lets four images be added with no view
+ * said, and the default said `front` for all of them. A slot per view makes
+ * the label a consequence of WHERE you dropped the file, and makes a missing
+ * back visible instead of implicit. */
+function viewSlots(images, onPick, onClear) {
+  const row = el('div', { className: 'refslots' });
+  for (const { view, label } of SHEET_VIEWS) {
+    const held = images.find((r) => String(r.view) === view);
+    const slot = el('div', { className: `refslot ${held ? 'filled' : 'empty'}` });
+    slot.append(el('div', { className: 'refslot-label mini', textContent: label }));
+    if (held) {
+      slot.append(el('img', { src: api.fileUrl(held.path), loading: 'lazy' }));
+      const clear = el('button', { className: 'iconbtn', textContent: '\u2715', title: `Remove ${label}` });
+      clear.onclick = () => onClear(view);
+      slot.append(clear);
+    } else {
+      const add = el('button', { className: 'btn ghost', textContent: '+ add' });
+      add.onclick = () => onPick(view);
+      slot.append(add);
+    }
+    row.append(slot);
+  }
+  return row;
+}
+
 function referenceCards(role, onChange) {
   const path = `references.${role.key}`;
   const images = getPath(draftConfig(), path) || [];
@@ -368,11 +406,25 @@ export function renderInput(host, { onChange, onContinue }) {
   // flat `references.images` outright, so writing it here would produce a
   // config that cannot run.
   const upload = el('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none' });
-  const addRefs = (items) => {
+  // Which view the next upload claims to be. Every upload used to be labelled
+  // `front` regardless, and a mislabelled reference is worse than a missing
+  // one: a rear frame takes a front-labelled image at FULL weight and comes
+  // back facing the wrong way, where an absent one would merely have been
+  // weakened by the angular falloff.
+  let pendingView = 'front';
+
+  const addRefs = (items, view) => {
     const path = `references.${activeRole}`;
     const current = getPath(draftConfig(), path) || [];
-    onChange(path,
-      [...current, ...items.map((p) => ({ path: p, view: 'front', weight: 1 }))]);
+    const label = view || pendingView;
+    // A view slot holds one image: adding replaces rather than accumulating,
+    // which is what "this is the back" means.
+    const kept = label === 'any'
+      ? current
+      : current.filter((r) => String(r.view) !== String(label));
+    onChange(path, [...kept,
+      ...items.map((p) => ({ path: p, view: label === 'any' ? 'front' : label, weight: 1 }))]);
+    pendingView = 'front';
   };
   upload.onchange = async () => {
     if (!upload.files.length) return;
@@ -444,6 +496,18 @@ export function renderInput(host, { onChange, onContinue }) {
             + 'rest, so the costume can change as the character turns. Add a '
             + 'reference for each side you care about, and label its view — '
             + 'or generate a character sheet first and use its views.' })
+        : null,
+      // Identity is the role a character sheet fills view by view; the other
+      // roles are genuinely lists, so they keep the plain grid.
+      activeRole === 'identity'
+        ? viewSlots(
+            getPath(draftConfig(), 'references.identity') || [],
+            (view) => { pendingView = view; upload.click(); },
+            (view) => {
+              const cur = getPath(draftConfig(), 'references.identity') || [];
+              onChange('references.identity',
+                       cur.filter((r) => String(r.view) !== String(view)));
+            })
         : null,
       dropZone(sendFiles),
       el('div', { className: 'row' }, uploadBtn, pickBtn, upload),

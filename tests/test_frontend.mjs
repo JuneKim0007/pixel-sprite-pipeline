@@ -335,6 +335,27 @@ test('update() swaps in place using replaceWith, not children.indexOf', () => {
   assert.equal(grid.querySelector('.ui-card-title').textContent, 'after');
 });
 
+console.log('\nview slots');
+const inputSrc = readFileSync(join(JS, 'input.js'), 'utf8');
+test('the four sheet views match the backend aliases', () => {
+  const views = [...inputSrc.matchAll(/\{ view: '([^']+)', label:/g)].map((m) => m[1]);
+  assert.deepEqual(views, ['front', 'rear', 'side', '270']);
+});
+test('the right side stays a raw angle, not a name', () => {
+  // Naming 270 something that reads like a mirror of `side` is how the two get
+  // swapped; the backend has no name for it either.
+  assert.ok(inputSrc.includes("view: '270'"));
+  assert.ok(!/view: 'side_right'/.test(inputSrc));
+});
+test('uploads no longer hardcode front for every image', () => {
+  assert.ok(!/view: 'front', weight: 1 \}\)\)\]\);/.test(inputSrc),
+    'addRefs still labels every upload front');
+  assert.ok(inputSrc.includes('pendingView'), 'no targeted-view state');
+});
+test('adding to a slot replaces that view rather than stacking', () => {
+  assert.ok(/filter\(\(r\) => String\(r\.view\) !== String\(label\)\)/.test(inputSrc));
+});
+
 console.log('\nschema coverage');
 test('every schema field carries help, so no (?) is ever empty', async () => {
   // The BaseField marker makes a missing explanation visible rather than
