@@ -287,9 +287,21 @@ FIELDS: list[dict[str, Any]] = [
      "help": "8 gives 128px sprites from 1024. Verified as this LoRA's true "
              "pixel grid by an intra-block variance sweep."},
     {"path": "palette.reduce", "label": "Block reduction", "type": "select",
-     "options": ["median", "salient", "mode", "mean"], "group": "Palette",
+     "options": ["median", "salient", "clipped", "mode", "mean"], "group": "Palette",
      "help": "median measured 100% structural accuracy against ground truth; "
-             "mode only 70% (noise makes every colour unique)."},
+             "mode only 70% (noise makes every colour unique). 'clipped' means "
+             "the block after throwing out pixels further than the tolerance "
+             "from its mean, then re-averaging - it rejects a specular outlier "
+             "that would drag a plain mean, while still letting the survivors "
+             "average rather than picking one of them."},
+    {"path": "palette.clip_tolerance", "label": "Clip tolerance", "type": "float",
+     "min": 0.0, "max": 255.0, "step": 1.0, "group": "Palette",
+     "when": {"palette.reduce": "clipped"},
+     "help": "RGB distance from the block mean beyond which a pixel is "
+             "discarded before re-averaging. Fixed rather than a multiple of "
+             "the block's own spread, so one setting behaves the same on a "
+             "flat block and a busy one. Blocks where too little survives fall "
+             "back to median, which is what stops thin outlines being eaten."},
     {"path": "palette.alpha_tolerance", "label": "Background tolerance",
      "type": "int", "min": 0, "max": 128, "group": "Palette",
      "help": "Edge-connected background within this tolerance becomes "

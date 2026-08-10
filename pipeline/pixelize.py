@@ -73,7 +73,15 @@ def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
 SALIENT_THRESHOLD = 34.0
 
 
-def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str) -> np.ndarray:
+# Fraction of a block that must survive clipping for the clipped mean to be
+# trusted. Below it the block is mostly outliers, which is what a thin line
+# through an otherwise flat block looks like - so those fall back to median,
+# which is the mode that keeps outlines.
+_CLIP_FLOOR = 0.35
+
+
+def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
+                  tolerance: float = 32.0) -> np.ndarray:
     blocks = _blocks(arr, factor, ox, oy)
     bh, bw, _, _, c = blocks.shape
     flat = blocks.reshape(bh, bw, factor * factor, c)
@@ -102,6 +110,46 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str) -> n
                 out[y, x, 2] = win & 0xFF
                 if c == 4:
                     out[y, x, 3] = int(np.median(flat[y, x, :, 3]))
+        return out
+
+    if how == "clipped":
+        # Two-pass clipped mean: take the block's mean, discard the pixels that
+        # sit further than `tolerance` from it, then re-mean what survives.
+        #
+        # The point is which pixels get a vote. A plain mean lets one bright
+        # specular pixel drag the whole block; median ignores magnitude
+        # entirely. Clipping throws out the outliers and then lets the
+        # remaining pixels average properly, so a block that is 90% one colour
+        # returns that colour cleanly rather than a colour pulled toward the
+        # 10%.
+        #
+        # Distance is in RGB, and the tolerance is that distance rather than a
+        # multiple of the block's own spread: a fixed number means the same
+        # setting behaves the same on a flat block and a busy one, which is
+        # what makes it tunable by eye.
+        #
+        # The known limit, and it is real: a thin line that legitimately
+        # separates two regions is a minority inside its block, so it is
+        # exactly what gets clipped away. Blocks whose survivors fall below
+        # `_CLIP_FLOOR` of the block are therefore left to the median, which
+        # keeps thin dark outlines that this pass would otherwise eat.
+        rgb = flat[..., :3].astype(np.float32)
+        mean = rgb.mean(axis=2, keepdims=True)
+        dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))
+        keep = dist <= max(float(tolerance), 0.0)
+
+        kept = keep.sum(axis=2, keepdims=True)
+        enough = kept >= max(1, int(factor * factor * _CLIP_FLOOR))
+        safe = np.where(kept > 0, kept, 1)
+        clipped = (rgb * keep).sum(axis=2, keepdims=True) / safe
+
+        out_rgb = np.where(enough, clipped, np.median(rgb, axis=2, keepdims=True))
+        out = np.empty((bh, bw, c), dtype=np.uint8)
+        out[..., :3] = out_rgb[:, :, 0, :].round().clip(0, 255).astype(np.uint8)
+        if c == 4:
+            # Alpha is a mask, not a colour: averaging it feathers the edge the
+            # keyer is about to cut. Median keeps it binary.
+            out[..., 3] = np.median(flat[..., 3], axis=2).round().astype(np.uint8)
         return out
 
     if how == "salient":
@@ -468,6 +516,7 @@ def pixelize(
     upscale: int,
     phase: tuple[int, int] | None,
     verbose: bool,
+    tolerance: float = 32.0,
     key: tuple[int, int, int] | None = None,
 ) -> None:
     img = Image.open(src).convert("RGB")
@@ -477,7 +526,7 @@ def pixelize(
     if verbose:
         print(f"  grid phase: ({ox}, {oy})")
 
-    small = reduce_blocks(arr, factor, ox, oy, reduce)
+    small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
     if verbose:
         print(f"  reduced: {img.width}x{img.height} -> {small.shape[1]}x{small.shape[0]}")
 
@@ -525,8 +574,14 @@ def main() -> int:
         help="downscale factor; 1024/8 = 128px sprite (default: 8)",
     )
     p.add_argument(
-        "-r", "--reduce", choices=("median", "mode", "mean"), default="median",
+        "-r", "--reduce", choices=("median", "salient", "clipped", "mode", "mean"),
+        default="median",
         help="how to collapse each block to one colour (default: median)",
+    )
+    p.add_argument(
+        "--clip-tolerance", type=float, default=32.0, metavar="D",
+        help="for --reduce clipped: RGB distance from the block mean beyond "
+             "which a pixel is dropped before re-averaging (default: 32)",
     )
     p.add_argument(
         "-c", "--colors", "--colours", dest="colors", type=int, default=32,
@@ -579,7 +634,7 @@ def main() -> int:
             print(src.name)
         pixelize(
             src, dst, a.factor, a.reduce, a.colors, palette, a.dither,
-            a.match, a.alpha, a.upscale, phase, not a.quiet,
+            a.match, a.alpha, a.upscale, phase, not a.quiet, a.clip_tolerance,
         )
     return 0
 

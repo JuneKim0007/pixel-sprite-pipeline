@@ -26,10 +26,10 @@ from ..stage import Context, Resource, Stage, opt, register
 
 def _one_frame(args: tuple) -> str:
     """Pool worker. Arguments stay primitive so they pickle cheaply."""
-    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase, match, key = args
+    src, dst, factor, reduce, palette, alpha_tol, upscale, dither, phase, match, key, tolerance = args
     pixelize(
         Path(src), Path(dst), factor, reduce,
-        colours=0, palette=palette, dither=dither, match=match, key=key,
+        colours=0, palette=palette, dither=dither, match=match, key=key, tolerance=tolerance,
         alpha_tol=alpha_tol, upscale=upscale, phase=phase, verbose=False,
     )
     return dst
@@ -86,7 +86,8 @@ class PaletteStage(Stage):
             palette = self._choose(ctx, cfg)
         else:
             palette = self._extract_from_subject(
-                canonical, size, factor, reduce, alpha_tol, key_colour)
+                canonical, size, factor, reduce, alpha_tol, key_colour,
+                float(opt(cfg, "clip_tolerance", 32.0)))
             print(f"   extracted {len(palette)} colours from the canonical's subject")
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
@@ -114,11 +115,14 @@ class PaletteStage(Stage):
             shared_phase = find_phase(arr, factor)
             print(f"   grid phase locked to the canonical at {shared_phase}")
 
+        # Only the clipped reducer reads this; harmless for the others.
+        tolerance = float(opt(cfg, "clip_tolerance", 32.0))
+
         jobs = [
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
                 factor, reduce, palette, alpha_tol, upscale,
-                dither, shared_phase, match, key_colour,
+                dither, shared_phase, match, key_colour, tolerance,
             )
             for src in frames
         ]
@@ -136,6 +140,7 @@ class PaletteStage(Stage):
     def _extract_from_subject(
         canonical: Path, size: int, factor: int, reduce: str, alpha_tol: int,
         key_colour: tuple[int, int, int] | None = None,
+        tolerance: float = 32.0,
     ) -> list[tuple[int, int, int]]:
         """Derive the palette from the character, ignoring the backdrop.
 
@@ -151,7 +156,7 @@ class PaletteStage(Stage):
         """
         arr = np.asarray(Image.open(canonical).convert("RGB"))
         ox, oy = find_phase(arr, factor)
-        small = reduce_blocks(arr, factor, ox, oy, reduce)
+        small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
         keyed = background_to_alpha(small, alpha_tol, key=key_colour)
         rgb, alpha = keyed[..., :3], keyed[..., 3]
 
