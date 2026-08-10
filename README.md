@@ -361,6 +361,19 @@ end.
 
 **Further out:**
 
+- **Per-view canonicals.** Today one canonical anchors every frame, so a
+  front-facing anchor has to serve the rear view too. Angular falloff now
+  weakens it as a frame turns away, which helps — but generating an anchor per
+  view, each frame anchored to its own, would remove the compromise. The open
+  question is how the four agree with each other: chained (front seeds rear,
+  and error accumulates) or each anchored to its own labelled reference.
+  Worth building only if falloff plus per-view references proves insufficient.
+- **One character LoRA per character, trained across all four views** — not one
+  per view. A LoRA learns what is constant and cancels what varies, so training
+  on every view teaches it the character and discards the angle, which is
+  exactly right because depth and ControlNet already supply the angle. Splitting
+  by view would fuse the camera into the identity and starve each LoRA of data.
+
 - **A character LoRA trained from generated frames.** Identity conditioning is
   strong but not a guarantee; a LoRA trained on ~20 frames of a character is.
   The training-data preparation already exists.
