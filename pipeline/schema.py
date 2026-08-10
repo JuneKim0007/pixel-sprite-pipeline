@@ -557,6 +557,25 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Fraction of sampling the anchor steers for. 1.0 holds identity "
              "throughout. Lower it if frames still inherit the anchor's pose "
              "after switching transfer to linear."},
+    {"path": "models.style_lora", "label": "Style LoRA", "type": "select",
+     "options_from": "loras", "group": "Models",
+     "help": "A look you trained, stacked on top of the pixel LoRA. One style "
+             "LoRA serves every character, which is why it is the better first "
+             "thing to train. Watch the total: pixel-art-xl already runs at "
+             "1.2, so two style signals compete unless one comes down."},
+    {"path": "models.style_lora_strength", "label": "Style LoRA strength",
+     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Models"},
+    {"path": "models.character_lora", "label": "Character LoRA", "type": "select",
+     "options_from": "loras", "group": "Models",
+     "help": "One character, trained across ALL its views. A LoRA cancels what "
+             "varies, so pooling the angles teaches it who the character is "
+             "and discards the camera - which is right, because depth and "
+             "ControlNet supply the angle. Split per view it would bake the "
+             "camera into identity and fight them."},
+    {"path": "models.character_lora_strength", "label": "Character LoRA strength",
+     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Models",
+     "help": "Start low (0.4-0.6) and raise. Strength at inference is a "
+             "reversible dial; an under-trained LoRA is not."},
     {"path": "models.vae", "label": "VAE", "type": "select",
      "options_from": "vae", "group": "Models",
      "help": "Must match the checkpoint's family. A mismatched VAE does not "

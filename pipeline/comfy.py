@@ -259,6 +259,28 @@ def base_graph(
     )
     model, clip = g.out(lora, 0), g.out(lora, 1)
 
+    # Extra LoRAs, stacked on top of the pixel LoRA in a fixed order:
+    # style first, then character, so the character has the last word on
+    # identity. Both are off unless named - a trained LoRA was previously
+    # unusable because only one loader existed and pixel_lora owned it.
+    #
+    # Strengths are separate from lora_strength on purpose. A character LoRA
+    # is applied WEAKLY at first and turned up: applying a well-trained LoRA
+    # at 0.4 is a dial you can move, while under-training one to be safe bakes
+    # the weakness in and cannot be undone.
+    for key, default_strength in (("style_lora", 0.6), ("character_lora", 0.7)):
+        name = models.get(key)
+        if not name:
+            continue
+        node = g.add(
+            "LoraLoader",
+            lora_name=name,
+            strength_model=float(models.get(f"{key}_strength", default_strength)),
+            strength_clip=float(models.get(f"{key}_strength", default_strength)),
+            model=model, clip=clip,
+        )
+        model, clip = g.out(node, 0), g.out(node, 1)
+
     if lcm:
         lcm_node = g.add(
             "LoraLoader",
