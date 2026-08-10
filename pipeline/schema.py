@@ -356,7 +356,7 @@ FIELDS: list[dict[str, Any]] = [
              "palette. How a character sheet feeds an animation without "
              "regenerating the character."},
     {"path": "frames.style_weight", "label": "Style exemplar strength",
-     "type": "float", "min": 0.0, "max": 0.8, "step": 0.05, "group": "References",
+     "type": "float", "min": 0.0, "max": 0.6, "step": 0.05, "group": "References",
      "help": "How hard style references push. Deliberately an order of "
              "magnitude below identity — at identity strength a style exemplar "
              "replaces your character with the exemplar."},
@@ -463,7 +463,13 @@ FIELDS: list[dict[str, Any]] = [
     # --------------------------------------------------------------- props
     # Props live in a list editor (see fields.js); this entry documents the
     # group so the settings sidebar has somewhere to put it.
-    {"path": "props.enabled", "label": "Draw held objects", "type": "bool",
+    # `props_enabled`, NOT `props.enabled`. Every config writes `props:` as a
+    # LIST, and the list editor saves an array back to that same path — so the
+    # dict branch in props.py::enabled was never reachable and any value set
+    # here was destroyed by the next save. props.py already reads this
+    # top-level key as its fallback, and a scalar beside the list cannot be
+    # clobbered by it.
+    {"path": "props_enabled", "label": "Draw held objects", "type": "bool",
      "group": "Props",
      "help": "Off by default for a character sheet, on for an animation, and "
              "the same prop list serves both. A sheet is a reference document "
@@ -471,12 +477,11 @@ FIELDS: list[dict[str, Any]] = [
              "rigid volume the model will trace instead of the limb behind it. "
              "An attack animation is the opposite: without the weapon the arm "
              "swings at nothing."},
-    {"path": "props._doc", "label": "Held objects", "type": "text",
-     "group": "Props",
-     "help": "Objects attached to a joint, inheriting its motion. Drawn into "
-             "the depth map rather than the pose guide: OpenPose reads an "
-             "extra chain as a broken limb, and a definite volume is what "
-             "stops the model guessing where a weapon goes."},
+    # The prop LIST itself is edited by fields.js's list editor at path
+    # `props`. It deliberately has no scalar field here: one existed as
+    # `props._doc` purely to give the sidebar a heading, and because
+    # renderGroup draws every schema entry it appeared as a writable text box
+    # that persisted a meaningless `props._doc` key into the config.
 
     # -------------------------------------------------------------- models
     # Per-pipeline weight selection: a lighter pipeline can point at a smaller
@@ -589,7 +594,7 @@ FIELDS: list[dict[str, Any]] = [
              "between candidates, so an overnight run with cooling on wants "
              "this off, and a 1280 canvas may not fit the batch in 16 GB."},
     {"path": "canonical.style_weight", "label": "Style exemplar strength",
-     "type": "float", "min": 0.0, "max": 0.8, "step": 0.05, "group": "Canonical",
+     "type": "float", "min": 0.0, "max": 0.6, "step": 0.05, "group": "Canonical",
      "help": "Exemplars carry rendering, not colour. At the 0.35 role default "
              "silver-haired exemplars pulled a crimson character toward "
              "lavender; 0.18 keeps the brushwork and lets the prompt keep the "
@@ -649,8 +654,10 @@ FIELDS: list[dict[str, Any]] = [
      "min": 256, "max": 2048, "step": 64, "group": "Depth",
      "help": "Blank follows pose.size. Both are control images, so they should "
              "match the canvas they steer."},
-    {"path": "softbody.nodes", "label": "Soft-body nodes", "type": "int",
-     "min": 2, "max": 64, "group": "Softbody"},
+    # softbody.nodes is intentionally absent: it holds a LIST and fields.js
+    # already registers a list editor for that path. Declaring it as an int
+    # here drew a SECOND control on the same key, and typing in it replaced
+    # the list with a number.
     {"path": "softbody.preroll_cycles", "label": "Preroll cycles", "type": "int",
      "min": 0, "max": 16, "group": "Softbody",
      "help": "Cycles simulated before the first kept frame, so the wobble "

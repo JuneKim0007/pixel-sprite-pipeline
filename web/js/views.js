@@ -44,8 +44,16 @@ export const COLORS = [
 
 export const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
-export const resolveView = (view) =>
-  typeof view === 'number' ? view : (VIEWS[view] ?? parseFloat(view) ?? 0);
+/* `?? 0` never fired: parseFloat returns a number or NaN, never null, so a
+ * junk view name produced NaN and every downstream angle computed from it
+ * became NaN — silently, since NaN propagates rather than throwing. Guard on
+ * finiteness, which is what the 0 fallback was reaching for. */
+export const resolveView = (view) => {
+  if (typeof view === 'number') return Number.isFinite(view) ? view : 0;
+  if (view in VIEWS) return VIEWS[view];
+  const deg = parseFloat(view);
+  return Number.isFinite(deg) ? deg : 0;
+};
 
 export const FACE_ONLY = new Set(['nose', 'r_eye', 'l_eye']);
 
@@ -89,13 +97,6 @@ export function unprojectX(x, yawDeg, point, { centre = 0.5, depthScale = 1, lat
   return { lateral, depth: nextDepth };
 }
 
-export const BONES = [
-  ['neck', 'nose'],
-  ['neck', 'r_shoulder'], ['r_shoulder', 'r_elbow'], ['r_elbow', 'r_wrist'],
-  ['neck', 'l_shoulder'], ['l_shoulder', 'l_elbow'], ['l_elbow', 'l_wrist'],
-  ['neck', 'r_hip'], ['r_hip', 'r_knee'], ['r_knee', 'r_ankle'],
-  ['neck', 'l_hip'], ['l_hip', 'l_knee'], ['l_knee', 'l_ankle'],
-];
 
 export const SKELETON_TREE = {
   neck: ['nose', 'r_shoulder', 'l_shoulder', 'r_hip', 'l_hip'],
@@ -108,11 +109,6 @@ export const SKELETON_TREE = {
 
 export const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
-/** Rescale bones to their reference lengths, keeping directions.
- *
- * Dragging a joint would otherwise stretch the limb it hangs from. Preserving
- * the direction the user dragged while restoring the length means the drag
- * reads as rotating the limb, which is what a rig is supposed to do. */
 /** Parent of a joint in the given tree, or null for the root. */
 export function parentOf(tree, joint) {
   for (const [parent, kids] of Object.entries(tree)) {

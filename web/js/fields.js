@@ -40,11 +40,23 @@ function optionsFor(field) {
   return [];
 }
 
+/* A `when` condition compares against the CONTROLLING field's own default, not
+ * a single hardcoded one. The literal 'library' here was pose.source's default,
+ * copied from the pre-module version and then applied to every condition — so
+ * `palette.file`, gated on `palette.source == 'file'` whose real default is
+ * 'extract', was being judged against 'library'. It hid correctly by accident,
+ * and would have shown the wrong control the moment a `when` awaited the value
+ * that happened to be hardcoded. */
+function whenDefault(path) {
+  const field = (state.schema?.fields || []).find((f) => f.path === path);
+  return field && 'default' in field ? field.default : undefined;
+}
+
 function visible(field, cfg) {
   if (!field.when) return true;
   return Object.entries(field.when).every(([path, want]) => {
-    const actual = getPath(cfg, path);
-    return (actual ?? 'library') === want;
+    const actual = getPath(cfg, path) ?? whenDefault(path);
+    return actual === want;
   });
 }
 
@@ -317,49 +329,6 @@ const LIST_EDITORS = {
   },
 };
 
-export const listEditorPaths = () => Object.keys(LIST_EDITORS);
-
-function subControl(spec, value, onChange) {
-  if (spec.type === 'vec3' || spec.type === 'vec2') {
-    const size = spec.type === 'vec3' ? 3 : 2;
-    const current = Array.isArray(value) ? value : new Array(size).fill(0);
-    const row = el('div', { className: 'vec' });
-    for (let i = 0; i < size; i++) {
-      const box = el('input', {
-        type: 'number', step: 0.005, value: current[i] ?? 0, className: 'num tiny',
-      });
-      box.onchange = () => {
-        const next = [...current];
-        next[i] = parseFloat(box.value) || 0;
-        onChange(next);
-      };
-      row.append(box);
-    }
-    return row;
-  }
-
-  if (spec.type === 'image') {
-    const row = el('div', { className: 'control' });
-    const text = el('input', { type: 'text', value: value ?? '', placeholder: 'inputs/ref.png' });
-    text.onchange = () => onChange(text.value);
-    row.append(text);
-    if (value) {
-      row.append(el('img', {
-        className: 'minithumb',
-        src: `/api/file?path=${encodeURIComponent(value)}`,
-      }));
-    }
-    return row;
-  }
-
-  const field = {
-    type: spec.type,
-    options: spec.options,
-    options_from: spec.optionsFrom,
-    min: spec.min, max: spec.max, step: spec.step,
-  };
-  return control(field, value, onChange);
-}
 
 function listEditor(path, items, onChange) {
   const spec = LIST_EDITORS[path];
