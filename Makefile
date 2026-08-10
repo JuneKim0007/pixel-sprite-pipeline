@@ -82,7 +82,7 @@ lint:
 	@$(RUFF) check --quiet --select F821,F811,F502,F506,F601,F632,B018 \
 	  pipeline/ tools/ tests/ *.py \
 	  || { printf '\033[31mstatic analysis failed\033[0m\n'; exit 1; }
-	@for f in web/js/*.js; do node --check "$$f" || exit 1; done
+	@for f in $$(find web/js tests -name '*.js' -o -name '*.mjs'); do node --check "$$f" || exit 1; done
 	@printf '  \033[32mno undefined names\033[0m\n'
 
 test:

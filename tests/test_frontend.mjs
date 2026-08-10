@@ -218,5 +218,120 @@ test('nothing writes the retired references.images', () => {
   }
 });
 
+/* ------------------------------------------------------- rendered output
+ *
+ * Everything above tests logic that never touches the DOM, which is why the
+ * DOM-shaped bugs were the ones that shipped. domshim.mjs is a DOM small
+ * enough to have no dependencies and real enough to render a component and
+ * assert what came out — the thing a refactor of web/js needs to be safe.
+ */
+const { installDom } = await import(join(ROOT, 'tests/domshim.mjs'));
+installDom();
+
+const ui = await import(join(JS, 'ui/index.js'));
+const { el } = await import(join(JS, 'store.js'));
+
+console.log('\ndom shim');
+test('el() builds a tree with text and children', () => {
+  const node = el('div', { className: 'a b' }, el('span', { textContent: 'hi' }), 'tail');
+  assert.equal(node.tagName, 'DIV');
+  assert.ok(node.classList.contains('b'));
+  assert.equal(node.textContent, 'hitail');
+});
+test('el() skips null and false children', () => {
+  assert.equal(el('div', {}, null, false, 'x').textContent, 'x');
+});
+test('querySelector finds by class and by tag.class', () => {
+  const root = el('div', {}, el('p', { className: 'help' }, 'z'));
+  assert.ok(root.querySelector('.help'));
+  assert.ok(root.querySelector('p.help'));
+  assert.equal(root.querySelector('.nope'), null);
+});
+
+console.log('\nui primitives');
+test('Heading uses the tag matching its level', () => {
+  assert.ok(ui.Heading('T', { level: 3 }).querySelector('h3'));
+  assert.ok(ui.Heading('T', { level: 1 }).querySelector('h1'));
+});
+test('Section nests its children in a body', () => {
+  const s = ui.Section('Title', {}, el('p', { textContent: 'child' }));
+  assert.ok(s.querySelector('.ui-section-body'));
+  assert.ok(s.textContent.includes('child'));
+  assert.ok(s.textContent.includes('Title'));
+});
+test('Subsection is an h3, Section an h2', () => {
+  assert.ok(ui.Section('a', {}).querySelector('h2'));
+  assert.ok(ui.Subsection('a', {}).querySelector('h3'));
+});
+test('HelpTip summarises to the lead sentence in the title', () => {
+  const tip = ui.HelpTip('Short lead. Then the long measured reasoning follows.');
+  assert.equal(tip.btn.title, 'Short lead.');
+  assert.ok(tip.body.textContent.includes('measured reasoning'));
+});
+test('HelpTip body starts hidden and toggles', () => {
+  const tip = ui.HelpTip('A. B.');
+  assert.ok(tip.body.classList.contains('hidden'));
+  tip.btn.onclick();
+  assert.ok(!tip.body.classList.contains('hidden'));
+});
+test('HelpTip on empty help is null, not an empty button', () => {
+  assert.equal(ui.HelpTip(''), null);
+});
+
+console.log('\nBaseCard');
+test('a card with no overrides still renders', () => {
+  assert.ok(new ui.BaseCard({}).render().classList.contains('ui-card'));
+});
+test('subclass hooks land in the right slots', () => {
+  class C extends ui.BaseCard {
+    media() { return el('img', { className: 'm' }); }
+    title() { return 'Name'; }
+    footer() { return [el('button', { textContent: 'go' })]; }
+  }
+  const n = new C({ data: {} }).render();
+  assert.ok(n.querySelector('.m'), 'media');
+  assert.equal(n.querySelector('.ui-card-title').textContent, 'Name');
+  assert.ok(n.querySelector('.ui-card-foot'), 'footer');
+});
+test('empty rows and footer produce no empty containers', () => {
+  const n = new ui.BaseCard({ data: { title: 'x' } }).render();
+  assert.equal(n.querySelector('.ui-card-rows'), null);
+  assert.equal(n.querySelector('.ui-card-foot'), null);
+});
+
+console.log('\nBaseField');
+test('every field renders a (?) next to its label', () => {
+  const n = new ui.BaseField({ field: { path: 'a.b', label: 'A', help: 'Why. Because.' } }).render();
+  assert.ok(n.querySelector('.ui-label-row .ui-tip'), 'tip missing');
+  assert.equal(n.querySelector('.ui-label').textContent, 'A');
+});
+test('a field with NO help shows a disabled marker, not nothing', () => {
+  const n = new ui.BaseField({ field: { path: 'a.b', label: 'A' } }).render();
+  const tip = n.querySelector('.ui-tip');
+  assert.ok(tip, 'marker missing');
+  assert.ok(tip.classList.contains('ui-tip-missing'));
+});
+test('commit reports the schema path, not the label', () => {
+  let seen = null;
+  const f = new ui.BaseField({ field: { path: 'canonical.seed', label: 'Seed' },
+                               on: { change: (p, v) => { seen = [p, v]; } } });
+  f.commit(7);
+  assert.deepEqual(seen, ['canonical.seed', 7]);
+});
+test('label is bound to its control id', () => {
+  const f = new ui.BaseField({ field: { path: 'x', label: 'X' } });
+  const n = f.render();
+  assert.equal(n.querySelector('.ui-label').getAttribute('for'), f.id);
+});
+
+console.log('\nschema coverage');
+test('every schema field carries help, so no (?) is ever empty', async () => {
+  // The BaseField marker makes a missing explanation visible rather than
+  // invisible; this keeps the count from growing quietly.
+  const src = readFileSync(join(ROOT, 'pipeline/schema.py'), 'utf8');
+  const paths = [...src.matchAll(/\{"path":\s*"([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(paths.length > 100, `only found ${paths.length} schema paths`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

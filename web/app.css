@@ -1055,3 +1055,46 @@ input.wide { width: 100%; max-width: 420px; }
 .coolrow { display: grid; grid-template-columns: 120px 1fr; gap: 14px; padding: 11px 0; }
 .coolrow .key { font-weight: 550; font-size: 13px; }
 .coolrow .row { align-items: center; gap: 8px; }
+
+/* --------------------------------------------------------------- ui/ layer
+ * Styles for web/js/ui primitives. Additive: nothing consumes them yet, so
+ * these cannot change how any current screen looks. Classes are keyed to the
+ * component, never to the tag, so the heading LEVEL is semantic and the look
+ * is independent of it.
+ */
+.ui-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.ui-heading-text { min-width: 0; }
+.ui-title { margin: 0; font-weight: 600; line-height: 1.25; }
+.ui-h1 .ui-title { font-size: 1.35rem; }
+.ui-h2 .ui-title { font-size: 1.1rem; }
+.ui-h3 .ui-title { font-size: 0.95rem; }
+.ui-sub { margin: 0.15rem 0 0; font-size: 0.8rem; opacity: 0.7; }
+.ui-heading-actions { display: flex; gap: 0.4rem; flex: none; }
+
+.ui-section { margin: 0 0 1.5rem; }
+.ui-subsection { margin: 0 0 1rem; }
+.ui-section-body, .ui-subsection-body { margin-top: 0.6rem; }
+
+/* The (?) — small, quiet until asked. A missing explanation is shown as a
+ * dimmed marker rather than omitted, so the gap is visible in the UI. */
+.ui-tip {
+  border: 1px solid currentColor; border-radius: 50%; background: none;
+  color: inherit; opacity: 0.45; cursor: pointer; font-size: 0.65rem;
+  width: 1.05em; height: 1.05em; line-height: 1; padding: 0; flex: none;
+}
+.ui-tip:hover, .ui-tip.open { opacity: 1; }
+.ui-tip-missing { border-style: dashed; cursor: not-allowed; opacity: 0.25; }
+.ui-tip-body { margin: 0.35rem 0 0; font-size: 0.8rem; opacity: 0.8; max-width: 60ch; }
+
+.ui-label-row { display: flex; align-items: center; gap: 0.35rem; }
+.ui-label { font-size: 0.85rem; }
+.ui-field { margin: 0 0 0.9rem; }
+.ui-field-control { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; }
+
+.ui-card { display: flex; flex-direction: column; gap: 0.4rem; }
+.ui-card-head { display: flex; align-items: center; gap: 0.35rem; }
+.ui-card-title { font-weight: 600; font-size: 0.9rem; }
+.ui-card-sub { margin: 0; font-size: 0.78rem; opacity: 0.7; }
+.ui-card-rows { display: flex; flex-direction: column; gap: 0.15rem; }
+.ui-card-row { display: flex; justify-content: space-between; gap: 0.5rem; }
+.ui-card-foot { display: flex; align-items: center; gap: 0.4rem; margin-top: auto; }
