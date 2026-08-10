@@ -97,6 +97,8 @@ class Context:
         cfg = dict(self.config.get("references") or {})
         # from_run resolves against wherever runs actually live, which the
         # config may have moved.
+        # `{name}` in references.pattern resolves against the pipeline name.
+        cfg.setdefault("_name", self.config.get("name") or "")
         cfg.setdefault("_runs_dir", str(settings_mod.resolve_dir(
             self.root, (self.config.get("paths") or {}).get("output_dir"),
             "out/runs")))

@@ -376,6 +376,22 @@ FIELDS: list[dict[str, Any]] = [
      "type": "float", "min": 0.0, "max": 180.0, "step": 5.0, "group": "References",
      "help": "A reference within this many degrees of the frame's viewing "
              "angle counts as a match and gets full weight."},
+    {"path": "references.pattern", "label": "Reference path pattern", "type": "text",
+     "group": "References",
+     "help": "Find per-view references by filename instead of listing them, so "
+             "a job can be written by a script and queued in bulk with nothing "
+             "uploaded. Template over {name} (or {id}) and {view}, e.g. "
+             "overnight/{name}/refs/{view}.png. Views: front, back, side_left, "
+             "side_right. Only files that exist are added, and a view you "
+             "configured explicitly always wins."},
+    {"path": "references.match.side_fallback", "label": "Missing side",
+     "type": "select", "options": ["none", "mirror", "back", "front"],
+     "group": "References",
+     "help": "What covers a side with no reference of its own. 'mirror' reuses "
+             "the other side flipped - right for a symmetric outfit, wrong for "
+             "a cape or an asymmetric skirt. 'back' shares most silhouette "
+             "with a profile. 'none' leaves pick() to weaken the nearest "
+             "reference, which is the honest default when nothing is known."},
     {"path": "references.match.exact_weight", "label": "Weight when matched",
      "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "References",
      "help": "IP-Adapter weight when a reference matches the view. High is "

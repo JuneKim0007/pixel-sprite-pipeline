@@ -134,8 +134,127 @@ def load(root: Path, cfg: dict | None) -> Library:
             entries = [entries]
         setattr(lib, role, [_one(root, e, role, i) for i, e in enumerate(entries)])
 
+    lib.identity.extend(from_pattern(root, cfg, lib.identity))
+    lib.identity.extend(fill_missing_sides(cfg, lib.identity))
     lib = _merge_from_run(root, cfg, lib)
     return lib
+
+
+# Labels a person actually writes, mapped to the pipeline's yaw. The named
+# views only span 0-180, so a character's RIGHT side has no name and is a raw
+# angle - which is exactly the thing people get wrong by hand. These aliases
+# exist so `side_right` resolves rather than silently becoming `side` (90),
+# which is the character's LEFT and a rear frame away from what was meant.
+VIEW_ALIASES: dict[str, float] = {
+    "front": 0.0,
+    "back": 180.0, "rear": 180.0,
+    "side": 90.0, "side_left": 90.0, "left": 90.0,
+    "side_right": 270.0, "right": 270.0,
+}
+
+
+def from_pattern(root: Path, cfg: dict, existing: list[Reference]) -> list[Reference]:
+    """Discover per-view identity references by filename pattern.
+
+    Why a pattern and not a list: a job that names four files by path can be
+    written by a script, queued in bulk, and run somewhere with more compute
+    without anything being uploaded first. `references.pattern` is a template
+    over `{name}` (or `{id}`) and `{view}`:
+
+        pattern: overnight/{name}/refs/{view}.png
+
+    Only views whose file EXISTS are added, and an explicitly configured view
+    always wins - the pattern fills gaps, it does not override intent.
+
+    Missing sides are handled by `match.side_fallback`, because the honest
+    options differ in kind and the right one is a judgement about the costume:
+
+        mirror  reuse the other side, flipped. Correct for a symmetric outfit,
+                wrong for char_2's cape or char_3's slit skirt.
+        back    let the rear reference cover the sides. The default: it is the
+                view that shares most silhouette with a profile.
+        front   for costumes whose front reads better in profile.
+        none    add nothing and let pick()'s falloff do its job.
+    """
+    pattern = cfg.get("pattern")
+    if not pattern:
+        return []
+
+    name = cfg.get("_name") or cfg.get("name") or ""
+    have = {round(r.yaw) % 360 for r in existing}
+    found: list[Reference] = []
+
+    for label, yaw in VIEW_ALIASES.items():
+        if round(yaw) % 360 in have:
+            continue
+        rel = str(pattern).replace("{view}", label) \
+                          .replace("{name}", str(name)).replace("{id}", str(name))
+        path = (root / rel) if not Path(rel).is_absolute() else Path(rel)
+        if not path.is_file():
+            continue
+        found.append(Reference(path=path, role="identity", yaw=yaw, label=label))
+        have.add(round(yaw) % 360)
+
+    return found
+
+
+def _mirrored(src: Reference, yaw: float) -> Reference | None:
+    """A horizontally flipped copy of `src`, cached beside the original."""
+    from PIL import Image
+
+    dst = src.path.with_name(f"{src.path.stem}__mirror{src.path.suffix}")
+    try:
+        if not dst.exists() or dst.stat().st_mtime < src.path.stat().st_mtime:
+            Image.open(src.path).transpose(Image.FLIP_LEFT_RIGHT).save(dst)
+    except Exception:
+        return None                      # unreadable source: add nothing
+    return Reference(path=dst, role="identity", yaw=yaw,
+                     label=f"{src.label}-mirrored", weight_scale=src.weight_scale)
+
+
+def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
+    """Cover a side that has no reference, per `match.side_fallback`.
+
+    Without this a 270 frame with only a 90 reference takes it at far_weight
+    (0.45) - deliberately weak, because pick() gives latitude where there is no
+    evidence. That is right when nothing is known about the far side and wrong
+    when the OTHER side is known and the costume is symmetric.
+
+    Nothing is invented: this only re-points an existing reference, and it
+    never overrides a side that was actually supplied.
+    """
+    match = cfg.get("match") or {}
+    mode = str(match.get("side_fallback") or "none").lower()
+    if mode == "none":
+        return []
+
+    have = {round(r.yaw) % 360 for r in existing}
+    by_yaw = {round(r.yaw) % 360: r for r in existing}
+    out: list[Reference] = []
+
+    for yaw, other in ((90.0, 270), (270.0, 90)):
+        if round(yaw) % 360 in have:
+            continue
+        src = None
+        if mode == "mirror":
+            src = by_yaw.get(other)
+            if src is not None:
+                # Actually flip it. Re-pointing the left image at 270 without
+                # mirroring would hand the model a left-facing figure labelled
+                # as the right side, which is the mislabelling CONFIGURING.md
+                # calls worse than having no reference at all: the frame takes
+                # it at FULL weight and comes back facing the wrong way.
+                src = _mirrored(src, yaw)
+        elif mode in ("back", "rear"):
+            src = by_yaw.get(180)
+        elif mode == "front":
+            src = by_yaw.get(0)
+        if src is None:
+            continue
+        out.append(Reference(path=src.path, role="identity", yaw=yaw,
+                             label=f"{src.label}->{int(yaw)}",
+                             weight_scale=src.weight_scale))
+    return out
 
 
 def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:

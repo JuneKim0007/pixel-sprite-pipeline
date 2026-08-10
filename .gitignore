@@ -28,3 +28,6 @@ audit/
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Mirrored side references cached beside their source.
+*__mirror.png
