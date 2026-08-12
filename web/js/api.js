@@ -37,6 +37,7 @@ export const api = {
   styleTraining: (name) => call(`/api/style/training?name=${encodeURIComponent(name)}`),
 
   palettes:    () => call('/api/palettes'),
+  editorLayers: () => call('/api/editor/layers'),
   editPreview: (params) => json('POST', '/api/edit/preview', params),
   editApply:   (params) => json('POST', '/api/edit/apply', params),
 

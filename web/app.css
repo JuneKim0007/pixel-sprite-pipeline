@@ -1111,3 +1111,45 @@ input.wide { width: 100%; max-width: 420px; }
 .rail-cell.on .rail-detail { opacity: .82; }
 
 .sidebar { height: auto; min-height: 0; }
+
+/* ------------------------------------------------------- the layer stack */
+
+.stackpanel, .stackform {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px;
+}
+.stacklist { display: grid; gap: 4px; margin: 8px 0; }
+.stackrow {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px;
+  align-items: center; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--panel-2); padding: 7px 10px;
+}
+.stackrow:hover { border-color: var(--accent); }
+.stackrow.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.stackrow.off .stackname { opacity: .45; text-decoration: line-through; }
+.stackrow.dragging { opacity: .4; }
+.stackrow.over { border-top: 2px solid var(--accent); }
+.stackgrip { color: var(--ink-faint); cursor: grab; font-size: 13px; }
+.stackname { font-size: 13px; font-weight: 550; }
+.stackpower, .stackx {
+  border: 0; background: none; cursor: pointer; padding: 0 3px;
+  color: var(--ink-faint); font-size: 12px;
+}
+.stackrow.on .stackpower { color: var(--accent); }
+.stackx:hover { color: var(--bad); }
+.stackadd { width: 100%; }
+
+.layerform { display: grid; gap: 2px; }
+.ui-field { padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.ui-field:last-child { border-bottom: 0; }
+.ui-field-control { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.ui-field-control input[type=range] { flex: 1; min-width: 0; }
+
+.enginetag {
+  margin-left: 8px; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid currentColor; font-weight: 500;
+}
+.enginetag.preview { color: var(--warn); }
+.enginetag.exact { color: var(--ok); }
+.previewcanvas { max-width: 100%; image-rendering: pixelated; display: block; margin: 0 auto; }

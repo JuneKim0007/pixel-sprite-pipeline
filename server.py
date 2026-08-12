@@ -394,99 +394,32 @@ def _editor_source(path_str: str) -> Path:
 
 
 def edit_preview(body: dict) -> dict:
-    """Apply the pixelisation chain to one image and return it inline."""
+    """Run a layer stack over one image and return the result inline.
+
+    The stack is whatever the editor sends. A missing one falls back to the
+    default arrangement rather than erroring, so a client that has not yet
+    built a stack still gets a picture.
+    """
     import base64
 
     import numpy as np
     from PIL import Image
 
-    from pipeline import pixelize as px
-    from pipeline import training
+    from pipeline import definitive
 
     src = _editor_source(body.get("source", ""))
     original = Image.open(src).convert("RGB")
-    arr = np.asarray(original)
+    stack = body.get("stack") or definitive.default_stack()
 
-    # Curves run before reduction and before snapping. Snapping is a
-    # nearest-neighbour decision, so what the values look like beforehand
-    # decides which palette entries get chosen at all.
-    cur = body.get("curves") or {}
-    if any(float(cur.get(k, d)) != d for k, d in
-           (("brightness", 0.0), ("contrast", 1.0), ("gamma", 1.0), ("saturation", 1.0))):
-        arr = px.curves(
-            arr,
-            brightness=float(cur.get("brightness", 0.0)),
-            contrast=float(cur.get("contrast", 1.0)),
-            gamma=float(cur.get("gamma", 1.0)),
-            saturation=float(cur.get("saturation", 1.0)),
-        )
+    out, facts = definitive.apply_stack(np.asarray(original), stack, root=ROOT)
 
-    measured_block = training.estimate_block_size(arr)
-    factor = int(body.get("factor") or 0) or max(1, int(round(measured_block)))
-    factor = max(1, min(factor, min(arr.shape[:2]) // 2 or 1))
-
-    phase_mode = body.get("phase", "auto")
-    if phase_mode == "auto":
-        ox, oy = px.find_phase(arr, factor) if factor > 1 else (0, 0)
-    else:
-        ox, oy = int(body.get("phase_x", 0)), int(body.get("phase_y", 0))
-
-    small = px.reduce_blocks(arr, factor, ox, oy, body.get("reduce", "median")) \
-        if factor > 1 else arr.copy()
-
-    palette = None
-    pal_name = body.get("palette") or ""
-    if pal_name:
-        from pipeline.palettes import discover
-
-        found = discover(ROOT).get(pal_name)
-        if not found:
-            raise FileNotFoundError(f"no palette '{pal_name}'")
-        palette = px.load_palette(Path(found.path))
-    elif int(body.get("colours") or 0) > 0:
-        # Clustered in the same space the snapping will use, rather than
-        # median cut. Median cut subdivides the RGB cube and will happily
-        # spend five of eight entries inside one midtone: measured on a
-        # generated knight it returned luminances 52,144,145,145,145,145,148,
-        # 227 — a palette with almost no value range, for a medium that reads
-        # by value.
-        palette = px.generate_palette(small, int(body["colours"]),
-                                      method=body.get("match", "weighted"))
-
-    if palette is not None:
-        if body.get("dither"):
-            small = px.quantize_median_cut(small, len(palette), True)
-        small = px.apply_fixed_palette(small, palette,
-                                       method=body.get("match", "weighted"))
-
-    alpha_tol = body.get("alpha_tolerance")
-    out = small
-    if alpha_tol not in (None, ""):
-        out = px.background_to_alpha(small, int(alpha_tol))
-
-    upscale = max(1, int(body.get("upscale") or 1))
     image = Image.fromarray(out, mode="RGBA" if out.shape[2] == 4 else "RGB")
-    if upscale > 1:
-        image = image.resize((image.width * upscale, image.height * upscale),
-                             Image.NEAREST)
-
     buf = io.BytesIO()
     image.save(buf, format="PNG")
-    after = np.asarray(out)[..., :3].reshape(-1, 3)
-
     return {
         "image": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(),
         "source": str(src),
-        "facts": {
-            "measured_block": measured_block,
-            "factor": factor,
-            "phase": [ox, oy],
-            "before": {"width": original.width, "height": original.height,
-                       "colours": int(len(np.unique(arr.reshape(-1, 3), axis=0)))},
-            "after": {"width": out.shape[1], "height": out.shape[0],
-                      "colours": int(len(np.unique(after, axis=0)))},
-            "palette_size": len(palette) if palette is not None else 0,
-        },
+        "facts": facts,
     }
 
 
@@ -500,6 +433,22 @@ def edit_apply(body: dict) -> dict:
     payload = result["image"].split(",", 1)[1]
     target.write_bytes(base64.b64decode(payload))
     return {"written": str(target), "facts": result["facts"]}
+
+
+def editor_layers() -> dict:
+    """The layer catalogue and a starting stack, for building the form."""
+    from pipeline import definitive
+    from pipeline.palettes import discover
+
+    cat = definitive.catalogue()
+    names = sorted(discover(ROOT))
+    # The palette picker's options are the files on disk, so a layer never
+    # hardcodes a list that a new .hex would fall outside of.
+    for spec in cat:
+        for f in spec["fields"]:
+            if f["key"] == "file" and spec["key"] == "palette":
+                f["options"] = [[n, n] for n in names]
+    return {"layers": cat, "default_stack": definitive.default_stack()}
 
 
 def palette_list() -> dict:
@@ -940,6 +889,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(styles.preview(ROOT, merged))
         if path == "/api/style/detail":
             return self._json(style_detail(q.get("name", [""])[0]))
+        if path == "/api/editor/layers":
+            return self._json(editor_layers())
         if path == "/api/palettes":
             return self._json(palette_list())
         if path == "/api/queue":

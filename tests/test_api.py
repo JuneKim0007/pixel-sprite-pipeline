@@ -153,6 +153,10 @@ def test_pipeline() -> None:
     check("scratch keys stay out of the manifest", _manifest_excludes_scratch)
     check("rig resolves once and is cached", _rig_cached)
 
+    print("\ndefinitive editor")
+    check("every layer field carries an explanation", _definitive_layers)
+    check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
+
 
 def _reference_pose() -> None:
     """Limbs clear of the torso, and not horizontal.
@@ -322,6 +326,67 @@ def _prop_module_default() -> None:
     mapped = props_mod.load({"enabled": False, "items": ["bow"]}, root=root)
     _assert([p.name for p in flat] == [p.name for p in mapped] == ["bow"],
             "the two config shapes disagree")
+
+def _definitive_layers() -> None:
+    """A field with no help is a control the UI cannot explain.
+
+    BaseField renders a disabled marker rather than omitting the tip, so a gap
+    is visible on screen. This makes it visible in CI too, because a gap you
+    have to notice is a gap that ships.
+    """
+    from pipeline import definitive
+
+    missing = [(s["key"], f["key"]) for s in definitive.catalogue()
+               for f in s["fields"] if not f["help"].strip()]
+    _assert(not missing, f"layer fields without help: {missing}")
+
+    for spec in definitive.catalogue():
+        _assert(spec["summary"].strip(), f"layer {spec['key']} has no summary")
+        keys = [f["key"] for f in spec["fields"]]
+        _assert(len(keys) == len(set(keys)), f"{spec['key']} repeats a field key")
+        for f in spec["fields"]:
+            if f["kind"] == "select":
+                _assert(f["options"],
+                        f"{spec['key']}.{f['key']} is a select with no options")
+
+
+def _definitive_stack() -> None:
+    """The order is data, and a questionable one warns rather than blocks.
+
+    Someone deliberately keying before the grid to see what happens is doing
+    something legitimate; the stage runner takes the same line with a
+    questionable pipeline order.
+    """
+    import numpy as np
+
+    from pipeline import definitive
+
+    img = np.zeros((64, 64, 3), dtype=np.uint8)
+    img[16:48, 16:48] = (200, 60, 60)
+
+    out, facts = definitive.apply_stack(img, definitive.default_stack(), root=ROOT)
+    _assert(out.ndim == 3, "the stack did not return an image")
+    _assert(not facts["warnings"], f"the default order warns: {facts['warnings']}")
+    _assert(facts["measured_block"] >= 1, "grid recorded no measurement")
+
+    def stack(*keys):
+        return [{"layer": k, "id": k, "enabled": True, "config": {}} for k in keys]
+
+    _assert(definitive.check_order(stack("palette", "grid")),
+            "palette before grid should warn")
+    _assert(definitive.check_order(stack("background", "grid")),
+            "keying before the grid should warn")
+    _assert(not definitive.check_order(stack("grid", "palette", "curves")),
+            "curves at the end is a legitimate arrangement")
+
+    # A layer that raises reports against itself instead of blanking the run.
+    broken = [{"layer": "palette", "id": "p", "enabled": True,
+               "config": {"source": "file", "file": "nope"}}]
+    out2, facts2 = definitive.apply_stack(img, broken, root=ROOT)
+    _assert(out2.shape == img.shape, "a failing layer changed the image")
+    _assert(any(la.get("error") for la in facts2["layers"]),
+            "a failing layer did not report an error")
+
 
 def _softbody_stage() -> None:
     """The stage had unit-tested physics but had never actually executed.
