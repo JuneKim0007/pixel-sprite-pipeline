@@ -85,6 +85,19 @@ class Decorated(Source[T]):
         self.entries[key] = value
         return value
 
+    def signature(self) -> Any:
+        """The entry count, because a decorated registry DOES change.
+
+        The first version returned None here, on the reasoning that decorated
+        entries are fixed once imports finish. They are - but "once imports
+        finish" is not a moment any caller can observe. Something asked for the
+        stage list before pipeline.stages had been imported, the registry
+        cached an empty dict, and `signature() == self._signature` kept it
+        empty for the life of the process. The schema then served a select with
+        no options.
+        """
+        return len(self.entries)
+
     def load(self) -> tuple[dict[str, T], list[Broken]]:
         return dict(self.entries), []
 

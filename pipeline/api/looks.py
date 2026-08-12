@@ -1,0 +1,241 @@
+"""Style sheets and palettes: the reusable half of a look.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import time
+from pathlib import Path
+
+from .. import files as files_mod
+from .. import palettes as palette_lib
+from .. import styles, stylelog
+from ..shared.errors import Invalid, NotFound
+from .context import CONFIGS, ROOT, allowed_roots, dump_roundtrip, load_roundtrip
+from .routing import BaseRouter, get, post
+from ..shared import errors
+
+
+def _sheet(name: str) -> styles.Style:
+    catalogue = styles.discover(ROOT)
+    found = catalogue.get(name)
+    if not found:
+        raise errors.NotFound("style sheet", name, available=catalogue)
+    return found
+
+
+def style_detail(name: str) -> dict:
+    """Everything the Styles tab shows for one sheet.
+
+    Split deliberately into *context* — what is true now and is editable — and
+    *history* — what happened and is not. They answer different questions, and
+    a panel that mixes them makes the second one unreadable.
+    """
+
+    sheet = _sheet(name)
+    images = []
+    for path in sheet.exemplars:
+        if not path.exists():
+            images.append({"path": str(path), "name": path.name, "missing": True})
+            continue
+        images.append({
+            "path": str(path), "name": path.name,
+            "bytes": path.stat().st_size, "missing": False,
+        })
+
+    pending = sheet.training_images
+    archives = []
+    archive_root = sheet.home / "training" / "archive"
+    if archive_root.is_dir():
+        for folder in sorted(archive_root.iterdir(), reverse=True):
+            if folder.is_dir():
+                archives.append({
+                    "name": folder.name,
+                    "count": sum(1 for _ in folder.iterdir()),
+                })
+
+    return {
+        "name": sheet.name,
+        "label": sheet.label,
+        "foldered": sheet.foldered,
+        "home": str(sheet.home),
+        "summary": sheet.summary(ROOT),
+        "context": {
+            # Two kinds, because they are edited differently: one is a folder
+            # of files, the other is text in a document.
+            "images": images,
+            "prompts": {
+                "vocabulary": sheet.vocabulary,
+                "notes": sheet.notes,
+                "token": sheet.token,
+            },
+        },
+        "training": {
+            "pending": len(pending),
+            "pending_names": [p.name for p in pending[:24]],
+            "archives": archives,
+            "lora": sheet.lora,
+        },
+        "tuning": sheet.tuning,
+        "history": stylelog.read(sheet.home),
+    }
+
+
+def add_style_note(name: str, text: str) -> dict:
+
+    if not text.strip():
+        raise errors.Invalid("a note needs some text", field="text")
+    sheet = _sheet(name)
+    if not sheet.foldered:
+        raise errors.Invalid(
+            f"'{name}' is a single YAML file, so it has nowhere to keep a history",
+            hint=f"move it to styles/{name}/style.yaml")
+    stylelog.append(sheet.home, stylelog.note_event(text))
+    return {"ok": True, "history": stylelog.read(sheet.home)}
+
+
+def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
+    """Add or remove context exemplars, and record it.
+
+    Adding copies rather than links. A style folder that references images
+    scattered across the disk stops being one thing you can move or share, and
+    the whole reason for the directory form is that it is one thing.
+    """
+
+    sheet = _sheet(name)
+    if not sheet.foldered:
+        raise ValueError(
+            f"'{name}' is a single YAML file, so it has no exemplar folder. "
+            f"Move it to styles/{name}/style.yaml first.")
+
+    folder = sheet.home / "context" / "exemplars"
+    folder.mkdir(parents=True, exist_ok=True)
+    touched: list[Path] = []
+
+    for raw in paths:
+        source = files_mod.safe_path(raw, allowed_roots())
+        if remove:
+            target = folder / source.name
+            if target.exists():
+                target.unlink()
+                touched.append(target)
+            continue
+        if source.parent.resolve() == folder.resolve():
+            continue                      # already here
+        target = files_mod.unique_name(folder, files_mod.safe_filename(source.name))
+        shutil.copy2(source, target)
+        touched.append(target)
+
+    if touched:
+        event = stylelog.context_event(
+            [] if remove else touched, touched if remove else [], home=sheet.home)
+        stylelog.append(sheet.home, event)
+    return {"ok": True, "changed": [p.name for p in touched],
+            "detail": style_detail(name)}
+
+
+def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict:
+    """Rewrite a sheet's vocabulary, and its notes sidecar.
+
+    The YAML goes back through the round-trip loader, because a style sheet
+    documents its own decisions in comments and a plain safe_load/safe_dump
+    cycle deletes every one of them. Notes live in context/notes.md rather
+    than in the document, so prose can grow without reformatting the config.
+    """
+
+    sheet = _sheet(name)
+    changed = []
+
+    if vocabulary is not None:
+        if not isinstance(vocabulary, dict):
+            raise ValueError("vocabulary must be an object of group -> list")
+        doc = load_roundtrip(sheet.path)
+        clean = {}
+        for group, fragments in vocabulary.items():
+            if not isinstance(fragments, list):
+                raise ValueError(f"vocabulary.{group} must be a list")
+            kept = [str(f).strip() for f in fragments if str(f).strip()]
+            if kept:
+                clean[group] = kept
+        doc["vocabulary"] = clean
+        dump_roundtrip(doc, sheet.path)
+        changed.append(f"{len(clean)} vocabulary group(s)")
+
+    if notes is not None:
+        if not sheet.foldered:
+            raise ValueError(
+                f"'{name}' is a single file, so it has nowhere to keep notes.")
+        sidecar = sheet.home / "context" / "notes.md"
+        sidecar.parent.mkdir(parents=True, exist_ok=True)
+        sidecar.write_text(notes)
+        changed.append("notes")
+
+    if changed and sheet.foldered:
+        stylelog.append(sheet.home, stylelog.Event(
+            kind="context", summary=f"edited {', '.join(changed)}"))
+    return {"ok": True, "changed": changed, "detail": style_detail(name)}
+
+
+def palette_list() -> dict:
+    from pipeline.palettes import discover
+
+    out = []
+    for name, pal in sorted(discover(ROOT).items()):
+        out.append({"name": pal.key, "label": name, "size": len(pal.colours),
+                    "colours": [f"#{r:02X}{g:02X}{b:02X}" for r, g, b in pal.colours[:64]]})
+    return {"palettes": out}
+
+
+class Looks(BaseRouter):
+    prefix = "/api"
+
+    @get("/styles", "every style sheet")
+    def sheets(self, req):
+        found = styles.discover(ROOT)
+        return {"styles": [s.summary(ROOT) for s in found.values()],
+                "broken": [{"path": str(b.path), "why": b.why}
+                           for b in styles.broken(ROOT)]}
+
+    @get("/style/detail", "one sheet, with its context and history")
+    def detail(self, req):
+        return style_detail(req.required("name"))
+
+    @get("/style/preview", "what a config would actually send")
+    def preview(self, req):
+        name = req.required("config")
+        path = CONFIGS / f"{name}.yaml"
+        if not path.exists():
+            raise NotFound("config", name,
+                           available=[p.stem for p in CONFIGS.glob("*.yaml")
+                                      if not p.stem.startswith("_")])
+        cfg = load_roundtrip(path)
+        extra = [s for s in req.params.get("with", []) if s]
+        if extra:
+            cfg = {**cfg, "styles": list(cfg.get("styles") or []) + extra}
+        return styles.preview(ROOT, cfg)
+
+    @get("/style/training", "what this sheet has collected for training")
+    def training(self, req):
+        from .. import training
+
+        sheet = _sheet(req.required("name"))
+        return training.assess(sheet.home / "training" / "images")
+
+    @post("/style/note", "add a line to a sheet's history")
+    def note(self, req):
+        return add_style_note(req.need("name"), req.get("text", ""))
+
+    @post("/style/exemplar", "add or remove reference images")
+    def exemplar(self, req):
+        return style_exemplar(req.need("name"), req.get("paths") or [],
+                              bool(req.get("remove")))
+
+    @post("/style/prompts", "edit a sheet's vocabulary")
+    def prompts(self, req):
+        return style_prompts(req.need("name"), req.get("vocabulary"),
+                             req.get("notes"))
+
+    @get("/palettes", "every palette, grouped")
+    def palettes(self, req):
+        return palette_list()

@@ -495,6 +495,19 @@ def _one_registry() -> None:
     _assert(not [b for b in palettes.registry(ROOT).broken() if b.path == bad],
             "the registry cache did not notice a deleted file")
 
+    # A decorated registry read before its modules import must not cache the
+    # emptiness. This shipped: something asked for the stage list first, the
+    # registry cached {}, and the schema served a select with no options for
+    # the life of the process.
+    from pipeline.shared.registry import Decorated
+
+    late = Decorated()
+    growing = Registry("late", late)
+    _assert(len(growing) == 0, "a fresh registry was not empty")
+    late.add("added_after_first_read", object())
+    _assert(len(growing) == 1,
+            "a decorated registry cached its emptiness past a later add")
+
     # Caching: a second read of unchanged files must not reparse.
     calls = {"n": 0}
 
