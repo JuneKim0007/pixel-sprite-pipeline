@@ -94,7 +94,7 @@ def wanted(ctx) -> bool:
     layer and compositing them is the other half of this, and belongs to the
     editor rather than to generation.
     """
-    from .stage import opt
+    from .shared.config import opt
 
     cfg = ctx.config.get("props")
     if isinstance(cfg, dict):

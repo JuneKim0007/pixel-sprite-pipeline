@@ -1,4 +1,16 @@
-"""Stage contract and registry.
+"""Stage contract, registry, and the run context.
+
+Three things, and the split has begun rather than finished. `opt` has moved to
+shared/config.py because a module that reads one config key should not import
+a contract to do it; it is re-exported here so no call site had to change in
+the same commit that moved it.
+
+What remains to move is `Context`, which is two thirds of this file and the
+only part that knows about rigs, references and detection. It resolves those
+lazily, through imports local to its methods - which is why nothing loads an
+LLM at import time, and also why the coupling does not show up in a dependency
+graph. A node declaring what it needs, and a connection layer supplying it, is
+where that goes; see REFACTOR.md section 4.
 
 A stage is one replaceable step. It declares what it consumes, what it
 produces, and which hardware resource it occupies. The runner uses those three
@@ -17,17 +29,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from .shared.config import opt
 
-def opt(cfg: dict, key: str, default: Any) -> Any:
-    """cfg.get with blank YAML keys treated as absent.
-
-    `size:` with nothing after it parses to None, not to a missing key, so
-    dict.get(key, default) hands back None and the default never applies. The
-    commented configs are full of intentionally-blank keys meaning "use the
-    default", so every read of them has to go through here.
-    """
-    value = cfg.get(key, None)
-    return default if value is None else value
+__all__ = ["opt", "Resource", "Context", "Stage", "register", "get", "available"]
 
 
 class Resource:

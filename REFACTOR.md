@@ -12,40 +12,58 @@ to read the imports.
 
 ## 1. The finding that drives everything else
 
-`pipeline/stage.py` is the base contract every stage implements. It imports
+`pipeline/stage.py` is the base contract every stage implements. It reaches
 `annotate`, `detect`, `references`, `rigs` and `settings`.
 
-That is inverted, and it has a measurable cost:
+**A correction, made before acting on this.** The first version of this
+document said `props` therefore depends on an LLM client at runtime, via
+`props -> stage -> detect -> llm`. That is wrong. Those five imports are local
+to `Context`'s methods, so they are deferred:
 
 ```
-props  ->  stage  ->  detect  ->  llm
+import pipeline.props  actually loads:
+    pipeline, pipeline.bodyspace, pipeline.openpose, pipeline.props, pipeline.rigs
+    llm loaded? False
 ```
 
-`props.py` describes where a sword points. It imports `stage` for `opt()`, a
-ten-line config reader, and by doing so transitively depends on an LLM client.
-Ten of eighteen modules in the package end up reachable from it.
+There is also no cycle that forced them to be local: none of the five imports
+`stage`. So the deferred imports were a choice, not a workaround, and the
+runtime cost I claimed does not exist. The static-analysis path is real; the
+loading cost is not, and those are different things.
 
-The cause is that `stage.py` is three unrelated things in one file:
+What survives the correction is the reason worth acting on anyway.
+
+**`stage.py` is three unrelated things in one file:**
 
 | in stage.py | what it is | lines |
 |---|---|---|
 | `opt()` | reads a config key, treating a blank YAML value as absent | 10 |
 | `Stage`, `Resource`, `register`, `get`, `available` | the contract and its registry | 54 |
-| `Context` | a service locator that resolves rigs, references and proportions | 128 |
+| `Context` | a service locator that resolves rigs, references, proportions | 128 |
 
-`Context` is what drags the world in. Every consumer that only wants `opt` or
-`Stage` pays for it.
+`Context` is two thirds of the file and is the only part that knows about the
+domain. Everything that wants the contract sees the locator, and the deferred
+imports are the symptom: a module needs a local import when it reaches for
+something that should be above it, and hiding that behind lazy loading makes it
+invisible rather than absent.
 
-**The import counts confirm which pieces are actually shared.** `bodyspace` is
-imported by 12 modules, `stage` by 11, and nothing else exceeds 6. Those two
-plus the leaves that depend on nothing inside the package are the real kernel:
+The concrete instances are small and exact:
+
+- `props.py` imports `stage` **only for `opt`**, a ten-line config reader.
+- `schema.py` imports `stage` **only for `available`**.
+
+Two of eleven importers want nothing to do with `Context`. That is a smaller
+win than a broken dependency chain would have been, and it is the honest size
+of it.
+
+**The import counts still say which pieces are actually shared.** `bodyspace`
+is imported by 12 modules, `stage` by 11, nothing else exceeds 6. Those plus
+the leaves that depend on nothing inside the package are the real kernel:
 
 ```
 artifacts  comfy  cooling  files  palettes  pixelize  rigs  settings  stylelog
 definitive/layers  definitive/run
 ```
-
----
 
 ## 2. Three filesystem scanners, one shape
 

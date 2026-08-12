@@ -154,6 +154,7 @@ def test_pipeline() -> None:
     check("rig resolves once and is cached", _rig_cached)
 
     print("\ndefinitive editor")
+    check("shared/ depends on no module", _shared_has_no_module_deps)
     check("every layer field carries an explanation", _definitive_layers)
     check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
 
@@ -326,6 +327,40 @@ def _prop_module_default() -> None:
     mapped = props_mod.load({"enabled": False, "items": ["bow"]}, root=root)
     _assert([p.name for p in flat] == [p.name for p in mapped] == ["bow"],
             "the two config shapes disagree")
+
+def _shared_has_no_module_deps() -> None:
+    """The membership rule for shared/, enforced rather than remembered.
+
+    "Put general things in shared" is a rule everyone agrees with and nobody
+    can apply, because everything looks general from the inside. "Depends on
+    nothing" is checkable, so it is the rule.
+
+    This also catches the failure that made the split worth doing: opt() sat in
+    stage.py beside a service locator, and a module reading one config key
+    imported the stage contract to get it.
+    """
+    import ast
+    import pathlib
+
+    shared = pathlib.Path(__file__).resolve().parent.parent / "pipeline" / "shared"
+    offenders = []
+    for f in sorted(shared.glob("*.py")):
+        tree = ast.parse(f.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                # A relative import that leaves shared/ is a dependency on a
+                # module. Level 1 with no module is `from . import x`, which
+                # stays inside; level 2 or more climbs out.
+                if node.level and node.level > 1:
+                    offenders.append(f"{f.name}: from {'.' * node.level}{node.module or ''}")
+                elif node.level == 1 and node.module and "." in node.module:
+                    offenders.append(f"{f.name}: from .{node.module}")
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith("pipeline"):
+                        offenders.append(f"{f.name}: import {alias.name}")
+    _assert(not offenders, f"shared/ reaches into modules: {offenders}")
+
 
 def _definitive_layers() -> None:
     """A field with no help is a control the UI cannot explain.
