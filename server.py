@@ -30,6 +30,13 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+# Before anything imports numpy: the BLAS thread pools read their environment
+# once, at load. This caps the SERVER, whose only CPU-heavy work is the editor.
+# A generation run is a separate process and is deliberately left uncapped.
+from pipeline.shared import limits  # noqa: E402
+
+limits.apply()
+
 from pipeline import api  # noqa: E402
 from pipeline import files as files_mod  # noqa: E402
 from pipeline.api.context import STATIC, allowed_roots, input_dir, runs_dir  # noqa: E402

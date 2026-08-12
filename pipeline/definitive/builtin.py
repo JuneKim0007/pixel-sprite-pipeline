@@ -102,9 +102,9 @@ def _curves(img, cfg, facts):
     ],
 )
 def _grid(img, cfg, facts):
-    from .. import training
+    from .cache import measured_block
 
-    measured = training.estimate_block_size(img)
+    measured = measured_block(img)
     facts["measured_block"] = measured
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
     factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
@@ -114,7 +114,9 @@ def _grid(img, cfg, facts):
         return img
 
     if cfg.get("phase", "auto") == "auto":
-        ox, oy = px.find_phase(img, factor)
+        from .cache import phase_for
+
+        ox, oy = phase_for(img, factor)
     else:
         ox, oy = int(cfg.get("phase_x", 0)), int(cfg.get("phase_y", 0))
     facts["phase"] = [ox, oy]
@@ -187,8 +189,13 @@ def _palette(img, cfg, facts):
             raise FileNotFoundError(f"no palette '{name}'")
         palette = px.load_palette(Path(found.path))
     else:
-        palette = px.generate_palette(img, int(cfg.get("colours", 24)),
-                                      method=cfg.get("match", "weighted"))
+        from .cache import generated_palette
+
+        # k-means over every pixel, and the answer depends only on the image
+        # arriving here plus these two numbers - so editing anything else in
+        # the stack must not recompute it.
+        palette = generated_palette(img, int(cfg.get("colours", 24)),
+                                    cfg.get("match", "weighted"))
 
     facts["palette_size"] = len(palette)
     if cfg.get("dither"):

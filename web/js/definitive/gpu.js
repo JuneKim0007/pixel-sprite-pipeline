@@ -251,14 +251,22 @@ export async function render(bitmap, u) {
   enc.copyTextureToBuffer({ texture: dst }, { buffer: read, bytesPerRow }, [outW, outH]);
   device.queue.submit([enc.finish()]);
 
-  await read.mapAsync(GPUMapMode.READ);
-  const raw = new Uint8Array(read.getMappedRange());
-  const pixels = new Uint8ClampedArray(outW * outH * 4);
-  for (let y = 0; y < outH; y++) {
-    pixels.set(raw.subarray(y * bytesPerRow, y * bytesPerRow + outW * 4), y * outW * 4);
+  try {
+    await read.mapAsync(GPUMapMode.READ);
+    const raw = new Uint8Array(read.getMappedRange());
+    const pixels = new Uint8ClampedArray(outW * outH * 4);
+    for (let y = 0; y < outH; y++) {
+      pixels.set(raw.subarray(y * bytesPerRow, y * bytesPerRow + outW * 4), y * outW * 4);
+    }
+    const image = new ImageData(pixels, outW, outH);
+    read.unmap();
+    return image;
+  } finally {
+    // Every allocation, every frame. The first version destroyed the two
+    // textures and left three buffers behind - including `read`, which is the
+    // size of the whole output - so dragging a slider leaked tens of megabytes
+    // a second. WebGPU will not collect these for you.
+    src.destroy(); dst.destroy();
+    uni.destroy(); palBuf.destroy(); read.destroy();
   }
-  const image = new ImageData(pixels, outW, outH);
-  read.unmap();
-  src.destroy(); dst.destroy();
-  return image;
 }

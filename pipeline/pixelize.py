@@ -493,9 +493,26 @@ def apply_fixed_palette(
     else:
         a, b = flat, pal
 
-    # (N, 1, K) - (1, P, K) -> (N, P), where N is now colours, not pixels.
-    dist = ((a[:, None, :] - b[None, :, :]) ** 2).sum(axis=2)
-    idx = dist.argmin(axis=1)
+    # (N, 1, K) - (1, P, K) -> (N, P), in blocks.
+    #
+    # The full matrix is colours x entries x 3 floats, and the whole point of
+    # matching per colour rather than per pixel is that N is small - except it
+    # is only small relative to the pixel count. A 1280 px canvas has 140,647
+    # distinct colours, which against a 136-entry palette is a single 230 MB
+    # allocation, and the editor issues one of these per parameter change. That
+    # measured 363 MB of peak RSS for one preview and is what took the machine
+    # down.
+    #
+    # Chunking makes the peak a constant without changing the answer: argmin
+    # over a block is argmin over the block.
+    from .shared import limits
+
+    chunk = max(256, limits.get("colour_chunk"))
+    idx = np.empty(len(a), dtype=np.int64)
+    for start in range(0, len(a), chunk):
+        stop = min(start + chunk, len(a))
+        block = ((a[start:stop, None, :] - b[None, :, :]) ** 2).sum(axis=2)
+        idx[start:stop] = block.argmin(axis=1)
     return pal[idx].astype(np.uint8)[inverse].reshape(rgb.shape)
 
 

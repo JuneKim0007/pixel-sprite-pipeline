@@ -159,6 +159,7 @@ def test_pipeline() -> None:
     check("every registry answers the same way", _one_registry)
     check("every layer field carries an explanation", _definitive_layers)
     check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
+    check("a stack resumes from the longest known prefix", _editor_limits)
 
 
 def _reference_pose() -> None:
@@ -523,6 +524,68 @@ def _one_registry() -> None:
     probe.all()
     _assert(calls["n"] == first,
             f"the registry reparsed unchanged files ({first} then {calls['n']})")
+
+
+def _editor_limits() -> None:
+    """The editor stays inside a budget, and only redoes what changed.
+
+    All of this is here because the editor took the machine down: one preview
+    measured 6.96 s and 363 MB of peak RSS, with a 230 MB allocation inside it,
+    and the editor issued one per parameter change with nothing stopping them
+    overlapping.
+
+    Three properties, each of which silently regresses if nothing checks it.
+    """
+    import numpy as np
+
+    from pipeline import definitive
+    from pipeline.definitive import cache
+    from pipeline.shared import limits
+
+    # Limits are shares of the machine, not this laptop's numbers.
+    d = limits.describe()
+    _assert(0 < d["derived"]["threads"] < d["machine"]["cores"],
+            f"threads {d['derived']['threads']} of {d['machine']['cores']} cores")
+    _assert(256 <= d["derived"]["preview_edge"] <= 1024,
+            f"preview edge out of range: {d['derived']['preview_edge']}")
+    _assert(d["derived"]["colour_chunk"] >= 1024, "colour chunk too small to be useful")
+
+    img = np.zeros((96, 96, 3), dtype=np.uint8)
+    img[16:80, 16:80] = (200, 60, 60)
+    img[30:50, 30:50] = (40, 40, 160)
+    stack = definitive.default_stack()
+
+    cache.SNAPSHOTS.clear()
+    _, cold = definitive.apply_stack(img, stack, root=ROOT, source="t")
+    _assert(cold["resumed_after"] == 0, "a cold run resumed from somewhere")
+
+    # Changing the last layer must not re-run the ones before it.
+    tail = [dict(s, config=dict(s["config"])) for s in stack]
+    tail[-1]["config"]["upscale"] = 3
+    _, after = definitive.apply_stack(img, tail, root=ROOT, source="t")
+    _assert(after["resumed_after"] == len(stack) - 1,
+            f"a change at the end recomputed from {after['resumed_after']}")
+
+    # Changing the first must re-run everything, because everything follows it.
+    head = [dict(s, config=dict(s["config"])) for s in stack]
+    head[0]["config"]["contrast"] = 1.4
+    _, front = definitive.apply_stack(img, head, root=ROOT, source="t")
+    _assert(front["resumed_after"] == 0,
+            "a change at the start reused a prefix it invalidated")
+
+    # Same stack, same answer. Resumption must not change the result.
+    a, _ = definitive.apply_stack(img, stack, root=ROOT, source="t")
+    b, _ = definitive.apply_stack(img, stack, root=ROOT)          # no resuming
+    _assert(np.array_equal(a, b), "resuming produced a different image")
+
+    # The caches are bounded. Without this they become the problem they solve.
+    for i in range(60):
+        noise = (img + i).astype(np.uint8)
+        definitive.apply_stack(noise, stack, root=ROOT, source=f"t{i}")
+    _assert(cache.SNAPSHOTS.stats()["bytes"] <= cache.SNAPSHOTS.max_bytes,
+            f"snapshots overflowed: {cache.SNAPSHOTS.stats()}")
+    _assert(cache.CACHE.stats()["bytes"] <= cache.CACHE.max_bytes,
+            f"the reduction cache overflowed: {cache.CACHE.stats()}")
 
 
 def _definitive_layers() -> None:
