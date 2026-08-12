@@ -271,9 +271,7 @@ export function renderEditor(host) {
 
   host.append(
     el('header', { className: 'head' },
-      el('div', {},
-        el('h1', { textContent: 'Editor' }),
-),
+      el('div', {}, el('h1', { textContent: 'Editor' })),
       el('div', { className: 'head-actions' }, uploadBtn, upload, apply)),
     el('div', { className: 'row' },
       el('span', { className: 'mini', textContent: 'Source' }), sourceSel),

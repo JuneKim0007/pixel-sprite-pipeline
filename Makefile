@@ -82,7 +82,21 @@ lint:
 	@$(RUFF) check --quiet --select F821,F811,F502,F506,F601,F632,B018 \
 	  pipeline/ tools/ tests/ *.py \
 	  || { printf '\033[31mstatic analysis failed\033[0m\n'; exit 1; }
-	@for f in $$(find web/js tests -name '*.js' -o -name '*.mjs'); do node --check "$$f" || exit 1; done
+	@# `node --check` parses each file as a standalone script and accepts things
+	@# the module loader rejects: `a ?? b || c` passed the check and then broke
+	@# the whole UI, because one failed module takes the import graph with it.
+	@# Importing each file is the check that matches how the browser loads them.
+	@# Compiling as a module - not importing it - because main.js runs boot() on
+	@# import and would need a DOM. Compilation is the step that catches what
+	@# --check missed, and it needs no environment.
+	@for f in $$(find web/js tests -name '*.js' -o -name '*.mjs'); do \
+	  node --experimental-vm-modules -e " \
+	    const {SourceTextModule} = require('node:vm'); \
+	    const src = require('node:fs').readFileSync('$$f', 'utf8'); \
+	    try { new SourceTextModule(src, {identifier: '$$f'}); } \
+	    catch (e) { console.error('  $$f: ' + e.message); process.exit(1); }" \
+	    2>/dev/null || { printf '\033[31m%s failed to compile as a module\033[0m\n' "$$f"; exit 1; }; \
+	done
 	@printf '  \033[32mno undefined names\033[0m\n'
 
 test:

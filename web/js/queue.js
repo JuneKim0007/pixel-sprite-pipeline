@@ -173,9 +173,7 @@ export function renderQueue(host) {
   const body = el('div', {});
   host.append(
     el('header', { className: 'head' },
-      el('div', {},
-        el('h1', { textContent: 'Queue' }),
-))),
+      el('div', {}, el('h1', { textContent: 'Queue' }))),
     body);
 
   (async () => {

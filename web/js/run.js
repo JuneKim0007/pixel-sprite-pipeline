@@ -51,8 +51,10 @@ function coolingLine(cfg, rerender) {
   const on = getPath(cfg, 'cooling.enabled') !== false;
   const secs = Number(getPath(cfg, 'cooling.seconds') ?? 180);
   const stages = getPath(cfg, 'pipeline.stages') || [];
+  // `??` cannot sit beside `||` without parentheses - it is a syntax error,
+  // not a precedence subtlety, and `node --check` accepts the file anyway.
   const frames = Number(getPath(cfg, 'pose.frames')
-    ?? (getPath(cfg, 'pose.set') || []).length || 1);
+    ?? ((getPath(cfg, 'pose.set') || []).length || 1));
   const candidates = Number(getPath(cfg, 'canonical.candidates') ?? 1);
   const batched = getPath(cfg, 'canonical.batch_candidates') !== false;
 
@@ -256,7 +258,6 @@ function rigStep() {
       el('span', { className: 'headnote', textContent: runId
         ? `editing ${runId}` : 'previewing the pose library — run the pose stage to edit' }),
       save),
-    null,
     editor);
   return box;
 }
