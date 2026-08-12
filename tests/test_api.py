@@ -155,6 +155,7 @@ def test_pipeline() -> None:
 
     print("\ndefinitive editor")
     check("shared/ depends on no module", _shared_has_no_module_deps)
+    check("failures carry their own status", _error_taxonomy)
     check("every layer field carries an explanation", _definitive_layers)
     check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
 
@@ -360,6 +361,82 @@ def _shared_has_no_module_deps() -> None:
                     if alias.name.startswith("pipeline"):
                         offenders.append(f"{f.name}: import {alias.name}")
     _assert(not offenders, f"shared/ reaches into modules: {offenders}")
+
+
+def _error_taxonomy() -> None:
+    """A ValueError reaching the API is a bug; a PixelError is a message.
+
+    Before this, both came back as 500 with a class name in the body, so a
+    person typing nothing into a box got:
+
+        500  {"error": "ValueError: a note needs some text"}
+
+    The status is a property of the exception now, and this checks the two
+    halves of that: the named types report themselves, and the builtins still
+    in use are translated rather than falling through to 500.
+
+    The count at the end is the migration's progress bar. It is asserted as a
+    ceiling rather than a target, so it can only go down.
+    """
+    import ast
+    import collections
+    import pathlib
+
+    from pipeline.comfy import ComfyError
+    from pipeline.files import PathDenied
+    from pipeline.queue import QueueError
+    from pipeline.runner import PipelineError
+    from pipeline.shared import PixelError, body_for, errors, status_for
+    from pipeline.styles import StyleError
+
+    for exc, want in ((errors.NotFound("style sheet", "x"), 404),
+                      (errors.Invalid("bad"), 400),
+                      (errors.Denied("no"), 403),
+                      (errors.Conflict("busy"), 409),
+                      (errors.Unavailable("down"), 503),
+                      (errors.Internal("boom"), 500)):
+        _assert(status_for(exc) == want,
+                f"{type(exc).__name__} maps to {status_for(exc)}, wanted {want}")
+
+    # A service being down is not a defect in this code, which is the same
+    # judgement the queue makes when it pauses instead of failing jobs.
+    _assert(status_for(ComfyError("down")) == 503, "ComfyUI down should be 503")
+    _assert(status_for(StyleError("cycle")) == 400, "a bad style sheet is the user's")
+    _assert(status_for(QueueError("bad")) == 400, "a malformed job is the user's")
+    _assert(status_for(PipelineError("order")) == 400, "a bad stage order is the user's")
+    _assert(status_for(PathDenied("outside")) == 403, "a denied path is 403")
+    for e in (ComfyError("x"), StyleError("x"), QueueError("x"),
+              PipelineError("x"), PathDenied("x")):
+        _assert(isinstance(e, PixelError),
+                f"{type(e).__name__} is outside the taxonomy")
+
+    # Builtins are translated while raise sites are still being named.
+    _assert(status_for(ValueError("x")) == 400, "a ValueError should not be a 500")
+    _assert(status_for(FileNotFoundError("x")) == 404, "a missing file is 404")
+    _assert(status_for(RuntimeError("x")) == 500, "an unexpected error is 500")
+    _assert(body_for(RuntimeError("x"))["error"].startswith("RuntimeError:"),
+            "an unnamed failure should show its type, as the signal it is")
+
+    # A NotFound says what else was available, because that is usually the
+    # question actually being asked.
+    listed = errors.NotFound("style sheet", "nope", available=["a", "b"])
+    _assert("a, b" in listed.as_dict().get("hint", ""),
+            "NotFound did not report the alternatives")
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    builtins = collections.Counter()
+    for f in sorted(root.glob("pipeline/**/*.py")):
+        if "__pycache__" in str(f):
+            continue
+        for node in ast.walk(ast.parse(f.read_text())):
+            if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+                name = getattr(node.exc.func, "id", "")
+                if name in {"ValueError", "FileNotFoundError", "KeyError",
+                            "RuntimeError"}:
+                    builtins[name] += 1
+    total = sum(builtins.values())
+    _assert(total <= 80,
+            f"builtin raises in pipeline/ rose to {total}: {dict(builtins)}")
 
 
 def _definitive_layers() -> None:

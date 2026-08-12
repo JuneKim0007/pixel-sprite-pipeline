@@ -12,6 +12,7 @@ API format — the same structure the web UI posts.
 
 from __future__ import annotations
 
+
 import io
 import json
 import mimetypes
@@ -22,6 +23,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
+from .shared.errors import Unavailable
 
 Link = list  # [node_id, slot]
 
@@ -83,8 +85,13 @@ POSE_NEGATIVE = (
 )
 
 
-class ComfyError(RuntimeError):
-    pass
+class ComfyError(Unavailable):
+    """ComfyUI is unreachable, or refused a graph.
+
+    Unavailable rather than Internal: the service being down is not a defect
+    in this code, which is the same judgement the queue already makes when it
+    pauses instead of failing every job.
+    """
 
 
 class Client:

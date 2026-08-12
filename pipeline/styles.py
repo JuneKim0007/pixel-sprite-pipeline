@@ -51,6 +51,7 @@ folder is self-contained and can be moved without editing it.
 
 from __future__ import annotations
 
+
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,6 +60,7 @@ from typing import Any
 import yaml
 
 from .settings import deep_merge
+from .shared.errors import Invalid
 
 DIRNAME = "styles"
 SHEET = "style.yaml"
@@ -66,8 +68,8 @@ PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 IMAGES = (".png", ".jpg", ".jpeg", ".webp")
 
 
-class StyleError(RuntimeError):
-    pass
+class StyleError(Invalid):
+    """A style sheet contradicts itself: a cycle, or two sheets one name."""
 
 
 @dataclass

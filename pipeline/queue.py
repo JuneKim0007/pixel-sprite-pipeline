@@ -29,6 +29,7 @@ from that:
 
 from __future__ import annotations
 
+
 import itertools
 import json
 import shutil
@@ -37,13 +38,14 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from .shared.errors import Invalid
 
 PENDING, RUNNING, DONE, FAILED, HELD = "pending", "running", "done", "failed", "held"
 STATES = (PENDING, RUNNING, DONE, FAILED, HELD)
 
 
-class QueueError(RuntimeError):
-    pass
+class QueueError(Invalid):
+    """A job cannot be built from what it says."""
 
 
 @dataclass

@@ -15,6 +15,7 @@ Two jobs:
 
 from __future__ import annotations
 
+
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -22,10 +23,11 @@ from typing import Any
 
 from . import cooling
 from .stage import Context, Resource, Stage, get
+from .shared.errors import Invalid
 
 
-class PipelineError(RuntimeError):
-    pass
+class PipelineError(Invalid):
+    """A stage order, or a stage, that cannot work as declared."""
 
 
 @dataclass

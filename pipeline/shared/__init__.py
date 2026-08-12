@@ -6,5 +6,8 @@ import graph will show. A test asserts it.
 """
 
 from .config import opt
+from .errors import (BUILTIN_STATUS, Conflict, Denied, Internal, Invalid,
+                     NotFound, PixelError, Unavailable, body_for, status_for)
 
-__all__ = ["opt"]
+__all__ = ["opt", "PixelError", "NotFound", "Invalid", "Denied", "Conflict",
+           "Unavailable", "Internal", "BUILTIN_STATUS", "status_for", "body_for"]

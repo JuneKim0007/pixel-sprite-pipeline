@@ -40,6 +40,7 @@ from pipeline import artifacts as artifacts_io  # noqa: E402
 from pipeline import files as files_mod  # noqa: E402
 from pipeline import runner, schema, settings, stages, styles  # noqa: E402,F401
 from pipeline.stage import available  # noqa: E402
+from pipeline.shared import errors  # noqa: E402
 
 STATIC = ROOT / "web"
 CONFIGS = ROOT / "configs"
@@ -296,9 +297,10 @@ def run_detail(run_id: str) -> dict:
 
 
 def _sheet(name: str) -> styles.Style:
-    found = styles.discover(ROOT).get(name)
+    catalogue = styles.discover(ROOT)
+    found = catalogue.get(name)
     if not found:
-        raise FileNotFoundError(f"no style sheet '{name}'")
+        raise errors.NotFound("style sheet", name, available=catalogue)
     return found
 
 
@@ -364,13 +366,12 @@ def add_style_note(name: str, text: str) -> dict:
     from pipeline import stylelog
 
     if not text.strip():
-        raise ValueError("a note needs some text")
+        raise errors.Invalid("a note needs some text", field="text")
     sheet = _sheet(name)
     if not sheet.foldered:
-        raise ValueError(
-            f"'{name}' is a single file, so it has nowhere to keep a history. "
-            f"Move it to styles/{name}/style.yaml first."
-        )
+        raise errors.Invalid(
+            f"'{name}' is a single YAML file, so it has nowhere to keep a history",
+            hint=f"move it to styles/{name}/style.yaml")
     stylelog.append(sheet.home, stylelog.note_event(text))
     return {"ok": True, "history": stylelog.read(sheet.home)}
 
@@ -520,9 +521,12 @@ def queue_state() -> dict:
 def queue_submit(spec: dict, priority: int = 50) -> dict:
     q, queue = _queue()
     if not spec.get("config"):
-        raise ValueError("a job needs a 'config'")
+        raise errors.Invalid("a job needs a 'config'", field="config")
     if not (CONFIGS / f"{spec['config']}.yaml").exists():
-        raise FileNotFoundError(f"no config '{spec['config']}'")
+        raise errors.NotFound(
+            "config", spec["config"],
+            available=[p.stem for p in CONFIGS.glob("*.yaml")
+                       if not p.stem.startswith("_")])
     created = queue.submit(dict(spec), priority=int(priority))
     return {"created": [j.id for j in created], "count": len(created)}
 
@@ -535,7 +539,7 @@ def queue_act(job_id: str, action: str) -> dict:
             if job.id != job_id:
                 continue
             if state == q.RUNNING:
-                raise ValueError(
+                raise errors.Conflict(
                     f"{job_id} is running. Stop the autopilot first — moving a "
                     f"job out from under it would leave two writers on one run.")
             if action == "retry":
@@ -547,9 +551,11 @@ def queue_act(job_id: str, action: str) -> dict:
             elif action == "drop":
                 job.path.unlink()
             else:
-                raise ValueError(f"unknown queue action '{action}'")
+                raise errors.Invalid(f"unknown queue action '{action}'",
+                                     field="action",
+                                     hint="retry, hold or drop")
             return {"ok": True, "job": job_id, "action": action}
-    raise FileNotFoundError(job_id)
+    raise errors.NotFound("job", job_id)
 
 
 def autopilot(action: str, args: dict | None = None) -> dict:
@@ -579,7 +585,8 @@ def autopilot(action: str, args: dict | None = None) -> dict:
         proc.terminate()
         return {"running": False, "note": "asked to stop after the current job"}
 
-    raise ValueError(f"unknown autopilot action '{action}'")
+    raise errors.Invalid(f"unknown autopilot action '{action}'",
+                         field="action", hint="start or stop")
 
 
 def autopilot_log(tail: int = 4000) -> str:
@@ -807,6 +814,23 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, code: int, msg: str) -> None:
         self._json({"error": msg}, code)
 
+    def _fail(self, exc: BaseException) -> None:
+        """One place that turns a failure into a response.
+
+        There were three copies of the same catch-and-guess, and the last
+        clause of each was `except Exception -> 500`, which reported a person
+        typing nothing into a box as a server fault:
+
+            POST /api/style/note {"text": "  "}
+            500  {"error": "ValueError: a note needs some text"}
+
+        The status now belongs to the exception. A PixelError describes itself,
+        including a hint where there is a useful one; anything else is
+        translated by type, and a body still carrying a bare class name is the
+        signal that a raise site has not been named yet.
+        """
+        self._json(errors.body_for(exc), errors.status_for(exc))
+
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
@@ -818,12 +842,8 @@ class Handler(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(u.query)
         try:
             self._get(u.path, q)
-        except FileNotFoundError as e:
-            self._error(404, str(e))
-        except (PermissionError, files_mod.PathDenied) as e:
-            self._error(403, str(e))
         except Exception as e:  # pragma: no cover
-            self._error(500, f"{type(e).__name__}: {e}")
+            self._fail(e)
 
     def _get(self, path: str, q: dict) -> None:
         if path in ("/", "/index.html"):
@@ -1040,12 +1060,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(add_style_note(
                     body.get("name", ""), body.get("text", "")))
             raise FileNotFoundError(u.path)
-        except FileNotFoundError as e:
-            self._error(404, str(e))
-        except (PermissionError, files_mod.PathDenied) as e:
-            self._error(403, str(e))
         except Exception as e:
-            self._error(500, f"{type(e).__name__}: {e}")
+            self._fail(e)
 
     def _upload(self) -> None:
         ctype = self.headers.get("Content-Type", "")
@@ -1215,10 +1231,8 @@ class Handler(BaseHTTPRequestHandler):
             if u.path != "/api/config":
                 raise FileNotFoundError(u.path)
             return self._json(self._save_config(q.get("name", [""])[0], self._body()))
-        except ValueError as e:
-            self._error(400, str(e))
         except Exception as e:
-            self._error(500, f"{type(e).__name__}: {e}")
+            self._fail(e)
 
     def _save_config(self, name: str, body: dict) -> dict:
         if not re.fullmatch(r"[A-Za-z0-9_\-]+", name or ""):

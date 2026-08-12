@@ -19,6 +19,7 @@ pose generation must complete before any GPU stage starts.
 
 from __future__ import annotations
 
+
 import base64
 import json
 import re
@@ -28,10 +29,11 @@ from pathlib import Path
 from typing import Any
 
 from .bodyspace import JOINTS, NEUTRAL, snap_to_anatomy, validate_pose
+from .shared.errors import Unavailable
 
 
-class LLMError(RuntimeError):
-    pass
+class LLMError(Unavailable):
+    """Ollama is unreachable, or gave an answer that could not be used."""
 
 
 class Ollama:
