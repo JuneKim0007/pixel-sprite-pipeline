@@ -17,7 +17,7 @@ cd pixel-sprite-pipeline
 
 The repository does **not** carry ComfyUI or the model weights — 21 GB of the
 22 GB working directory is those, and they are reinstallable. Follow
-`README.md` for that part, then:
+`docs/PROJECT.md` for that part, then:
 
 ```bash
 make up          # ComfyUI, Ollama, the web UI
