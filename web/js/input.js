@@ -323,10 +323,7 @@ function referenceCards(role, onChange) {
 function dropZone(onFiles) {
   const zone = el('div', { className: 'dropzone' },
     el('div', { className: 'dropicon', textContent: '⬓' }),
-    el('p', {}, el('b', { textContent: 'Drop images here' }), ', paste, or '),
-    el('p', { className: 'help', textContent:
-      'Optional. Without a reference the canonical sprite is the only identity '
-      + 'anchor — which is fine when you have no base image to start from.' }));
+    el('p', {}, el('b', { textContent: 'Drop images here' }), ', paste, or '));
 
   const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
   for (const type of ['dragenter', 'dragover']) {

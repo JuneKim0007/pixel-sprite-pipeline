@@ -1,6 +1,6 @@
 /* Run tab — the guided flow, with the rig editor sitting inside it.
  *
- * Steps: Review → Rig → Check → Confirm. Pending edits live in state.draft so
+ * Steps: Review → Rig → Check → Confirm. Pending edits live in the draft so
  * Back genuinely returns you to what you typed; nothing is written to disk
  * until you leave the Confirm step.
  *
@@ -12,9 +12,10 @@
 import { api, getPath, setPath } from './api.js';
 import { orderProblems } from './fields.js';
 import { ROLES } from './input.js';
+import { HelpTip } from './ui/index.js';
 import { annotator } from './annotate.js';
 import { rigEditor, savePoses } from './rig.js';
-import { confirmDialog, draftConfig, el, state, toast } from './store.js';
+import { clearDraft, confirmDialog, draft, draftConfig, el, state, toast } from './store.js';
 
 const STEPS = [
   { key: 'review', label: 'Review' },
@@ -69,23 +70,26 @@ function coolingLine(cfg, rerender) {
   });
   value.onchange = () => {
     const v = Math.max(0, Number(value.value));
-    state.draft['cooling.seconds'] = v;
-    state.draft['cooling.enabled'] = v > 0;
+    draft()['cooling.seconds'] = v;
+    draft()['cooling.enabled'] = v > 0;
     rerender();
   };
 
+  const tip = HelpTip(
+    'Rest between GPU tasks. Nothing needs the pause to work; it is there so '
+    + 'a long queue does not hold the machine at its throttle point all '
+    + 'night. The minutes shown are added to the generation time.');
+
   box.append(
-    el('div', { className: 'key' }, 'Cooling'),
+    el('div', { className: 'ui-label-row' },
+      el('span', { className: 'key', textContent: 'Cooling' }), tip.btn),
     el('div', {},
       el('div', { className: 'row' },
         value, el('span', { className: 'mini', textContent: 's between GPU tasks' })),
-      el('p', { className: 'help', textContent: total
-        ? `${tasks} GPU task(s) — about ${Math.round(total / 60)} min of resting, `
-          + 'added to the generation time. Nothing needs the pause to work; it is '
-          + 'there so a long queue does not hold the machine at its throttle point.'
-        : tasks > 1
-          ? 'Off. The machine will run continuously.'
-          : 'One GPU task, so nothing to rest between.' })));
+      el('p', { className: 'mini', textContent: total
+        ? `${tasks} GPU tasks · ${Math.round(total / 60)} min resting`
+        : tasks > 1 ? 'off — continuous' : 'one task, nothing to rest between' }),
+      tip.body));
   return box;
 }
 
@@ -121,7 +125,7 @@ function reviewStep(rerender) {
     gateSel.append(el('option', { value: name, textContent: `stop after ${name}`, selected: gate === name }));
   }
   gateSel.onchange = () => {
-    state.draft['pipeline.stop_after'] = gateSel.value || null;
+    draft()['pipeline.stop_after'] = gateSel.value || null;
     rerender();
   };
 
@@ -135,18 +139,18 @@ function reviewStep(rerender) {
     for (const [group, phrase] of Object.entries(record.vocabulary || {})) {
       if (!phrase) continue;
       for (const fragment of phrase.split(', ')) {
-        const off = (state.draft['_stylePicks']?.[group] || []).includes(fragment) === false
-          && state.draft['_stylePicks']?.[group];
+        const off = (draft()['_stylePicks']?.[group] || []).includes(fragment) === false
+          && draft()['_stylePicks']?.[group];
         const chip = el('button', {
           className: `frag chip ${off ? '' : 'on'}`, textContent: fragment,
         });
         chip.onclick = () => {
-          const picks = { ...(state.draft['_stylePicks'] || {}) };
+          const picks = { ...(draft()['_stylePicks'] || {}) };
           const current = picks[group] || phrase.split(', ');
           picks[group] = current.includes(fragment)
             ? current.filter((f) => f !== fragment)
             : [...current, fragment];
-          state.draft['_stylePicks'] = picks;
+          draft()['_stylePicks'] = picks;
           rerender();
         };
         chips.append(chip);
@@ -173,8 +177,8 @@ function reviewStep(rerender) {
           el('div', { className: 'path', textContent: 'pipeline.stop_after' })),
         el('div', { className: 'control-wrap' }, gateSel)),
       el('p', { className: 'help', textContent:
-        'Stopping after "pose" lets you fix skeletons in the rig editor before '
-        + 'the GPU stages spend minutes on them. Resume continues from there.' })));
+        'Stopping after "pose" lets you fix skeletons before the GPU stages '
+        + 'spend minutes on them. Resume continues from there.' })));
 
   return box;
 }
@@ -223,10 +227,6 @@ function rigStep() {
 
     box.append(
       el('h2', {}, 'Reference annotation', seg),
-      el('p', { className: 'help', textContent:
-        'Optional, and per image. Marks where the parts are in a picture you '
-        + 'already have, so a generation can match its pose and framing. Skip it '
-        + 'entirely and the reference still works as an identity anchor.' }),
       el('div', { className: 'row' },
         el('span', { className: 'mini', textContent: 'Image' }), picker),
       holder);
@@ -256,10 +256,7 @@ function rigStep() {
       el('span', { className: 'headnote', textContent: runId
         ? `editing ${runId}` : 'previewing the pose library — run the pose stage to edit' }),
       save),
-    el('p', { className: 'help', textContent:
-      'Drag joints in either view. The front view sets lateral and height; the '
-      + 'side view sets depth. A 2D drag can only fix two of the three body-space '
-      + 'coordinates, which is why there are two.' }),
+    null,
     editor);
   return box;
 }
@@ -364,18 +361,18 @@ export function renderRun(host, { onStarted, goTo }) {
       // rather than config-scoped, so committing the draft clears them — and
       // reading them afterwards silently sent every run without its style
       // picks.
-      const picks = state.draft['_stylePicks'];
+      const picks = draft()['_stylePicks'];
 
       // Commit pending edits, then start.
-      if (Object.keys(state.draft).length) {
+      if (Object.keys(draft()).length) {
         const own = structuredClone(state.own);
-        for (const [path, value] of Object.entries(state.draft)) {
+        for (const [path, value] of Object.entries(draft())) {
           if (value === null || path.startsWith('_')) continue;
           setPath(own, path, value);
         }
         await api.saveConfig(state.current, { config: own });
         state.own = own;
-        state.draft = {};
+        clearDraft();
       }
       const { run_id } = await api.start({
         config: state.current,

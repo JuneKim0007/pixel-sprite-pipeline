@@ -89,14 +89,9 @@ function imagesPanel(detail) {
     el('h3', {},
       el('span', { textContent: 'Images' }),
       el('span', { className: 'count', textContent: String(images.length) })),
-    el('p', { className: 'help', textContent:
-      detail.foldered
-        ? `Drop files into ${detail.home}/context/exemplars/ — they are picked up `
-          + 'automatically, with no edit to the YAML. These drive IP-Adapter at a '
-          + 'deliberately weak weight: they say how the art should look, not who '
-          + 'the character is.'
-        : 'This sheet is a single YAML file, so it has no exemplar folder. '
-          + `Move it to styles/${detail.name}/style.yaml to give it one.` }));
+    detail.foldered ? null : el('p', { className: 'warnline', textContent:
+      `⚠ Single YAML file — no exemplar folder. Move it to `
+      + `styles/${detail.name}/style.yaml.` }));
 
   if (!images.length) {
     box.append(el('p', { className: 'empty', textContent: 'No exemplars yet.' }));
@@ -126,11 +121,7 @@ function promptsPanel(detail) {
   const box = el('div', { className: 'ctxcol' },
     el('h3', {},
       el('span', { textContent: 'Prompts' }),
-      el('span', { className: 'count', textContent: String(groups.length) })),
-    el('p', { className: 'help', textContent:
-      'Vocabulary groups are substituted into {placeholders} in the module '
-      + 'templates. Inherited groups are merged, so a sheet only states what '
-      + 'it changes.' }));
+      el('span', { className: 'count', textContent: String(groups.length) })));
 
   if (token) {
     box.append(el('p', { className: 'mini', textContent: `trained token: ${token}` }));
@@ -445,11 +436,7 @@ async function trainingPanel(name) {
         el('b', { textContent: 'Normalisation plan' }),
         el('span', { className: 'mini', textContent:
           `${plan.clean} conform · target 1px blocks, figure ${plan.target_height}px` })),
-      el('p', { className: 'help', textContent:
-        'Normalising to one logical pixel per image pixel — rather than to the '
-        + 'coarsest or finest member — is the only target defined without '
-        + 'reference to the rest of the set, so adding an image later does not '
-        + 'invalidate the ones already converted.' }));
+      );
     for (const step of plan.steps) {
       box.append(el('div', { className: 'planstep' },
         el('code', { textContent: step.name }),

@@ -134,10 +134,7 @@ function promptStrip(detail, refresh) {
   if (!Object.keys(vocab).length) {
     box.append(el('p', { className: 'empty', textContent: 'No vocabulary groups.' }));
   }
-  box.append(el('p', { className: 'help', textContent:
-    'Enter adds a fragment, × removes one. These substitute into {placeholders} '
-    + 'in the module templates; every edit lands in the style sheet and leaves '
-    + 'a history entry.' }));
+
   return box;
 }
 

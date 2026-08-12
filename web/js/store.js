@@ -44,7 +44,17 @@ export const state = {
 
   // Run wizard
   wizardStep: 0,
-  draft: {},          // pending edits, survives Back
+
+  // Pending edits, per workspace.
+  //
+  // One shared draft was fine while there was one kind of thing to make. With
+  // the module as the primary axis it is not: switching from a character sheet
+  // to a tileset would carry the sheet's half-finished edits into a form that
+  // has no field for them, and switching back would find them gone. Keyed by
+  // module, switching is never destructive - which is the one load-bearing
+  // decision in PixelLab's tool switcher, and the reason it feels safe to
+  // click around in.
+  drafts: {},
 
   // Rig editor
   poseEntries: [],
@@ -53,10 +63,21 @@ export const state = {
   overlay: { skeleton: true, depth: false, reference: false, opacity: 0.4, refPath: null },
 };
 
+/** The pending edits for the workspace in front of you. */
+export function draft() {
+  const key = state.module || 'animation';
+  state.drafts[key] = state.drafts[key] || {};
+  return state.drafts[key];
+}
+
+export function clearDraft() {
+  state.drafts[state.module || 'animation'] = {};
+}
+
 /** Merge queued edits over the effective config, without committing them. */
 export function draftConfig() {
   const merged = structuredClone(state.effective || {});
-  for (const [path, value] of Object.entries(state.draft)) {
+  for (const [path, value] of Object.entries(draft())) {
     const parts = path.split('.');
     let node = merged;
     for (const key of parts.slice(0, -1)) {
@@ -84,7 +105,9 @@ export async function loadConfig(name) {
   state.overrides = data.overrides || [];
   state.styleRecord = data.style_record || {};
   state.unset = [];
-  state.draft = {};
+  // Deliberately does NOT clear the draft: loading a config for the workspace
+  // you are already in should not silently discard edits you have made in it.
+  // Committing or starting a run clears it; that is where it belongs.
   state.dirty = false;
 }
 

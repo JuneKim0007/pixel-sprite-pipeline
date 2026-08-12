@@ -9,28 +9,8 @@
 
 import { getPath } from './api.js';
 import { el, state } from './store.js';
+import { HelpTip } from './ui/index.js';
 import { VIEW_OPTIONS } from './views.js';
-
-/* Help text carries measured findings worth keeping, but a 300-character
- * paragraph under every control makes a settings page unreadable. So the lead
- * sentence shows and the rest is one click away: scannable by default,
- * complete when you need the reasoning. */
-function helpText(text) {
-  const split = text.search(/\.\s/);
-  if (split < 0 || text.length < 130) {
-    return el('p', { className: 'help', textContent: text });
-  }
-  const lead = text.slice(0, split + 1);
-  const rest = text.slice(split + 2);
-
-  const more = el('button', { className: 'linkbtn', textContent: 'why' });
-  const detail = el('span', { className: 'helpmore hidden', textContent: ` ${rest}` });
-  more.onclick = () => {
-    detail.classList.toggle('hidden');
-    more.textContent = detail.classList.contains('hidden') ? 'why' : 'less';
-  };
-  return el('p', { className: 'help' }, lead, ' ', more, detail);
-}
 
 /* ------------------------------------------------------------- primitives */
 
@@ -374,8 +354,18 @@ export function renderGroup(group, cfg, { onChange, onReset, overrides = [] }) {
 
     const pinned = overrides.includes(field.path);
     const row = el('div', { className: `field ${pinned ? 'pinned' : ''}` });
+    // The explanation goes behind a (?) rather than under the control.
+    //
+    // The reasoning is worth keeping - it is measured, and DECISIONS.md exists
+    // because of it - but 119 fields each carrying a paragraph is a page
+    // nobody reads any of. The lead sentence is the tooltip, so hovering
+    // answers the common case; clicking reveals the rest.
+    const tip = HelpTip(field.help);
     const label = el('div', {},
-      el('label', {}, field.label, pinned ? el('span', { className: 'dot', title: 'Set by this pipeline' }) : null),
+      el('div', { className: 'ui-label-row' },
+        el('label', {}, field.label,
+           pinned ? el('span', { className: 'dot', title: 'Set by this pipeline' }) : null),
+        tip ? tip.btn : null),
       el('div', { className: 'path', textContent: field.path }));
 
     const right = el('div', { className: 'control-wrap' },
@@ -389,7 +379,7 @@ export function renderGroup(group, cfg, { onChange, onReset, overrides = [] }) {
     }
 
     row.append(el('div', { className: 'field-top' }, label, right));
-    if (field.help) row.append(el('p', { className: 'help', textContent: field.help }));
+    if (tip) row.append(tip.body);
     host.append(row);
   }
 

@@ -18,15 +18,42 @@ from .bodyspace import VIEWS as VIEWS_FOR_UI
 
 # What a pipeline is for. Fields may scope themselves to a subset, so a T-pose
 # character sheet does not show eight knobs about LLM-authored motion.
-MODULES: dict[str, dict[str, str]] = {
-    "animation": {
-        "label": "Animation",
-        "blurb": "A sequence of frames of one character performing an action.",
-    },
+# What a pipeline is for, and the primary axis of the interface.
+#
+# `available: False` declares a workspace that exists in the navigation and
+# does not work yet. That is deliberate rather than a stub: the rail is the
+# statement that asset types are the top-level split, and a rail with two cells
+# is a toggle. Naming the unfinished ones makes the shape of the tool visible
+# before the tool is finished, and gives a new type one obvious place to land -
+# an entry here, never a new tab.
+MODULES: dict[str, dict[str, Any]] = {
     "character_sheet": {
         "label": "Character sheet",
+        "detail": "one pose, several angles",
         "blurb": "One reference pose seen from several angles. Usually the "
                  "first thing you make, and the input to an animation.",
+        "available": True,
+    },
+    "animation": {
+        "label": "Animation",
+        "detail": "one action, several frames",
+        "blurb": "A sequence of frames of one character performing an action.",
+        "available": True,
+    },
+    "tileset": {
+        "label": "Tileset",
+        "detail": "terrain, 47-blob",
+        "blurb": "Top-down terrain tiles that meet their neighbours without a "
+                 "seam. A different constraint from a character: a sprite is "
+                 "judged on its silhouette, a tile on its edges.",
+        "available": False,
+    },
+    "object": {
+        "label": "Objects",
+        "detail": "props, no rig",
+        "blurb": "Chests, signposts, trees. Neither a character nor a tile - "
+                 "no body plan to pose, but placed on a grid.",
+        "available": False,
     },
 }
 

@@ -241,11 +241,6 @@ export function renderEditor(host) {
   const tone = el('div', { className: 'group' },
     el('h2', {}, 'Curves', reset),
     el('div', { className: 'fields' },
-      el('p', { className: 'help', textContent:
-        'Applied before reduction and before snapping, which is the useful '
-        + 'order: snapping picks the nearest entry, so lifting contrast first '
-        + 'pushes midtones out to the ends of the ramp and the sprite takes up '
-        + 'its light and dark colours instead of collapsing into the middle.' }),
       row('Gamma', curve('gamma', { min: 0.4, max: 2.5, step: 0.05, onChange: preview }),
         'Redistributes within the range rather than shifting it — what '
         + '"shadows too dark, highlights fine" actually needs.'),
@@ -278,9 +273,7 @@ export function renderEditor(host) {
     el('header', { className: 'head' },
       el('div', {},
         el('h1', { textContent: 'Editor' }),
-        el('p', { className: 'sub', textContent:
-          'The same pixelisation the pipeline runs, applied one image at a '
-          + 'time so you can see a choice before spending a run on it.' })),
+),
       el('div', { className: 'head-actions' }, uploadBtn, upload, apply)),
     el('div', { className: 'row' },
       el('span', { className: 'mini', textContent: 'Source' }), sourceSel),

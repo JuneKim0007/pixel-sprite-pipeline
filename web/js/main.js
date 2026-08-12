@@ -17,7 +17,8 @@ import { renderStyles } from './styles.js';
 import { renderQueue } from './queue.js';
 import { renderEditor } from './editor.js';
 import { renderOverview } from './overview.js';
-import { $, $$, el, loadConfig, state } from './store.js';
+import { configsFor, indexConfigModules, renderRail } from './rail.js';
+import { $, $$, draft, el, loadConfig, state } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
 
@@ -34,7 +35,7 @@ function render() {
     renderOverview($('#view-overview'), { goTo: setTab });
   } else if (state.tab === 'input') {
     renderInput($('#view-input'), {
-      onChange: (path, value) => { state.draft[path] = value; render(); },
+      onChange: (path, value) => { draft()[path] = value; render(); },
       onContinue: () => setTab('run'),
     });
   } else if (state.tab === 'run') {
@@ -129,11 +130,26 @@ async function refreshRuns() {
 async function refreshConfigs(select = null) {
   const { configs } = await api.configs();
   state.configs = configs;
-  const sel = $('#configPicker');
-  sel.replaceChildren(...configs.map((c) =>
-    el('option', { value: c, textContent: c, selected: c === (select || state.current) })));
+  await indexConfigModules();
   const pick = select || state.current || configs[0];
   if (pick) await loadConfig(pick);
+  renderConfigPicker();
+}
+
+/* Only this workspace's pipelines. A character-sheet config in an animation
+ * list is a config that changes the schema under you when picked. */
+function renderConfigPicker() {
+  const mine = configsFor(state.module);
+  const sel = $('#configPicker');
+  sel.replaceChildren(...mine.map((c) =>
+    el('option', { value: c, textContent: c, selected: c === state.current })));
+  sel.disabled = mine.length < 2;
+}
+
+function renderRailBar() {
+  renderRail($('#railbar'), {
+    onSwitch: () => { renderConfigPicker(); render(); },
+  });
 }
 
 async function boot() {
@@ -149,11 +165,13 @@ async function boot() {
 
   renderServices();
   await refreshConfigs();
+  renderRailBar();
   await refreshRuns();
 
   $$('#nav li').forEach((li) => { li.onclick = () => setTab(li.dataset.view); });
   $('#configPicker').onchange = async (e) => {
     await loadConfig(e.target.value);
+    renderRailBar();
     render();
   };
   $('#runPicker').onchange = (e) => {

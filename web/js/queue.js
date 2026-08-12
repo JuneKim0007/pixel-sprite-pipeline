@@ -161,9 +161,6 @@ function submitForm(refresh) {
     el('div', { className: 'row' },
       el('span', { className: 'mini', textContent: 'Config' }), config,
       el('span', { className: 'mini', textContent: 'Priority' }), priority),
-    el('p', { className: 'help', textContent:
-      'A matrix crosses every listed value into its own job — three seeds by '
-      + 'two views is six jobs from one form. Lower priority numbers run first.' }),
     matrix,
     el('div', { className: 'row' }, go)));
   return box;
@@ -178,9 +175,7 @@ export function renderQueue(host) {
     el('header', { className: 'head' },
       el('div', {},
         el('h1', { textContent: 'Queue' }),
-        el('p', { className: 'sub', textContent:
-          'Jobs on disk, worked through unattended. Nothing here is lost if the '
-          + 'browser closes — the queue is the filesystem.' }))),
+))),
     body);
 
   (async () => {
