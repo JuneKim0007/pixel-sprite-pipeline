@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from .shared.errors import Invalid
+from .shared.registry import Broken, Registry, Scanned
 
 
 @dataclass
@@ -44,6 +46,9 @@ class Palette:
             "description": self.description,
             "swatch": ["#%02X%02X%02X" % c for c in self.colours[:8]],
         }
+
+
+_REGISTRIES: dict[Path, Registry] = {}
 
 
 def _parse(path: Path, root: Path) -> Palette:
@@ -87,19 +92,43 @@ def _parse(path: Path, root: Path) -> Palette:
     )
 
 
-def discover(root: Path) -> dict[str, Palette]:
-    base = root / "palettes"
-    if not base.exists():
-        return {}
-    found = {}
-    for p in sorted(base.rglob("*.hex")):
-        try:
-            pal = _parse(p, root)
-        except Exception:
-            continue
-        if pal.colours:
-            found[pal.key] = pal
+def registry(root: Path) -> Registry[Palette]:
+    """The palettes under `root`, cached until one of the files changes.
+
+    One registry per root, kept because the scan used to run on every call and
+    a palette list is asked for on nearly every page load.
+    """
+    root = Path(root).resolve()
+    found = _REGISTRIES.get(root)
+    if found is None:
+        found = Registry("palette", Scanned(
+            root / "palettes", ["**/*.hex"],
+            lambda path: _entry(path, root), what="palette"))
+        _REGISTRIES[root] = found
     return found
+
+
+def _entry(path: Path, root: Path) -> tuple[str, Palette]:
+    """Parse one file, and refuse it out loud rather than by omission.
+
+    A palette with no colours in it used to be dropped silently, so a typo
+    presented as "the file I just wrote is not in the list" with nothing
+    anywhere saying why.
+    """
+    palette = _parse(path, root)
+    if not palette.colours:
+        raise Invalid("no colours found in this file",
+                      hint="a palette is one six-digit hex value per line")
+    return palette.key, palette
+
+
+def discover(root: Path) -> dict[str, Palette]:
+    return registry(root).all()
+
+
+def broken(root: Path) -> list[Broken]:
+    """Files that look like palettes and would not load."""
+    return registry(root).broken()
 
 
 def grouped(root: Path) -> dict[str, list[Palette]]:

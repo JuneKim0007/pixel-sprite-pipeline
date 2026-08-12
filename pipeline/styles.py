@@ -61,11 +61,14 @@ import yaml
 
 from .settings import deep_merge
 from .shared.errors import Invalid
+from .shared.registry import Registry, Scanned
 
 DIRNAME = "styles"
 SHEET = "style.yaml"
 PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 IMAGES = (".png", ".jpg", ".jpeg", ".webp")
+
+_REGISTRIES: dict[Path, "Registry[Style]"] = {}
 
 
 class StyleError(Invalid):
@@ -164,39 +167,49 @@ def styles_dir(root: Path) -> Path:
     return path
 
 
-def _read(path: Path, home: Path) -> Style | None:
+def _read(path: Path, home: Path) -> tuple[str, Style]:
+    """One sheet. A YAML error names the file now instead of hiding it.
+
+    A sheet that will not parse used to be skipped silently, which presents as
+    the style disappearing from the list - the same failure a malformed palette
+    had, and the same fix.
+    """
     try:
         data = yaml.safe_load(path.read_text()) or {}
-    except yaml.YAMLError:
-        return None
+    except yaml.YAMLError as e:
+        raise Invalid(str(e).split("\n")[0]) from e
+    if not isinstance(data, dict):
+        raise Invalid("a style sheet should be a mapping")
+
     # A foldered sheet is named by its folder unless it says otherwise, so
     # renaming the directory renames the style.
     default = home.name if path.name == SHEET else path.stem
     name = data.get("name", default)
-    return Style(name=name, label=data.get("label", name),
-                 path=path, home=home, data=data)
+    return name, Style(name=name, label=data.get("label", name),
+                       path=path, home=home, data=data)
+
+
+def registry(root: Path) -> Registry[Style]:
+    """Every sheet, in both layouts. A name may only be claimed once."""
+    root = Path(root).resolve()
+    found = _REGISTRIES.get(root)
+    if found is None:
+        styles_dir(root)
+        found = Registry("style sheet", Scanned(
+            root / DIRNAME, ["*.yaml", f"*/{SHEET}"],
+            lambda path: _read(path, path.parent if path.name == SHEET else root),
+            what="style sheet"))
+        _REGISTRIES[root] = found
+    return found
 
 
 def discover(root: Path) -> dict[str, Style]:
-    """Every sheet, in both layouts. A name may only be claimed once."""
-    base = styles_dir(root)
-    found: dict[str, Style] = {}
+    return registry(root).all()
 
-    candidates = [(f, root) for f in sorted(base.glob("*.yaml"))]
-    candidates += [(d / SHEET, d) for d in sorted(base.iterdir())
-                   if d.is_dir() and (d / SHEET).exists()]
 
-    for path, home in candidates:
-        style = _read(path, home)
-        if style is None:
-            continue
-        if style.name in found:
-            raise StyleError(
-                f"two style sheets both call themselves '{style.name}': "
-                f"{found[style.name].path} and {path}"
-            )
-        found[style.name] = style
-    return found
+def broken(root: Path) -> list:
+    """Sheets that would not load, so the UI can say which and why."""
+    return registry(root).broken()
 
 
 def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[Style]:
@@ -213,13 +226,8 @@ def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[S
     for name in names:
         if name in seen:
             raise StyleError(f"style '{name}' is part of an extends cycle")
-        if name not in available:
-            raise StyleError(
-                f"no style '{name}'. Available: "
-                f"{', '.join(sorted(available)) or '(none)'}"
-            )
         seen.add(name)
-        style = available[name]
+        style = registry(root).get(name)
         out += _chain(root, list(style.data.get("extends") or []), seen)
         out.append(style)
     return out

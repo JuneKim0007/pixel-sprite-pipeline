@@ -156,6 +156,7 @@ def test_pipeline() -> None:
     print("\ndefinitive editor")
     check("shared/ depends on no module", _shared_has_no_module_deps)
     check("failures carry their own status", _error_taxonomy)
+    check("every registry answers the same way", _one_registry)
     check("every layer field carries an explanation", _definitive_layers)
     check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
 
@@ -437,6 +438,78 @@ def _error_taxonomy() -> None:
     total = sum(builtins.values())
     _assert(total <= 80,
             f"builtin raises in pipeline/ rose to {total}: {dict(builtins)}")
+
+
+def _one_registry() -> None:
+    """Six registries, one set of answers.
+
+    They used to disagree. styles raised on a duplicate name; palettes and
+    props let the later file win silently. All three swallowed a malformed
+    file, so a typo made a palette vanish rather than complain - which presents
+    as "the file I just wrote is not in the list" with nothing anywhere saying
+    why.
+
+    This checks the three behaviours that were decided independently six times:
+    a missing key names the alternatives, a broken file is reported rather than
+    dropped, and the scan is cached until the files change.
+    """
+    import pathlib
+
+    from pipeline import palettes, props, rigs, stage, styles
+    from pipeline.definitive import layers
+    from pipeline.shared import NotFound
+    from pipeline.shared.registry import Registry
+
+    lookups = [("rig", lambda: rigs.get("no_such_rig")),
+               ("stage", lambda: stage.get("no_such_stage")),
+               ("layer", lambda: layers.get("no_such_layer")),
+               ("palette", lambda: palettes.registry(ROOT).get("no_such_palette")),
+               ("prop", lambda: props.registry(ROOT).get("no_such_prop")),
+               ("style sheet", lambda: styles.registry(ROOT).get("no_such_style"))]
+
+    for what, call in lookups:
+        try:
+            call()
+        except NotFound as e:
+            _assert(what in str(e), f"{what} lookup said {e!r}")
+            _assert(e.hint, f"{what} lookup did not name the alternatives")
+        else:
+            raise AssertionError(f"a missing {what} was accepted silently")
+
+    # A file that will not parse is reported, not omitted. This is the failure
+    # that motivated the whole change.
+    bad = ROOT / "palettes" / "_registry_test.hex"
+    bad.write_text("// name: Broken\nnot a hex value\n")
+    try:
+        reg = palettes.registry(ROOT)
+        listed = [b for b in reg.broken() if b.path == bad]
+        _assert(listed, "a malformed palette vanished instead of being reported")
+        _assert("colour" in listed[0].why.lower(),
+                f"the reason was unhelpful: {listed[0].why!r}")
+        _assert("_registry_test" not in reg.all(),
+                "a malformed palette was loaded anyway")
+    finally:
+        bad.unlink()
+
+    # And the cache notices the file went away.
+    _assert(not [b for b in palettes.registry(ROOT).broken() if b.path == bad],
+            "the registry cache did not notice a deleted file")
+
+    # Caching: a second read of unchanged files must not reparse.
+    calls = {"n": 0}
+
+    def counted(path: pathlib.Path):
+        calls["n"] += 1
+        return path.stem, path.stem
+
+    from pipeline.shared.registry import Scanned
+
+    probe = Registry("probe", Scanned(ROOT / "palettes", ["**/*.hex"], counted))
+    probe.all()
+    first = calls["n"]
+    probe.all()
+    _assert(calls["n"] == first,
+            f"the registry reparsed unchanged files ({first} then {calls['n']})")
 
 
 def _definitive_layers() -> None:
@@ -724,6 +797,7 @@ def _prop_wired() -> None:
 
 def _styles_layer() -> None:
     from pipeline import styles
+    from pipeline.shared import NotFound
 
     found = styles.discover(ROOT)
     if not found:
@@ -742,9 +816,14 @@ def _styles_layer() -> None:
     _assert(after["palette"]["source"] == "extract",
             "a style overrode a value the pipeline pinned")
 
+    # NotFound rather than StyleError: a name that does not exist is the
+    # registry's answer for every kind of thing, and it carries the
+    # alternatives, which is what someone who mistyped actually needs.
     try:
         styles.layer(ROOT, {"styles": ["definitely_not_a_style"]})
-    except styles.StyleError:
+    except NotFound as e:
+        _assert("base_pixel" in e.hint,
+                f"a missing style did not list the alternatives: {e.hint!r}")
         return
     raise AssertionError("a missing style was accepted silently")
 

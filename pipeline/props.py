@@ -28,10 +28,13 @@ better job than any depth-map primitive would.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from .bodyspace import project_point
+from .shared.errors import Invalid
+from .shared.registry import Broken, Registry, Scanned
 
 
 @dataclass
@@ -72,6 +75,8 @@ class Prop:
 
 DIRNAME = "props"
 
+_REGISTRIES: dict[Path, Registry] = {}
+
 
 def wanted(ctx) -> bool:
     """Whether this module should draw the configured props at all.
@@ -107,29 +112,52 @@ def wanted(ctx) -> bool:
     return ctx.config.get("module", "animation") != "character_sheet"
 
 
-def discover(root) -> dict[str, dict]:
+def registry(root) -> Registry[dict]:
     """Reusable prop definitions from props/*.yaml, keyed by name.
 
     poses and palettes have had libraries since the beginning and props did
     not, so every weapon had to be dimensioned by hand in the config that used
-    it — six numbers describing where a sword points, retyped per character.
+    it - six numbers describing where a sword points, retyped per character.
     A prop is exactly as reusable as a palette: a longsword is a longsword.
     """
+    root = Path(root).resolve()
+    found = _REGISTRIES.get(root)
+    if found is None:
+        found = Registry("prop", Scanned(root / DIRNAME, ["**/*.yaml"],
+                                         _entries, what="prop"))
+        _REGISTRIES[root] = found
+    return found
+
+
+def _entries(path: Path) -> dict[str, dict]:
+    """Every prop in one file. A malformed one names itself now."""
     import yaml
 
-    base = root / DIRNAME
-    if not base.exists():
+    data = yaml.safe_load(path.read_text()) or {}
+    listed = data.get("props")
+    if listed is None:
         return {}
-    found: dict[str, dict] = {}
-    for path in sorted(base.rglob("*.yaml")):
-        try:
-            data = yaml.safe_load(path.read_text()) or {}
-        except yaml.YAMLError:
-            continue
-        for entry in (data.get("props") or []):
-            if isinstance(entry, dict) and entry.get("name"):
-                found[entry["name"]] = entry
-    return found
+    if not isinstance(listed, list):
+        raise Invalid("'props:' should be a list")
+
+    out: dict[str, dict] = {}
+    for i, entry in enumerate(listed):
+        if not isinstance(entry, dict):
+            raise Invalid(f"prop {i + 1} is not a mapping")
+        name = entry.get("name")
+        if not name:
+            raise Invalid(f"prop {i + 1} has no 'name'")
+        out[str(name)] = entry
+    return out
+
+
+def discover(root) -> dict[str, dict]:
+    return registry(root).all()
+
+
+def broken(root) -> list[Broken]:
+    """Prop files that would not load."""
+    return registry(root).broken()
 
 
 def load(specs, root=None) -> list[Prop]:

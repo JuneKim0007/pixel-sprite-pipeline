@@ -30,6 +30,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from .shared.config import opt
+from .shared.errors import Invalid
+from .shared.registry import Decorated, Registry
 
 __all__ = ["opt", "Resource", "Context", "Stage", "register", "get", "available"]
 
@@ -209,24 +211,19 @@ class Stage(ABC):
         return f"{self.name:<12} [{self.resource}]  needs: {req:<34} gives: {pro}"
 
 
-_REGISTRY: dict[str, type[Stage]] = {}
+_SOURCE: Decorated[type[Stage]] = Decorated()
+_REGISTRY: Registry[type[Stage]] = Registry("stage", _SOURCE)
 
 
 def register(cls: type[Stage]) -> type[Stage]:
     if not getattr(cls, "name", None):
-        raise ValueError(f"{cls.__name__} must set a class-level `name`")
-    if cls.name in _REGISTRY:
-        raise ValueError(f"duplicate stage name: {cls.name}")
-    _REGISTRY[cls.name] = cls
-    return cls
+        raise Invalid(f"{cls.__name__} must set a class-level `name`")
+    return _SOURCE.add(cls.name, cls, what="stage")
 
 
 def get(name: str) -> type[Stage]:
-    if name not in _REGISTRY:
-        known = ", ".join(sorted(_REGISTRY)) or "(none registered)"
-        raise KeyError(f"unknown stage '{name}'. Available: {known}")
-    return _REGISTRY[name]
+    return _REGISTRY.get(name)
 
 
 def available() -> dict[str, type[Stage]]:
-    return dict(_REGISTRY)
+    return _REGISTRY.all()

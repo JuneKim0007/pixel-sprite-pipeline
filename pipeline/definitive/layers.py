@@ -36,7 +36,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Callable
 
-REGISTRY: dict[str, "LayerSpec"] = {}
+from ..shared.registry import Decorated, Registry
+
+_SOURCE: Decorated["LayerSpec"] = Decorated()
+_LAYERS: Registry["LayerSpec"] = Registry("layer", _SOURCE)
+
+# Kept as a name because callers read it directly; it is the same dict.
+REGISTRY: dict[str, "LayerSpec"] = _SOURCE.entries
 
 
 @dataclass
@@ -92,11 +98,16 @@ def layer(key: str, *, label: str, summary: str, fields: list[Field],
           order: int = 50, repeatable: bool = False):
     """Register a layer. The decorated function is its apply()."""
     def wrap(fn):
-        REGISTRY[key] = LayerSpec(key=key, label=label, summary=summary,
-                                  fields=fields, apply=fn, order=order,
-                                  repeatable=repeatable)
+        _SOURCE.add(key, LayerSpec(key=key, label=label, summary=summary,
+                                   fields=fields, apply=fn, order=order,
+                                   repeatable=repeatable), what="layer")
         return fn
     return wrap
+
+
+def get(key: str) -> LayerSpec:
+    """One layer, with the alternatives named if it is not there."""
+    return _LAYERS.get(key)
 
 
 def catalogue() -> list[dict]:

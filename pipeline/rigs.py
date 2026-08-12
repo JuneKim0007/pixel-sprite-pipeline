@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable
+from .shared.registry import Decorated, Registry
 
 # The canonical OpenPose colour wheel. ControlNet was trained against these
 # exact hues, so for the humanoid rig they are protocol, not decoration.
@@ -791,27 +792,25 @@ NONE = Rig(
 )
 
 
-REGISTRY: dict[str, Rig] = {
-    r.name: r for r in (NONE, HUMANOID, QUADRUPED, SERPENT, BLOB)
-}
+_SOURCE: Decorated[Rig] = Decorated()
+for _r in (NONE, HUMANOID, QUADRUPED, SERPENT, BLOB):
+    _SOURCE.add(_r.name, _r, what="rig")
 for _r in _GENERATED:
-    REGISTRY.setdefault(_r.name, _r)
+    # A generated rig yields to a hand-written one of the same name.
+    _SOURCE.entries.setdefault(_r.name, _r)
+
+_RIGS: Registry[Rig] = Registry("rig", _SOURCE)
+REGISTRY: dict[str, Rig] = _SOURCE.entries      # kept: read directly in places
 
 DEFAULT = HUMANOID.name
 
 
 def get(name: str | None) -> Rig:
-    if not name:
-        return REGISTRY[DEFAULT]
-    if name not in REGISTRY:
-        raise KeyError(
-            f"unknown rig '{name}'. Available: {', '.join(sorted(REGISTRY))}"
-        )
-    return REGISTRY[name]
+    return _RIGS.get(name or DEFAULT)
 
 
 def names() -> list[str]:
-    return sorted(REGISTRY)
+    return _RIGS.names()
 
 
 def summaries() -> list[dict]:
