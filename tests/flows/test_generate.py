@@ -67,8 +67,48 @@ def test_softbody_runs_as_a_stage_not_just_as_physics(root, tmp_path):
     ctx.artifacts["frames"] = frames
     ctx.artifacts["pose_frames"] = entries
 
-    produced = get("softbody")().run(ctx)
+    stage = get("softbody")()
+    produced = stage.run(ctx, stage.prepare(ctx))
     assert "soft_frames" in produced, "the stage returned the wrong artifact"
     assert len(produced["soft_frames"]) == len(frames)
     for path in produced["soft_frames"]:
         assert path.exists(), f"{path.name} was never written"
+
+
+def _pixel_art(tmp_path, name, seed):
+    rng = np.random.default_rng(seed)
+    small = rng.integers(40, 220, (16, 16, 3), dtype=np.uint8)
+    big = np.repeat(np.repeat(small, 8, 0), 8, 1)
+    canvas = np.full((big.shape[0] + 16, big.shape[1] + 16, 3), 255, np.uint8)
+    canvas[5:5 + big.shape[0], 3:3 + big.shape[1]] = big
+    path = tmp_path / name
+    Image.fromarray(canvas).save(path)
+    return path
+
+
+def test_the_lattice_is_found_once_per_run_not_once_per_frame(tmp_path, monkeypatch):
+    from pipeline.definitive import pixelize as px
+    from pipeline.stages import palette as palette_stage
+
+    calls = []
+    real = px.find_phase
+
+    def counted(arr, factor):
+        calls.append(factor)
+        return real(arr, factor)
+
+    monkeypatch.setattr(px, "find_phase", counted)
+    monkeypatch.setattr(palette_stage, "find_phase", counted)
+
+    canonical = _pixel_art(tmp_path, "canonical.png", 0)
+    frames = [_pixel_art(tmp_path, f"frame_{i}.png", i + 1) for i in range(4)]
+    ctx = Context(root=tmp_path, outdir=tmp_path,
+                  config={"palette": {"factor": 8, "size": 8},
+                          "compute": {"cpu_workers": 1}},
+                  artifacts={"canonical": canonical, "frames": frames})
+
+    stage = get("palette")()
+    produced = stage.run(ctx, stage.prepare(ctx))
+
+    assert len(produced["pixel_frames"]) == 4
+    assert len(calls) == 1, f"the lattice was searched {len(calls)} times for 4 frames"

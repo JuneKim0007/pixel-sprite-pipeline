@@ -15,7 +15,7 @@ maps as optional and simply won't use them.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 from ..geometry import props as props_mod
 from ..geometry import rigs as rig_lib
@@ -81,7 +81,7 @@ class DepthStage(Stage):
     requires = frozenset({"pose_frames"})
     produces = frozenset({"depthmaps"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         frames: list[dict] = ctx.require("pose_frames")
         written = render_entries(ctx, frames, ctx.stage_dir("depth"))
         print(f"   {len(written)} depth map(s)")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 from PIL import Image
 
@@ -24,7 +24,7 @@ class ExportStage(Stage):
     # it, and joining costs a paste loop.
     ALSO_JOIN = ("pose", "depth", "frames")
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("export")
         frames: list[Path] = ctx.require("pixel_frames")
         outdir = ctx.stage_dir("export")

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from pipeline import definitive
-from pipeline.definitive import cache
+from pipeline.definitive import cache, layers
 from pipeline.shared import limits
 
 
@@ -98,3 +98,49 @@ def test_the_caches_are_bounded(root, img, stack):
                                source=f"t{i}")
     assert cache.SNAPSHOTS.stats()["bytes"] <= cache.SNAPSHOTS.max_bytes
     assert cache.CACHE.stats()["bytes"] <= cache.CACHE.max_bytes
+
+
+def _reordered(stack, key):
+    return ([e for e in stack if e["layer"] == key]
+            + [e for e in stack if e["layer"] != key])
+
+
+def test_every_registered_layer_is_budget_guarded():
+    for key, spec in definitive.REGISTRY.items():
+        assert getattr(spec.apply, "_budgeted", False), f"{key}.apply is unguarded"
+        if spec.prepare is not None:
+            assert getattr(spec.prepare, "_budgeted", False), f"{key}.prepare is unguarded"
+
+
+def test_a_layer_built_without_the_decorator_is_guarded_too():
+    # The guard is in __post_init__, not in @layer, so constructing a spec by
+    # hand cannot route around it.
+    spec = layers.LayerSpec(key="handmade", label="Handmade", summary="",
+                            fields=[], apply=lambda img, cfg, facts, prep: img)
+    assert getattr(spec.apply, "_budgeted", False)
+
+
+def test_enlarging_before_an_analysing_layer_is_refused(root, img, stack):
+    out, facts = definitive.apply_stack(img, _reordered(stack, "scale"), root=root)
+    refused = [la for la in facts["layers"] if la.get("error")]
+    assert refused, "an enlarged image reached a layer that analyses it"
+    assert "MP from a" in refused[0]["error"], f"unhelpful refusal: {refused[0]['error']}"
+
+
+def test_the_default_order_is_never_refused(root, img, stack):
+    _, facts = definitive.apply_stack(img, stack, root=root)
+    assert not [la for la in facts["layers"] if la.get("error")]
+
+
+def test_scale_out_of_place_warns_before_it_refuses(stack):
+    assert any("Scale is not last" in w
+               for w in definitive.check_order(_reordered(stack, "scale")))
+    assert not [w for w in definitive.check_order(stack) if "Scale" in w]
+
+
+def test_the_budget_does_not_leak_between_runs(root, img, stack):
+    definitive.apply_stack(img, _reordered(stack, "scale"), root=root)
+    big = np.zeros((img.shape[0] * 3, img.shape[1] * 3, 3), dtype=np.uint8)
+    _, facts = definitive.apply_stack(big, stack, root=root)
+    assert not [la for la in facts["layers"] if la.get("error")], \
+        "a previous run's budget refused a larger independent image"

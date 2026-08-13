@@ -186,7 +186,10 @@ def run(
 
 def _one(stage: Stage, ctx: Context, verbose: bool) -> dict[str, Any]:
     t0 = time.time()
-    produced = stage.run(ctx) or {}
+    prep = stage.prepare(ctx) or {}
+    if verbose and prep:
+        print(f"   prepared in {time.time() - t0:.1f}s: {', '.join(sorted(prep))}")
+    produced = stage.run(ctx, prep) or {}
 
     unexpected = set(produced) - set(stage.produces)
     if unexpected:

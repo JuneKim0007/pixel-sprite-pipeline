@@ -24,7 +24,7 @@ a front drawing at a weak weight and anchored to nothing at all.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 from ..generation import comfy
 from ..orchestration import cooling
@@ -60,7 +60,7 @@ class FramesStage(Stage):
     optional = frozenset({"depthmaps", "canonicals"})
     produces = frozenset({"frames"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("frames")
         skeletons: list[Path] = ctx.require("skeletons")
         entries_for_count: list[dict] = ctx.require("pose_frames")

@@ -4,7 +4,36 @@ from __future__ import annotations
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Callable
 
+from contextvars import ContextVar
+
+from ..shared.errors import Invalid
 from ..shared.registry import Decorated, Registry
+
+# The pixel count of the image entering the stack. A layer may never be handed
+# more than this: upscaling invents no detail, so analysing an enlarged image is
+# analysing invented pixels, and it is what makes a reordered Scale cost 16x.
+_BUDGET: ContextVar[int] = ContextVar("layer_budget", default=0)
+
+
+def budget(pixels: int):
+    return _BUDGET.set(int(pixels))
+
+
+def release(token) -> None:
+    _BUDGET.reset(token)
+
+
+def _within(key: str, image) -> None:
+    limit = _BUDGET.get()
+    if not limit:
+        return
+    got = int(image.shape[0]) * int(image.shape[1])
+    if got > limit:
+        raise Invalid(
+            f"'{key}' was handed {got / 1e6:.2f} MP from a {limit / 1e6:.2f} MP "
+            f"source. Something before it enlarged the image — move Scale last.",
+            field=key,
+        )
 
 _SOURCE: Decorated["LayerSpec"] = Decorated()
 _LAYERS: Registry["LayerSpec"] = Registry("layer", _SOURCE)
@@ -38,6 +67,32 @@ class Field:
         }
 
 
+def _guard_prepare(key: str, fn):
+    if fn is None:
+        return None
+    if getattr(fn, "_budgeted", False):
+        return fn
+
+    def wrapped(image, cfg):
+        _within(key, image)
+        return fn(image, cfg)
+
+    wrapped._budgeted = True
+    return wrapped
+
+
+def _guard_apply(key: str, fn):
+    if getattr(fn, "_budgeted", False):
+        return fn
+
+    def wrapped(image, cfg, facts, prep):
+        _within(key, image)
+        return fn(image, cfg, facts, prep)
+
+    wrapped._budgeted = True
+    return wrapped
+
+
 @dataclass
 class LayerSpec:
 
@@ -52,6 +107,12 @@ class LayerSpec:
     # arranged one yet.
     order: int = 50
     repeatable: bool = False
+
+    def __post_init__(self) -> None:
+        # Guarding here rather than in the runner is the guarantee: a LayerSpec
+        # cannot exist unguarded, however it is built or whoever calls it.
+        self.prepare = _guard_prepare(self.key, self.prepare)
+        self.apply = _guard_apply(self.key, self.apply)
 
     def defaults(self) -> dict:
         return {f.key: f.default for f in self.fields}
@@ -115,6 +176,12 @@ def check_order(stack: list[dict]) -> list[str]:
             "Background runs before Grid. Block reduction mixes the backdrop "
             "into every edge pixel, so keying first leaves a fringe that the "
             "reduction then spreads.")
+    if "scale" in seen and seen.index("scale") != len(seen) - 1:
+        out.append(
+            "Scale is not last. It multiplies the pixel count by the zoom "
+            "squared, and every layer after it pays: measured 0.59s to 9.7s "
+            "for the default zoom of 4. Layers handed more pixels than the "
+            "source has are refused.")
     if seen.count("grid") > 1:
         out.append("Grid appears twice. Reducing an already-reduced image "
                    "destroys the lattice the first pass established.")

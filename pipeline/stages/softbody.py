@@ -15,7 +15,7 @@ Drop `softbody` from `pipeline.stages`, or set every node's influence to 0, and
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 import numpy as np
 from PIL import Image
@@ -32,7 +32,7 @@ class SoftBodyStage(Stage):
     requires = frozenset({"frames", "pose_frames"})
     produces = frozenset({"soft_frames"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("softbody")
         pose_cfg = ctx.stage_config("pose")
         frames: list[Path] = ctx.require("frames")

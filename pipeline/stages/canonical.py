@@ -9,7 +9,7 @@ weak canonical propagates into every frame.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 from ..generation import comfy
 from ..orchestration import cooling
@@ -75,7 +75,7 @@ class CanonicalStage(Stage):
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     produces = frozenset({"canonical", "canonicals"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("canonical")
         subject = ctx.config.get("subject", "a knight in armor")
         client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))

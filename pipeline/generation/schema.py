@@ -351,15 +351,6 @@ FIELDS: list[dict[str, Any]] = [
      "help": "Trades flat blocks for apparent colour depth. Leave off for the "
              "chunky RPG-Maker idiom; turn on when a small palette has to "
              "carry a gradient."},
-    {"path": "palette.phase", "label": "Pixel grid origin", "type": "select",
-     "options": ["per_frame", "locked"], "group": "Palette",
-     "help": "'per_frame' finds the best grid for each image independently. "
-             "'locked' measures it once on the canonical and applies it to "
-             "every frame — which is what an animation wants, since a grid "
-             "that shifts by one pixel between frames makes the sprite "
-             "shimmer."},
-
-    # -------------------------------------------------------------- export
     {"path": "export.columns", "label": "Sheet columns", "type": "int",
      "min": 1, "max": 32, "group": "Export",
      "help": "Blank puts every frame in one row."},

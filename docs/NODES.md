@@ -181,9 +181,13 @@ Each step is independently useful and independently verifiable.
    extends from 20 fields to 146 and passes.
 2. **`LayerSpec` gains `needs`/`gives`.** `check_order`'s three warnings become
    validation. Verify: `palette` before `grid` is refused, not warned.
-3. **`Node.prepare` on stages.** Palette first — its phase and its palette are
-   both `prepare` results. Verify: `find_phase` runs once per run, not once per
-   frame, and `phase: locked` can be deleted.
+3. ~~**`Node.prepare` on stages.**~~ **Done 2026-08-13.** `Stage.prepare(ctx)`
+   runs once and the runner hands its result to `run(ctx, prep)`. The palette
+   stage's colours and lattice are both `prepare` results; `palette.phase` is
+   deleted. Measured: `find_phase` 5 calls → 1 on a 4-view sheet, saving 5.4s
+   there and 16.2s on a 12-frame animation. The premise was measured too —
+   6/6 frames of one run recover an identical phase, so `per_frame` was paying
+   N times for one answer.
 4. **`Context` inverted into `flow/`.** Nodes declare `needs={"rig"}`; the
    connection layer resolves. Verify: `stage.py` has no deferred imports and
    `Context` is under 40 lines.

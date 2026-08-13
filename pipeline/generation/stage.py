@@ -5,7 +5,7 @@ import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Mapping
 
 from ..shared.config import opt
 from ..shared import paths
@@ -185,8 +185,15 @@ class Stage(ABC):
     # a stage be dropped from the config without breaking its consumers.
     optional: ClassVar[frozenset[str]] = frozenset()
 
+    def prepare(self, ctx: Context) -> dict[str, Any]:
+        """Work that is a function of this stage's inputs and settings alone.
+
+        Runs once, before `run`, so per-frame work cannot repeat it.
+        """
+        return {}
+
     @abstractmethod
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         """Do the work; return the artifacts named in `produces`."""
 
     def describe(self) -> str:

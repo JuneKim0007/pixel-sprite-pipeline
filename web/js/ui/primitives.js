@@ -46,7 +46,7 @@ export const Subsection = (title, opts = {}, ...children) =>
 /* The (?) next to a label.
  *
  * Replaces a paragraph of help under every control. The reasoning in this
- * project is worth keeping — it is measured, and DECISIONS.md exists because
+ * project is worth keeping — it is measured, and docs/DECISIONS.md exists because
  * of it — but printed under all 131 settings it makes the form unreadable and
  * people stop reading any of it. So: one glyph, click to reveal, and the full
  * text is one interaction away instead of always-on noise.

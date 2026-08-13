@@ -29,6 +29,7 @@ from typing import Any
 import numpy as np
 
 from . import cache
+from . import layers as layer_mod
 from .layers import REGISTRY, check_order
 
 
@@ -74,38 +75,42 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
             out = resumed
     facts["resumed_after"] = start
 
-    for index, entry in enumerate(stack):
-        key = entry.get("layer")
-        spec = REGISTRY.get(key)
-        record: dict[str, Any] = {"id": entry.get("id") or key, "layer": key}
+    token = layer_mod.budget(image.shape[0] * image.shape[1])
+    try:
+        for index, entry in enumerate(stack):
+            key = entry.get("layer")
+            spec = REGISTRY.get(key)
+            record: dict[str, Any] = {"id": entry.get("id") or key, "layer": key}
 
-        if index < start:
-            record["cached"] = True                 # in the snapshot resumed from
-            facts["layers"].append(record)
-            continue
-        if spec is None:
-            record["error"] = f"no layer '{key}'"
-            facts["layers"].append(record)
-            continue
-        if not entry.get("enabled", True):
-            record["skipped"] = True
+            if index < start:
+                record["cached"] = True             # in the snapshot resumed from
+                facts["layers"].append(record)
+                continue
+            if spec is None:
+                record["error"] = f"no layer '{key}'"
+                facts["layers"].append(record)
+                continue
+            if not entry.get("enabled", True):
+                record["skipped"] = True
+                facts["layers"].append(record)
+                if source:
+                    cache.remember(source, stack, index + 1, out)
+                continue
+
+            cfg = {**spec.defaults(), **(entry.get("config") or {})}
+            try:
+                before = cache.CACHE.misses
+                prep = prepare_for(spec, out, cfg, use_cache=use_cache)
+                record["prepared"] = cache.CACHE.misses > before
+                facts["prepared" if record["prepared"] else "reused"] += 1
+                out = spec.apply(out, cfg, facts, prep)
+            except Exception as e:                   # noqa: BLE001
+                record["error"] = f"{type(e).__name__}: {e}"
             facts["layers"].append(record)
             if source:
                 cache.remember(source, stack, index + 1, out)
-            continue
-
-        cfg = {**spec.defaults(), **(entry.get("config") or {})}
-        try:
-            before = cache.CACHE.misses
-            prep = prepare_for(spec, out, cfg, use_cache=use_cache)
-            record["prepared"] = cache.CACHE.misses > before
-            facts["prepared" if record["prepared"] else "reused"] += 1
-            out = spec.apply(out, cfg, facts, prep)
-        except Exception as e:                       # noqa: BLE001
-            record["error"] = f"{type(e).__name__}: {e}"
-        facts["layers"].append(record)
-        if source:
-            cache.remember(source, stack, index + 1, out)
+    finally:
+        layer_mod.release(token)
 
     # Scale records the count before it magnifies, because magnification
     # cannot change it and counting afterwards is 17x the work for the same

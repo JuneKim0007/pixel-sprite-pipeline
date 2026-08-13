@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 import numpy as np
 from PIL import Image
@@ -42,40 +42,29 @@ class PaletteStage(Stage):
     DEFAULTS = {
         "size": 12, "factor": 8, "reduce": "median", "alpha_tolerance": 14,
         "upscale": 1, "source": "extract", "file": "", "clip_tolerance": 32.0,
-        "dither": False, "match": "weighted", "phase": "per_frame",
+        "dither": False, "match": "weighted",
     }
     requires = frozenset({"frames", "canonical"})
     optional = frozenset({"soft_frames"})
     produces = frozenset({"palette", "pixel_frames"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def prepare(self, ctx: Context) -> dict[str, Any]:
+        """Decide the colours and the lattice, once, for every frame.
+
+        Both are a function of the canonical sprite and this stage's settings,
+        so neither belongs inside the per-frame loop.
+        """
         cfg = ctx.stage_config("palette")
         canonical: Path = ctx.require("canonical")
-        # Prefer warped frames when the softbody stage ran, so secondary motion
-        # survives into the pixelized output.
-        frames: list[Path] = ctx.artifacts.get("soft_frames") or ctx.require("frames")
-        outdir = ctx.stage_dir("palette")
+        key_colour = self._key_colour(ctx)
 
-        size = cfg["size"]
-        factor = cfg["factor"]
-        reduce = cfg["reduce"]
-        alpha_tol = cfg["alpha_tolerance"]
-        upscale = cfg["upscale"]
-        pal_path = outdir / "palette.hex"
+        # One lattice for the whole run, found before anything that needs it.
+        # Frames of a run share a grid — same model, same size — so searching
+        # per frame paid N times for one answer: measured 6/6 frames identical.
+        arr = np.asarray(Image.open(canonical).convert("RGB"))
+        phase = find_phase(arr, cfg["factor"])
+        print(f"   grid phase {phase}, shared by every frame")
 
-        # If the prompt named the backdrop, the keyer knows what to remove
-        # instead of sampling a corner and hoping the corner was background.
-        bg = ctx.config.get("background") or {}
-        key_colour = None
-        if opt(bg, "enabled", True) is not False:
-            raw = str(opt(bg, "colour", "") or "").lstrip("#")
-            if len(raw) == 6:
-                key_colour = tuple(int(raw[i:i+2], 16) for i in (0, 2, 4))
-
-
-        # Either reuse a palette you already committed to, or derive one from
-        # the canonical sprite. Reuse is what keeps separate runs of the same
-        # character on-model.
         source = cfg["source"]
         if source == "file":
             ref = cfg["file"]
@@ -91,34 +80,44 @@ class PaletteStage(Stage):
             palette = self._choose(ctx, cfg)
         else:
             palette = self._extract_from_subject(
-                canonical, size, factor, reduce, alpha_tol, key_colour,
-                float(cfg["clip_tolerance"]))
+                arr, phase, cfg["size"], cfg["factor"], cfg["reduce"],
+                cfg["alpha_tolerance"], key_colour, float(cfg["clip_tolerance"]))
             print(f"   extracted {len(palette)} colours from the canonical's subject")
+
+        return {"palette": palette, "phase": phase, "key_colour": key_colour}
+
+    @staticmethod
+    def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
+        # If the prompt named the backdrop, the keyer knows what to remove
+        # instead of sampling a corner and hoping the corner was background.
+        bg = ctx.config.get("background") or {}
+        if opt(bg, "enabled", True) is False:
+            return None
+        raw = str(opt(bg, "colour", "") or "").lstrip("#")
+        if len(raw) != 6:
+            return None
+        return tuple(int(raw[i:i + 2], 16) for i in (0, 2, 4))
+
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
+        cfg = ctx.stage_config("palette")
+        # Prefer warped frames when the softbody stage ran, so secondary motion
+        # survives into the pixelized output.
+        frames: list[Path] = ctx.artifacts.get("soft_frames") or ctx.require("frames")
+        outdir = ctx.stage_dir("palette")
+
+        pal_path = outdir / "palette.hex"
+        palette = prep["palette"]
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
         # Defaults chosen by measurement, not by taste: median beat mode 100%
         # to 70% on structural accuracy, because anti-aliased input makes
         # almost every pixel unique and the most frequent one arbitrary.
-        dither = bool(cfg["dither"])
-        # How "nearest colour" is decided. Only matters when a palette is
-        # imposed rather than extracted — an extracted palette already came
-        # from these pixels, so every metric agrees.
-        match = str(cfg["match"])
-        phase_mode = cfg["phase"]
-        shared_phase = None
-        if phase_mode == "locked":
-            arr = np.asarray(Image.open(canonical).convert("RGB"))
-            shared_phase = find_phase(arr, factor)
-            print(f"   grid phase locked to the canonical at {shared_phase}")
-
-        # Only the clipped reducer reads this; harmless for the others.
-        tolerance = float(cfg["clip_tolerance"])
-
         jobs = [
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
-                factor, reduce, palette, alpha_tol, upscale,
-                dither, shared_phase, match, key_colour, tolerance,
+                cfg["factor"], cfg["reduce"], palette, cfg["alpha_tolerance"],
+                cfg["upscale"], bool(cfg["dither"]), prep["phase"],
+                str(cfg["match"]), prep["key_colour"], float(cfg["clip_tolerance"]),
             )
             for src in frames
         ]
@@ -136,8 +135,8 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _extract_from_subject(
-        canonical: Path, size: int, factor: int, reduce: str, alpha_tol: int,
-        key_colour: tuple[int, int, int] | None = None,
+        arr, phase: tuple[int, int], size: int, factor: int, reduce: str,
+        alpha_tol: int, key_colour: tuple[int, int, int] | None = None,
         tolerance: float = 32.0,
     ) -> list[tuple[int, int, int]]:
         """Derive the palette from the character, ignoring the backdrop.
@@ -152,8 +151,7 @@ class PaletteStage(Stage):
         sampled. The palette then describes the subject, which is the only
         part that gets drawn.
         """
-        arr = np.asarray(Image.open(canonical).convert("RGB"))
-        ox, oy = find_phase(arr, factor)
+        ox, oy = phase
         small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
         keyed = background_to_alpha(small, alpha_tol, key=key_colour)
         rgb, alpha = keyed[..., :3], keyed[..., 3]

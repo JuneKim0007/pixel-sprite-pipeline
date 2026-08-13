@@ -126,6 +126,11 @@ and registers with `@register`. The runner validates the order before anything
 runs, so a stage needing an artifact nothing produces is rejected with an
 explanation rather than crashing halfway.
 
+**Work that does not depend on the loop goes in `prepare(ctx)`**, whose result
+the runner hands to `run(ctx, prep)`. It runs once. The palette stage searched
+the pixel lattice once per frame until this existed — measured 17.5s of a
+12-frame run, for an answer that was identical every time.
+
 **Reading config** goes through `ctx.stage_config(name)`, which drops blank
 YAML keys so the declared default applies. Reading a bare dict goes through
 `opt(cfg, key, default)` for the same reason: a blank key parses as `None`, and

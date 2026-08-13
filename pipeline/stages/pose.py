@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Mapping, Any
 
 from ..geometry import props as props_mod
 from ..geometry import rigs as rig_lib
@@ -89,7 +89,7 @@ class PoseStage(Stage):
     # re-deriving it from pixels.
     produces = frozenset({"skeletons", "pose_frames"})
 
-    def run(self, ctx: Context) -> dict[str, Any]:
+    def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("pose")
         size = cfg["size"]
         outdir = ctx.stage_dir("pose")

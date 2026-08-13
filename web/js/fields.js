@@ -323,7 +323,7 @@ export function renderGroup(group, cfg, { onChange, onReset, overrides = [] }) {
     const row = el('div', { className: `field ${pinned ? 'pinned' : ''}` });
     // The explanation goes behind a (?) rather than under the control.
     //
-    // The reasoning is worth keeping - it is measured, and DECISIONS.md exists
+    // The reasoning is worth keeping - it is measured, and docs/DECISIONS.md exists
     // because of it - but 119 fields each carrying a paragraph is a page
     // nobody reads any of. The lead sentence is the tooltip, so hovering
     // answers the common case; clicking reveals the rest.
