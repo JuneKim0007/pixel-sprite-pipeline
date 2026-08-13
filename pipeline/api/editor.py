@@ -96,7 +96,10 @@ def editor_layers() -> dict:
         for f in spec["fields"]:
             if f["key"] == "file" and spec["key"] == "palette":
                 f["options"] = [[n, n] for n in names]
-    return {"layers": cat, "default_stack": definitive.default_stack()}
+    # The browser needs the same preview budget the server uses, or the two
+    # paths disagree about how much work a preview is.
+    return {"layers": cat, "default_stack": definitive.default_stack(),
+            "limits": {"preview_edge": limits.get("preview_edge")}}
 
 
 class Editor(BaseRouter):

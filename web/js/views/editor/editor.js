@@ -40,6 +40,27 @@ let engine = 'exact';
 let bitmap = null;      // the source decoded once, for the shader
 let palette = [];       // whatever Python last produced, so the shader matches it
 let busy = false, pending = false;
+let previewEdge = 384;      // replaced by the server's budget on first load
+let drawing = false, queued = false;
+
+/* Decode at the preview budget, not at the file's size.
+ *
+ * The shader had no cap at all: a 12 Mpx phone photo made three 49 MB GPU
+ * allocations plus a 12 Mpx dispatch, per call, while the server was doing the
+ * same job at 384 px. */
+async function decode(path) {
+  const blob = await (await fetch(api.fileUrl(path))).blob();
+  const probe = await createImageBitmap(blob);
+  const longest = Math.max(probe.width, probe.height);
+  if (longest <= previewEdge) return probe;
+  const scale = previewEdge / longest;
+  probe.close();
+  return createImageBitmap(blob, {
+    resizeWidth: Math.max(1, Math.round(probe.width * scale)),
+    resizeHeight: Math.max(1, Math.round(probe.height * scale)),
+    resizeQuality: 'pixelated',
+  });
+}
 
 /* ------------------------------------------------------------------ facts */
 
@@ -96,6 +117,10 @@ export function renderEditor(host) {
   /* The fast path. Approximate, and labelled as such. */
   async function drawPreview() {
     if (!bitmap || !gpu.supported()) return false;
+    // One at a time. Nothing serialised this, so a slider drag stacked calls
+    // that each allocated the whole working set before the last had freed it.
+    if (drawing) { queued = true; return false; }
+    drawing = true;
     try {
       const image = await gpu.render(bitmap, gpu.uniformsFrom(stack, { palette }));
       engine = 'preview';
@@ -107,6 +132,9 @@ export function renderEditor(host) {
     } catch (e) {
       toast(`WebGPU preview unavailable: ${e.message}`, 'error');
       return false;
+    } finally {
+      drawing = false;
+      if (queued) { queued = false; drawPreview(); }
     }
   }
 
@@ -195,10 +223,7 @@ export function renderEditor(host) {
     source = sourceSel.value;
     bitmap = null;
     if (source) {
-      try {
-        const res = await fetch(api.fileUrl(source));
-        bitmap = await createImageBitmap(await res.blob());
-      } catch { bitmap = null; }
+      try { bitmap = await decode(source); } catch { bitmap = null; }
     }
     // A different image has a different block size, so let Grid measure again.
     const grid = stack.find((s) => s.layer === 'grid');
@@ -214,8 +239,7 @@ export function renderEditor(host) {
     try {
       const { saved } = await api.upload(upload.files);
       source = saved[0].path;
-      const res = await fetch(api.fileUrl(source));
-      bitmap = await createImageBitmap(await res.blob());
+      bitmap = await decode(source);
       sourceSel.append(el('option', { value: source, textContent: source.split('/').pop(),
                                       selected: true }));
       drawSource();
@@ -317,6 +341,7 @@ export function renderEditor(host) {
       try {
         const d = await api.editorLayers();
         catalogue = d.layers;
+        previewEdge = d.limits?.preview_edge || previewEdge;
         if (!stack.length) stack = d.default_stack;
         selected = selected || stack[0]?.id || null;
       } catch (e) {

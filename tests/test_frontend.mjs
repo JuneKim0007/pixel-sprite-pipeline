@@ -270,6 +270,32 @@ test('querySelector finds by class and by tag.class', () => {
   assert.equal(root.querySelector('.nope'), null);
 });
 
+console.log('\neditor cost');
+test('the shader refuses an image bigger than its ceiling', async () => {
+  // A 12 Mpx upload made three 49 MB GPU allocations plus a 12 Mpx dispatch,
+  // per call, and nothing serialised the calls. On Apple Silicon that memory
+  // is the display's memory.
+  const gpu = await import(join(JS, 'views/editor/gpu.js'));
+  const src = readFileSync(join(JS, 'views/editor/gpu.js'), 'utf8');
+  assert.ok(/MAX_PIXELS/.test(src), 'gpu.js has no ceiling');
+  await assert.rejects(
+    () => gpu.render({ width: 4032, height: 3024 }, { factor: 1, phase: [0, 0], palette: [] }),
+    /ceiling/,
+    'a 12 Mpx bitmap was accepted');
+});
+
+test('the editor decodes at the budget and runs one preview at a time', () => {
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  // Every decode must go through the capping helper.
+  const raw = [...src.matchAll(/createImageBitmap\(/g)].length;
+  const inDecode = src.slice(src.indexOf('async function decode('),
+                             src.indexOf('export function renderEditor'));
+  assert.equal([...inDecode.matchAll(/createImageBitmap\(/g)].length, raw,
+               'a createImageBitmap call bypasses decode()');
+  assert.ok(/resizeWidth/.test(src), 'decode() does not resize');
+  assert.ok(/if \(drawing\)/.test(src), 'drawPreview is not serialised');
+});
+
 console.log('\nfeatures');
 test('features/ never touches the DOM', () => {
   // The rule that makes this folder testable without a shim. A module that
