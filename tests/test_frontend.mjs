@@ -248,6 +248,71 @@ test('querySelector finds by class and by tag.class', () => {
   assert.equal(root.querySelector('.nope'), null);
 });
 
+console.log('\nlisteners and lifecycle');
+test('a subscription fires once per set, whatever else changed with it', async () => {
+  const { subscribe, notify, listenerCount } = await import(join(JS, 'core/subscribe.js'));
+  let hits = 0;
+  const stop = subscribe(['runs', 'queue'], () => { hits += 1; });
+  notify('runs');
+  notify('queue');
+  notify('runs', 'queue');          // one listener, one call
+  assert.equal(hits, 3);
+  notify('something-else');
+  assert.equal(hits, 3);
+  stop();
+  notify('runs');
+  assert.equal(hits, 3, 'unsubscribe did not stop the listener');
+  assert.equal(listenerCount(), 0);
+});
+
+test('one failing subscriber does not stop the others', async () => {
+  const { subscribe, notify } = await import(join(JS, 'core/subscribe.js'));
+  let reached = false;
+  const a = subscribe(['x'], () => { throw new Error('boom'); });
+  const b = subscribe(['x'], () => { reached = true; });
+  notify('x');
+  assert.ok(reached, 'a throwing listener took the page with it');
+  a(); b();
+});
+
+test('a poll stops, and does not stack ticks on a slow one', async () => {
+  const { poll } = await import(join(JS, 'listeners/poll.js'));
+  let started = 0, finished = 0;
+  const stop = poll(async () => {
+    started += 1;
+    await new Promise((r) => setTimeout(r, 40));
+    finished += 1;
+  }, { every: 5 });
+  await new Promise((r) => setTimeout(r, 100));
+  stop();
+  const at = started;
+  assert.ok(started - finished <= 1, `${started - finished} ticks overlapped`);
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(started, at, 'the poll kept running after stop()');
+});
+
+test('mounting a view tears down the last one', async () => {
+  const { mount, unmount, mounted } = await import(join(JS, 'listeners/lifecycle.js'));
+  const host = el('div', {});
+  let cleaned = 0;
+  mount('a', host, () => () => { cleaned += 1; });
+  assert.equal(mounted(), 'a');
+  assert.equal(cleaned, 0);
+  mount('b', host, () => {});           // b has nothing to clean up
+  assert.equal(cleaned, 1, 'the previous view was never torn down');
+  unmount();
+  assert.equal(mounted(), null);
+});
+
+test('a view that throws shows the failure in place, with a retry', async () => {
+  const { mount } = await import(join(JS, 'listeners/lifecycle.js'));
+  const host = el('div', {});
+  mount('editor', host, () => { throw new Error('no catalogue'); });
+  assert.ok(host.querySelector('.viewerror'), 'a broken view left a blank tab');
+  assert.ok(host.textContent.includes('no catalogue'));
+  assert.ok(host.querySelector('button'), 'no way to retry');
+});
+
 console.log('\nui kit');
 test('a button variant is named, not spelt as a class', () => {
   assert.equal(ui.Button.primary('Go').className, 'btn primary');

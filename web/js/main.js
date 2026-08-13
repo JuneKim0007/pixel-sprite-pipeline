@@ -19,6 +19,7 @@ import { renderEditor } from './editor.js';
 import { renderOverview } from './overview.js';
 import { configsFor, indexConfigModules, renderRail } from './rail.js';
 import { $, $$, el } from './core/dom.js';
+import { mount } from './listeners/lifecycle.js';
 import { draft, loadConfig, state } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
@@ -30,35 +31,41 @@ function setTab(name) {
   render();
 }
 
+/* One table, and the mounter calls it.
+ *
+ * This was an if-chain of eight branches, which is the same shape the server's
+ * routing had before it became data - and it had the same problem: nothing
+ * could enumerate the views, and nobody could tear one down because there was
+ * no moment that meant "leaving".
+ *
+ * `mount` calls the previous view's teardown before the next one renders, so a
+ * poll or a subscription cannot outlive the tab that started it.
+ */
+const VIEWS = {
+  overview: (host) => renderOverview(host, { goTo: setTab }),
+  input: (host) => renderInput(host, {
+    onChange: (path, value) => { draft()[path] = value; render(); },
+    onContinue: () => setTab('run'),
+  }),
+  run: (host) => renderRun(host, {
+    onStarted: () => { setTab('result'); refreshRuns(); },
+    goTo: setTab,
+  }),
+  result: () => { renderResultTab(); },
+  styles: (host) => renderStyles(host, {
+    onChanged: async () => { await loadConfig(state.current); },
+  }),
+  editor: (host) => renderEditor(host),
+  queue: (host) => renderQueue(host),
+  settings: (host) => renderSettings(host, {
+    onSaved: async () => { await loadConfig(state.current); },
+  }),
+};
+
 function render() {
   if (!state.schema) return;
-  if (state.tab === 'overview') {
-    renderOverview($('#view-overview'), { goTo: setTab });
-  } else if (state.tab === 'input') {
-    renderInput($('#view-input'), {
-      onChange: (path, value) => { draft()[path] = value; render(); },
-      onContinue: () => setTab('run'),
-    });
-  } else if (state.tab === 'run') {
-    renderRun($('#view-run'), {
-      onStarted: () => { setTab('result'); refreshRuns(); },
-      goTo: setTab,
-    });
-  } else if (state.tab === 'result') {
-    renderResultTab();
-  } else if (state.tab === 'styles') {
-    renderStyles($('#view-styles'), {
-      onChanged: async () => { await loadConfig(state.current); },
-    });
-  } else if (state.tab === 'editor') {
-    renderEditor($('#view-editor'));
-  } else if (state.tab === 'queue') {
-    renderQueue($('#view-queue'));
-  } else if (state.tab === 'settings') {
-    renderSettings($('#view-settings'), {
-      onSaved: async () => { await loadConfig(state.current); },
-    });
-  }
+  const view = VIEWS[state.tab];
+  if (view) mount(state.tab, $(`#view-${state.tab}`), view);
   renderFlow();
 }
 

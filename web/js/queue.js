@@ -21,6 +21,7 @@ import { api } from './api.js';
 import { el } from './core/dom.js';
 import { state, toast } from './store.js';
 import { Button, Empty, Fields, Head, Mini, Num, Ok, Row, Segmented, Select, Warn } from './ui/index.js';
+import { poll } from './listeners/poll.js';
 
 const STATES = [
   { key: 'running', label: 'Running', tone: 'run' },
@@ -31,7 +32,6 @@ const STATES = [
 ];
 
 let showing = 'pending';
-let timer = null;
 
 function jobRow(job, onAct) {
   const row = el('div', { className: `jobrow ${job.state}` });
@@ -154,55 +154,57 @@ function submitForm(refresh) {
 }
 
 export function renderQueue(host) {
-  const refresh = () => renderQueue(host);
-  host.replaceChildren();
-
+  // The panel that shows the queue, kept as a node so a refresh replaces its
+  // children rather than the whole view. Rebuilding the view would take the
+  // header, the poll and the segmented control with it - and the segmented
+  // control is what you just clicked.
   const body = el('div', {});
-  host.append(
-    Head('Queue'),
-    body);
+  host.replaceChildren(Head('Queue'), body);
 
-  (async () => {
-    let data;
+  let data = null;
+
+  const onAct = async (id, action) => {
     try {
-      data = await api.queue();
-    } catch (e) {
-      body.append(Empty(e.message));
-      return;
-    }
+      await api.queueJob(id, action);
+      toast(`${action} ${id}`);
+      await load();
+    } catch (e) { toast(e.message, 'error'); }
+  };
 
-    const onAct = async (id, action) => {
-      try {
-        await api.queueJob(id, action);
-        toast(`${action} ${id}`);
-        refresh();
-      } catch (e) { toast(e.message, 'error'); }
-    };
-
-    const tabs = Segmented(
-      STATES.map((s) => [s.key, s.label, data.counts[s.key] || null]),
-      { value: showing, onPick: (k) => { showing = k; refresh(); } });
-
+  function draw() {
+    if (!data) return;
     const jobs = data.states[showing] || [];
     const list = el('div', { className: 'joblist' });
-    if (!jobs.length) {
-      list.append(Empty(`Nothing ${showing}.`));
-    } else {
-      for (const job of jobs) list.append(jobRow(job, onAct));
-    }
+    if (!jobs.length) list.append(Empty(`Nothing ${showing}.`));
+    else for (const job of jobs) list.append(jobRow(job, onAct));
 
     body.replaceChildren(
-      autopilotBar(data, refresh),
-      submitForm(refresh),
-      tabs,
+      autopilotBar(data, load),
+      submitForm(load),
+      Segmented(STATES.map((s) => [s.key, s.label, data.counts[s.key] || null]),
+                { value: showing, onPick: (k) => { showing = k; draw(); } }),
       list,
-      el('p', { className: 'mini', textContent: data.dir }));
+      Mini(data.dir));
+  }
 
-    // Poll only while there is something in motion. A queue at rest does not
-    // need a request every three seconds, and this view stays open for hours.
-    clearTimeout(timer);
-    if (data.autopilot.running || data.counts.running) {
-      timer = setTimeout(() => { if (state.tab === 'queue') refresh(); }, 4000);
+  async function load() {
+    try {
+      data = await api.queue();
+      draw();
+    } catch (e) {
+      body.replaceChildren(Empty(e.message));
     }
-  })();
+  }
+
+  // Polling only while something is in motion. A queue at rest does not need a
+  // request every four seconds, and this view stays open for hours. `poll`
+  // skips a hidden tab and will not stack a tick on a slow one.
+  const stopPolling = poll(async () => {
+    await load();
+    return data && !(data.autopilot.running || data.counts.running);
+  }, { every: 4000 });
+
+  // The teardown the lifecycle calls before the next view mounts. Without it
+  // this interval outlived the tab, which is what the old setTimeout did.
+  return stopPolling;
 }
