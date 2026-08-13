@@ -1,5 +1,3 @@
-"""What the machine is, and what it can currently do.
-"""
 
 from __future__ import annotations
 

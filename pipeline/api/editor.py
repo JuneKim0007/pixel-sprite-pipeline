@@ -22,25 +22,12 @@ def _editor_source(path_str: str) -> Path:
     return files_mod.safe_path(path_str, allowed_roots())
 
 
-# One preview at a time. Two in flight is always waste - only the last one is
-# wanted - and it was the shape of the crash: every parameter change started a
-# 363 MB job and nothing stopped them overlapping.
+
 _GATE = threading.Semaphore(limits.get("concurrent"))
 
 
 def _fit_for_preview(image: Image.Image) -> tuple[Image.Image, float]:
-    """Shrink to the interactive budget, and say by how much.
 
-    Judging a block size or a palette does not need the full canvas, and the
-    cost is quadratic in the edge: 1280 to 384 is an eleven-fold reduction in
-    work for a preview that answers the same questions. Writing a file does not
-    come through here.
-
-    NEAREST, not LANCZOS. A smooth resample invents intermediate colours and
-    would change the very thing being measured - the block size is recovered by
-    asking which factor reduces without loss, and interpolation destroys that
-    evidence.
-    """
     edge = limits.get("preview_edge")
     longest = max(image.size)
     if longest <= edge:
@@ -51,12 +38,7 @@ def _fit_for_preview(image: Image.Image) -> tuple[Image.Image, float]:
 
 
 def edit_preview(body: dict) -> dict:
-    """Run a layer stack over one image and return the result inline.
 
-    The stack is whatever the editor sends. A missing one falls back to the
-    default arrangement rather than erroring, so a client that has not yet
-    built a stack still gets a picture.
-    """
     src = _editor_source(body.get("source", ""))
     original = Image.open(src).convert("RGB")
     stack = body.get("stack") or definitive.default_stack()

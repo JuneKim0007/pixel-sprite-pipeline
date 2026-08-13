@@ -1,26 +1,3 @@
-"""Stage contract, registry, and the run context.
-
-Three things, and the split has begun rather than finished. `opt` has moved to
-shared/config.py because a module that reads one config key should not import
-a contract to do it; it is re-exported here so no call site had to change in
-the same commit that moved it.
-
-What remains to move is `Context`, which is two thirds of this file and the
-only part that knows about rigs, references and detection. It resolves those
-lazily, through imports local to its methods - which is why nothing loads an
-LLM at import time, and also why the coupling does not show up in a dependency
-graph. A node declaring what it needs, and a connection layer supplying it, is
-where that goes; see REFACTOR.md section 4.
-
-A stage is one replaceable step. It declares what it consumes, what it
-produces, and which hardware resource it occupies. The runner uses those three
-facts to validate any ordering you write in config and to decide what may run
-concurrently.
-
-Adding a stage means writing a class and decorating it with @register. Nothing
-else in the pipeline needs to know it exists — that is the whole point of the
-indirection, and it is what makes stages swappable from config.
-"""
 
 from __future__ import annotations
 

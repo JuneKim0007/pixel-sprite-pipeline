@@ -1,35 +1,3 @@
-"""The definitive layer: an ordered, editable stack rather than a fixed chain.
-
-The pixelisation used to be eight calls in a fixed order inside one server
-function. That order was mostly right, and being right is not the same as being
-expressible: "choose a palette, adjust it, then set the block size" is a
-reasonable thing to want and there was no way to say it. Worse, where a step
-sits changes what it does. Curves before quantisation decide which palette
-entries get picked; curves after it just move colours off the palette again.
-A pipeline whose order matters and cannot be reordered is a pipeline with one
-opinion baked in.
-
-So layers are objects in a list. The list is the order.
-
-Each layer declares its fields here, in one place, and three things read that
-declaration: the form the browser renders, the values the server validates, and
-the settings a style sheet can pin. Declaring once is not tidiness — it is what
-makes "every configurable value has a (?) beside it" structural. A field that
-exists has a label and an explanation because there is nowhere else to define
-one.
-
-Ordering is free except where physics forbids it, and the two constraints are
-named rather than enforced by hiding the control:
-
-    palette after grid    a palette measured from full-resolution pixels does
-                          not describe the reduced image it will be applied to
-    key after grid        block reduction mixes the backdrop into edge pixels,
-                          and a keyer that runs first has nothing to remove
-
-Both are reported as warnings, not blocks - the same treatment the stage runner
-gives a questionable pipeline order. Someone deliberately keying first to see
-what happens is doing something legitimate.
-"""
 
 from __future__ import annotations
 
@@ -72,11 +40,13 @@ class Field:
 
 @dataclass
 class LayerSpec:
+
     key: str
     label: str
     summary: str
     fields: list[Field]
     apply: Callable
+    prepare: Callable | None = None
     # Where this layer sits when the stack is built from scratch. Not a
     # constraint - just a sensible reading order for someone who has not
     # arranged one yet.
@@ -95,12 +65,14 @@ class LayerSpec:
 
 
 def layer(key: str, *, label: str, summary: str, fields: list[Field],
-          order: int = 50, repeatable: bool = False):
-    """Register a layer. The decorated function is its apply()."""
+          order: int = 50, repeatable: bool = False,
+          prepare: Callable | None = None):
+
     def wrap(fn):
         _SOURCE.add(key, LayerSpec(key=key, label=label, summary=summary,
                                    fields=fields, apply=fn, order=order,
-                                   repeatable=repeatable), what="layer")
+                                   repeatable=repeatable, prepare=prepare),
+                    what="layer")
         return fn
     return wrap
 
@@ -116,12 +88,7 @@ def catalogue() -> list[dict]:
 
 
 def default_stack() -> list[dict]:
-    """The stack someone gets before they arrange one.
 
-    It is the order the fixed chain used, because that order was measured and
-    is still the right default. What changed is that it is now a starting point
-    rather than the only possibility.
-    """
     return [{"layer": s.key, "id": f"{s.key}0", "enabled": True,
              "config": s.defaults()}
             for s in sorted(REGISTRY.values(), key=lambda s: s.order)]

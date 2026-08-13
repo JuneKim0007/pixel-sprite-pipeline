@@ -1153,3 +1153,11 @@ input.wide { width: 100%; max-width: 420px; }
 .enginetag.preview { color: var(--warn); }
 .enginetag.exact { color: var(--ok); }
 .previewcanvas { max-width: 100%; image-rendering: pixelated; display: block; margin: 0 auto; }
+
+/* The preview is out of date and Python has not caught up yet. Nothing runs
+ * on its own, so this is the only thing that says work is waiting. */
+.btn.wants {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 1px var(--warn) inset;
+}
+.btn.wants::after { content: ' •'; color: var(--warn); }

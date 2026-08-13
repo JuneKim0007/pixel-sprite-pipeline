@@ -1,9 +1,3 @@
-"""Reading and writing pipeline configs, comments intact.
-
-A config carries its documentation in comments, and a plain safe_load/safe_dump
-cycle deletes all of it - so one Save from the UI would strip the explanation
-of every setting it just edited. That is why this round-trips.
-"""
 
 from __future__ import annotations
 
@@ -36,9 +30,7 @@ def save_config(name: str, body: dict) -> dict:
     incoming = body.get("config", {}) or {}
     problem = validate_order(incoming)
     if problem and not body.get("force"):
-        # Refuse rather than persist an order that cannot run. The runner
-        # would catch it later, but only after the user had already lost
-        # the working config.
+
         raise ValueError(problem)
 
     if target.exists():

@@ -38,7 +38,7 @@ let facts = null;
 let engine = 'exact';
 let bitmap = null;      // the source decoded once, for the shader
 let palette = [];       // whatever Python last produced, so the shader matches it
-let busy = false, pending = false, exactTimer = null;
+let busy = false, pending = false;
 
 /* ------------------------------------------------------------------ facts */
 
@@ -150,13 +150,36 @@ export function renderEditor(host) {
     img.src = dataUrl;
   }
 
-  /* A change draws on the GPU now and settles to Python shortly after.
-   * Debounced, because letting go of one slider usually means grabbing the
-   * next one. */
-  const changed = async () => {
-    const drew = await drawPreview();
-    clearTimeout(exactTimer);
-    exactTimer = setTimeout(drawExact, drew ? 400 : 0);
+  /* Nothing runs on its own.
+   *
+   * The previous version fired a preview on every parameter change behind a
+   * 400 ms debounce. Debouncing reduces how OFTEN an operation runs; it does
+   * nothing about what one costs, and one cost between one and seven seconds.
+   * Dragging a slider for three seconds queued seven of them, and that is what
+   * took the machine down.
+   *
+   * So a change marks the preview stale and stops. The shader still redraws
+   * live where it can - it is a frame of GPU work, not a job - but the
+   * authoritative pass happens when it is asked for.
+   */
+  const generate = el('button', { className: 'btn primary',
+                                  textContent: 'Generate preview' });
+
+  const markStale = () => {
+    generate.classList.add('wants');
+    drawPreview();      // a frame of GPU work, so it can stay live
+  };
+
+  generate.onclick = async () => {
+    generate.disabled = true;
+    generate.textContent = 'working…';
+    try {
+      await drawExact();
+      generate.classList.remove('wants');
+    } finally {
+      generate.disabled = false;
+      generate.textContent = 'Generate preview';
+    }
   };
 
   /* ---------------------------------------------------------- the source */
@@ -176,7 +199,7 @@ export function renderEditor(host) {
     const grid = stack.find((s) => s.layer === 'grid');
     if (grid) grid.config.factor = 0;
     rerender();
-    drawExact();
+    markStale();
   };
 
   const upload = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
@@ -188,7 +211,7 @@ export function renderEditor(host) {
       const res = await fetch(api.fileUrl(source));
       bitmap = await createImageBitmap(await res.blob());
       rerender();
-      drawExact();
+      markStale();
     } catch (e) { toast(e.message, 'error'); }
   };
   const uploadBtn = el('button', { className: 'btn ghost', textContent: 'Upload' });
@@ -207,7 +230,7 @@ export function renderEditor(host) {
 
   const listHost = el('div', { className: 'stackpanel' });
   const formHost = el('div', { className: 'stackform' });
-  const redraw = () => { renderStack(); changed(); };
+  const redraw = () => { renderStack(); markStale(); };
 
   function renderStack() {
     listHost.replaceChildren(
@@ -256,14 +279,14 @@ export function renderEditor(host) {
         entry.config[key] = value;
         // A field can reveal another, so the form rebuilds on every change.
         renderForm();
-        changed();
+        markStale();
       }));
   }
 
   host.append(
     el('header', { className: 'head' },
       el('div', {}, el('h1', { textContent: 'Editor' })),
-      el('div', { className: 'head-actions' }, uploadBtn, upload, apply)),
+      el('div', { className: 'head-actions' }, uploadBtn, upload, generate, apply)),
     el('div', { className: 'row' },
       el('span', { className: 'mini', textContent: 'Source' }), sourceSel),
     el('div', { className: 'editorbody' },
@@ -308,6 +331,6 @@ export function renderEditor(host) {
       }
     } catch { /* the picker is a convenience, not a requirement */ }
 
-    if (source) drawExact();
+    if (source) markStale();
   })();
 }

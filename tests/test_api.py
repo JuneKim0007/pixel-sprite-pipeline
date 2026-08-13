@@ -664,6 +664,13 @@ def _definitive_stack() -> None:
 
     out, facts = definitive.apply_stack(img, definitive.default_stack(), root=ROOT)
     _assert(out.ndim == 3, "the stack did not return an image")
+
+    # A layer that raises does not kill the run, which is right for an
+    # interactive editor and hides a broken import perfectly. Regrouping the
+    # package moved `training`, _grid_prepare kept the old path, and the only
+    # symptom was one fact missing from a dict.
+    broke = [f"{la['layer']}: {la['error']}" for la in facts["layers"] if la.get("error")]
+    _assert(not broke, f"the default stack cannot run: {broke}")
     _assert(not facts["warnings"], f"the default order warns: {facts['warnings']}")
     _assert(facts["measured_block"] >= 1, "grid recorded no measurement")
 

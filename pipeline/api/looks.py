@@ -26,13 +26,6 @@ def _sheet(name: str) -> styles.Style:
 
 
 def style_detail(name: str) -> dict:
-    """Everything the Styles tab shows for one sheet.
-
-    Split deliberately into *context* — what is true now and is editable — and
-    *history* — what happened and is not. They answer different questions, and
-    a panel that mixes them makes the second one unreadable.
-    """
-
     sheet = _sheet(name)
     images = []
     for path in sheet.exemplars:
@@ -96,13 +89,6 @@ def add_style_note(name: str, text: str) -> dict:
 
 
 def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
-    """Add or remove context exemplars, and record it.
-
-    Adding copies rather than links. A style folder that references images
-    scattered across the disk stops being one thing you can move or share, and
-    the whole reason for the directory form is that it is one thing.
-    """
-
     sheet = _sheet(name)
     if not sheet.foldered:
         raise ValueError(
@@ -136,13 +122,6 @@ def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
 
 
 def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict:
-    """Rewrite a sheet's vocabulary, and its notes sidecar.
-
-    The YAML goes back through the round-trip loader, because a style sheet
-    documents its own decisions in comments and a plain safe_load/safe_dump
-    cycle deletes every one of them. Notes live in context/notes.md rather
-    than in the document, so prose can grow without reformatting the config.
-    """
 
     sheet = _sheet(name)
     changed = []

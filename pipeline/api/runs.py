@@ -100,13 +100,7 @@ def list_runs() -> list[dict]:
 
 
 def run_audit(run_dir: Path) -> dict:
-    """What this run was, read back from what it recorded rather than guessed.
 
-    Every run copies its effective config into its own directory, which is the
-    only reason this can be honest: the answer comes from the document the
-    pipeline actually consumed, not from whatever the config file says today.
-    A config edited after the run would otherwise silently relabel history.
-    """
     cfg_path = run_dir / "config.yaml"
     if not cfg_path.exists():
         return {}

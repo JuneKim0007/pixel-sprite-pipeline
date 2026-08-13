@@ -1,34 +1,3 @@
-"""Remembering the parts of a stack that do not depend on the whole stack.
-
-The observation this is built on: most of what a layer computes depends only on
-the image arriving at it and that layer's own settings. Moving a slider in
-Curves cannot change the block size Grid will measure, unless Curves runs
-first. So the cache key is not "the stack" - it is the content of the input
-plus the settings of the one step, and that key is stable across every edit
-that does not reach it.
-
-Two things get remembered, and they are the two that dominate:
-
-    measured block size   a scan over the whole image, and a pure function of
-                          it. Changing a palette re-measures it today for no
-                          reason at all.
-
-    a generated palette   k-means over every pixel. This is the expensive one,
-                          and it is recomputed on every keystroke in a field
-                          that has nothing to do with it.
-
-Both are *reductions* - image in, small answer out - which is what makes them
-worth caching and also what makes them cheap to keep. A cached palette is a few
-hundred bytes; a cached image would be megabytes, so images are not cached.
-
-Eviction is by count and by bytes, least-recently-used first. Without a bound
-this becomes the thing that takes the machine down instead of the thing that
-was taking the machine down, which is not an improvement.
-
-Keys are content hashes, not identity. Two different arrays holding the same
-pixels are the same input, and after a stack re-runs from the top that is the
-common case.
-"""
 
 from __future__ import annotations
 
@@ -189,25 +158,21 @@ def key(what: str, image: np.ndarray, params: Any = None) -> str:
     return f"{what}:{fingerprint(image)}:{json.dumps(params, sort_keys=True, default=str)}"
 
 
-def measured_block(image: np.ndarray) -> float:
-    """The block size of this image. A pure function of the pixels."""
-    from ..looks import training
+def count_colours(image: np.ndarray) -> int:
+    """Distinct colours, without paying for pixels that cannot add any.
 
-    return CACHE.get(key("block", image),
-                     lambda: training.estimate_block_size(image))
+    np.unique is linear in pixels and the editor asks for this twice per run,
+    purely to display a number. On an image the Scale layer has magnified it is
+    pure waste: nearest-neighbour repetition cannot invent a colour, so a 1.6
+    megapixel upscale costs 0.70 s to reach the same answer 0.04 s buys on the
+    image it was made from - measured, 17x for nothing.
 
-
-def phase_for(image: np.ndarray, factor: int) -> tuple[int, int]:
-    """Where the lattice starts. Depends only on the image and the factor."""
-    from . import pixelize as px
-
-    return CACHE.get(key("phase", image, factor),
-                     lambda: px.find_phase(image, factor))
-
-
-def generated_palette(image: np.ndarray, colours: int, method: str) -> list:
-    """k-means over the image. The single most expensive step in the stack."""
-    from . import pixelize as px
-
-    return CACHE.get(key("palette", image, [colours, method]),
-                     lambda: px.generate_palette(image, colours, method=method))
+    Above the threshold the count is taken on a strided view. The stride is
+    coprime with any plausible block size so it cannot land on one phase of a
+    lattice and miss the others, and a sprite's palette is small enough that
+    sampling a quarter of a megapixel finds all of it.
+    """
+    flat = image.reshape(-1, image.shape[2])[:, :3]
+    if len(flat) > 400_000:
+        flat = flat[::7]
+    return int(len(np.unique(flat, axis=0)))

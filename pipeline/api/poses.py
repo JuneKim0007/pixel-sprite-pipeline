@@ -1,9 +1,4 @@
-"""Pose guides and reference annotation: the geometry a run is conditioned on.
 
-These were methods on the request handler that never touched `self` - pure
-logic wearing a method's clothes, and untestable only because of where they
-sat.
-"""
 
 from __future__ import annotations
 
@@ -22,11 +17,7 @@ import yaml
 
 
 def poses(run_id: str) -> dict:
-    """Body-space pose data for the rig editor.
 
-    Served from a run's pose stage when given one, otherwise from the
-    authored library, so the editor can open either.
-    """
     if run_id:
         p = runs_dir() / run_id
         for d in sorted(p.glob("*_pose")):
@@ -34,8 +25,6 @@ def poses(run_id: str) -> dict:
             if f.exists():
                 data = json.loads(f.read_text())
                 data["source_file"] = str(f)
-                # The editor needs the topology, not just the name, to draw
-                # and drag a non-humanoid skeleton correctly.
 
                 rig = rig_lib.get(data.get("rig"))
                 data["rig_def"] = {
@@ -87,10 +76,6 @@ def save_poses(body: dict) -> dict:
     existing["entries"] = entries
     (pose_dir / "pose.json").write_text(json.dumps(existing, indent=1))
 
-    # The rig has to come along. Without it the renderer falls back to the
-    # humanoid's 18-joint OpenPose layout and happily draws a spider's
-    # eight legs as a mangled person — a control image that is wrong in a
-    # way nothing downstream can detect, since it is still a valid PNG.
 
     rig = rig_lib.get(cfg.get("rig") if cfg.get("rig") != "auto" else rig_lib.DEFAULT)
     thickness = pose_cfg.get("thickness")

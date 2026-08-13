@@ -17,10 +17,6 @@ from .routing import BaseRouter, get, post
 from .context import runs_dir
 from ..shared import errors
 
-# The queue and the autopilot were complete and reachable only from a shell.
-# That is a strange place for the feature whose entire purpose is running
-# unattended for hours: the moment you most want to look at it is from
-# somewhere other than the terminal that started it.
 
 _AUTOPILOT: dict[str, Any] = {"proc": None, "started": None}
 AUTOPILOT_LOG = "autopilot.log"
@@ -33,15 +29,7 @@ def _queue():
 
 
 def queue_state() -> dict:
-    """Every job in every state, with preflight run on the pending ones.
 
-    Preflight costs milliseconds and touches no GPU, so showing it here means
-    a job that can never work is visible before the autopilot spends a night
-    discovering it.
-    """
-    # The stage registry is already populated by the module-level import at
-    # the top of this file, which preflight needs in order to validate an
-    # order. Importing it again here would only shadow it.
     q, queue = _queue()
     out: dict[str, list[dict]] = {}
     for state in q.STATES:

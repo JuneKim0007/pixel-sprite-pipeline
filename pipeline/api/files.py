@@ -1,15 +1,3 @@
-"""Browsing, uploading and downloading, inside the permitted roots.
-
-Every path a browser supplies is resolved against `allowed_roots` before it is
-opened. The configured input, output and download directories may sit outside
-the project, so the list is explicit rather than assuming everything is under
-ROOT.
-
-Streaming a file and reading a multipart upload stay in server.py: those need
-the socket, and a handler that returns a dict cannot express them. They are
-declared `raw` in the route table so the surface still lists them.
-"""
-
 from __future__ import annotations
 
 import shutil

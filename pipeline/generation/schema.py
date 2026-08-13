@@ -1,13 +1,4 @@
-"""Machine-readable description of every configurable knob.
 
-The GUI builds its forms from this, so a setting exists in exactly one place:
-add a field here and it appears in the interface with the right control, range
-and help text. Without it the "configurable UI" degenerates into a YAML
-textarea, which is not configurability so much as a file editor.
-
-`help` is the same explanation carried by the comments in configs/*.yaml —
-these are the notes worth reading before changing a value.
-"""
 
 from __future__ import annotations
 
@@ -16,16 +7,7 @@ from typing import Any
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 
-# What a pipeline is for. Fields may scope themselves to a subset, so a T-pose
-# character sheet does not show eight knobs about LLM-authored motion.
-# What a pipeline is for, and the primary axis of the interface.
-#
-# `available: False` declares a workspace that exists in the navigation and
-# does not work yet. That is deliberate rather than a stub: the rail is the
-# statement that asset types are the top-level split, and a rail with two cells
-# is a toggle. Naming the unfinished ones makes the shape of the tool visible
-# before the tool is finished, and gives a new type one obvious place to land -
-# an entry here, never a new tab.
+
 MODULES: dict[str, dict[str, Any]] = {
     "character_sheet": {
         "label": "Character sheet",
@@ -167,12 +149,6 @@ FIELDS: list[dict[str, Any]] = [
      "min": 0.0, "max": 2.5, "step": 0.05, "group": "Pose",
      "help": "Scales the character's left/right spread."},
 
-    # --------------------------------------------------------------- depth
-    #
-    # Depth carries the viewing angle, which a skeleton alone cannot express,
-    # and it is the only control channel that works for every topology — we
-    # compute it from body space rather than estimating it from an image, so a
-    # serpent or a blob gets a correct one where OpenPose has nothing to say.
     {"path": "depth.near", "label": "Nearest brightness", "type": "int",
      "min": 0, "max": 255, "step": 5, "group": "Depth",
      "help": "Grey value for the part of the body closest to the camera. "

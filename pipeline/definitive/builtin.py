@@ -1,16 +1,3 @@
-"""The five layers the editor ships with.
-
-Each one wraps machinery that already existed in pixelize.py; nothing here
-reimplements an algorithm. What is new is that the order is data and every
-field carries its own explanation, so the form and the (?) beside each control
-are generated rather than written by hand next to each control and forgotten
-next to the next one.
-
-`apply` takes and returns a numpy image plus a shared `facts` dict. Facts are
-how a layer tells the UI what it measured - the block size it found, the phase
-it settled on - which is the difference between a slider you guess with and one
-that shows its answer.
-"""
 
 from __future__ import annotations
 
@@ -58,7 +45,7 @@ MATCHERS = [
                    "palette gets a muted variant of the same art."),
     ],
 )
-def _curves(img, cfg, facts):
+def _curves(img, cfg, facts, prep):
     if all(float(cfg.get(k, d)) == d for k, d in
            (("gamma", 1.0), ("contrast", 1.0), ("brightness", 0.0), ("saturation", 1.0))):
         return img
@@ -70,6 +57,23 @@ def _curves(img, cfg, facts):
 
 
 # ----------------------------------------------------------------------- grid
+
+
+def _grid_prepare(img, cfg) -> dict:
+
+    from ..looks import training
+
+    measured = training.estimate_block_size(img)
+    factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
+    factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
+
+    if factor <= 1:
+        return {"measured_block": measured, "factor": factor, "phase": [0, 0]}
+    if cfg.get("phase", "auto") == "auto":
+        ox, oy = px.find_phase(img, factor)
+    else:
+        ox, oy = int(cfg.get("phase_x", 0)), int(cfg.get("phase_y", 0))
+    return {"measured_block": measured, "factor": factor, "phase": [ox, oy]}
 
 
 @layer(
@@ -100,35 +104,49 @@ def _curves(img, cfg, facts):
                    "anti-aliased input almost every pixel is unique and the "
                    "most frequent one is arbitrary."),
     ],
+    prepare=_grid_prepare,
 )
-def _grid(img, cfg, facts):
-    from .cache import measured_block
-
-    measured = measured_block(img)
-    facts["measured_block"] = measured
-    factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
-    factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
-    facts["factor"] = factor
-    if factor <= 1:
-        facts["phase"] = [0, 0]
+def _grid(img, cfg, facts, prep):
+    facts["measured_block"] = prep["measured_block"]
+    facts["factor"] = prep["factor"]
+    facts["phase"] = prep["phase"]
+    if prep["factor"] <= 1:
         return img
-
-    if cfg.get("phase", "auto") == "auto":
-        from .cache import phase_for
-
-        ox, oy = phase_for(img, factor)
-    else:
-        ox, oy = int(cfg.get("phase_x", 0)), int(cfg.get("phase_y", 0))
-    facts["phase"] = [ox, oy]
-    return px.reduce_blocks(img, factor, ox, oy, cfg.get("reduce", "median"))
+    ox, oy = prep["phase"]
+    return px.reduce_blocks(img, prep["factor"], ox, oy, cfg.get("reduce", "median"))
 
 
 # -------------------------------------------------------------------- palette
 
 
+def _palette_prepare(img, cfg) -> dict:
+    """The colours this layer will impose, worked out before it runs.
+
+    Generating a palette is k-means over every pixel - the single most
+    expensive thing in the stack, and a pure function of the image arriving
+    here plus two settings. Loading one from a file is cheap but is the same
+    kind of thing: deciding *what* the colours are, as opposed to applying
+    them.
+
+    Both live here so the runner can cache the answer and so that editing an
+    unrelated layer cannot trigger a re-cluster.
+    """
+    source = cfg.get("source", "generate")
+    if source == "none":
+        return {"palette": None}
+    if source == "file":
+        name = cfg.get("file") or ""
+        if not name:
+            return {"palette": None}
+        return {"palette": None, "file": name}
+    return {"palette": px.generate_palette(img[..., :3], int(cfg.get("colours", 24)),
+                                           method=cfg.get("match", "weighted"))}
+
+
 @layer(
     "palette", label="Palette", order=30,
     summary="A bounded set of colours, imposed exactly",
+    prepare=_palette_prepare,
     fields=[
         Field("source", "Colours from", "select", default="generate",
               options=[("generate", "Generate from this image"),
@@ -171,31 +189,21 @@ def _grid(img, cfg, facts):
                    "idiom; on when a small palette has to carry a gradient."),
     ],
 )
-def _palette(img, cfg, facts):
-    source = cfg.get("source", "generate")
-    if source == "none":
-        return img
+def _palette(img, cfg, facts, prep):
+    palette = prep.get("palette")
 
-    palette = None
-    if source == "file":
-        name = cfg.get("file") or ""
-        if not name:
-            return img
-        from ..looks.palettes import discover
+    # A file is resolved here rather than in prepare, because a palette name
+    # means nothing without the root - and the root belongs to the run, not to
+    # the layer's own settings. prepare stays a pure function of image and cfg.
+    if prep.get("file"):
         from pathlib import Path
 
-        found = discover(facts["root"]).get(name)
-        if not found:
-            raise FileNotFoundError(f"no palette '{name}'")
-        palette = px.load_palette(Path(found.path))
-    else:
-        from .cache import generated_palette
+        from ..looks.palettes import registry
 
-        # k-means over every pixel, and the answer depends only on the image
-        # arriving here plus these two numbers - so editing anything else in
-        # the stack must not recompute it.
-        palette = generated_palette(img, int(cfg.get("colours", 24)),
-                                    cfg.get("match", "weighted"))
+        palette = px.load_palette(Path(registry(facts["root"]).get(prep["file"]).path))
+
+    if not palette:
+        return img
 
     facts["palette_size"] = len(palette)
     if cfg.get("dither"):
@@ -234,7 +242,7 @@ def _palette(img, cfg, facts):
                    "character that a flood cannot."),
     ],
 )
-def _background(img, cfg, facts):
+def _background(img, cfg, facts, prep):
     if not cfg.get("enabled", True):
         return img
     raw = str(cfg.get("colour") or "").lstrip("#")
@@ -257,8 +265,14 @@ def _background(img, cfg, facts):
                    "makes a 128px sprite viewable outside a pixel-art editor."),
     ],
 )
-def _scale(img, cfg, facts):
+def _scale(img, cfg, facts, prep):
     n = max(1, int(cfg.get("upscale", 1)))
     if n == 1:
         return img
+    # Counted here, on the small image, because repetition cannot add a colour
+    # and counting after the magnification measured 17x slower for the same
+    # answer.
+    from .cache import count_colours
+
+    facts["_colours"] = count_colours(img)
     return np.repeat(np.repeat(img, n, axis=0), n, axis=1)

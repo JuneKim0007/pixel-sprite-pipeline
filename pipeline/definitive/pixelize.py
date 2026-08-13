@@ -1,25 +1,5 @@
 #!/usr/bin/env python3
-"""
-Turn "pixel-ish" diffusion output into true pixel art.
 
-SDXL + a pixel-art LoRA renders a 1024x1024 image that *looks* like pixel art:
-blocks of roughly N x N screen pixels. But it has three defects that stop it
-from being real pixel art:
-
-  1. The block grid is not aligned to any exact lattice, and its phase drifts.
-  2. Block edges are anti-aliased, so "one pixel" is really a soft gradient.
-  3. It uses thousands of distinct colours, not a bounded palette.
-
-This script fixes each defect in order:
-
-  1. align   -- search every (x, y) phase offset and pick the one that makes
-                blocks most internally uniform (minimum intra-block variance).
-  2. reduce  -- collapse each block to a single colour (median / mode / mean).
-  3. quantize-- clamp to a bounded palette (median-cut, or a supplied one).
-
-Optionally lifts a flat background to alpha, and re-upscales with nearest
-neighbour so the result is viewable without a pixel-art viewer.
-"""
 
 from __future__ import annotations
 
@@ -46,12 +26,7 @@ def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
 
 
 def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
-    """Find the (ox, oy) offset whose blocks are most internally uniform.
 
-    The generated pixel grid rarely starts exactly at (0, 0). Sampling on the
-    wrong phase straddles block boundaries and smears two logical pixels into
-    one, which is the single biggest cause of muddy output.
-    """
     best, best_cost = (0, 0), float("inf")
     for oy in range(factor):
         for ox in range(factor):
@@ -66,17 +41,9 @@ def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
 # ------------------------------------------------------------ block reduce
 
 
-# Per-channel standard deviation inside a block, above which the block is
-# treated as containing a feature rather than a surface. 34 was chosen by
-# sweeping a generated canonical: below about 25 it starts firing on ordinary
-# cloth shading, above about 45 it stops catching eyes.
 SALIENT_THRESHOLD = 34.0
 
 
-# Fraction of a block that must survive clipping for the clipped mean to be
-# trusted. Below it the block is mostly outliers, which is what a thin line
-# through an otherwise flat block looks like - so those fall back to median,
-# which is the mode that keeps outlines.
 _CLIP_FLOOR = 0.35
 
 
@@ -153,22 +120,7 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return out
 
     if how == "salient":
-        # Median everywhere except where a block has real contrast in it, and
-        # there keep the pixel furthest from the median instead.
-        #
-        # This exists for eyes. At a 128px sprite a face is about eighteen
-        # pixels and an eye is two or three; the model draws that eye at 1024
-        # as an anti-aliased gradient twenty pixels across, and taking the
-        # median of an 8x8 block containing a dark pupil against light skin
-        # returns the skin. The pupil does not survive, and neither does any
-        # other small dark feature - which includes the outline.
-        #
-        # Mode does not help: on anti-aliased input almost every pixel is a
-        # unique colour, so the most frequent one is arbitrary.
-        #
-        # Measured on a generated canonical: 3% of blocks exceed the threshold,
-        # which is about the share a face and its outlines occupy. Flat cloth
-        # and background are untouched, so this is not a global contrast boost.
+
         med = np.median(flat, axis=2)
         deviation = np.abs(flat - med[:, :, None, :]).sum(axis=3)
         extreme = np.take_along_axis(
@@ -208,14 +160,7 @@ def load_palette(path: Path) -> list[tuple[int, int, int]]:
 def extract_palette(
     rgb: np.ndarray, colours: int, ignore_alpha: np.ndarray | None = None
 ) -> list[tuple[int, int, int]]:
-    """Derive a palette from an image via median cut.
 
-    This is what makes colour consistent across an animation. Rather than
-    hoping every frame independently lands on similar colours — it won't,
-    each is a separate sample — extract the palette once from the canonical
-    sprite and snap every frame to that same fixed set. Consistency stops
-    being probabilistic and becomes exact.
-    """
     pixels = rgb.reshape(-1, 3)
     if ignore_alpha is not None:
         pixels = pixels[ignore_alpha.reshape(-1) > 0]
@@ -234,9 +179,7 @@ def save_palette(palette: list[tuple[int, int, int]], path: Path, note: str = ""
     path.write_text("\n".join(lines) + "\n")
 
 
-# Rec. 709 luminance. Green carries most of perceived brightness, which is
-# why plain RGB distance misjudges: it weighs a shift in blue as heavily as
-# the same shift in green, and the eye does not.
+
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
 
 MATCH_METHODS = ("rgb", "weighted", "luma", "lab")
@@ -258,19 +201,7 @@ def _to_lab(rgb: np.ndarray) -> np.ndarray:
 
 def curves(rgb: np.ndarray, *, brightness: float = 0.0, contrast: float = 1.0,
            gamma: float = 1.0, saturation: float = 1.0) -> np.ndarray:
-    """Tonal adjustment, applied before quantisation rather than after.
 
-    Order matters and this is the useful order. Snapping to a palette is a
-    nearest-neighbour decision, so what you do to the values beforehand
-    decides which entries get chosen: lifting contrast pushes midtones out
-    toward the ends of the ramp and the sprite picks up its light and dark
-    entries instead of collapsing into the middle ones. The same adjustment
-    applied afterwards would just move colours off the palette again.
-
-    gamma is separated from brightness deliberately. Brightness shifts every
-    value equally and flattens the ramp; gamma redistributes within it, which
-    is what "the shadows are too dark but the highlights are fine" needs.
-    """
     a = rgb.astype(np.float32) / 255.0
     if gamma != 1.0:
         a = np.power(np.clip(a, 0.0, 1.0), 1.0 / max(gamma, 1e-3))
@@ -287,23 +218,7 @@ def curves(rgb: np.ndarray, *, brightness: float = 0.0, contrast: float = 1.0,
 def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
                      iterations: int = 12,
                      alpha: np.ndarray | None = None) -> list[tuple[int, int, int]]:
-    """Derive an N-colour palette by clustering in the chosen metric's space.
 
-    extract_palette does median cut, which subdivides the RGB cube along its
-    widest axis and therefore inherits plain RGB's blind spots — it will spend
-    two entries separating blues a person cannot tell apart while merging two
-    greens they can.
-
-    Clustering in the same space the snapping will use avoids that: choose
-    `lab` and the palette is spaced by perceptual difference, choose `luma`
-    and it is spaced along the value ramp, which for a sprite is often exactly
-    what you want — a guaranteed spread of lightnesses rather than a
-    guaranteed spread of hues.
-
-    k-means, seeded by k-means++ so the result does not depend on which
-    pixels happen to come first, and capped at a few iterations because the
-    centroids stop moving visibly long before they stop moving.
-    """
     pixels = rgb.reshape(-1, 3)
     if alpha is not None:
         pixels = pixels[alpha.reshape(-1) > 0]
@@ -360,32 +275,7 @@ def fit_to_palette(rgb: np.ndarray, palette: list[tuple[int, int, int]],
                    *, method: str = "weighted",
                    alpha: np.ndarray | None = None,
                    strength: float = 1.0) -> np.ndarray:
-    """Stretch the image's value range onto the palette's, then snap.
-
-    Nearest-colour matching is absolute, and that is usually right: it keeps
-    the colours the picture is actually made of. But it cannot widen anything.
-    An image whose subject spans luminance 86 to 170 snapped onto a palette
-    spanning 0 to 255 comes back spanning 86 to 170 - measured, using 11 of 32
-    entries, two thirds of the palette unused and the sprite reading flat.
-
-    The stretch is along LUMINANCE ONLY, with hue and saturation carried
-    through untouched. That is not a simplification, it is the point. A sprite
-    reads by its value structure, so the range worth matching to the palette is
-    the value range; scaling the channels independently would drift the colours
-    as well, and the snap that follows already decides hue.
-
-    The first version of this scaled in the matching metric's own space and
-    then applied the result in RGB. The luminance weights differ by a factor
-    of ten between green and blue, so a single scalar taken across them was
-    meaningless: it made the same test case worse, 5 of 32 entries instead of
-    11, and pushed everything to the bright end.
-
-    `alpha` excludes the backdrop from the measurement. A flat magenta key
-    would otherwise define one end of the source range, and the stretch would
-    be computed against a colour that is about to be deleted.
-
-    `strength` below 1 interpolates back toward the original.
-    """
+    
     if not palette:
         return rgb
 
@@ -408,10 +298,7 @@ def fit_to_palette(rgb: np.ndarray, palette: list[tuple[int, int, int]],
     if strength < 1.0:
         target = lum + (target - lum) * float(strength)
 
-    # Move each pixel along its own luminance axis, keeping the colour it had.
-    # Scaling is right for a dark pixel getting darker and wrong at the top,
-    # where a scale would clip the brightest channel and shift the hue; the
-    # blend toward white above the source midpoint keeps the hue instead.
+
     out = np.empty_like(flat)
     safe = np.maximum(lum, 1e-6)[:, None]
     scaled = flat * (target[:, None] / safe)
@@ -430,52 +317,13 @@ def apply_fixed_palette(
     palette: list[tuple[int, int, int]],
     method: str = "weighted",
 ) -> np.ndarray:
-    """Snap every pixel to its nearest palette entry.
-
-    "Nearest" is a choice, not a fact, and for sprites it is a consequential
-    one. Four metrics, in order of how much they cost:
-
-    rgb        Plain euclidean in RGB. Fast, and perceptually the worst — it
-               treats a shift in blue as equal to the same shift in green.
-               Kept because it is what every earlier output used.
-
-    weighted   Euclidean with the luminance weights applied per channel. Costs
-               nothing extra and fixes most of what rgb gets wrong.
-
-    luma       Match on brightness first, hue only to break ties. This is the
-               one built for pixel art specifically: a sprite reads by its
-               value structure, and snapping a mid-tone to an entry of the
-               wrong lightness collapses the form even when the hue is right.
-               Use it when remapping between palettes that do not share a
-               colour scheme.
-
-    lab        Euclidean in CIELAB — perceptually near-uniform, so it picks
-               the colour a person would call closest. The most faithful for
-               recolouring, and the slowest by roughly an order of magnitude.
-
-    Every metric is a nearest-neighbour search over the palette, so cost grows
-    with pixels x palette entries. A 128x128 sprite against 136 entries is two
-    million comparisons: nothing. A 1024x1024 frame is 140 million, which is
-    why this runs after reduction rather than before.
-    """
     if method not in MATCH_METHODS:
         raise ValueError(
             f"unknown palette match method '{method}'; expected one of {MATCH_METHODS}")
 
     pal = np.asarray(palette, dtype=np.float32)
 
-    # Snap each DISTINCT colour once and index the result, rather than walking
-    # every pixel past every entry.
-    #
-    # The cost of a nearest-colour search is pixels x entries, and a 1280px
-    # image against a 136-entry palette is 223 million distance computations,
-    # measured at 3.7 s. The number of distinct colours is far smaller than the
-    # number of pixels - and smaller again after block reduction, which is
-    # where this usually runs - so doing the search per colour is 3 to 4x
-    # faster and, unlike a quantised lookup grid, produces exactly the same
-    # image. A 32-cubed grid measured 137x faster and agreed with the direct
-    # answer on only 95.6% of pixels, which is the wrong trade for a step whose
-    # whole job is making colour exact.
+
     source = rgb.reshape(-1, 3)
     uniq, inverse = np.unique(source, axis=0, return_inverse=True)
     flat = uniq.astype(np.float32)
@@ -485,26 +333,12 @@ def apply_fixed_palette(
     elif method == "weighted":
         a, b = flat * LUMA, pal * LUMA
     elif method == "luma":
-        # Lightness dominates; chroma is a tiebreaker at a tenth of the
-        # weight, which is enough to choose between two entries of equal
-        # brightness without letting hue override the value ramp.
+
         a = np.concatenate([(flat @ LUMA)[:, None], flat * 0.1], axis=1)
         b = np.concatenate([(pal @ LUMA)[:, None], pal * 0.1], axis=1)
     else:
         a, b = flat, pal
 
-    # (N, 1, K) - (1, P, K) -> (N, P), in blocks.
-    #
-    # The full matrix is colours x entries x 3 floats, and the whole point of
-    # matching per colour rather than per pixel is that N is small - except it
-    # is only small relative to the pixel count. A 1280 px canvas has 140,647
-    # distinct colours, which against a 136-entry palette is a single 230 MB
-    # allocation, and the editor issues one of these per parameter change. That
-    # measured 363 MB of peak RSS for one preview and is what took the machine
-    # down.
-    #
-    # Chunking makes the peak a constant without changing the answer: argmin
-    # over a block is argmin over the block.
     from ..shared import limits
 
     chunk = max(256, limits.get("colour_chunk"))
@@ -529,29 +363,10 @@ def quantize_median_cut(rgb: np.ndarray, colours: int, dither: bool) -> np.ndarr
 def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
                         keep_min: float = 0.04,
                         key: tuple[int, int, int] | None = None) -> np.ndarray:
-    """Flood fill from the edges; matching regions become transparent.
 
-    Only removes background *connected to an edge*, so an enclosed region of
-    the same colour inside the sprite is preserved.
-
-    Repeats up to `passes` times, because one pass only removes the single
-    colour the corners happen to sit on. Generated sprites often arrive on a
-    two-tone backdrop — a coloured panel inside a border — and a single pass
-    leaves the panel counted as subject. Measured on a real canonical: 39% of
-    the canvas survived as "subject", which also polluted the palette, since
-    the palette stage extracts its colours from this same mask.
-
-    A pass is discarded if it would leave less than `keep_min` of the canvas,
-    so a sprite that genuinely fills the frame is never eaten.
-    """
     h, w = rgb.shape[:2]
     alpha = np.full((h, w), 255, dtype=np.uint8)
 
-    # A named backdrop is removed by colour rather than by connectivity. The
-    # flood below only reaches background touching an edge, which is right when
-    # you are guessing; when the colour was specified in the prompt, a patch of
-    # it showing through a gap in the character is also background, and leaving
-    # it opaque puts a magenta hole in the sprite.
     if key is not None:
         want = np.asarray(key, dtype=np.int16)
         near = (np.abs(rgb[..., :3].astype(np.int16) - want).max(axis=2) <= tol * 3)
@@ -559,8 +374,6 @@ def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
             alpha[near] = 0
 
     for _ in range(max(1, passes)):
-        # Seed from whatever is still opaque on the border. After the first
-        # pass that is the next background layer inward, not the original edge.
         seeds = []
         for x in range(w):
             for y in (0, h - 1):

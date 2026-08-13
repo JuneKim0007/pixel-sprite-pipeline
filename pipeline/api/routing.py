@@ -1,35 +1,3 @@
-"""Routes as data, owned by the module they belong to.
-
-The dispatch was three if-chains - 125 lines for GET alone - and every backend
-feature landed in the middle of one. That shape costs more than the reading. A
-route cannot be listed, so nothing can check the surface; and a handler is
-welded to `BaseHTTPRequestHandler`, so exercising one means starting a server.
-
-Here a router subclass owns a group of routes, and subclassing is the
-registration:
-
-    class Runs(BaseRouter):
-        prefix = "/api"
-
-        @get("/runs")
-        def list_runs(self, req): ...
-
-`BaseRouter.__init_subclass__` adds the class to the registry, so a domain
-module is mounted by being imported and there is no second list to keep in
-step with the first. That is the same trade the stage registry makes, and the
-failure it avoids is the same: a handler written, never referenced, and
-silently absent.
-
-A handler takes a `Request` and returns a dict. It does not know what serves
-it, which is what makes it callable from a test or a CLI. Because the table can
-be enumerated, a response contract can be attached to each entry and checked at
-import rather than at request time - REFACTOR.md section 6.
-
-`Request` exists for one concrete reason: `q.get("name", [""])[0]` appeared 14
-times, and each was a place where a missing parameter silently became the empty
-string and failed confusingly further in. `req.query("name")` does that once,
-and `req.required("name")` is there where absent should be a 400.
-"""
 
 from __future__ import annotations
 
@@ -140,12 +108,7 @@ class BaseRouter:
 
 
 class Table:
-    """Every registered route, resolved once.
 
-    Built lazily so import order does not matter: a router defined after the
-    table is first asked for is still included, because the table rebuilds when
-    the registry has grown.
-    """
 
     def __init__(self) -> None:
         self._routes: dict[tuple[str, str], Route] = {}

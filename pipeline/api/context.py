@@ -1,15 +1,3 @@
-"""Paths, and the round-tripping YAML loader every handler shares.
-
-Split out of server.py so a handler can be imported without importing an HTTP
-server. That is the property the whole api/ package is for: a route handler
-takes a Request and returns a dict, and nothing about it should require a
-socket to exercise.
-
-The round-trip loader is not a preference. The configs carry their
-documentation in comments, and a plain safe_load/safe_dump cycle deletes all of
-it - so one Save from the UI would strip the explanation of every setting it
-just edited.
-"""
 
 from __future__ import annotations
 
@@ -35,16 +23,7 @@ def load_roundtrip(path: Path):
 
 
 def dump_roundtrip(data, path: Path) -> None:
-    """Write via a temp file and rename, so a failure cannot truncate the file.
 
-    Opening the target with "w" truncates it before a single byte is written,
-    and what is being truncated here is a hand-authored document: a style sheet
-    or a config, carrying prose comments that exist nowhere else and are the
-    whole reason this round-trips instead of using safe_dump. A dump that
-    raised partway, or a process killed mid-write on a machine running long GPU
-    jobs, would take those with it. os.replace is atomic on the same
-    filesystem, so the original survives until a complete file exists.
-    """
     tmp = path.with_name(f".{path.name}.tmp")
     try:
         with tmp.open("w") as fh:

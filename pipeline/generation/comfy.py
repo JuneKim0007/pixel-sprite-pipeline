@@ -30,23 +30,6 @@ NEGATIVE = (
     "deformed, low contrast, muddy colors"
 )
 
-# Naming the backdrop beats asking for a "plain" one, and it closes a loop.
-#
-# "plain flat background" is a description the model interprets, and it
-# interprets it as a lit studio: a soft gradient with a cast shadow, which is
-# what a sprite on a grey card actually looks like. Naming a specific saturated
-# colour gives it a target instead of an adjective.
-#
-# The second half is the part that matters. The palette stage keys the
-# background out by flooding from the corners and guessing what colour it
-# found. If the prompt named the colour, the keyer does not have to guess — it
-# removes that exact hue. Prompt and post-process stop being two independent
-# hopes and become one instruction.
-#
-# Magenta rather than the traditional chroma green: green sits close to the
-# skin, foliage and cloth tones that show up in sprites, and every pixel it
-# bleeds into along an anti-aliased edge is a pixel the palette then has to
-# spend an entry on.
 BACKDROP = "#FF00FF"
 BACKDROP_TERMS = (
     "solid flat {colour} chroma key background, uniform background colour, "
@@ -63,11 +46,6 @@ def backdrop_prompt(colour: str | None) -> str:
     return BACKDROP_TERMS.format(colour=colour or BACKDROP)
 
 
-# An OpenPose control image is a figure drawn out of coloured sticks, and a
-# model told to follow it closely will sometimes draw those sticks: the output
-# comes back as a bony, undead-looking figure instead of the subject wearing
-# armour. These terms name that failure so it can be steered away from, and are
-# appended automatically whenever a pose control image is in play.
 POSE_NEGATIVE = (
     "skeleton, skull, bones, bony, undead, lich, ribcage, x-ray, anatomical "
     "diagram, stick figure, wireframe, rainbow limbs, mannequin"
@@ -231,17 +209,7 @@ def base_graph(
     lcm: bool,
     models: dict | None = None,
 ) -> tuple[Link, Link, Link, Link]:
-    """Checkpoint + style LoRA + optional LCM + both prompts.
 
-    Returns (model, positive, negative, vae).
-
-    The checkpoint is a setting rather than a constant because it is the single
-    biggest lever on style. SDXL base is a generalist trained on photographs
-    among everything else, so it does not know anime character construction —
-    blocking a mushy figure into pixels does not make it a sprite. An anime
-    finetune such as Illustrious is the same architecture, so ControlNet,
-    IP-Adapter and the pixel LoRA all keep working across the swap.
-    """
     models = models or {}
     ckpt = g.add("CheckpointLoaderSimple",
                  ckpt_name=models.get("checkpoint") or CKPT)
@@ -255,14 +223,6 @@ def base_graph(
     )
     model, clip = g.out(lora, 0), g.out(lora, 1)
 
-    # Extra LoRAs, stacked on top of the pixel LoRA in a fixed order:
-    # style first, then character, so the character has the last word on
-    # identity. Both are off unless named - a trained LoRA was previously
-    # unusable because only one loader existed and pixel_lora owned it.
-    #
-    # Strengths are separate from lora_strength on purpose. A character LoRA
-    # is applied WEAKLY at first and turned up: applying a well-trained LoRA
-    # at 0.4 is a dial you can move, while under-training one to be safe bakes
     # the weakness in and cannot be undone.
     for key, default_strength in (("style_lora", 0.6), ("character_lora", 0.7)):
         name = models.get(key)
@@ -299,12 +259,6 @@ def apply_ipadapter(
     weight_type: str, start_at: float, end_at: float,
     ipadapter: str | None = None,
 ) -> Link:
-    """Splice IP-Adapter in to carry character identity from a reference.
-
-    The adapter file is overridable because it has to match the checkpoint's
-    family: an SDXL adapter on an SDXL finetune is fine, but a SD1.5 adapter on
-    either produces silent nonsense rather than an error.
-    """
     ip_model = g.add("IPAdapterModelLoader",
                      ipadapter_file=ipadapter or IPADAPTER)
     clip_vision = g.add("CLIPVisionLoader", clip_name=CLIP_VISION)
@@ -330,21 +284,7 @@ def apply_controlnet(
     union_type: str = "openpose",
     controlnet: str | None = None,
 ) -> tuple[Link, Link]:
-    """Splice ControlNet in to pin the pose.
 
-    Two settings decide whether this works at all:
-
-    union_type   The Union ControlNet handles ten conditioning types in one
-                 model and defaults to guessing ("auto"). Telling it the input
-                 is an OpenPose skeleton rather than letting it guess is the
-                 difference between the pose being applied and quietly ignored.
-
-    end_percent  What fraction of sampling the control steers for. Holding it
-                 to 1.0 pins the pose but flattens the pixel style. But this is
-                 a FRACTION, so it interacts with step count: 0.2 of 25 steps is
-                 5 steps and works, while 0.2 of 8 LCM steps is 1.6 steps and is
-                 far too few to establish a pose.
-    """
     loader = g.add("ControlNetLoader", control_net_name=controlnet or CONTROLNET)
     cn = g.out(loader, 0)
     if union_type and union_type != "auto":
@@ -365,13 +305,7 @@ def apply_controlnet(
 
 
 def encode_image(g: Graph, image: Link, vae: Link) -> Link:
-    """Image -> latent, for img2img.
 
-    Denoising from an encoded reference rather than from noise makes the output
-    trace that reference's composition. Below about 0.6 denoise it starts
-    reproducing the source rather than reinterpreting it, which is the point
-    when you want a sheet that matches art you already have.
-    """
     return g.out(g.add("VAEEncode", pixels=image, vae=vae), 0)
 
 
