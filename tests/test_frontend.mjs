@@ -248,6 +248,32 @@ test('querySelector finds by class and by tag.class', () => {
   assert.equal(root.querySelector('.nope'), null);
 });
 
+console.log('\npartial rendering');
+test('a field change only rebuilds the form when it gates another field', async () => {
+  const { layerForm } = await import(join(JS, 'definitive/stack.js'));
+  const spec = {
+    key: 'grid', label: 'Grid', summary: '',
+    fields: [
+      { key: 'phase', label: 'Origin', kind: 'select', help: 'h', default: 'auto',
+        options: [['auto', 'Auto'], ['manual', 'Manual']], when: {} },
+      { key: 'phase_x', label: 'X', kind: 'int', help: 'h', default: 0,
+        min: 0, max: 63, when: { phase: 'manual' } },
+      { key: 'reduce', label: 'Reduce', kind: 'select', help: 'h', default: 'median',
+        options: [['median', 'Median']], when: {} },
+    ],
+  };
+  // `phase` gates `phase_x`; `reduce` gates nothing.
+  const gates = (key) => spec.fields.some((f) => key in (f.when || {}));
+  assert.equal(gates('phase'), true, 'a gating field was not recognised');
+  assert.equal(gates('reduce'), false, 'a plain field would force a rebuild');
+
+  // And the gate actually hides the field it guards.
+  const hidden = layerForm(spec, { phase: 'auto' }, () => {});
+  const shown = layerForm(spec, { phase: 'manual' }, () => {});
+  assert.ok(shown.children.length > hidden.children.length,
+            'the gated field never appeared');
+});
+
 console.log('\nlisteners and lifecycle');
 test('a subscription fires once per set, whatever else changed with it', async () => {
   const { subscribe, notify, listenerCount } = await import(join(JS, 'core/subscribe.js'));

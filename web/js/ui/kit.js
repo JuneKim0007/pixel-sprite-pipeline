@@ -1,22 +1,5 @@
-/* The widgets every view builds, built once.
- *
- * Counted before writing this: `btn` appears in 12 files, `mini` in 11,
- * `empty` in 10, `warnline` in 7, `select` in 8. Each of those is one widget
- * assembled by hand in every view that wants it, which is why the same control
- * looks slightly different in three tabs and why changing one means finding
- * all of them.
- *
- * Grouping is the point. A UI is consistent when there is one place a variant
- * can be added, so these take a variant name rather than a class string: a
- * caller says what a button IS, not what it looks like. `Button.primary` and
- * `Button.ghost` exist; `className: 'btn primary'` does not need to be spelt
- * anywhere, and a new variant is one entry here rather than a search.
- *
- * Everything returns a DOM node and nothing knows what a rig or a palette is.
- * That is the rule for this folder - a primitive that understands the domain
- * has stopped being one.
- */
-
+/* Widgets the views used to rebuild by hand: btn in 12 files, mini in 11,
+ * empty in 10. A caller names what a thing is, never a class string. */
 import { el } from '../core/dom.js';
 
 /* ------------------------------------------------------------------ text */
@@ -32,19 +15,17 @@ export const Warn = (text) => el('p', { className: 'warnline', textContent: `! $
 
 export const Ok = (text) => el('p', { className: 'ok', textContent: `✓ ${text}` });
 
-/* Prose that belongs beside a control rather than behind a (?). Rare on
- * purpose: a paragraph under every field is what the (?) exists to replace. */
+/* Rare on purpose: a paragraph under every field is what the (?) replaces. */
 export const Note = (text) => el('p', { className: 'headnote', textContent: text });
 
 /* --------------------------------------------------------------- buttons */
 
 const BUTTON_VARIANTS = ['primary', 'ghost', 'danger', 'pill'];
 
-/** A button. `variant` names what it is; the class string is this file's business. */
+/** variant names what it is; the class string is this file's business. */
 export function Button(label, { variant = '', onClick, title = '', disabled = false } = {}) {
   if (variant && !BUTTON_VARIANTS.includes(variant)) {
-    // A typo in a variant name silently produces an unstyled button, which is
-    // the kind of thing nobody notices until a screenshot.
+    // A typo would silently render unstyled, which nobody sees until a screenshot.
     throw new Error(`no button variant '${variant}'`);
   }
   const node = el('button', {
@@ -85,8 +66,7 @@ export function Check(label, { checked = false, onChange } = {}) {
   return el('label', { className: 'chk' }, box, el('span', { textContent: label }));
 }
 
-/* A slider with its value beside it. Bounded numbers are judged against
- * something on screen, not typed. */
+/* Bounded numbers are judged against something on screen, not typed. */
 export function Range(value, { min, max, step = 0.05, onChange, format } = {}) {
   const show = format || ((v) => Number(v).toFixed(2));
   const out = el('span', { className: 'val', textContent: show(value) });
@@ -102,7 +82,7 @@ export const Row = (...children) => el('div', { className: 'row' }, ...children)
 
 export const Fields = (...children) => el('div', { className: 'fields' }, ...children);
 
-/** A view's title bar: heading, optional subtitle, optional actions. */
+/** A view's title bar. */
 export function Head(title, { sub = '', actions = [] } = {}) {
   return el('header', { className: 'head' },
     el('div', {},
@@ -119,8 +99,7 @@ export function PanelHead(title, { note = '', action = null } = {}) {
     action);
 }
 
-/* One choice from a few, which is a radio group that reads as a control.
- * Written once here because five views build it by hand. */
+/* Five views built their own, and .seg had two definitions in the CSS. */
 export function Segmented(options, { value, onPick } = {}) {
   const host = el('div', { className: 'segmented' });
   for (const opt of options) {
@@ -134,8 +113,7 @@ export function Segmented(options, { value, onPick } = {}) {
   return host;
 }
 
-/* A key and its value, for the small measurement grids. `tone` marks a number
- * the machine measured rather than one someone typed. */
+/* tone marks a number the machine measured, not one someone typed. */
 export const Fact = (label, value, tone = '') =>
   el('div', { className: `fact ${tone}`.trim() }, Mini(label), el('b', { textContent: value }));
 

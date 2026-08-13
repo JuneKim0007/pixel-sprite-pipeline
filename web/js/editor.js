@@ -80,10 +80,14 @@ function factsBar() {
 /* ------------------------------------------------------------------- view */
 
 export function renderEditor(host) {
-  const rerender = () => renderEditor(host);
   host.replaceChildren();
 
   const after = el('div', { className: 'compare-cell' });
+  const sourceCell = el('div', {});
+
+  const drawSource = () => sourceCell.replaceChildren(
+    source ? el('img', { src: api.fileUrl(source), alt: 'source' })
+           : el('p', { className: 'empty', textContent: 'Pick an image.' }));
   const factsHost = el('div', { className: 'factshost' }, factsBar());
 
   const head = (label) => el('h4', {}, 'Result',
@@ -199,7 +203,8 @@ export function renderEditor(host) {
     // A different image has a different block size, so let Grid measure again.
     const grid = stack.find((s) => s.layer === 'grid');
     if (grid) grid.config.factor = 0;
-    rerender();
+    drawSource();
+    renderForm();
     markStale();
   };
 
@@ -211,7 +216,9 @@ export function renderEditor(host) {
       source = saved[0].path;
       const res = await fetch(api.fileUrl(source));
       bitmap = await createImageBitmap(await res.blob());
-      rerender();
+      sourceSel.append(el('option', { value: source, textContent: source.split('/').pop(),
+                                      selected: true }));
+      drawSource();
       markStale();
     } catch (e) { toast(e.message, 'error'); }
   };
@@ -278,12 +285,14 @@ export function renderEditor(host) {
         el('span', { className: 'mini', textContent: spec.summary })),
       layerForm(spec, entry.config, (key, value) => {
         entry.config[key] = value;
-        // A field can reveal another, so the form rebuilds on every change.
-        renderForm();
+        // Only rebuild when this key gates another field's visibility.
+        // Rebuilding on every keystroke is what loses focus mid-word.
+        if (spec.fields.some((f) => key in (f.when || {}))) renderForm();
         markStale();
       }));
   }
 
+  drawSource();
   host.append(
     el('header', { className: 'head' },
       el('div', {}, el('h1', { textContent: 'Editor' })),
@@ -295,8 +304,7 @@ export function renderEditor(host) {
         el('div', { className: 'compare' },
           el('div', { className: 'compare-cell' },
             el('h4', { textContent: 'Source' }),
-            source ? el('img', { src: api.fileUrl(source), alt: 'source' })
-                   : el('p', { className: 'empty', textContent: 'Pick an image.' })),
+            sourceCell),
           after),
         factsHost),
       el('div', { className: 'editorside' }, listHost, formHost)));

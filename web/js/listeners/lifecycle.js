@@ -1,26 +1,12 @@
-/* Mounting a view, and unmounting the last one.
- *
- * A view returns a teardown. The mounter calls it before the next view goes
- * up, so a poll, a subscription or an animation frame cannot outlive the thing
- * that started it. Nothing here knows what any view does.
- *
- * The error handling is the error-boundary idea in a language with no
- * components: a view that throws while rendering shows the failure in place,
- * with a retry, instead of leaving a blank tab and a line in the console. That
- * was already true of boot and of nothing else.
- */
-
+/* mount() tears down the previous view before the next renders.
+ * A view that throws shows its error in place instead of blanking the tab. */
 import { el } from '../core/dom.js';
 
 let teardown = null;
 let mountedName = null;
 
-/**
- * Render `view(host)` into `host`, after tearing down whatever was there.
- *
- * `view` may return a function; it is called on the next mount. Returning
- * nothing is fine for a view with nothing to clean up.
- */
+/** Render view(host), first tearing down the last. A returned function is
+ *  called on the next mount. */
 export function mount(name, host, view) {
   unmount();
   mountedName = name;
@@ -46,7 +32,7 @@ export function unmount() {
   }
 }
 
-/** What is on screen, for tests and for the router. */
+/** What is on screen. */
 export function mounted() {
   return mountedName;
 }

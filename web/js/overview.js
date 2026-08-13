@@ -142,7 +142,6 @@ function promptStrip(detail, refresh) {
 /* ------------------------------------------------------------------ view */
 
 export function renderOverview(host, { goTo }) {
-  const refresh = () => renderOverview(host, { goTo });
   host.replaceChildren();
 
   const applied = state.effective?.styles || [];
@@ -181,26 +180,31 @@ export function renderOverview(host, { goTo }) {
   runCard.append(el('p', { className: 'ovloading', textContent: 'loading…' }));
   grid.append(runCard);
 
-  (async () => {
-    // Style context, with its images and prompts editable in place.
+  // Adding an exemplar reloads this card, not the page. Rebuilding the view
+  // reset the queue and output cards for a change that touched neither.
+  async function loadStyleCard() {
     const name = applied.at(-1);
     if (!name) {
       styleCard.replaceChildren(styleCard.firstChild,
         el('p', { className: 'empty', textContent:
           'No style applied. A style sheet is what keeps separate runs on-model.' }));
-    } else {
-      try {
-        const detail = await api.styleDetail(name);
-        styleCard.replaceChildren(styleCard.firstChild,
-          el('h4', { textContent: 'Images' }),
-          contextStrip(detail, refresh),
-          el('h4', { textContent: 'Prompts' }),
-          promptStrip(detail, refresh));
-      } catch (e) {
-        styleCard.replaceChildren(styleCard.firstChild,
-          el('p', { className: 'warnline', textContent: e.message }));
-      }
+      return;
     }
+    try {
+      const detail = await api.styleDetail(name);
+      styleCard.replaceChildren(styleCard.firstChild,
+        el('h4', { textContent: 'Images' }),
+        contextStrip(detail, loadStyleCard),
+        el('h4', { textContent: 'Prompts' }),
+        promptStrip(detail, loadStyleCard));
+    } catch (e) {
+      styleCard.replaceChildren(styleCard.firstChild,
+        el('p', { className: 'warnline', textContent: e.message }));
+    }
+  }
+
+  (async () => {
+    await loadStyleCard();
 
     try {
       const q = await api.queue();
