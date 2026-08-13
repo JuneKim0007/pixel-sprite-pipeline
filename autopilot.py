@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(line_buffering=True)
 
 from pipeline.orchestration import queue as q  # noqa: E402
+from pipeline.shared import paths
 from pipeline.shared import settings  # noqa: E402
 
 STOPPING = False
@@ -49,7 +50,7 @@ def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
 
     from pipeline.generation import schema
 
-    cfg_path = root / "configs" / f"{job.config}.yaml"
+    cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
     raw = yaml.safe_load(cfg_path.read_text()) or {}
     for path, value in (job.data.get("overrides") or {}).items():
         schema.set_path(raw, path, value)

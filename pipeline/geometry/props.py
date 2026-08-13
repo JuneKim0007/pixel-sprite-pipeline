@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..shared import paths
+
 import math
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -98,7 +100,7 @@ def registry(root) -> Registry[dict]:
     root = Path(root).resolve()
     found = _REGISTRIES.get(root)
     if found is None:
-        found = Registry("prop", Scanned(root / DIRNAME, ["**/*.yaml"],
+        found = Registry("prop", Scanned(paths.resolve(root, "props"), ["**/*.yaml"],
                                          _entries, what="prop"))
         _REGISTRIES[root] = found
     return found

@@ -16,6 +16,7 @@ from ..orchestration import cooling
 from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
+from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
 
 
@@ -48,7 +49,7 @@ def _anchor_view(ctx, cfg) -> str | float:
     from it. That is the frame it has the best chance of matching, and every
     other frame turns away from it symmetrically.
     """
-    explicit = opt(cfg, "view", None)
+    explicit = cfg.get("view")
     if explicit is not None:
         return explicit
 
@@ -65,6 +66,12 @@ def _anchor_view(ctx, cfg) -> str | float:
 class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
+    DEFAULTS = {
+        "lcm": False, "from_reference": {}, "controlnet": {},
+        "negative": vocabulary.NEGATIVE, "lora_strength": 1.2, "seed": 1234,
+        "timeout": 1800, "per_view": False, "candidates": 1,
+        "batch_candidates": True, "width": 1024, "height": 1024,
+    }
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     produces = frozenset({"canonical", "canonicals"})
 
@@ -75,22 +82,22 @@ class CanonicalStage(Stage):
         if not client.alive():
             raise RuntimeError("ComfyUI is not running — start it with ./start.sh")
 
-        default_style = "pixel art, game sprite, side view, plain flat background"
+        default_style = vocabulary.DEFAULT_STYLE
         style = ctx.config.get("style", default_style)
         hint = ctx.rig().prompt_hint
         bg = ctx.config.get("background") or {}
         backdrop = None if opt(bg, "enabled", True) is False else opt(
-            bg, "colour", comfy.BACKDROP)
+            bg, "colour", vocabulary.BACKDROP)
         prompt = cfg.get("prompt") or ", ".join(
             p for p in (subject, hint, style,
-                        comfy.backdrop_prompt(backdrop) if backdrop else "") if p)
-        lcm = bool(opt(cfg, "lcm", False))
+                        vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
+        lcm = bool(cfg["lcm"])
 
         # A reference may shape the anchor itself, not just the frames derived
         # from it. Without this the canonical is generated from the prompt
         # alone, so "here is my character, build a sheet of it" cannot work.
         lib = ctx.references()
-        from_ref = opt(cfg, "from_reference", {}) or {}
+        from_ref = cfg["from_reference"] or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
         def _prepare(view: float) -> None:
@@ -152,7 +159,7 @@ class CanonicalStage(Stage):
             )
         guide = skeletons[_idx] if _idx < len(skeletons) else (skeletons[0] if skeletons else None)
         depth = depthmaps[_idx] if _idx < len(depthmaps) else (depthmaps[0] if depthmaps else None)
-        cn = opt(cfg, "controlnet", {})
+        cn = cfg["controlnet"]
         use_control = bool(opt(cn, "enabled", True)) and (guide or depth)
 
         control_names: dict = {}
@@ -186,11 +193,11 @@ class CanonicalStage(Stage):
                 g,
                 prompt=prompt,
                 negative=", ".join(p for p in (
-                    opt(cfg, "negative", comfy.NEGATIVE),
-                    comfy.BACKDROP_NEGATIVE if backdrop else "",
+                    cfg["negative"],
+                    vocabulary.BACKDROP_NEGATIVE if backdrop else "",
                     # Naming the failure is what stops the guide being drawn.
-                    comfy.POSE_NEGATIVE if control_names.get("pose") else "") if p),
-                lora_strength=opt(cfg, "lora_strength", 1.2),
+                    vocabulary.POSE_NEGATIVE if control_names.get("pose") else "") if p),
+                lora_strength=cfg["lora_strength"],
                 lcm=lcm,
                 models=ctx.config.get("models") or {},
             )
@@ -224,7 +231,7 @@ class CanonicalStage(Stage):
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=uploads[exemplar.path]), 0),
                     weight=refs_mod.style_weight(
-                        [exemplar], opt(cfg, "style_weight", None)),
+                        [exemplar], cfg.get("style_weight")),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
                     ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
@@ -251,14 +258,14 @@ class CanonicalStage(Stage):
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
 
-        base_seed = opt(cfg, "seed", 1234)
-        timeout = opt(cfg, "timeout", 1800)
+        base_seed = cfg["seed"]
+        timeout = cfg["timeout"]
 
     # One anchor per view, or the single front anchor as a fallback. A rear
     # frame conditioned on a front anchor inherits the front's silhouette,
     # which is what makes a back view come out with a face on it.
         _entries_all = ctx.artifacts.get("pose_frames") or []
-        if bool(opt(cfg, "per_view", False)) and _entries_all:
+        if bool(cfg["per_view"]) and _entries_all:
             views = [float((e or {}).get("yaw", 0.0)) for e in _entries_all]
         else:
             views = [want_view]
@@ -271,22 +278,22 @@ class CanonicalStage(Stage):
             if len(views) > 1:
                 print(f"   -- anchor {vi + 1}/{len(views)} at {view:g}deg")
             _prepare(view)
-            wanted = max(1, int(opt(cfg, "candidates", 1)))
+            wanted = max(1, int(cfg["candidates"]))
             images: list[bytes] = []
 
-            if bool(opt(cfg, "batch_candidates", True)) and wanted > 1:
+            if bool(cfg["batch_candidates"]) and wanted > 1:
                 g, model, pos, neg, vae = build()
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
-                    width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                    width=cfg["width"], height=cfg["height"],
                     batch=wanted,
                     seed=base_seed,
                     steps=opt(cfg, "steps", 8 if lcm else 25),
                     cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
                     lcm=lcm,
                     denoise=1.0,
-                    sampler=opt(cfg, "sampler", None),
-                    scheduler=opt(cfg, "scheduler", None),
+                    sampler=cfg.get("sampler"),
+                    scheduler=cfg.get("scheduler"),
                     prefix=f"{ctx.run_id}_canonical",
                 )
                 print(f"   {wanted} candidates as one batch")
@@ -297,15 +304,15 @@ class CanonicalStage(Stage):
                 g, model, pos, neg, vae = build()
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
-                    width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                    width=cfg["width"], height=cfg["height"],
                     batch=1,
                     seed=base_seed + n,
                     steps=opt(cfg, "steps", 8 if lcm else 25),
                     cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
                     lcm=lcm,
                     denoise=1.0,
-                    sampler=opt(cfg, "sampler", None),
-                    scheduler=opt(cfg, "scheduler", None),
+                    sampler=cfg.get("sampler"),
+                    scheduler=cfg.get("scheduler"),
                     prefix=f"{ctx.run_id}_canonical{n:02d}",
                 )
                 images += client.generate(g.build(), timeout=timeout)

@@ -17,8 +17,13 @@ def _encode(value: Any) -> dict:
     try:
         json.dumps(value)
         return {"type": "json", "value": value}
-    except TypeError:
-        return {"type": "repr", "value": repr(value)}
+    except TypeError as e:
+        # Storing repr() here would hand a resumed run a string where a stage
+        # expects an object. Scratch keys are already filtered, so this is a bug.
+        raise TypeError(
+            f"artifact {type(value).__name__} cannot be persisted, so the run "
+            f"would not be resumable. Prefix the key with '_' if it is scratch."
+        ) from e
 
 
 def _decode(entry: dict) -> Any:

@@ -14,6 +14,7 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 @register
 class ExportStage(Stage):
     name = "export"
+    DEFAULTS = {"scale": 1}
     resource = Resource.CPU
     requires = frozenset({"pixel_frames"})
     produces = frozenset({"sheet"})
@@ -45,7 +46,7 @@ class ExportStage(Stage):
                  row * cell_h + (cell_h - im.height) // 2),
             )
 
-        scale = opt(cfg, "scale", 1)
+        scale = cfg["scale"]
         if scale > 1:
             sheet = sheet.resize(
                 (sheet.width * scale, sheet.height * scale), Image.Resampling.NEAREST

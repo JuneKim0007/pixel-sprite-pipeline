@@ -39,6 +39,11 @@ def _one_frame(args: tuple) -> str:
 class PaletteStage(Stage):
     name = "palette"
     resource = Resource.CPU
+    DEFAULTS = {
+        "size": 12, "factor": 8, "reduce": "median", "alpha_tolerance": 14,
+        "upscale": 1, "source": "extract", "file": "", "clip_tolerance": 32.0,
+        "dither": False, "match": "weighted", "phase": "per_frame",
+    }
     requires = frozenset({"frames", "canonical"})
     optional = frozenset({"soft_frames"})
     produces = frozenset({"palette", "pixel_frames"})
@@ -51,11 +56,11 @@ class PaletteStage(Stage):
         frames: list[Path] = ctx.artifacts.get("soft_frames") or ctx.require("frames")
         outdir = ctx.stage_dir("palette")
 
-        size = opt(cfg, "size", 12)
-        factor = opt(cfg, "factor", 8)
-        reduce = opt(cfg, "reduce", "median")
-        alpha_tol = opt(cfg, "alpha_tolerance", 14)
-        upscale = opt(cfg, "upscale", 1)
+        size = cfg["size"]
+        factor = cfg["factor"]
+        reduce = cfg["reduce"]
+        alpha_tol = cfg["alpha_tolerance"]
+        upscale = cfg["upscale"]
         pal_path = outdir / "palette.hex"
 
         # If the prompt named the backdrop, the keyer knows what to remove
@@ -71,9 +76,9 @@ class PaletteStage(Stage):
         # Either reuse a palette you already committed to, or derive one from
         # the canonical sprite. Reuse is what keeps separate runs of the same
         # character on-model.
-        source = opt(cfg, "source", "extract")
+        source = cfg["source"]
         if source == "file":
-            ref = opt(cfg, "file", "")
+            ref = cfg["file"]
             if not ref:
                 raise ValueError(
                     "palette.source is 'file' but palette.file is not set. "
@@ -87,19 +92,19 @@ class PaletteStage(Stage):
         else:
             palette = self._extract_from_subject(
                 canonical, size, factor, reduce, alpha_tol, key_colour,
-                float(opt(cfg, "clip_tolerance", 32.0)))
+                float(cfg["clip_tolerance"]))
             print(f"   extracted {len(palette)} colours from the canonical's subject")
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
         # Defaults chosen by measurement, not by taste: median beat mode 100%
         # to 70% on structural accuracy, because anti-aliased input makes
         # almost every pixel unique and the most frequent one arbitrary.
-        dither = bool(opt(cfg, "dither", False))
+        dither = bool(cfg["dither"])
         # How "nearest colour" is decided. Only matters when a palette is
         # imposed rather than extracted — an extracted palette already came
         # from these pixels, so every metric agrees.
-        match = str(opt(cfg, "match", "weighted"))
-        phase_mode = opt(cfg, "phase", "per_frame")
+        match = str(cfg["match"])
+        phase_mode = cfg["phase"]
         shared_phase = None
         if phase_mode == "locked":
             arr = np.asarray(Image.open(canonical).convert("RGB"))
@@ -107,7 +112,7 @@ class PaletteStage(Stage):
             print(f"   grid phase locked to the canonical at {shared_phase}")
 
         # Only the clipped reducer reads this; harmless for the others.
-        tolerance = float(opt(cfg, "clip_tolerance", 32.0))
+        tolerance = float(cfg["clip_tolerance"])
 
         jobs = [
             (
@@ -117,7 +122,9 @@ class PaletteStage(Stage):
             )
             for src in frames
         ]
-        workers = min(opt(cfg, "workers", os.cpu_count() or 4), len(jobs)) or 1
+        compute = ctx.config.get("compute") or {}
+        wanted = opt(compute, "cpu_workers", opt(cfg, "workers", os.cpu_count() or 4))
+        workers = max(1, min(int(wanted), len(jobs)))
         if workers > 1:
             with ProcessPoolExecutor(max_workers=workers) as pool:
                 done = list(pool.map(_one_frame, jobs))

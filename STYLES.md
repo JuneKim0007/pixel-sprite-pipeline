@@ -36,9 +36,9 @@ deterministic: frames cannot drift in colour.
 
 A sheet is either one file or a directory. Both are discovered.
 
-    styles/base_pixel.yaml              a look that is only words and numbers
+    library/styles/base_pixel.yaml              a look that is only words and numbers
 
-    styles/retro_jrpg/
+    library/styles/retro_jrpg/
       style.yaml                        the same document
       context/exemplars/*.png           dropped in — no YAML edit needed
       context/notes.md                  prose, read by the orchestrator

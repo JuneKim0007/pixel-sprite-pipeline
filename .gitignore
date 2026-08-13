@@ -2,32 +2,27 @@
 # and 21 of this project's 21 GB live here.
 ComfyUI/
 
-# Reference art and the prepared character batches. Local only - these are
-# source images, not code, and a public repo has no business redistributing
-# them. overnight/README.md stays tracked; it is documentation.
-inputs/
-overnight/char_*/
-
-# Generated. Runs are reproducible from their manifest; keeping them would
+# Derived. Runs are reproducible from their manifest; keeping them would
 # make every generation a commit.
 out/
-exports/
-logs/
+
+# Operational state, not source. The queue examples are, and git cannot
+# re-include a path whose parent directory is excluded — hence the /* form.
+var/*
+!var/queue/
+var/queue/*
+!var/queue/examples/
+
+# Reference art. Local only - these are source images, not code, and a
+# public repo has no business redistributing them.
+library/refs/
+
 .run/
-
-# Queue state is a live state machine, not source. The examples are.
-queue/pending/
-queue/running/
-queue/done/
-queue/failed/
-queue/held/
-
-# Subagent reports — regenerated on demand.
-audit/
 
 __pycache__/
 *.py[cod]
 .DS_Store
+.ruff_cache/
 
 # Mirrored side references cached beside their source.
 *__mirror.png

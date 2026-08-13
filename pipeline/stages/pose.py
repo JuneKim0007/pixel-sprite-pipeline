@@ -30,7 +30,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
     Shared with the rig editor, whose own copy of this loop had drifted.
     """
     cfg = ctx.stage_config("pose")
-    size = opt(cfg, "size", 1024)
+    size = cfg["size"]
     rig = ctx.rig()
 
     # Hoisted: this used to reload every prop file once per entry.
@@ -38,7 +38,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
     if props and not props_mod.wanted(ctx):
         props = []
 
-    fill = float(opt(cfg, "fill", 0.0) or 0.0)
+    fill = float(cfg["fill"])
     thickness = cfg.get("thickness")
     written: list[Path] = []
 
@@ -60,8 +60,8 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
             entry["pose"] = props_mod.pull_second_hand(props, entry["pose"], rig)
         keypoints = project(
             entry["pose"], entry["yaw"],
-            depth_scale=opt(cfg, "depth_scale", 1.0),
-            lateral_scale=opt(cfg, "lateral_scale", 1.0),
+            depth_scale=cfg["depth_scale"],
+            lateral_scale=cfg["lateral_scale"],
             fill=fill,
             rig=rig,
         )
@@ -79,6 +79,11 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
 class PoseStage(Stage):
     name = "pose"
     resource = Resource.CPU
+    DEFAULTS = {
+        "size": 1024, "fill": 0.0, "depth_scale": 1.0, "lateral_scale": 1.0,
+        "views": "", "view": "side", "source": "library", "symmetric": False,
+        "name": "idle", "llm": {},
+    }
     # `pose_frames` is the body-space data behind the images, published so the
     # optional depth stage can render a second view of the same pose without
     # re-deriving it from pixels.
@@ -86,7 +91,7 @@ class PoseStage(Stage):
 
     def run(self, ctx: Context) -> dict[str, Any]:
         cfg = ctx.stage_config("pose")
-        size = opt(cfg, "size", 1024)
+        size = cfg["size"]
         outdir = ctx.stage_dir("pose")
         # The rig decides joint layout, bone hierarchy and which ControlNet
         # channel the skeleton can legitimately be sent to.
@@ -107,7 +112,7 @@ class PoseStage(Stage):
         # Views can follow the references instead of a fixed list. With art
         # shot from arbitrary angles, generating the four textbook views means
         # three of them have no evidence behind them.
-        if specs == "from_references" or opt(cfg, "views", "") == "from_references":
+        if specs == "from_references" or cfg["views"] == "from_references":
             specs = self._views_from_references(ctx)
         entries: list[dict[str, Any]] = []
 
@@ -131,14 +136,14 @@ class PoseStage(Stage):
                             f"{len(got)} frame(s)"
                         )
                     got = [got[pick]]
-                yaw = resolve_view(merged.get("view", "side"))
+                yaw = resolve_view(merged["view"])
                 entries += [{"pose": p, "yaw": yaw, "spec": i} for p in got]
         else:
             got = self._resolve(ctx, cfg, wanted=cfg.get("frames"))
             if got and isinstance(got[0], dict) and "annotation" in got[0]:
                 entries = [{**g, "spec": 0} for g in got]
             else:
-                yaw = resolve_view(opt(cfg, "view", "side"))
+                yaw = resolve_view(cfg["view"])
                 entries = [{"pose": p, "yaw": yaw, "spec": 0} for p in got]
 
         written: list[Path] = []
@@ -159,7 +164,7 @@ class PoseStage(Stage):
         ]
         (outdir / "pose.json").write_text(
             json.dumps(
-                {"source": opt(cfg, "source", "library"),
+                {"source": cfg["source"],
                  "rig": rig.name,
                  "rig_choice": ctx.artifacts.get("_rig_record", {}),
                  "skeleton_control": rig.skeleton_control,
@@ -171,7 +176,7 @@ class PoseStage(Stage):
         # A symmetric T-pose puts two horizontal sticks at shoulder height, and
         # a model told the subject is holding a sword will happily read those
         # sticks AS swords. Measured: arms came back replaced by blades.
-        if opt(cfg, "symmetric", False):
+        if cfg["symmetric"]:
             words = f"{ctx.config.get('subject', '')} {ctx.config.get('style', '')}".lower()
             elongated = [w for w in ("sword", "staff", "spear", "bow", "axe", "wand", "rifle")
                          if w in words]
@@ -236,7 +241,7 @@ class PoseStage(Stage):
         return out
 
     def _resolve(self, ctx: Context, cfg: dict, wanted: int | None) -> list[dict]:
-        source = opt(cfg, "source", "library")
+        source = cfg["source"]
         if not ctx.rig().joints:
             # One placeholder per requested view; there is no pose to resolve.
             return [{}]
@@ -247,7 +252,7 @@ class PoseStage(Stage):
             # pose, so a single frame is repeated across the requested views.
             return [rig_lib.tpose(
                 ctx.rig(),
-                symmetric=bool(opt(cfg, "symmetric", False)),
+                symmetric=bool(cfg["symmetric"]),
             )]
         if source == "library":
             return self._from_library(ctx, cfg, wanted)
@@ -261,19 +266,14 @@ class PoseStage(Stage):
     # ------------------------------------------------------------- backends
 
     def _from_library(self, ctx: Context, cfg: dict, limit: int | None) -> list[dict]:
-        pose_name = opt(cfg, "name", "idle")
-        path = ctx.root / "poses" / f"{pose_name}.json"
-        if not path.exists():
-            options = sorted(p.stem for p in (ctx.root / "poses").glob("*.json"))
-            raise FileNotFoundError(
-                f"no pose '{pose_name}'. Available: {', '.join(options) or '(none)'}. "
-                f"Add one in tools/make_poses.py, or set pose.source: llm."
-            )
+        from ..looks import poses as pose_lib
 
-        data = json.loads(path.read_text())
+        pose_name = cfg["name"]
+        data = pose_lib.load(ctx.root, pose_name)
         if data.get("space") != "body":
             raise ValueError(
-                f"{path} is in legacy screen space. Re-run tools/make_poses.py."
+                f"pose '{pose_name}' is in legacy screen space. "
+                f"Re-run tools/make_poses.py."
             )
         rig = ctx.rig()
         base = {k: list(v) for k, v in rig.neutral.items()}
@@ -283,7 +283,7 @@ class PoseStage(Stage):
     def _from_llm(self, ctx: Context, cfg: dict, n_frames: int) -> list[dict]:
         from ..refs.llm import Ollama, generate_pose
 
-        llm_cfg = opt(cfg, "llm", {}) or {}
+        llm_cfg = cfg["llm"]
         action = cfg.get("action") or cfg.get("name") or "idle standing"
 
         # Generated poses are cached as ordinary library files, so a sequence

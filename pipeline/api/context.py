@@ -7,10 +7,11 @@ from pathlib import Path
 import ruamel.yaml
 
 from ..shared import settings
+from ..shared import paths
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC = ROOT / "web"
-CONFIGS = ROOT / "configs"
+CONFIGS = paths.resolve(ROOT, "configs")
 
 _RT = ruamel.yaml.YAML()
 _RT.preserve_quotes = True

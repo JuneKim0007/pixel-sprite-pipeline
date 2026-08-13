@@ -13,43 +13,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 from ..shared.errors import Unavailable
+from ..shared.settings import DEFAULT_GLOBAL
 
 Link = list  # [node_id, slot]
 
-CKPT = "sd_xl_base_1.0.safetensors"
-PIXEL_LORA = "pixel-art-xl.safetensors"
-LCM_LORA = "lcm-lora-sdxl.safetensors"
-VAE = "sdxl_vae_fp16fix.safetensors"
-CONTROLNET = "controlnet-union-sdxl-promax.safetensors"
-IPADAPTER = "ip-adapter_sdxl_vit-h.safetensors"
-CLIP_VISION = "CLIP-ViT-H-14.safetensors"
-
-NEGATIVE = (
-    "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, "
-    "realistic, 3d render, watermark, signature, text, extra limbs, "
-    "deformed, low contrast, muddy colors"
-)
-
-BACKDROP = "#FF00FF"
-BACKDROP_TERMS = (
-    "solid flat {colour} chroma key background, uniform background colour, "
-    "no shadow, no gradient, no ground plane"
-)
-BACKDROP_NEGATIVE = (
-    "cast shadow, drop shadow, ground shadow, floor, ground plane, vignette, "
-    "background gradient, studio lighting, environment, scenery, backdrop "
-    "texture"
-)
-
-
-def backdrop_prompt(colour: str | None) -> str:
-    return BACKDROP_TERMS.format(colour=colour or BACKDROP)
-
-
-POSE_NEGATIVE = (
-    "skeleton, skull, bones, bony, undead, lich, ribcage, x-ray, anatomical "
-    "diagram, stick figure, wireframe, rainbow limbs, mannequin"
-)
+def model_name(models: dict, key: str) -> str:
+    return str(models.get(key) or DEFAULT_GLOBAL["models"][key])
 
 
 class ComfyError(Unavailable):
@@ -212,10 +181,10 @@ def base_graph(
 
     models = models or {}
     ckpt = g.add("CheckpointLoaderSimple",
-                 ckpt_name=models.get("checkpoint") or CKPT)
+                 ckpt_name=model_name(models, "checkpoint"))
     lora = g.add(
         "LoraLoader",
-        lora_name=models.get("pixel_lora") or PIXEL_LORA,
+        lora_name=model_name(models, "pixel_lora"),
         strength_model=lora_strength,
         strength_clip=lora_strength,
         model=g.out(ckpt, 0),
@@ -240,7 +209,7 @@ def base_graph(
     if lcm:
         lcm_node = g.add(
             "LoraLoader",
-            lora_name=LCM_LORA,
+            lora_name=model_name(models, "lcm_lora"),
             strength_model=1.0, strength_clip=1.0,
             model=model, clip=clip,
         )
@@ -249,7 +218,7 @@ def base_graph(
     pos = g.add("CLIPTextEncode", text=prompt, clip=clip)
     neg = g.add("CLIPTextEncode", text=negative, clip=clip)
     # SDXL's baked VAE overflows in fp16 and can decode to black on MPS.
-    vae = g.add("VAELoader", vae_name=models.get("vae") or VAE)
+    vae = g.add("VAELoader", vae_name=model_name(models, "vae"))
 
     return model, g.out(pos, 0), g.out(neg, 0), g.out(vae, 0)
 
@@ -260,8 +229,8 @@ def apply_ipadapter(
     ipadapter: str | None = None,
 ) -> Link:
     ip_model = g.add("IPAdapterModelLoader",
-                     ipadapter_file=ipadapter or IPADAPTER)
-    clip_vision = g.add("CLIPVisionLoader", clip_name=CLIP_VISION)
+                     ipadapter_file=ipadapter or DEFAULT_GLOBAL["models"]["ipadapter"])
+    clip_vision = g.add("CLIPVisionLoader", clip_name=DEFAULT_GLOBAL["models"]["clip_vision"])
     node = g.add(
         "IPAdapterAdvanced",
         model=model,
@@ -285,7 +254,7 @@ def apply_controlnet(
     controlnet: str | None = None,
 ) -> tuple[Link, Link]:
 
-    loader = g.add("ControlNetLoader", control_net_name=controlnet or CONTROLNET)
+    loader = g.add("ControlNetLoader", control_net_name=controlnet or DEFAULT_GLOBAL["models"]["controlnet"])
     cn = g.out(loader, 0)
     if union_type and union_type != "auto":
         cn = g.out(g.add("SetUnionControlNetType", control_net=cn, type=union_type), 0)

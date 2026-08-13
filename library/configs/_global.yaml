@@ -1,9 +1,9 @@
 # Machine-level defaults. Every pipeline inherits these unless it
 # overrides them. Edit here to change all pipelines at once.
 paths:
-  input_dir: inputs
+  input_dir: library/refs
   output_dir: out/runs
-  download_dir: exports
+  download_dir: out/exports
 comfy:
   host: http://127.0.0.1:8188
 compute:

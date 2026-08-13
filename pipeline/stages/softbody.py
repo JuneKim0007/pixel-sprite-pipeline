@@ -27,6 +27,7 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 @register
 class SoftBodyStage(Stage):
     name = "softbody"
+    DEFAULTS = {"nodes": [], "fps": 12.0, "loop": True, "preroll_cycles": 2}
     resource = Resource.CPU
     requires = frozenset({"frames", "pose_frames"})
     produces = frozenset({"soft_frames"})
@@ -38,14 +39,14 @@ class SoftBodyStage(Stage):
         entries: list[dict] = ctx.require("pose_frames")
         outdir = ctx.stage_dir("softbody")
 
-        specs = opt(cfg, "nodes", []) or []
+        specs = cfg["nodes"] or []
         nodes = [SoftNode.from_config(s) for s in specs]
 
         tracks = build_tracks(
             nodes, entries,
-            fps=opt(cfg, "fps", 12.0),
-            loop=opt(cfg, "loop", True),
-            preroll=opt(cfg, "preroll_cycles", 2),
+            fps=cfg["fps"],
+            loop=cfg["loop"],
+            preroll=cfg["preroll_cycles"],
             depth_scale=opt(pose_cfg, "depth_scale", 1.0),
             lateral_scale=opt(pose_cfg, "lateral_scale", 1.0),
         )

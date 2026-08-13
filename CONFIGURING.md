@@ -177,7 +177,7 @@ about how it should look.
 | `pokemon_mono` | limited palette, single-creature framing |
 | `dark_fantasy` | muted, high contrast |
 
-To make your own, copy the closest one to `styles/<yourname>/style.yaml` and
+To make your own, copy the closest one to `library/styles/<yourname>/style.yaml` and
 change what disagrees. `extends:` merges the rest.
 
 ---

@@ -34,7 +34,7 @@ wrong — fix that before spending a night on it.
 ### 1. Drop the references in
 
 ```bash
-cp ~/wherever/*.png inputs/
+cp ~/wherever/*.png library/refs/
 ```
 
 **Weapon-free is worth arranging.** Identity runs through IP-Adapter at 0.80
@@ -82,7 +82,7 @@ subject: >
 
 references:
   identity:
-    - {path: inputs/archer.png, view: front}
+    - {path: library/refs/archer.png, view: front}
     # A rear reference nearly doubles the identity weight on rear frames:
     # 0.45 without, 0.85 with. Label it honestly - a front image labelled
     # `rear` is worse than no rear reference at all.
@@ -150,7 +150,7 @@ wrong about and the most expensive to leave wrong.
 python3 autopilot.py --status
 ```
 
-Failed jobs keep an `.error.txt` beside them in `queue/failed/`. The Queue tab
+Failed jobs keep an `.error.txt` beside them in `var/queue/failed/`. The Queue tab
 shows the same thing with a retry button per job.
 
 The two failure modes that look alike and are not:

@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from pipeline.shared import paths  # noqa: E402
+
 HOST = "http://127.0.0.1:8000"
 PASS, FAIL = 0, 0
 
@@ -145,6 +147,12 @@ def test_pipeline() -> None:
     print("\nartifacts manifest")
     check("scratch keys stay out of the manifest", _manifest_excludes_scratch)
     check("rig resolves once and is cached", _rig_cached)
+    check("an unpersistable artifact is refused, not repr'd", _unpersistable_artifact_is_refused)
+
+    print("\nstage defaults")
+    check("no stage restates a default it declares", _defaults_declared_once)
+    check("stage_config layers DEFAULTS under the config", _stage_config_layers_defaults)
+    check("the schema shows the defaults stages declare", _schema_shows_declared_defaults)
 
     print("\nrig editor")
     check("an editor save re-renders exactly as the stage would", _editor_matches_stage)
@@ -155,6 +163,7 @@ def test_pipeline() -> None:
     check("every module in the package imports", _module_layering)
     check("failures carry their own status", _error_taxonomy)
     check("every registry answers the same way", _one_registry)
+    check("the route table answers like a registry", _route_table)
     check("every layer field carries an explanation", _definitive_layers)
     check("a stack runs, and a broken order is reported not blocked", _definitive_stack)
     check("a stack resumes from the longest known prefix", _editor_limits)
@@ -486,7 +495,8 @@ def _one_registry() -> None:
 
     # A file that will not parse is reported, not omitted. This is the failure
     # that motivated the whole change.
-    bad = ROOT / "palettes" / "_registry_test.hex"
+    from pipeline.shared import paths as _paths
+    bad = _paths.resolve(ROOT, "palettes") / "_registry_test.hex"
     bad.write_text("// name: Broken\nnot a hex value\n")
     try:
         reg = palettes.registry(ROOT)
@@ -525,12 +535,156 @@ def _one_registry() -> None:
 
     from pipeline.shared.registry import Scanned
 
-    probe = Registry("probe", Scanned(ROOT / "palettes", ["**/*.hex"], counted))
+    from pipeline.shared import paths as _paths
+
+    probe = Registry("probe", Scanned(_paths.resolve(ROOT, "palettes"), ["**/*.hex"], counted))
     probe.all()
     first = calls["n"]
     probe.all()
     _assert(calls["n"] == first,
             f"the registry reparsed unchanged files ({first} then {calls['n']})")
+
+
+def _unpersistable_artifact_is_refused() -> None:
+    """A manifest must never hand a resumed run repr() of an object."""
+    import tempfile
+
+    from pipeline.orchestration import artifacts as artifacts_io
+
+    class Opaque:
+        pass
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        try:
+            artifacts_io.save(out, {"thing": Opaque()}, [])
+        except TypeError as e:
+            _assert("resumable" in str(e), f"unhelpful message: {e}")
+        else:
+            raise AssertionError("an unpersistable artifact was written anyway")
+
+        # A scratch key is the supported way to keep one out of the manifest.
+        artifacts_io.save(out, {"_thing": Opaque(), "n": 1}, [])
+        loaded, _ = artifacts_io.load(out)
+        _assert(loaded == {"n": 1}, f"scratch key leaked into the manifest: {loaded}")
+
+
+def _defaults_declared_once() -> None:
+    """A stage must not restate a default it already declares in DEFAULTS."""
+    import inspect
+    import re
+
+    from pipeline.generation.stage import available
+
+    offenders = []
+    for name, cls in sorted(available().items()):
+        declared = set(getattr(cls, "DEFAULTS", {}) or {})
+        if not declared:
+            continue
+        src = inspect.getsource(inspect.getmodule(cls))
+        for key in re.findall(r'opt\(\s*cfg\s*,\s*"([^"]+)"\s*,', src):
+            if key in declared:
+                offenders.append(f"{name}.{key}")
+    _assert(not offenders,
+            f"inline defaults shadowing DEFAULTS: {sorted(set(offenders))}")
+
+
+def _stage_config_layers_defaults() -> None:
+    from pipeline.generation.stage import Context
+
+    ctx = Context(root=ROOT, outdir=ROOT,
+                  config={"pose": {"size": None, "fill": 0.8}})
+    cfg = ctx.stage_config("pose")
+    _assert(cfg["size"] == 1024, "a blank YAML key did not fall back to DEFAULTS")
+    _assert(cfg["fill"] == 0.8, "an explicit value was overwritten by a default")
+    _assert(cfg["view"] == "side", "an unset key did not get its default")
+    _assert(ctx.stage_config("nosuchstage") == {},
+            "an unregistered stage should have no defaults")
+
+    # Mutable defaults must not be shared between reads.
+    first = ctx.stage_config("pose")
+    first["llm"]["host"] = "poisoned"
+    _assert("host" not in ctx.stage_config("pose")["llm"],
+            "a mutable default leaked between stage_config calls")
+
+
+def _schema_shows_declared_defaults() -> None:
+    from pipeline import stages  # noqa: F401
+    from pipeline.generation.schema import fields_for
+    from pipeline.generation.stage import available
+
+    by_path = {f["path"]: f for f in fields_for(None)}
+    missing = []
+    for name, cls in sorted(available().items()):
+        for key, value in (getattr(cls, "DEFAULTS", {}) or {}).items():
+            field = by_path.get(f"{name}.{key}")
+            if field is None:
+                continue
+            if field.get("default") != value:
+                missing.append(f"{name}.{key}")
+    _assert(not missing, f"schema does not show the declared default for: {missing}")
+    _assert(by_path["pose.size"]["default"] == 1024,
+            "pose.size lost its default in the schema")
+
+
+def _route_table() -> None:
+    """The router is a Registry now, so it must answer like the others."""
+    from pipeline import api
+    from pipeline.api.routing import BaseRouter, get
+    from pipeline.shared import Conflict, Invalid, NotFound
+
+    table = api.table
+    before = len(table)
+    _assert(before > 0, "the route table is empty")
+
+    try:
+        table.find("POST", "/api/schema")
+    except Invalid as e:
+        _assert("GET" in str(e), f"the wrong-method error did not name GET: {e}")
+    else:
+        raise AssertionError("POST to a GET-only route was accepted")
+
+    try:
+        table.find("GET", "/api/no_such_route")
+    except NotFound:
+        pass
+    else:
+        raise AssertionError("an unknown route was accepted")
+
+    # A router that imports after the table was first read must still appear.
+    # This is the emptiness-caching bug the registry docstring records.
+    class Late(BaseRouter):
+        prefix = "/_test"
+
+        @get("/late", "registered after the first read")
+        def late(self, req):
+            return {}
+
+    try:
+        _assert(len(table) == before + 1,
+                "the table cached its contents past a later router")
+        _assert(table.find("GET", "/_test/late") is not None, "late route missing")
+    finally:
+        BaseRouter.REGISTRY.remove(Late)
+
+    # Two routers claiming one path is a programming error, refused not resolved.
+    class Clash(BaseRouter):
+        prefix = "/api"
+
+        @get("/schema", "duplicate on purpose")
+        def clash(self, req):
+            return {}
+
+    try:
+        len(table)
+    except Conflict as e:
+        _assert("/api/schema" in str(e), f"the conflict did not name the path: {e}")
+    else:
+        raise AssertionError("two routers claimed one path and nothing objected")
+    finally:
+        BaseRouter.REGISTRY.remove(Clash)
+
+    _assert(len(table) == before, "the table did not recover after the conflict")
 
 
 def _response_shapes() -> None:
@@ -974,10 +1128,10 @@ def _annotation_consumed() -> None:
 
 
 def _pose_guard() -> None:
-    from pipeline.generation import comfy
+    from pipeline.looks import vocabulary
 
     for word in ("skeleton", "undead", "stick figure"):
-        _assert(word in comfy.POSE_NEGATIVE, f"'{word}' missing from the pose guard")
+        _assert(word in vocabulary.POSE_NEGATIVE, f"'{word}' missing from the pose guard")
 
     import inspect
 
@@ -1032,24 +1186,24 @@ def _proportions_reject() -> None:
 
 def _rig_free() -> None:
     from pipeline.geometry import rigs
-    from pipeline.stages.frames import _view_words
+    from pipeline.looks.vocabulary import view_words
 
     none = rigs.get("none")
     _assert(not none.joints, "rig 'none' should have no joints")
     _assert(none.skeleton_control is None, "rig 'none' should send no skeleton")
     _assert(none.depth_control is None, "rig 'none' should send no depth")
-    _assert("front" in _view_words(0), "0 degrees should read as a front view")
-    _assert("rear" in _view_words(180), "180 degrees should read as a rear view")
+    _assert("front" in view_words(0), "0 degrees should read as a front view")
+    _assert("rear" in view_words(180), "180 degrees should read as a rear view")
 
 
 def _queue(tmp: Path):
     from pipeline.orchestration import queue as q
 
-    (tmp / "configs").mkdir(parents=True, exist_ok=True)
+    (tmp / "library" / "configs").mkdir(parents=True, exist_ok=True)
     for name in ("knight_attack", "character_sheet", "_global"):
-        src = ROOT / "configs" / f"{name}.yaml"
+        src = paths.resolve(ROOT, "configs") / f"{name}.yaml"
         if src.exists():
-            (tmp / "configs" / f"{name}.yaml").write_text(src.read_text())
+            (tmp / "library" / "configs" / f"{name}.yaml").write_text(src.read_text())
     return q.Queue(tmp), q
 
 
@@ -1290,10 +1444,10 @@ def test_api() -> None:
     ))
 
     print("\nconfig round-trip")
-    before = (ROOT / "configs/knight_attack.yaml").read_text()
+    before = (paths.resolve(ROOT, "configs") / "knight_attack.yaml").read_text()
     comments = before.count("#")
     post("/api/config?name=knight_attack", {"config": {"canonical": {"seed": 4242}}}, "PUT")
-    after = (ROOT / "configs/knight_attack.yaml").read_text()
+    after = (paths.resolve(ROOT, "configs") / "knight_attack.yaml").read_text()
     check("saving preserves comments", lambda: _assert(
         after.count("#") == comments, f"{comments} -> {after.count('#')} comment lines",
     ))
@@ -1306,7 +1460,7 @@ def test_api() -> None:
         "an unrunnable order was accepted",
     ))
     check("good config survived the rejection", lambda: _assert(
-        "stages: [pose" in (ROOT / "configs/knight_attack.yaml").read_text(),
+        "stages: [pose" in (paths.resolve(ROOT, "configs") / "knight_attack.yaml").read_text(),
         "a rejected save damaged the file",
     ))
 

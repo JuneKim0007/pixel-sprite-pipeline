@@ -45,43 +45,67 @@ like.
 
 ## Layout
 
-    pipeline/          the library. Stages, rigs, references, styles.
-      stage.py         Stage base class, Context, the `opt()` config reader
-      runner.py        builds and validates the execution plan
+Three lifecycles, three top-level directories. Each gets one backup and
+ignore policy, which is the whole reason they are separated.
+
+    library/           authored and versioned. Yours.
+      configs/         pipelines. `_global.yaml` is machine defaults;
+                       experiments/ holds the A/B fixtures.
+      styles/          the looks. Foldered ones carry their own exemplars,
+                       training data and history.
+      palettes/ poses/ props/
+      refs/            reference art (gitignored, not ours to redistribute)
+    out/               derived and gitignored. Reproducible.
+      runs/<run_id>/   one numbered folder per stage, plus artifacts.json
+      exports/<name>/  finished work, filed by asset
+      scratch/         one-off experiments
+    var/               operational and gitignored. queue/, logs/, overnight/.
+
+    pipeline/          the library, in seven groups
+      shared/          depends on no other group. paths, config, errors,
+                       registry, settings, files, limits
+      generation/      stage.py (Stage, Context), runner.py, schema.py, comfy.py
       stages/          one file per stage: pose, depth, canonical, frames,
                        palette, softbody, export
-      rigs.py          body plans. 18 of them; the humanoid layout is
-                       OpenPose protocol and its joint order must not change
-      bodyspace.py     (lateral, depth, height) -> screen, at any yaw
-      references.py    typed references: identity / style / pose / palette
-      styles.py        style sheets, single-file or foldered
-      stylelog.py      append-only per-style history
-      training.py      what to train a look on, and whether the staged
-                       images will do it
-      pixelize.py      the definitive layer: phase, block reduce, palette
-      queue.py         the filesystem job queue
+      geometry/        rigs (18 body plans; humanoid joint order is OpenPose
+                       protocol and must not change), bodyspace, props, softbody
+      looks/           styles, palettes, poses, vocabulary, stylelog, training
+      refs/            typed references, detection, the Ollama client
+      definitive/      the pixel editor: layers, cache, pixelize
+      orchestration/   queue, artifacts manifest, cooling
+      api/             one router per domain; routing.py is the table
     web/               vanilla JS, no build step. One module per tab.
-    styles/            the looks. Foldered ones carry their own exemplars,
-                       training data and history.
-    configs/           pipelines. `_global.yaml` is machine defaults.
     server.py          stdlib HTTP, no framework
     autopilot.py       drains the queue unattended
 
+Every data directory is named in `pipeline/shared/paths.py` and nowhere else.
+A test enforces it.
+
 ## Adding things
 
-**A config setting** goes in `pipeline/schema.py`. That is not documentation —
-the settings form is generated from it, and a field that is consumed but not
-declared is unreachable in the UI. A test enforces that every declared group is
-reachable; add your group to `ORDER` in `web/js/settings.js`.
+**A config setting** goes in `pipeline/generation/schema.py`. That is not
+documentation — the settings form is generated from it, and a field that is
+consumed but not declared is unreachable in the UI.
+
+**A default** goes in the stage's `DEFAULTS` dict and nowhere else.
+`Context.stage_config` layers it under the config block and `schema.py` reads
+it for display, so one declaration serves both. A test fails the build if a
+stage restates a default it already declares. Defaults that are *computed*
+(`8 if lcm else 25`) cannot be static and stay inline via `opt()`.
 
 **A stage** subclasses `Stage`, declares `requires` / `produces` / `optional`,
 and registers with `@register`. The runner validates the order before anything
 runs, so a stage needing an artifact nothing produces is rejected with an
 explanation rather than crashing halfway.
 
-**Reading config** always goes through `opt(cfg, key, default)`. A blank YAML
-key parses as `None`, and `cfg.get(key, default)` returns that `None` rather
-than the default — this was swept across 67 call sites once already.
+**Reading config** goes through `ctx.stage_config(name)`, which drops blank
+YAML keys so the declared default applies. Reading a bare dict goes through
+`opt(cfg, key, default)` for the same reason: a blank key parses as `None`, and
+`cfg.get(key, default)` hands back that `None` rather than the default.
+
+**Prompt words** go in `pipeline/looks/vocabulary.py`; **model filenames and
+machine settings** go in `pipeline/shared/settings.py`. Those two are the split
+between what a user customises per asset and what they set once per machine.
 
 ## Things that look like bugs and are not
 

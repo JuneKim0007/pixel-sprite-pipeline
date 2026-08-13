@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import shutil
-import urllib.request
+import mimetypes
 from pathlib import Path
 
 from ..shared import files as files_mod
 from ..shared.errors import Invalid
 from .context import ROOT, allowed_roots, download_dir, human_size, input_dir
-from .routing import BaseRouter, get, post
+from .routing import BaseRouter, Raw, get, post
 from .context import runs_dir
 import re
 
@@ -54,10 +53,27 @@ class Files(BaseRouter):
     def fetch(self, req):
         return download(req.body, dry_run=False)
 
-    @get("/file", "stream one file", raw=True)
+    @get("/file", "stream one file")
     def file(self, req):
-        raise NotImplementedError("served by the HTTP layer")
+        p = files_mod.safe_path(req.required("path"), allowed_roots())
+        if not p.is_file():
+            raise FileNotFoundError(req.query("path"))
+        ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+        return Raw(p.read_bytes(), ctype)
 
-    @post("/upload", "receive files", raw=True)
+    @post("/upload", "receive files")
     def upload(self, req):
-        raise NotImplementedError("served by the HTTP layer")
+        if "multipart/form-data" not in req.content_type:
+            raise Invalid("expected multipart/form-data")
+        target = input_dir()
+        saved = []
+        for _, filename, data in files_mod.parse_multipart(req.raw_body,
+                                                           req.content_type):
+            if not filename or not data:
+                continue
+            dst = files_mod.unique_name(target, files_mod.safe_filename(filename))
+            dst.write_bytes(data)
+            saved.append({"name": dst.name, "path": str(dst)})
+        if not saved:
+            raise Invalid("no files in the upload")
+        return {"saved": saved, "dir": str(target)}

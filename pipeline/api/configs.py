@@ -46,7 +46,7 @@ def save_config(name: str, body: dict) -> dict:
     return {"saved": name, "changed": -1}
 
 
-def save_global(body: dict) -> dict:
+def _save_global(body: dict) -> dict:
     path = settings.global_path(ROOT)
     incoming = body.get("config", {}) or {}
     if path.exists():
@@ -123,4 +123,4 @@ class Configs(BaseRouter):
 
     @put("/global", "save those settings")
     def save_global(self, req):
-        return save_global(req.body)
+        return _save_global(req.body)

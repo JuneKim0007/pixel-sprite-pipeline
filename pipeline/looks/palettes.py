@@ -1,6 +1,7 @@
 
 
 from __future__ import annotations
+from ..shared import paths
 
 import json
 from dataclasses import dataclass, field
@@ -62,7 +63,7 @@ def _parse(path: Path, root: Path) -> Palette:
             except ValueError:
                 pass
 
-    rel = path.relative_to(root / "palettes")
+    rel = path.relative_to(paths.resolve(root, "palettes"))
     group = rel.parent.name if rel.parent != Path(".") else "general"
     key = f"{group}/{path.stem}" if group != "general" else path.stem
     return Palette(
@@ -86,7 +87,7 @@ def registry(root: Path) -> Registry[Palette]:
     found = _REGISTRIES.get(root)
     if found is None:
         found = Registry("palette", Scanned(
-            root / "palettes", ["**/*.hex"],
+            paths.resolve(root, "palettes"), ["**/*.hex"],
             lambda path: _entry(path, root), what="palette"))
         _REGISTRIES[root] = found
     return found

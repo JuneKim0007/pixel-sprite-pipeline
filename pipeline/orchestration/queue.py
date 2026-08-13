@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+from ..shared import paths
 
 
 import itertools
@@ -65,7 +66,7 @@ class Job:
 
 class Queue:
     def __init__(self, root: Path) -> None:
-        self.root = root / "queue"
+        self.root = paths.resolve(root, "queue")
         for state in STATES:
             (self.root / state).mkdir(parents=True, exist_ok=True)
 
@@ -172,7 +173,7 @@ def preflight(root: Path, job: Job) -> Preflight:
     problems: list[str] = []
     waiting: list[str] = []
 
-    cfg_path = root / "configs" / f"{job.config}.yaml"
+    cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
     if not job.config:
         problems.append("job has no 'config'")
     elif not cfg_path.exists():

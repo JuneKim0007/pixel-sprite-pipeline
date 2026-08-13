@@ -33,6 +33,7 @@ from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
+from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
 # One definition of which way the anchor faces, shared with the stage that
 # rendered it. Two copies drifted once already.
@@ -44,51 +45,17 @@ def chosen_default(refs) -> float:
     return refs[0].base_weight if refs else 0.85
 
 
-def _facing_negative(yaw: float) -> str:
-    """Words that stop a face being drawn on a view that has none.
-
-    Depth cannot say which way a head points - it renders the head as a
-    capsule, and measured on this rig a front and a rear depth map differ by
-    about 6% across the head band while the two SIDE maps are bit-identical
-    under mirroring. The channel that CAN say it is the OpenPose skeleton,
-    whose face keypoints drop past ~100 degrees, and a standing character sheet
-    turns that channel off because it draws the guide as bones.
-
-    So on a rear frame nothing geometric says "no face" and the model draws one
-    anyway. Naming the failure in the negative is this project's existing
-    answer to exactly that shape of problem - it is how the stick-figure
-    tracing was stopped - and it costs nothing.
-    """
-    yaw %= 360
-    if 135 <= yaw <= 225:
-        return "face, eyes, nose, mouth, facial features, front view"
-    if 100 < yaw < 135 or 225 < yaw < 260:
-        return "both eyes visible, front-facing face"
-    return ""
-
-
-def _view_words(yaw: float) -> str:
-    """Plain-language camera direction, for runs with no control image."""
-    yaw %= 360
-    for limit, words in (
-        (22, "front view, facing the viewer"),
-        (67, "three-quarter front view"),
-        (112, "side view, profile"),
-        (157, "three-quarter rear view"),
-        (202, "rear view, seen from behind"),
-        (247, "three-quarter rear view from the other side"),
-        (292, "side view, profile facing the other way"),
-        (337, "three-quarter front view from the other side"),
-    ):
-        if yaw < limit:
-            return words
-    return "front view, facing the viewer"
-
-
 @register
 class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
+    DEFAULTS = {
+        "ip_adapter": {}, "lcm": False, "controlnet": {},
+        "negative": vocabulary.NEGATIVE, "guard_against_skeletons": True,
+        "guard_against_faces": True, "lora_strength": 1.2,
+        "depth_controlnet": {}, "width": 1024, "height": 1024,
+        "denoise": 1.0, "timeout": 1800,
+    }
     requires = frozenset({"skeletons", "canonical", "pose_frames"})
     optional = frozenset({"depthmaps", "canonicals"})
     produces = frozenset({"frames"})
@@ -124,7 +91,7 @@ class FramesStage(Stage):
     # previous frame fixes continuity. Without the second, consecutive frames
     # of one action drift in ways a sheet shows immediately.
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
-        ip = opt(cfg, "ip_adapter", {})
+        ip = cfg["ip_adapter"]
         lib = ctx.references()
     # Ask canonical which way it rendered, rather than assuming front: with
     # per-view anchors the answer differs per frame.
@@ -163,7 +130,7 @@ class FramesStage(Stage):
 
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject", "a knight in armor")
-        style = ctx.config.get("style", "pixel art, game sprite, side view, plain flat background")
+        style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
         hint = ctx.rig().prompt_hint
         # Props are drawn into the depth map AND named here: the geometry says
         # where, the words say what.
@@ -172,15 +139,15 @@ class FramesStage(Stage):
             if props_mod.wanted(ctx) else [])
         bg = ctx.config.get("background") or {}
         backdrop = None if opt(bg, "enabled", True) is False else opt(
-            bg, "colour", comfy.BACKDROP)
+            bg, "colour", vocabulary.BACKDROP)
         base_prompt = cfg.get("prompt") or ", ".join(
             p for p in (subject, hint, held, style,
-                        comfy.backdrop_prompt(backdrop) if backdrop else "") if p)
+                        vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
         # Pose control needs steps to act in. Measured: at 8 LCM steps the
         # skeleton is only partially obeyed even at end_percent 0.85, because
         # LCM's trajectory settles composition in the first couple of steps and
         # ControlNet cannot redirect it afterwards. At 20 steps the pose lands.
-        lcm = bool(opt(cfg, "lcm", False))
+        lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.stage_config("canonical").get("seed", 1234))
 
         rig = ctx.rig()
@@ -188,7 +155,7 @@ class FramesStage(Stage):
         # checkpoint is: they have to match the checkpoint's family, and a
         # mismatched pair produces plausible nonsense rather than an error.
         models = ctx.config.get("models") or {}
-        cn = opt(cfg, "controlnet", {})
+        cn = cfg["controlnet"]
         outdir = ctx.stage_dir("frames")
         written: list[Path] = []
 
@@ -200,8 +167,8 @@ class FramesStage(Stage):
             frame_yaw_for_prompt = entries[i]["yaw"] if i < len(entries) else 0.0
             prompt = base_prompt
             if not pose_name:
-                prompt = f"{base_prompt}, {_view_words(frame_yaw_for_prompt)}"
-            facing_neg = _facing_negative(frame_yaw_for_prompt)
+                prompt = f"{base_prompt}, {vocabulary.view_words(frame_yaw_for_prompt)}"
+            facing_neg = vocabulary.facing_negative(frame_yaw_for_prompt)
             # An annotated reference knows it was cropped; saying so beats
             # letting the model default to a full-body composition.
             framing = ((entries[i].get("crop") or {}) if i < len(entries) else {}).get("framing")
@@ -210,14 +177,14 @@ class FramesStage(Stage):
 
             # A pose control image invites the model to draw the control image.
             # Naming that failure in the negative is what stops it.
-            negative = opt(cfg, "negative", comfy.NEGATIVE)
+            negative = cfg["negative"]
             if backdrop:
-                negative = f"{negative}, {comfy.BACKDROP_NEGATIVE}"
-            if pose_name and opt(cfg, "guard_against_skeletons", True):
-                negative = f"{negative}, {comfy.POSE_NEGATIVE}"
+                negative = f"{negative}, {vocabulary.BACKDROP_NEGATIVE}"
+            if pose_name and cfg["guard_against_skeletons"]:
+                negative = f"{negative}, {vocabulary.POSE_NEGATIVE}"
             # Nothing geometric says "this view has no face" once the
             # skeleton channel is off, so the words have to.
-            if facing_neg and opt(cfg, "guard_against_faces", True):
+            if facing_neg and cfg["guard_against_faces"]:
                 negative = f"{negative}, {facing_neg}"
 
             g = comfy.Graph()
@@ -225,7 +192,7 @@ class FramesStage(Stage):
                 g,
                 prompt=prompt,
                 negative=negative,
-                lora_strength=opt(cfg, "lora_strength", 1.2),
+                lora_strength=cfg["lora_strength"],
                 lcm=lcm,
                 models=ctx.config.get("models") or {},
             )
@@ -295,7 +262,7 @@ class FramesStage(Stage):
             for exemplar, name in style_uploads:
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=name), 0),
-                    weight=refs_mod.style_weight([exemplar], opt(cfg, "style_weight", None)),
+                    weight=refs_mod.style_weight([exemplar], cfg.get("style_weight")),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
                     ipadapter=models.get("ipadapter"),
@@ -324,7 +291,7 @@ class FramesStage(Stage):
             # rather than a second set of weights. Depth carries the viewing
             # angle, which a skeleton alone cannot express.
             if depthmaps and i < len(depthmaps):
-                dcn = opt(cfg, "depth_controlnet", {})
+                dcn = cfg["depth_controlnet"]
                 depth_name = client.upload_image(depthmaps[i])
                 depth_img = g.out(g.add("LoadImage", image=depth_name), 0)
                 pos, neg = comfy.apply_controlnet(
@@ -338,19 +305,19 @@ class FramesStage(Stage):
 
             comfy.sample_and_save(
                 g, model, pos, neg, vae,
-                width=opt(cfg, "width", 1024), height=opt(cfg, "height", 1024),
+                width=cfg["width"], height=cfg["height"],
                 batch=1,
                 seed=seed,                      # identical for every frame
                 steps=opt(cfg, "steps", 8 if lcm else 25),
                 cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
                 lcm=lcm,
-                denoise=opt(cfg, "denoise", 1.0),
-                sampler=opt(cfg, "sampler", None),
-                scheduler=opt(cfg, "scheduler", None),
+                denoise=cfg["denoise"],
+                sampler=cfg.get("sampler"),
+                scheduler=cfg.get("scheduler"),
                 prefix=f"{ctx.run_id}_frame{i:03d}",
             )
 
-            images = client.generate(g.build(), timeout=opt(cfg, "timeout", 1800))
+            images = client.generate(g.build(), timeout=cfg["timeout"])
             dst = outdir / f"frame_{i:03d}.png"
             dst.write_bytes(images[0])
             written.append(dst)

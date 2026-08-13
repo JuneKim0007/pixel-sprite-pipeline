@@ -41,10 +41,10 @@ def poses(run_id: str) -> dict:
                 return data
         raise FileNotFoundError(f"run {run_id} has no pose stage output")
 
-    library = {}
-    for f in sorted((ROOT / "poses").glob("*.json")):
-        library[f.stem] = json.loads(f.read_text())
-    return {"library": library}
+    from ..looks import poses as pose_lib
+
+    return {"library": {k: json.loads(p.read_text())
+                        for k, p in pose_lib.discover(ROOT).items()}}
 
 
 def _run_context(run: Path, pose_json: dict) -> Context:
@@ -116,7 +116,7 @@ def save_poses(body: dict) -> dict:
     return {"saved": len(entries), "dir": str(pose_dir), "manifest": manifest_state}
 
 
-def save_annotation(body: dict) -> dict:
+def _save_annotation(body: dict) -> dict:
     """Store an image annotation beside its image, and report what it implies."""
     from pipeline.geometry import annotate
 
@@ -155,7 +155,7 @@ class Poses(BaseRouter):
 
     @post("/annotation", "save an annotation")
     def save_annotation(self, req):
-        return save_annotation(req.body)
+        return _save_annotation(req.body)
 
     @get("/autorig", "fit a rig to a reference image")
     def autorig(self, req):

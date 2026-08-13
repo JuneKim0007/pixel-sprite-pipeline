@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from ..orchestration import artifacts as artifacts_io
-from ..generation import runner
+from ..generation import comfy, runner
 from ..shared import settings
 from ..shared.errors import Conflict, Invalid, NotFound
 from .context import CONFIGS, ROOT, dir_size, human_size, load_roundtrip, runs_dir
@@ -144,9 +144,9 @@ def run_audit(run_dir: Path) -> dict:
         "contexts": contexts,
         "context_total": sum(v for k, v in contexts.items() if k != "style_exemplars"),
         "models": {
-            "checkpoint": models.get("checkpoint") or "sd_xl_base_1.0.safetensors",
-            "vae": models.get("vae") or "sdxl_vae_fp16fix.safetensors",
-            "lora": models.get("pixel_lora") or "pixel-art-xl.safetensors",
+            "checkpoint": comfy.model_name(models, "checkpoint"),
+            "vae": comfy.model_name(models, "vae"),
+            "lora": comfy.model_name(models, "pixel_lora"),
         },
         "seed": canonical.get("seed"),
         "steps": canonical.get("steps"),

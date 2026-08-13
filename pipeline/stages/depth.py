@@ -35,7 +35,7 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
     # Each entry carries its own yaw, so a pose set whose entries use
     # different viewing angles gets depth maps that match each one.
     override = cfg.get("view")
-    size = opt(cfg, "size", opt(pose_cfg, "size", 1024))
+    size = opt(cfg, "size", pose_cfg["size"])
     rig = ctx.rig()
     props = props_mod.load(ctx.config.get("props"), root=ctx.root)
     if props and not props_mod.wanted(ctx):
@@ -56,13 +56,13 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
         yaw = resolve_view(override) if override else entry["yaw"]
         img = render_depth(
             body_pose, yaw, size, size,
-            near=opt(cfg, "near", 255),
-            far=opt(cfg, "far", 60),
-            blur=opt(cfg, "blur", 6.0),
-            fill=float(opt(pose_cfg, "fill", 0.0) or 0.0),
-            build=opt(cfg, "build", None),
-            depth_scale=opt(pose_cfg, "depth_scale", 1.0),
-            lateral_scale=opt(pose_cfg, "lateral_scale", 1.0),
+            near=cfg["near"],
+            far=cfg["far"],
+            blur=cfg["blur"],
+            fill=float(pose_cfg["fill"]),
+            build=cfg.get("build"),
+            depth_scale=pose_cfg["depth_scale"],
+            lateral_scale=pose_cfg["lateral_scale"],
             rig=rig,
             props=props,
         )
@@ -77,6 +77,7 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
 class DepthStage(Stage):
     name = "depth"
     resource = Resource.CPU
+    DEFAULTS = {"near": 255, "far": 60, "blur": 6.0}
     requires = frozenset({"pose_frames"})
     produces = frozenset({"depthmaps"})
 

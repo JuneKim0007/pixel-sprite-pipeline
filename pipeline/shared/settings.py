@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from . import paths
 
 GLOBAL_NAME = "_global"
 
@@ -34,11 +35,11 @@ GLOBAL_NAME = "_global"
 DEFAULT_GLOBAL: dict[str, Any] = {
     "paths": {
         # Where reference images and other inputs are read from and uploaded to.
-        "input_dir": "inputs",
+        "input_dir": "library/refs",
         # Where runs are written. Blank means out/runs under the project.
         "output_dir": "out/runs",
         # Default target for Download in the UI.
-        "download_dir": "exports",
+        "download_dir": "out/exports",
     },
     "comfy": {"host": "http://127.0.0.1:8188"},
     "compute": {
@@ -50,8 +51,11 @@ DEFAULT_GLOBAL: dict[str, Any] = {
     "models": {
         "checkpoint": "sd_xl_base_1.0.safetensors",
         "pixel_lora": "pixel-art-xl.safetensors",
+        "lcm_lora": "lcm-lora-sdxl.safetensors",
+        "vae": "sdxl_vae_fp16fix.safetensors",
         "controlnet": "controlnet-union-sdxl-promax.safetensors",
         "ipadapter": "ip-adapter_sdxl_vit-h.safetensors",
+        "clip_vision": "CLIP-ViT-H-14.safetensors",
     },
     "ui": {
         # Remembered "don't show me this again" acknowledgements.
@@ -62,7 +66,7 @@ DEFAULT_GLOBAL: dict[str, Any] = {
 
 
 def global_path(root: Path) -> Path:
-    return root / "configs" / f"{GLOBAL_NAME}.yaml"
+    return paths.resolve(root, "configs") / f"{GLOBAL_NAME}.yaml"
 
 
 def load_global(root: Path) -> dict[str, Any]:

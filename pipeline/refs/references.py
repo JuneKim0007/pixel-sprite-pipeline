@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+from ..shared import paths
 
 import json
 from dataclasses import dataclass, field
@@ -209,7 +210,7 @@ def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:
     if not run_id:
         return lib
 
-    base = Path(cfg.get("_runs_dir") or (root / "out" / "runs")) / run_id
+    base = Path(cfg.get("_runs_dir") or paths.resolve(root, "runs")) / run_id
     if not base.is_dir():
         raise FileNotFoundError(
             f"references.from_run points at '{run_id}', which is not a run in "

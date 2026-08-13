@@ -39,7 +39,7 @@ help:
 	@printf '  \033[1mmake queue\033[0m     show the job queue\n'
 	@printf '  \033[1mmake autopilot\033[0m run the queue unattended\n'
 	@printf '  \033[1mmake clean\033[0m     remove pids, logs, caches (keeps out/)\n\n'
-	@printf '  \033[2mconfigs: %s\033[0m\n\n' "$$(ls configs/*.yaml 2>/dev/null | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"
+	@printf '  \033[2mconfigs: %s\033[0m\n\n' "$$(ls library/configs/*.yaml 2>/dev/null | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"
 
 up:      ; @$(CTL) up
 down:    ; @$(CTL) down
@@ -48,17 +48,17 @@ status:  ; @$(CTL) status
 logs:    ; @$(CTL) logs
 
 run:
-	@test -f configs/$(CONFIG).yaml \
-	  || { printf '\033[31mno configs/%s.yaml\033[0m\navailable: %s\n' "$(CONFIG)" \
-	       "$$(ls configs/*.yaml | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"; exit 1; }
+	@test -f library/configs/$(CONFIG).yaml \
+	  || { printf '\033[31mno library/configs/%s.yaml\033[0m\navailable: %s\n' "$(CONFIG)" \
+	       "$$(ls library/configs/*.yaml | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"; exit 1; }
 	@curl -sf -m 2 http://127.0.0.1:8188/system_stats >/dev/null 2>&1 \
 	  || { printf '\033[31mComfyUI is not up.\033[0m Run: make up\n'; exit 1; }
-	@$(PY) run.py configs/$(CONFIG).yaml
+	@$(PY) run.py library/configs/$(CONFIG).yaml
 
 # _global.yaml holds machine-level defaults, not a pipeline — it has no stages
 # to validate, so it is skipped rather than reported as broken.
 check: lint
-	@rc=0; for c in configs/*.yaml; do \
+	@rc=0; for c in library/configs/*.yaml library/configs/experiments/*.yaml; do \
 	  case "$$c" in */_global.yaml) continue;; esac; \
 	  printf '  %-32s ' "$$c"; \
 	  if $(PY) run.py "$$c" --explain >/dev/null 2>&1; \
@@ -113,6 +113,6 @@ poses:
 	@$(PY) tools/make_poses.py --preview --views all
 
 clean:
-	@rm -rf $(ROOT)/.run $(ROOT)/logs $(ROOT)/tools/__pycache__ \
+	@rm -rf $(ROOT)/.run $(ROOT)/var/logs $(ROOT)/tools/__pycache__ \
 	        $(ROOT)/pipeline/__pycache__ $(ROOT)/pipeline/stages/__pycache__
 	@printf '  removed pids, logs and caches (out/ kept)\n'

@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+MAX_BODY = 256 * 1024 * 1024
+
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
@@ -18,8 +20,7 @@ from pipeline.shared import limits  # noqa: E402
 limits.apply()
 
 from pipeline import api  # noqa: E402
-from pipeline.shared import files as files_mod  # noqa: E402
-from pipeline.api.context import STATIC, allowed_roots, input_dir, runs_dir  # noqa: E402
+from pipeline.api.context import STATIC, input_dir, runs_dir  # noqa: E402
 from pipeline.shared import errors  # noqa: E402
 from pipeline.generation.stage import available  # noqa: E402
 
@@ -47,35 +48,6 @@ class Handler(BaseHTTPRequestHandler):
     def _fail(self, exc: BaseException) -> None:
         self._json(errors.body_for(exc), errors.status_for(exc))
 
-    def _body(self) -> dict:
-        n = int(self.headers.get("Content-Length") or 0)
-        return json.loads(self.rfile.read(n) or b"{}")
-
-    def _upload(self) -> None:
-        ctype = self.headers.get("Content-Type", "")
-        if "multipart/form-data" not in ctype:
-            return self._error(400, "expected multipart/form-data")
-
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0:
-            return self._error(400, "empty upload")
-        if length > 256 * 1024 * 1024:
-            return self._error(413, "upload too large")
-
-        parts = files_mod.parse_multipart(self.rfile.read(length), ctype)
-        target = input_dir()
-        saved = []
-        for _, filename, data in parts:
-            if not filename or not data:
-                continue
-            dst = files_mod.unique_name(target, files_mod.safe_filename(filename))
-            dst.write_bytes(data)
-            saved.append({"name": dst.name, "path": str(dst)})
-
-        if not saved:
-            return self._error(400, "no files in the upload")
-        return self._json({"saved": saved, "dir": str(target)})
-
     def _static(self, rel: str) -> None:
         p = (STATIC / rel).resolve()
         if not str(p).startswith(str(STATIC)) or not p.is_file():
@@ -83,13 +55,6 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         if p.suffix == ".js":
             ctype = "text/javascript"
-        self._send(200, p.read_bytes(), ctype)
-
-    def _file(self, rel: str) -> None:
-        p = files_mod.safe_path(rel, allowed_roots())
-        if not p.is_file():
-            raise FileNotFoundError(rel)
-        ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         self._send(200, p.read_bytes(), ctype)
 
     # -- dispatch
@@ -103,19 +68,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self._static(u.path[len("/static/"):])
 
             route = api.table.find(method, u.path)
-            params = parse_qs(u.query)
+            ctype = self.headers.get("Content-Type", "")
+            raw_body, body = b"", {}
+            if method in ("POST", "PUT"):
+                length = int(self.headers.get("Content-Length") or 0)
+                if length > MAX_BODY:
+                    return self._error(413, "request body too large")
+                raw_body = self.rfile.read(length) if length > 0 else b""
+                if not ctype or "json" in ctype:
+                    body = json.loads(raw_body or b"{}")
 
-            # The two routes that need the socket rather than a dict.
-            if route.raw:
-                if u.path == "/api/file":
-                    return self._file((params.get("path") or [""])[0])
-                if u.path == "/api/upload":
-                    return self._json(self._upload())
-                raise errors.Internal(f"no raw handler for {u.path}")
-
-            body = self._body() if method in ("POST", "PUT") else {}
-            req = api.Request(method=method, path=u.path, params=params, body=body)
-            return self._json(route.handler(req))
+            result = route.handler(api.Request(
+                method=method, path=u.path, params=parse_qs(u.query),
+                body=body, raw_body=raw_body, content_type=ctype,
+            ))
+            if isinstance(result, api.Raw):
+                return self._send(200, result.body, result.content_type)
+            return self._json(result)
         except Exception as e:  # noqa: BLE001
             self._fail(e)
 

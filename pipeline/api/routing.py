@@ -4,7 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, ClassVar
 
-from ..shared.errors import Invalid, NotFound
+from ..shared.errors import Conflict, Invalid, NotFound
+from ..shared.registry import Registry, Source
 
 
 @dataclass
@@ -15,6 +16,8 @@ class Request:
     path: str
     params: dict[str, list[str]] = field(default_factory=dict)
     body: dict[str, Any] = field(default_factory=dict)
+    raw_body: bytes = b""
+    content_type: str = ""
 
     def query(self, name: str, default: str = "") -> str:
         values = self.params.get(name) or []
@@ -47,35 +50,39 @@ class Request:
 
 
 @dataclass
+class Raw:
+    """A handler's answer when it is bytes rather than JSON."""
+
+    body: bytes
+    content_type: str = "application/octet-stream"
+
+
+@dataclass
 class Route:
     method: str
     path: str
     handler: Callable[..., Any]
     summary: str = ""
-    # Set where a handler genuinely needs the HTTP machinery: streaming a file,
-    # reading a multipart upload. Those cannot be a dict-returning function,
-    # and pretending otherwise would be a worse abstraction than none.
-    raw: bool = False
 
 
-def _mark(method: str, path: str, summary: str = "", raw: bool = False):
+def _mark(method: str, path: str, summary: str = ""):
     """Attach route metadata to a method; BaseRouter collects it."""
     def wrap(fn):
-        fn._route = (method, path, summary, raw)
+        fn._route = (method, path, summary)
         return fn
     return wrap
 
 
-def get(path: str, summary: str = "", raw: bool = False):
-    return _mark("GET", path, summary, raw)
+def get(path: str, summary: str = ""):
+    return _mark("GET", path, summary)
 
 
-def post(path: str, summary: str = "", raw: bool = False):
-    return _mark("POST", path, summary, raw)
+def post(path: str, summary: str = ""):
+    return _mark("POST", path, summary)
 
 
-def put(path: str, summary: str = "", raw: bool = False):
-    return _mark("PUT", path, summary, raw)
+def put(path: str, summary: str = ""):
+    return _mark("PUT", path, summary)
 
 
 class BaseRouter:
@@ -101,55 +108,54 @@ class BaseRouter:
             meta = getattr(member, "_route", None)
             if meta is None:
                 continue
-            method, path, summary, raw = meta
+            method, path, summary = meta
             found.append(Route(method, cls.prefix + path,
-                               getattr(instance, name), summary, raw))
+                               getattr(instance, name), summary))
         return found
+
+
+class _Declared(Source[Route]):
+
+    def signature(self) -> Any:
+        # Which subclasses, not how many: a count cannot see one swapped out.
+        return tuple(f"{c.__module__}.{c.__qualname__}"
+                     for c in BaseRouter.REGISTRY)
+
+    def load(self) -> tuple[dict[str, Route], list]:
+        found: dict[str, Route] = {}
+        for cls in BaseRouter.REGISTRY:
+            for route in cls.routes():
+                key = f"{route.method} {route.path}"
+                if key in found:
+                    raise Conflict(f"two routers both claim {key}")
+                found[key] = route
+        return found, []
 
 
 class Table:
 
-
     def __init__(self) -> None:
-        self._routes: dict[tuple[str, str], Route] = {}
-        self._count = -1
-
-    def _ensure(self) -> None:
-        if self._count == len(BaseRouter.REGISTRY):
-            return
-        table: dict[tuple[str, str], Route] = {}
-        for cls in BaseRouter.REGISTRY:
-            for route in cls.routes():
-                key = (route.method, route.path)
-                if key in table:
-                    raise ValueError(
-                        f"two routers both claim {route.method} {route.path}")
-                table[key] = route
-        self._routes = table
-        self._count = len(BaseRouter.REGISTRY)
+        self._routes: Registry[Route] = Registry("route", _Declared())
 
     def find(self, method: str, path: str) -> Route:
-        self._ensure()
-        route = self._routes.get((method, path))
+        route = self._routes.find(f"{method} {path}")
         if route is not None:
             return route
         # A path that exists under another method is a different mistake from a
         # path that does not exist, and saying so saves the guess.
-        others = sorted({m for m, p in self._routes if p == path})
+        others = sorted({r.method for r in self._routes.all().values()
+                         if r.path == path})
         if others:
             raise Invalid(f"{path} accepts {', '.join(others)}, not {method}")
         raise NotFound("route", path)
 
     def surface(self) -> list[dict]:
         """Every route, for listing and for checking against contracts."""
-        self._ensure()
-        return [{"method": r.method, "path": r.path, "summary": r.summary,
-                 "raw": r.raw}
-                for r in sorted(self._routes.values(),
+        return [{"method": r.method, "path": r.path, "summary": r.summary}
+                for r in sorted(self._routes.all().values(),
                                 key=lambda r: (r.path, r.method))]
 
     def __len__(self) -> int:
-        self._ensure()
         return len(self._routes)
 
 

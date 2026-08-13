@@ -1,16 +1,19 @@
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
 from ..shared.config import opt
+from ..shared import paths
 from ..shared.errors import Invalid
 from ..shared.registry import Decorated, Registry
 
-__all__ = ["opt", "Resource", "Context", "Stage", "register", "get", "available"]
+__all__ = ["opt", "Resource", "Context", "Stage", "register", "get",
+           "available", "defaults_for"]
 
 
 class Resource:
@@ -54,8 +57,10 @@ class Context:
     _order: dict[str, int] = field(default_factory=dict)
 
     def stage_config(self, name: str) -> dict[str, Any]:
-        """Per-stage settings block, or an empty dict if the file omits it."""
-        return self.config.get(name, {}) or {}
+        """The stage's settings, its declared defaults already underneath."""
+        block = self.config.get(name, {}) or {}
+        set_here = {k: v for k, v in block.items() if v is not None}
+        return {**defaults_for(name), **set_here}
 
     def stage_dir(self, name: str) -> Path:
         """This stage's own output folder, prefixed with its execution index.
@@ -151,7 +156,7 @@ class Context:
         images is therefore a matter of which folder they sit in, and needs no
         custom training code.
         """
-        path = self.root / "training" / kind
+        path = paths.resolve(self.root, "training") / kind
         if tier:
             path = path / tier
         path.mkdir(parents=True, exist_ok=True)
@@ -173,6 +178,9 @@ class Stage(ABC):
     resource: ClassVar[str] = Resource.CPU
     requires: ClassVar[frozenset[str]] = frozenset()
     produces: ClassVar[frozenset[str]] = frozenset()
+    # Static defaults for this stage's settings, and the only declaration of
+    # them: Context.stage_config layers them and schema.py displays them.
+    DEFAULTS: ClassVar[dict[str, Any]] = {}
     # Artifacts used if an earlier stage produced them, ignored otherwise. Lets
     # a stage be dropped from the config without breaking its consumers.
     optional: ClassVar[frozenset[str]] = frozenset()
@@ -205,3 +213,9 @@ def get(name: str) -> type[Stage]:
 
 def available() -> dict[str, type[Stage]]:
     return _REGISTRY.all()
+
+
+def defaults_for(name: str) -> dict[str, Any]:
+    # Deep, because a shared {} or [] default would be mutable across runs.
+    cls = _REGISTRY.find(name)
+    return copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {}

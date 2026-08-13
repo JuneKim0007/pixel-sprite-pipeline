@@ -27,8 +27,8 @@ Underneath, if you prefer running the pieces yourself:
 ./start.sh                                          # ComfyUI (GPU stages)
 ollama serve                                        # only for LLM poses
 python server.py                                    # web UI
-python run.py configs/knight_attack.yaml            # headless run
-python run.py configs/knight_attack.yaml --explain  # validate + show the plan
+python run.py library/configs/knight_attack.yaml            # headless run
+python run.py library/configs/knight_attack.yaml --explain  # validate + show the plan
 python run.py --list-stages                         # what exists
 ```
 
@@ -95,7 +95,7 @@ Order lives in `pipeline.stages` in the config and is **validated before
 anything runs**:
 
 ```
-$ python run.py configs/bad.yaml --explain
+$ python run.py library/configs/bad.yaml --explain
 PipelineError: stage 'frames' cannot run in this order:
   'canonical' is produced by 'canonical', which runs later
   'skeletons' is produced by 'pose', which runs later
@@ -153,7 +153,7 @@ a front view.
 Preview the whole library at every angle:
 
 ```bash
-tools/make_poses.py --preview --views all   # poses/preview/*.png
+tools/make_poses.py --preview --views all   # library/poses/preview/*.png
 ```
 
 ### Why poses are authored, never estimated
@@ -190,8 +190,8 @@ only has to be right about something it is actually good at.
 **Honest quality note:** qwen3:4b produces valid but timid motion. Passing a
 hand-authored sequence as a few-shot example (done automatically) improves it
 markedly — stance and torso lean appear — but hand-authored poses in
-`poses/*.json` are still clearly better. Treat `source: llm` as a way to draft
-a new action quickly; accepted poses are cached to `poses/generated/` as
+`library/poses/*.json` are still clearly better. Treat `source: llm` as a way to draft
+a new action quickly; accepted poses are cached to `library/poses/generated/` as
 ordinary library files, so you can edit one into shape and keep it.
 
 ### Depth maps: the channel a skeleton can't carry
@@ -291,7 +291,7 @@ With only a front reference, a 180° frame automatically drops to 0.45.
 
 ### Palette groups
 
-Palettes live in `palettes/<group>/<name>.hex` and may carry metadata:
+Palettes live in `library/palettes/<group>/<name>.hex` and may carry metadata:
 
 ```
 // name: Dungeon Steel
@@ -400,7 +400,7 @@ express them.
 
 ### Global defaults vs per-pipeline
 
-`configs/_global.yaml` holds the machine-level answers (compute, models,
+`library/configs/_global.yaml` holds the machine-level answers (compute, models,
 paths); a pipeline config carries only what it deliberately differs on. In
 Settings, the scope switcher toggles between them, a pinned field shows a dot,
 and **reset** removes the override so the value inherits again.
@@ -449,7 +449,7 @@ policy, CPU threads and workers, batch size, and the compute-shaped knobs
 
 ## Configuration
 
-Every knob is documented inline in `configs/knight_attack.yaml`. The ones that
+Every knob is documented inline in `library/configs/knight_attack.yaml`. The ones that
 are easy to get wrong:
 
 | Setting | Note |

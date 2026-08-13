@@ -755,13 +755,10 @@ def set_path(cfg: dict, path: str, value: Any) -> None:
 
 def dynamic_options(root: Path) -> dict[str, list[str]]:
     """Options that depend on what's actually on disk or running."""
-    poses = sorted(p.stem for p in (root / "poses").glob("*.json"))
-    generated = sorted(
-        f"generated/{p.stem}" for p in (root / "poses" / "generated").glob("*.json")
-    )
-
+    from ..looks import poses as pose_lib
     from ..looks.palettes import discover
 
+    poses = sorted(pose_lib.discover(root))
     palettes = sorted(discover(root))
 
     def weights(folder: str) -> list[str]:
@@ -779,7 +776,7 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
         pass
 
     return {
-        "poses": poses + generated,
+        "poses": poses,
         "palettes": palettes,
         "views": sorted(VIEWS_FOR_UI),
         "ollama": models or ["qwen3:4b"],
@@ -825,8 +822,25 @@ def fields_for(module: str | None) -> list[dict[str, Any]]:
         override = (entry.pop("help_for", None) or {}).get(module or "")
         if override:
             entry["help"] = override
+        if "default" not in entry:
+            found = _declared_default(entry["path"])
+            if found is not _MISSING:
+                entry["default"] = found
         out.append(entry)
     return out
+
+
+_MISSING = object()
+
+
+def _declared_default(path: str) -> Any:
+    """The stage's own DEFAULTS entry for a dotted path, if it declares one."""
+    from .stage import defaults_for
+
+    stage, _, key = path.partition(".")
+    if not key or "." in key:
+        return _MISSING
+    return defaults_for(stage).get(key, _MISSING)
 
 
 def describe(root: Path, module: str | None = None) -> dict[str, Any]:

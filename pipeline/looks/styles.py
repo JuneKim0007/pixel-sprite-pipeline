@@ -1,6 +1,8 @@
 
 from __future__ import annotations
 
+from ..shared import paths
+
 
 import re
 from dataclasses import dataclass, field
@@ -13,7 +15,6 @@ from ..shared.settings import deep_merge
 from ..shared.errors import Invalid
 from ..shared.registry import Registry, Scanned
 
-DIRNAME = "styles"
 SHEET = "style.yaml"
 PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 IMAGES = (".png", ".jpg", ".jpeg", ".webp")
@@ -112,9 +113,7 @@ class Style:
 
 
 def styles_dir(root: Path) -> Path:
-    path = root / DIRNAME
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return paths.resolve(root, "styles")
 
 
 def _read(path: Path, home: Path) -> tuple[str, Style]:
@@ -146,7 +145,7 @@ def registry(root: Path) -> Registry[Style]:
     if found is None:
         styles_dir(root)
         found = Registry("style sheet", Scanned(
-            root / DIRNAME, ["*.yaml", f"*/{SHEET}"],
+            paths.resolve(root, "styles"), ["*.yaml", f"**/{SHEET}"],
             lambda path: _read(path, path.parent if path.name == SHEET else root),
             what="style sheet"))
         _REGISTRIES[root] = found

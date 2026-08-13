@@ -24,7 +24,7 @@ Two more are installed and optional:
 | LCM LoRA | `lcm-lora-sdxl.safetensors` | 394 MB | few-step sampling, not on by default |
 
 The defaults live in `pipeline/shared/settings.py` and can be overridden per
-pipeline in `configs/_global.yaml` or per style sheet.
+pipeline in `library/configs/_global.yaml` or per style sheet.
 
 ## Where they come from
 
