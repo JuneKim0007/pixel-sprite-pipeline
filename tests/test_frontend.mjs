@@ -13,7 +13,7 @@
  */
 
 import assert from 'node:assert';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +23,7 @@ const JS = join(ROOT, 'web/js');
 const {
   VIEWS, JOINTS, LIMBS, projectPoint, unprojectX, snapToAnatomy, dragJoint,
   parentOf, subtree, visibleJoint, resolveView, dist3, SKELETON_TREE,
-} = await import(join(JS, 'views.js'));
+} = await import(join(JS, 'features/pose.js'));
 
 let pass = 0, fail = 0;
 const test = (name, fn) => {
@@ -246,6 +246,35 @@ test('querySelector finds by class and by tag.class', () => {
   assert.ok(root.querySelector('.help'));
   assert.ok(root.querySelector('p.help'));
   assert.equal(root.querySelector('.nope'), null);
+});
+
+console.log('\nfeatures');
+test('features/ never touches the DOM', () => {
+  // The rule that makes this folder testable without a shim. A module that
+  // builds a node has stopped being domain logic.
+  const DOM = /\b(document|el\(|getContext|addEventListener|replaceChildren)\b/;
+  for (const f of readdirSync(join(JS, 'features'))) {
+    const src = readFileSync(join(JS, 'features', f), 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    assert.ok(!DOM.test(code), `features/${f} touches the DOM`);
+  }
+});
+
+test('stage ordering is decidable without a schema global', async () => {
+  const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
+  const stages = [
+    { name: 'pose', requires: [], produces: ['skeletons'] },
+    { name: 'frames', requires: ['skeletons'], produces: ['frames'] },
+    { name: 'export', requires: ['frames'], produces: ['sheet'] },
+  ];
+  assert.deepEqual(orderProblems(['pose', 'frames', 'export'], stages), []);
+
+  const broken = orderProblems(['frames', 'pose'], stages);
+  assert.equal(broken.length, 1);
+  assert.ok(broken[0].includes('runs later'), broken[0]);
+
+  assert.deepEqual(autoOrder(['export', 'frames', 'pose'], stages),
+                   ['pose', 'frames', 'export']);
 });
 
 console.log('\npartial rendering');

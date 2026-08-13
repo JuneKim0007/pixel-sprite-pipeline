@@ -168,7 +168,7 @@ async function boot() {
 
   // Joint names are only known to the schema consumer; the soft-body editor
   // needs them as a dropdown source.
-  const { JOINTS } = await import('./views.js');
+  const { JOINTS } = await import('./features/pose.js');
   state.schema.options.joints = JOINTS;
 
   renderServices();

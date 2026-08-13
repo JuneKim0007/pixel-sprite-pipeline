@@ -10,8 +10,9 @@
 import { getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
+import { autoOrder as orderOf, orderProblems as problemsOf } from './features/stages.js';
 import { HelpTip } from './ui/index.js';
-import { VIEW_OPTIONS } from './views.js';
+import { VIEW_OPTIONS } from './features/pose.js';
 
 /* ------------------------------------------------------------- primitives */
 
@@ -122,44 +123,9 @@ export function control(field, value, onChange) {
 
 /* Mirrors the server's dependency check so an unrunnable order shows up as you
  * build it, not when you press Save. */
-export function orderProblems(active) {
-  const meta = Object.fromEntries(state.schema.stages.map((s) => [s.name, s]));
-  const producers = {};
-  for (const name of active) for (const p of meta[name]?.produces || []) producers[p] = name;
+export const orderProblems = (active) => problemsOf(active, state.schema.stages);
+export const autoOrder = (active) => orderOf(active, state.schema.stages);
 
-  const have = new Set();
-  const problems = [];
-  for (const name of active) {
-    for (const need of meta[name]?.requires || []) {
-      if (!have.has(need)) {
-        const owner = producers[need];
-        problems.push(owner
-          ? `${name} needs "${need}" from ${owner}, which runs later`
-          : `${name} needs "${need}", which no enabled stage produces`);
-      }
-    }
-    for (const p of meta[name]?.produces || []) have.add(p);
-  }
-  return problems;
-}
-
-export function autoOrder(active) {
-  const meta = Object.fromEntries(state.schema.stages.map((s) => [s.name, s]));
-  const producers = {};
-  for (const name of active) for (const p of meta[name]?.produces || []) producers[p] = name;
-
-  const out = [], placed = new Set();
-  let guard = active.length + 1;
-  while (out.length < active.length && guard-- > 0) {
-    for (const name of active) {
-      if (placed.has(name)) continue;
-      const deps = (meta[name]?.requires || [])
-        .map((r) => producers[r]).filter((d) => d && d !== name);
-      if (deps.every((d) => placed.has(d))) { out.push(name); placed.add(name); }
-    }
-  }
-  return [...out, ...active.filter((s) => !placed.has(s))];  // cycles keep their slot
-}
 
 function stagePicker(active, onChange) {
   const box = el('div', { className: 'stagepicker' });

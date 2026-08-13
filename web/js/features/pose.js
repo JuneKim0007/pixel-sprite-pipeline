@@ -1,11 +1,5 @@
-/* Viewing angles and the 18-joint skeleton, mirrored from the Python side.
- *
- * Duplicated deliberately: the rig editor has to project poses at 60fps while
- * dragging, and a round-trip per frame would make it unusable. The values are
- * a fixed protocol — the OpenPose layout and the named views — so they do not
- * drift the way tunable settings would.
- */
-
+/* Body-space pose maths: projection, dragging, anatomy limits.
+ * No DOM. The Python twin is pipeline/geometry/bodyspace.py. */
 export const VIEWS = {
   front: 0,
   three_quarter_front: 40,

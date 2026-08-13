@@ -16,7 +16,7 @@ import { state, toast } from './store.js';
 import {
   COLORS, JOINTS, LIMBS, dragJoint, projectPoint, rgb,
   unprojectX, visibleJoint,
-} from './views.js';
+} from './features/pose.js';
 
 const HIT_RADIUS = 11;   // px, generous — joints are small targets
 const tree = () => activeRig?.tree || {};

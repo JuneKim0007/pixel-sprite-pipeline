@@ -9,7 +9,7 @@
 import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
 import { draftConfig, state, toast } from './store.js';
-import { VIEW_OPTIONS } from './views.js';
+import { VIEW_OPTIONS } from './features/pose.js';
 
 /* Textareas that grow with their content — a two-line box for a paragraph of
  * prompt is the single most cramped thing in the old layout. */

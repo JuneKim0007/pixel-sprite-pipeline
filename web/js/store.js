@@ -86,7 +86,7 @@ export async function loadConfig(name) {
   if (data.module && data.module !== state.module) {
     state.module = data.module;
     state.schema = await api.schema(data.module);
-    const { JOINTS } = await import('./views.js');
+    const { JOINTS } = await import('./features/pose.js');
     state.schema.options.joints = JOINTS;
   }
   state.own = data.config || {};
