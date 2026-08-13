@@ -23,6 +23,7 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .ruff_cache/
+.pytest_cache/
 
 # Mirrored side references cached beside their source.
 *__mirror.png

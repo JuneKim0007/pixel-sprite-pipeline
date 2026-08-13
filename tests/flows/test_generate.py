@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from PIL import Image
+
+from pipeline.generation import runner
+from pipeline.generation.stage import Context, Resource, get
+from pipeline.geometry import rigs
+from pipeline.orchestration import cooling
+
+ORDER = ["pose", "depth", "canonical", "frames", "palette"]
+
+
+@pytest.fixture(scope="module")
+def batches():
+    return runner.plan(runner.build(ORDER))
+
+
+def _gpu_batches(batches, stop_after=None):
+    executed = batches
+    if stop_after:
+        for i, b in enumerate(batches):
+            if stop_after in [s.name for s in b.stages]:
+                executed = batches[: i + 1]
+                break
+    return sum(1 for b in executed
+               if any(s.resource == Resource.GPU for s in b.stages))
+
+
+def test_the_plan_has_two_gpu_batches(batches):
+    assert _gpu_batches(batches) == 2, "expected canonical and frames"
+
+
+def test_a_gated_run_does_not_count_work_it_will_not_do(batches):
+    assert _gpu_batches(batches, "canonical") == 1
+
+
+@pytest.mark.parametrize("stop_after,rests", [("canonical", False), (None, True)])
+def test_rests_fall_only_between_gpu_work_that_will_run(batches, stop_after, rests):
+    # Counting the whole plan made `stop_after: canonical` sleep three minutes
+    # and then return. A wrong sleep here presents as the machine being slow.
+    estimate = cooling.estimate({}, _gpu_batches(batches, stop_after))
+    assert (estimate > 0) is rests
+
+
+def test_softbody_runs_as_a_stage_not_just_as_physics(root, tmp_path):
+    # A stage can pass every test of its maths and still fail the contract:
+    # wrong artifact names, a context field that does not exist, no outdir.
+    frames = []
+    for i in range(3):
+        arr = np.zeros((64, 64, 3), dtype=np.uint8)
+        arr[20:50, 26:38] = 200
+        f = tmp_path / f"frame_{i:03d}.png"
+        Image.fromarray(arr).save(f)
+        frames.append(f)
+
+    entries = [{"pose": {k: list(v) for k, v in rigs.HUMANOID.neutral.items()},
+                "yaw": 90.0, "spec": 0} for _ in frames]
+
+    ctx = Context(root=root, outdir=tmp_path, run_id="t", config={
+        "rig": "humanoid",
+        "softbody": {"nodes": [{"name": "belly", "anchor": "neck",
+                                "offset": [0, 0.05, 0.19], "radius": 0.16,
+                                "stiffness": 70, "damping": 4.5}]},
+    })
+    ctx.artifacts["frames"] = frames
+    ctx.artifacts["pose_frames"] = entries
+
+    produced = get("softbody")().run(ctx)
+    assert "soft_frames" in produced, "the stage returned the wrong artifact"
+    assert len(produced["soft_frames"]) == len(frames)
+    for path in produced["soft_frames"]:
+        assert path.exists(), f"{path.name} was never written"

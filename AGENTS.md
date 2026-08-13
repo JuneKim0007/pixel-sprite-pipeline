@@ -77,8 +77,37 @@ ignore policy, which is the whole reason they are separated.
     server.py          stdlib HTTP, no framework
     autopilot.py       drains the queue unattended
 
+    tests/             pytest. Three tiers, by what a failure implicates.
+      unit/            one module, no I/O, no server. Fast enough to keep open.
+      flows/           one vertical end to end: generate, rig editor, pixel
+                       editor, queue, styles, packaging
+      api/             HTTP. conftest starts a server on a free port, so
+                       `make test` needs nothing running.
+      frontend/        node, not pytest. Run by `make test` first.
+
 Every data directory is named in `pipeline/shared/paths.py` and nowhere else.
 A test enforces it.
+
+## Tests
+
+`make test` runs everything. `make test T=tests/unit/test_rigs.py` or
+`T='-k dragon'` narrows it; `make test-fast` is the unit tier only.
+
+Put a test in `unit/` if a failure names one module, in `flows/` if it names a
+journey, in `api/` if it needs HTTP. Prefer `@parametrize` over a loop inside
+one test: the failure then names the case, which is the whole point of the
+split.
+
+Two things this suite has been burned by, so do not reintroduce them:
+
+**Assert behaviour, not source text.** A test that greps the code with `ast` or
+`inspect.getsource` fails on a reformat and passes on the same bug written
+differently. The exceptions are the two architectural invariants in
+`flows/test_packaging.py`, which have no runtime surface to check.
+
+**Never write a custom assert helper.** The old harness used `if cond is False`,
+so every `numpy` comparison — `np.bool_(False)` is not the `False` singleton —
+was silently inert. Two assertions were false for months. Use bare `assert`.
 
 ## Adding things
 

@@ -17,7 +17,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const JS = join(ROOT, 'web/js');
 
 const {
@@ -231,7 +231,7 @@ test('nothing writes the retired references.images', () => {
  * enough to have no dependencies and real enough to render a component and
  * assert what came out — the thing a refactor of web/js needs to be safe.
  */
-const { installDom } = await import(join(ROOT, 'tests/domshim.mjs'));
+const { installDom } = await import(join(ROOT, 'tests/frontend/domshim.mjs'));
 installDom();
 
 const ui = await import(join(JS, 'ui/index.js'));

@@ -13,7 +13,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="$ROOT/ComfyUI/.venv/bin/python"
 RUN_DIR="$ROOT/.run"
-LOG_DIR="$ROOT/logs"
+LOG_DIR="$ROOT/var/logs"
 
 COMFY_PORT="${COMFY_PORT:-8188}"
 UI_PORT="${UI_PORT:-8000}"
@@ -29,13 +29,13 @@ OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-60}"
 # offloading, so macOS swaps to disk instead.
 VRAM_MODE="${VRAM_MODE:-}"
 
-# configs/_global.yaml has a `compute:` block, and until now nothing read it:
+# library/configs/_global.yaml has a `compute:` block, and until now nothing read it:
 # the Settings form wrote values that reached no process. These are launcher
 # concerns - they have to be set before ComfyUI imports torch - so the launcher
 # is where they belong. An environment variable still wins, so a one-off
 # experiment does not require editing the file.
 read_compute() {
-  [[ -f "$ROOT/configs/_global.yaml" ]] || return 0
+  [[ -f "$ROOT/library/configs/_global.yaml" ]] || return 0
   local line
   while IFS='=' read -r key value; do
     [[ -n "$key" ]] || continue
@@ -52,7 +52,7 @@ read_compute() {
                           export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
       mps_low_watermark)  export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
     esac
-  done < <("$PY" - "$ROOT/configs/_global.yaml" <<'EOF'
+  done < <("$PY" - "$ROOT/library/configs/_global.yaml" <<'EOF'
 import sys, yaml
 try:
     cfg = yaml.safe_load(open(sys.argv[1])) or {}
@@ -137,7 +137,7 @@ wait_one() {
     sleep 1
   done
   printf " %stimeout after %ss%s\n" "$R" "$timeout" "$O"
-  printf "  last lines of logs/%s.log:\n" "$name"
+  printf "  last lines of var/logs/%s.log:\n" "$name"
   tail -n 12 "$LOG_DIR/$name.log" 2>/dev/null | sed 's/^/    /'
   return 1
 }
@@ -261,7 +261,7 @@ cmd_status() {
   # command line merely mentions run.py — a `wait` loop, an editor, this
   # script — and reports a pipeline that is not running.
   local running
-  running="$(pgrep -fl 'run\.py configs/' 2>/dev/null \
+  running="$(pgrep -fl 'run\.py .*configs/' 2>/dev/null \
              | grep -vE '^[0-9]+ +/bin/(z|ba)?sh' \
              | grep -oE 'configs/[A-Za-z0-9_.-]+\.yaml' | head -1)"
   if [[ -n "$running" ]]; then

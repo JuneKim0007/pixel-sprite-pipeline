@@ -1,5 +1,10 @@
 # Unify pixelize() and the Layer System — Implementation Plan
 
+> **Stale as written (2026-08-13).** `tests/test_api.py` no longer exists;
+> tests moved to `tests/{unit,flows,api}/` under pytest. The two checks this
+> plan adds assert on source text (`'"exports"' in src`) — rewrite them as
+> behavioural assertions before executing. See AGENTS.md § Tests.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Collapse the two orchestrations over the pixel primitives into one, so the pipeline's palette stage and the definitive editor run the same ordered layer stack — and a style sheet can define that order.

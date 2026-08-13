@@ -34,7 +34,7 @@ help:
 	@printf '  \033[1mmake logs\033[0m      follow all service logs\n\n'
 	@printf '  \033[1mmake run\033[0m       run a pipeline   \033[2mmake run CONFIG=knight_attack\033[0m\n'
 	@printf '  \033[1mmake check\033[0m     validate every config, run nothing\n'
-	@printf '  \033[1mmake test\033[0m      run the frontend + api test suites\n'
+	@printf '  \033[1mmake test\033[0m      full suite; narrow with T=tests/unit\n'
 	@printf '  \033[1mmake poses\033[0m     rebuild pose library + previews\n\n'
 	@printf '  \033[1mmake queue\033[0m     show the job queue\n'
 	@printf '  \033[1mmake autopilot\033[0m run the queue unattended\n'
@@ -99,9 +99,15 @@ lint:
 	done
 	@printf '  \033[32mno undefined names\033[0m\n'
 
+# The api suite starts its own server on a free port, so `make test` needs
+# nothing running. Narrow it with T=, e.g. `make test T=tests/unit/test_rigs.py`
+# or `make test T='-k dragon'`.
 test:
-	@printf '\033[1mfrontend\033[0m\n'; node tests/test_frontend.mjs
-	@printf '\033[1mbackend + api\033[0m\n'; $(PY) tests/test_api.py
+	@printf '\033[1mfrontend\033[0m\n'; node tests/frontend/test_frontend.mjs
+	@printf '\033[1mbackend + api\033[0m\n'; $(PY) -m pytest $(T)
+
+test-fast:
+	@$(PY) -m pytest tests/unit -m 'not slow'
 
 queue:
 	@$(PY) autopilot.py --status

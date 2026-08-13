@@ -224,5 +224,5 @@ anything else adopts it.
 | 14 module-level mutable variables | `grep -n "^let " web/js/*.js` |
 | six views rebuild themselves whole | `grep -rn "rerender = \|refresh = " web/js` |
 | `el` is imported by 17 files | count the destructured names from `store.js` |
-| `core/` depends on nothing | walk the import graph, as `tests/test_api.py` does for `shared/` |
+| `core/` depends on nothing | walk the import graph, as `tests/flows/test_packaging.py` does for `shared/` |
 | a view cleans up after itself | leave the result tab mid-playback and assert the timer is gone |
