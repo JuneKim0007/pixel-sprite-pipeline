@@ -123,7 +123,7 @@ function grid(runId, stage) {
 }
 
 /** Frame player: the only way to judge whether an animation actually reads. */
-function animation(runId, stage) {
+function animation(runId, stage, stops) {
   const srcs = stage.images.map((n) => api.fileUrl(`${state.runDir}/${stage.dir}/${n}`));
   if (!srcs.length) return el('p', { className: 'empty', textContent: 'No frames.' });
 
@@ -171,7 +171,6 @@ function animation(runId, stage) {
     if (timer) start();
   };
 
-  // Stop the timer when this section is torn down, or it keeps firing.
   const wrap = el('div', { className: 'player' },
     view,
     el('div', { className: 'playerbar' },
@@ -179,9 +178,9 @@ function animation(runId, stage) {
       el('span', { className: 'mini', textContent: 'frame' }), scrub,
       el('span', { className: 'mini', textContent: 'speed' }), fps, fpsLabel,
       el('label', { className: 'chk' }, loop, ' loop')));
-  wrap.addEventListener('DOMNodeRemovedFromDocument', stop);
-  new MutationObserver(() => { if (!wrap.isConnected) stop(); })
-    .observe(document.body, { childList: true, subtree: true });
+  // The view hands this to the lifecycle. Watching the whole document for
+  // this node's removal was the workaround for having no teardown.
+  stops.push(stop);
   return wrap;
 }
 
@@ -289,6 +288,7 @@ function gateBanner(runId, detail) {
 
 export function renderResult(host, { runId, detail, onPick }) {
   host.replaceChildren();
+  const stops = [];
 
   const history = el('div', { className: 'histstrip' });
   const historyBox = el('section', { className: 'histbox' },
@@ -357,7 +357,7 @@ export function renderResult(host, { runId, detail, onPick }) {
 
     body.append(
       mode === 'grid' ? grid(runId, stage)
-      : mode === 'anim' ? animation(runId, stage)
+      : mode === 'anim' ? animation(runId, stage, stops)
       : sheet(runId, stage));
 
     host.append(el('section', { className: 'group stagesection' },
@@ -377,4 +377,6 @@ export function renderResult(host, { runId, detail, onPick }) {
     el('h2', { textContent: 'Log' }),
     el('div', { className: 'fields' }, log)));
   log.scrollTop = log.scrollHeight;
+
+  return () => { for (const stop of stops) stop(); };
 }

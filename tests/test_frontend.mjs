@@ -237,6 +237,22 @@ installDom();
 const ui = await import(join(JS, 'ui/index.js'));
 const { el } = await import(join(JS, 'core/dom.js'));
 
+test('an interval is either poll() or cleared by a teardown', () => {
+  // Frame playback cannot be a poll: it does not want overlap protection or
+  // the hidden-tab skip, it wants a steady tick. What it does need is a stop
+  // that something calls, which is what MutationObserver used to fake.
+  for (const file of allModules) {
+    if (file.endsWith('listeners/poll.js')) continue;
+    const src = readFileSync(join(JS, file), 'utf8');
+    assert.ok(!/MutationObserver/.test(src), `${file} watches the DOM for teardown`);
+    if (/\bsetInterval\(/.test(src)) {
+      assert.ok(/clearInterval\(/.test(src), `${file} starts an interval it never clears`);
+      assert.ok(/stops\.push\(|return \(\) =>|return stop/.test(src),
+                `${file} clears its interval but hands nobody the stop`);
+    }
+  }
+});
+
 console.log('\ndom shim');
 test('el() builds a tree with text and children', () => {
   const node = el('div', { className: 'a b' }, el('span', { textContent: 'hi' }), 'tail');

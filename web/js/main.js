@@ -20,6 +20,7 @@ import { renderOverview } from './views/overview/overview.js';
 import { configsFor, indexConfigModules, renderRail } from './rail.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';
+import { poll } from './listeners/poll.js';
 import { draft, loadConfig, state } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
@@ -51,7 +52,7 @@ const VIEWS = {
     onStarted: () => { setTab('result'); refreshRuns(); },
     goTo: setTab,
   }),
-  result: () => { renderResultTab(); },
+  result: () => { renderResultTab(); return () => { if (stopResult) stopResult(); }; },
   styles: (host) => renderStyles(host, {
     onChanged: async () => { await loadConfig(state.current); },
   }),
@@ -69,15 +70,20 @@ function render() {
   renderFlow();
 }
 
+// The result tab is redrawn by the run poll as well as by a tab switch, so it
+// owns its own teardown rather than handing one to mount().
+let stopResult = null;
+
 async function renderResultTab() {
   const host = $('#view-result');
+  if (stopResult) { stopResult(); stopResult = null; }
   if (!state.selectedRun) {
     host.replaceChildren(el('p', { className: 'empty', textContent: 'No runs yet.' }));
     return;
   }
   try {
     const detail = await api.run(state.selectedRun);
-    renderResult(host, {
+    stopResult = renderResult(host, {
       runId: state.selectedRun, detail,
       onPick: (id) => { state.selectedRun = id; renderResultTab(); },
     });
@@ -202,11 +208,13 @@ async function boot() {
 
   setTab('overview');
 
-  // Poll only while something is live, or while the Result tab is open.
-  setInterval(() => {
+  // Only while something is live, or the Result tab is open. `poll` skips a
+  // hidden tab and will not stack a tick on a slow one.
+  poll(() => {
     const live = state.runs.some((r) => r.running);
-    if (live || state.tab === 'result') refreshRuns();
-  }, 4000);
+    if (live || state.tab === 'result') return refreshRuns();
+    return undefined;
+  }, { every: 4000, immediate: false });
 }
 
 boot().catch((e) => {

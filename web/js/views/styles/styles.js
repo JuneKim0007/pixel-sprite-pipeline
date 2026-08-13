@@ -284,28 +284,57 @@ function eventRow(event) {
 function historyPanel(detail, rerender) {
   const events = detail.history || [];
   const panel = el('div', { className: 'histpanel' });
+  const chips = el('div', { className: 'histfilter' });
+  const body = el('div', {});
 
   const counts = { all: events.length };
   for (const k of Object.keys(KINDS)) {
     counts[k] = events.filter((e) => e.kind === k).length;
   }
 
-  const chips = el('div', { className: 'histfilter' });
-  for (const key of ['all', ...Object.keys(KINDS)]) {
-    const chip = el('button', {
-      className: `chip ${filter === key ? 'on' : ''}`,
-      textContent: `${key === 'all' ? 'All' : KINDS[key].label} ${counts[key]}`,
-      disabled: counts[key] === 0 && key !== 'all',
-    });
-    chip.onclick = () => { filter = key; rerender(); };
-    chips.append(chip);
+  // Filtering swaps the chips and the timeline. It used to redraw the whole
+  // screen, which reloaded the sheet list and the detail panel for a change
+  // that touches neither.
+  function draw() {
+    chips.replaceChildren(...['all', ...Object.keys(KINDS)].map((key) => {
+      const chip = el('button', {
+        className: `chip ${filter === key ? 'on' : ''}`,
+        textContent: `${key === 'all' ? 'All' : KINDS[key].label} ${counts[key]}`,
+        disabled: counts[key] === 0 && key !== 'all',
+      });
+      chip.onclick = () => { filter = key; draw(); };
+      return chip;
+    }));
+
+    const shown = filter === 'all' ? events : events.filter((e) => e.kind === filter);
+    if (!shown.length) {
+      body.replaceChildren(el('p', { className: 'empty', textContent:
+        events.length ? 'Nothing of that kind yet.'
+          : 'Nothing recorded yet. Applying, tuning and training this look will '
+            + 'each leave an entry.' }));
+      return;
+    }
+
+    const timeline = el('div', { className: 'timeline' });
+    let day = '';
+    for (const event of shown) {
+      const stamp = (event.at || '').slice(0, 10);
+      if (stamp !== day) {
+        day = stamp;
+        timeline.append(el('div', { className: 'histday', textContent: day || 'undated' }));
+      }
+      timeline.append(eventRow(event));
+    }
+    body.replaceChildren(timeline);
   }
+
   panel.append(chips);
 
   if (!detail.foldered) {
     panel.append(el('p', { className: 'empty', textContent:
       `A single-file sheet has nowhere to keep a history. Move it to `
       + `styles/${detail.name}/style.yaml and it starts recording.` }));
+    draw();
     return panel;
   }
 
@@ -323,28 +352,9 @@ function historyPanel(detail, rerender) {
   };
   add.onclick = submit;
   input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-  panel.append(el('div', { className: 'histadd' }, input, add));
+  panel.append(el('div', { className: 'histadd' }, input, add), body);
 
-  const shown = filter === 'all' ? events : events.filter((e) => e.kind === filter);
-  if (!shown.length) {
-    panel.append(el('p', { className: 'empty', textContent:
-      events.length ? 'Nothing of that kind yet.'
-        : 'Nothing recorded yet. Applying, tuning and training this look will '
-          + 'each leave an entry.' }));
-    return panel;
-  }
-
-  const timeline = el('div', { className: 'timeline' });
-  let day = '';
-  for (const event of shown) {
-    const stamp = (event.at || '').slice(0, 10);
-    if (stamp !== day) {
-      day = stamp;
-      timeline.append(el('div', { className: 'histday', textContent: day || 'undated' }));
-    }
-    timeline.append(eventRow(event));
-  }
-  panel.append(timeline);
+  draw();
   return panel;
 }
 
