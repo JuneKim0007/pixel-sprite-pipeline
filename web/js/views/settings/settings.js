@@ -7,10 +7,10 @@
  * "pinned to 7.0" behave differently the moment the global changes.
  */
 
-import { api, delPath, getPath, setPath } from './api.js';
-import { renderGroup } from './fields.js';
-import { el } from './core/dom.js';
-import { state, toast } from './store.js';
+import { api, delPath, getPath, setPath } from '../../api.js';
+import { renderGroup } from '../../fields.js';
+import { el } from '../../core/dom.js';
+import { state, toast } from '../../store.js';
 
 /* An ordering hint, not a whitelist.
  *

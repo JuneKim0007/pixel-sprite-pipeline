@@ -123,7 +123,13 @@ test('snapToAnatomy still repairs a mangled pose', () => {
 });
 
 console.log('\nstatic checks across every module');
-for (const file of readdirSync(JS).filter((f) => f.endsWith('.js'))) {
+// Recursive: the views moved into folders, and a top-level readdir quietly
+// stopped checking two thirds of the code.
+const allModules = readdirSync(JS, { recursive: true })
+  .filter((f) => String(f).endsWith('.js'))
+  .map(String)
+  .sort();
+for (const file of allModules) {
   const src = readFileSync(join(JS, file), 'utf8');
   test(`${file}: no variable declared then never assigned`, () => {
     // The activeRig bug in full: `let x = null` used everywhere, set nowhere.
@@ -164,7 +170,7 @@ for (const file of readdirSync(JS).filter((f) => f.endsWith('.js'))) {
  * test is what keeps it that way.
  */
 const schemaSrc = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
-const settingsSrc = readFileSync(join(JS, 'settings.js'), 'utf8');
+const settingsSrc = readFileSync(join(JS, 'views/settings/settings.js'), 'utf8');
 
 const declaredGroups = new Set(
   [...schemaSrc.matchAll(/"group":\s*"([^"]+)"/g)].map((m) => m[1]));
@@ -199,7 +205,7 @@ test('every schema group is reachable', () => {
 test('reference roles match the backend', () => {
   const backend = [...readFileSync(join(ROOT, 'pipeline/refs/references.py'), 'utf8')
     .match(/ROLES = \(([^)]+)\)/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  const frontend = [...readFileSync(join(JS, 'input.js'), 'utf8')
+  const frontend = [...readFileSync(join(JS, 'views/input/input.js'), 'utf8')
     .match(/export const ROLES = \[([\s\S]*?)\n\];/)[1]
     .matchAll(/key:\s*'([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(frontend, backend);
@@ -279,7 +285,7 @@ test('stage ordering is decidable without a schema global', async () => {
 
 console.log('\npartial rendering');
 test('a field change only rebuilds the form when it gates another field', async () => {
-  const { layerForm } = await import(join(JS, 'definitive/stack.js'));
+  const { layerForm } = await import(join(JS, 'views/editor/stack.js'));
   const spec = {
     key: 'grid', label: 'Grid', summary: '',
     fields: [
@@ -499,7 +505,7 @@ test('update() swaps in place using replaceWith, not children.indexOf', () => {
 });
 
 console.log('\nview slots');
-const inputSrc = readFileSync(join(JS, 'input.js'), 'utf8');
+const inputSrc = readFileSync(join(JS, 'views/input/input.js'), 'utf8');
 test('the four sheet views match the backend aliases', () => {
   const views = [...inputSrc.matchAll(/\{ view: '([^']+)', label:/g)].map((m) => m[1]);
   assert.deepEqual(views, ['front', 'rear', 'side', '270']);

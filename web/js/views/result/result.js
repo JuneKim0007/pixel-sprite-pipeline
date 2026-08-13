@@ -6,10 +6,10 @@
  * something went wrong. A chip filter hides exactly the comparison you want.
  */
 
-import { api } from './api.js';
-import { el } from './core/dom.js';
-import { confirmDialog, lightbox, state, toast } from './store.js';
-import { browseDialog } from './input.js';
+import { api } from '../../api.js';
+import { el } from '../../core/dom.js';
+import { confirmDialog, lightbox, state, toast } from '../../store.js';
+import { browseDialog } from '../input/input.js';
 
 const STAGE_LABEL = {
   pose: 'Pose guides', depth: 'Depth maps', canonical: 'Reference sprite',

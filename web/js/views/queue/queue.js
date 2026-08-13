@@ -17,11 +17,11 @@
  * chained overnight batch is the normal condition of most of the queue.
  */
 
-import { api } from './api.js';
-import { el } from './core/dom.js';
-import { state, toast } from './store.js';
-import { Button, Empty, Fields, Head, Mini, Num, Ok, Row, Segmented, Select, Warn } from './ui/index.js';
-import { poll } from './listeners/poll.js';
+import { api } from '../../api.js';
+import { el } from '../../core/dom.js';
+import { state, toast } from '../../store.js';
+import { Button, Empty, Fields, Head, Mini, Num, Ok, Row, Segmented, Select, Warn } from '../../ui/index.js';
+import { poll } from '../../listeners/poll.js';
 
 const STATES = [
   { key: 'running', label: 'Running', tone: 'run' },

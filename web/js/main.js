@@ -9,14 +9,14 @@
  */
 
 import { api } from './api.js';
-import { renderInput } from './input.js';
-import { renderResult } from './result.js';
-import { renderRun } from './run.js';
-import { renderSettings } from './settings.js';
-import { renderStyles } from './styles.js';
-import { renderQueue } from './queue.js';
-import { renderEditor } from './editor.js';
-import { renderOverview } from './overview.js';
+import { renderInput } from './views/input/input.js';
+import { renderResult } from './views/result/result.js';
+import { renderRun } from './views/run/run.js';
+import { renderSettings } from './views/settings/settings.js';
+import { renderStyles } from './views/styles/styles.js';
+import { renderQueue } from './views/queue/queue.js';
+import { renderEditor } from './views/editor/editor.js';
+import { renderOverview } from './views/overview/overview.js';
 import { configsFor, indexConfigModules, renderRail } from './rail.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';

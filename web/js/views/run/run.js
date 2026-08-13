@@ -9,14 +9,14 @@
  * pauses there, you edit, and Resume continues with the edited files.
  */
 
-import { api, getPath, setPath } from './api.js';
-import { orderProblems } from './fields.js';
-import { ROLES } from './input.js';
-import { HelpTip } from './ui/index.js';
+import { api, getPath, setPath } from '../../api.js';
+import { orderProblems } from '../../fields.js';
+import { ROLES } from '../input/input.js';
+import { HelpTip } from '../../ui/index.js';
 import { annotator } from './annotate.js';
 import { rigEditor, savePoses } from './rig.js';
-import { el } from './core/dom.js';
-import { clearDraft, confirmDialog, draft, draftConfig, state, toast } from './store.js';
+import { el } from '../../core/dom.js';
+import { clearDraft, confirmDialog, draft, draftConfig, state, toast } from '../../store.js';
 
 const STEPS = [
   { key: 'review', label: 'Review' },

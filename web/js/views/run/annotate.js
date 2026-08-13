@@ -12,10 +12,10 @@
  * dragging every joint into place is slower than placing the five that matter.
  */
 
-import { api } from './api.js';
+import { api } from '../../api.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
-import { el } from './core/dom.js';
-import { toast } from './store.js';
+import { el } from '../../core/dom.js';
+import { toast } from '../../store.js';
 
 const DOT = 7;
 

@@ -14,9 +14,9 @@
  * an administrative act rather than part of drawing.
  */
 
-import { api } from './api.js';
-import { el } from './core/dom.js';
-import { state, toast } from './store.js';
+import { api } from '../../api.js';
+import { el } from '../../core/dom.js';
+import { state, toast } from '../../store.js';
 
 function card(title, { action, onAction } = {}) {
   const head = el('div', { className: 'ovhead' }, el('h2', { textContent: title }));
