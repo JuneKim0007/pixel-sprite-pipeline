@@ -526,6 +526,40 @@ def _one_registry() -> None:
             f"the registry reparsed unchanged files ({first} then {calls['n']})")
 
 
+def _response_shapes() -> None:
+    """Every route returns the keys the front-end actually destructures.
+
+    This is here because splitting server.py broke /api/config in a way nothing
+    caught: the rewritten handler returned four of the seven keys, and the only
+    symptom was the whole UI failing to start with an AttributeError. Every
+    route answered 200, so a status check saw nothing wrong.
+
+    The lists below are read off the front-end, not invented. A key that stops
+    being used should be deleted from here in the same commit that stops using
+    it, which makes this the record of what the UI depends on.
+    """
+    shapes = {
+        "/api/config?name=char_1": ["name", "module", "raw", "config", "effective",
+                                    "style_record", "overrides"],
+        "/api/schema": ["fields", "options", "modules"],
+        "/api/system": ["services", "paths", "host", "weights"],
+        "/api/configs": ["configs"],
+        "/api/runs": ["runs"],
+        "/api/styles": ["styles"],
+        "/api/palettes": ["palettes"],
+        "/api/queue": ["states", "counts", "autopilot", "services"],
+        "/api/editor/layers": ["layers", "default_stack"],
+        "/api/global": ["config"],
+        "/api/poses": ["library"],
+        "/api/rigpose?rig=humanoid": ["rig", "joints", "tree", "bones", "neutral",
+                                      "root", "limbs", "pose"],
+    }
+    for path, wanted in shapes.items():
+        body = get(path)
+        missing = [k for k in wanted if k not in body]
+        _assert(not missing, f"{path} is missing {missing}; has {sorted(body)}")
+
+
 def _editor_limits() -> None:
     """The editor stays inside a budget, and only redoes what changed.
 
@@ -1129,6 +1163,8 @@ def test_api() -> None:
     for path in ("/api/schema", "/api/system", "/api/global", "/api/configs",
                  "/api/runs", "/api/poses", "/api/browse", "/api/rigpose?rig=spider"):
         check(f"GET {path}", lambda p=path: _assert(status_of(p) == 200, "not 200"))
+
+    check("responses carry the fields the UI reads", _response_shapes)
 
     schema = get("/api/schema")
     check("every option_from resolves", lambda: _assert(

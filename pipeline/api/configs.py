@@ -107,12 +107,18 @@ class Configs(BaseRouter):
     @get("/config", "one config, and what it resolves to with styles applied")
     def detail(self, req):
         name = req.required("name")
-        raw = load_roundtrip(_named(name))
-        plain = json.loads(json.dumps(raw, default=str))
-        merged = settings.layer(ROOT, plain)
-        effective, record = styles.layer(ROOT, merged)
-        return {"name": name, "config": plain, "effective": effective,
-                "styles": record}
+        path = _named(name)
+        own = yaml.safe_load(path.read_text()) or {}
+        merged, record = styles.layer(ROOT, own)
+        return {
+            "name": name,
+            "module": own.get("module", "animation"),
+            "raw": path.read_text(),
+            "config": own,                       # what this file pins
+            "effective": settings.effective(ROOT, merged),
+            "style_record": record,
+            "overrides": sorted(settings.overridden_paths(own)),
+        }
 
     @put("/config", "save a config, keeping its comments")
     def save(self, req):
