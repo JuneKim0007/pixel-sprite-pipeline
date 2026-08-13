@@ -175,17 +175,12 @@ class FramesStage(Stage):
             if framing:
                 prompt = f"{prompt}, {framing}"
 
-            # A pose control image invites the model to draw the control image.
-            # Naming that failure in the negative is what stops it.
-            negative = cfg["negative"]
-            if backdrop:
-                negative = f"{negative}, {vocabulary.BACKDROP_NEGATIVE}"
-            if pose_name and cfg["guard_against_skeletons"]:
-                negative = f"{negative}, {vocabulary.POSE_NEGATIVE}"
-            # Nothing geometric says "this view has no face" once the
-            # skeleton channel is off, so the words have to.
-            if facing_neg and cfg["guard_against_faces"]:
-                negative = f"{negative}, {facing_neg}"
+            negative = vocabulary.negative_for(
+                cfg["negative"], backdrop=bool(backdrop),
+                pose_control=bool(pose_name), facing=facing_neg,
+                guard_skeletons=cfg["guard_against_skeletons"],
+                guard_faces=cfg["guard_against_faces"],
+            )
 
             g = comfy.Graph()
             model, pos, neg, vae = comfy.base_graph(

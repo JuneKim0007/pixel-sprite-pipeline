@@ -44,6 +44,19 @@ def backdrop_prompt(colour: str | None) -> str:
     return BACKDROP_TERMS.format(colour=colour or BACKDROP)
 
 
+def negative_for(base: str, *, backdrop: bool = False, pose_control: bool = False,
+                 facing: str = "", guard_skeletons: bool = True,
+                 guard_faces: bool = True) -> str:
+    parts = [base]
+    if backdrop:
+        parts.append(BACKDROP_NEGATIVE)
+    if pose_control and guard_skeletons:
+        parts.append(POSE_NEGATIVE)
+    if facing and guard_faces:
+        parts.append(facing)
+    return ", ".join(p for p in parts if p)
+
+
 def view_words(yaw: float) -> str:
     yaw %= 360
     for limit, words in VIEW_WORDS:

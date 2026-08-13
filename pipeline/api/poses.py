@@ -159,8 +159,10 @@ class Poses(BaseRouter):
 
     @get("/autorig", "fit a rig to a reference image")
     def autorig(self, req):
-        return autorig.fit(Path(req.required("image")),
-                           req.query("rig", "humanoid"))
+        image = files_mod.safe_path(req.required("image"), allowed_roots())
+        if not image.is_file():
+            raise FileNotFoundError(req.query("image"))
+        return autorig.propose(image, req.query("rig", "humanoid")).as_dict()
 
     @get("/rigpose", "a rig's whole topology, not only its pose")
     def rigpose(self, req):

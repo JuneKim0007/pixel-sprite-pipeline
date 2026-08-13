@@ -1,6 +1,6 @@
 # The sprite pipeline
 
-Multi-stage, config-driven sprite generation. `README.md` covers the base
+Multi-stage, config-driven sprite generation. `../README.md` covers the base
 SDXL setup; this covers the pipeline built on top of it.
 
 ```bash

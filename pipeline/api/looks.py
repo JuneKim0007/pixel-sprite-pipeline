@@ -199,7 +199,7 @@ class Looks(BaseRouter):
         from ..looks import training
 
         sheet = _sheet(req.required("name"))
-        return training.assess(sheet.home / "training" / "images")
+        return training.preview(sheet.home)
 
     @post("/style/note", "add a line to a sheet's history")
     def note(self, req):

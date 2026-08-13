@@ -183,7 +183,7 @@ def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
             if src is not None:
                 # Actually flip it. Re-pointing the left image at 270 without
                 # mirroring would hand the model a left-facing figure labelled
-                # as the right side, which is the mislabelling CONFIGURING.md
+                # as the right side, which is the mislabelling docs/CONFIGURING.md
                 # calls worse than having no reference at all: the frame takes
                 # it at FULL weight and comes back facing the wrong way.
                 src = _mirrored(src, yaw)

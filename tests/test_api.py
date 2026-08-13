@@ -687,6 +687,32 @@ def _route_table() -> None:
     _assert(len(table) == before, "the table did not recover after the conflict")
 
 
+def _every_get_route_answers() -> None:
+    from pipeline import api
+
+    sample = {
+        "/api/config": "?name=character_sheet",
+        "/api/rigpose": "?rig=spider",
+        "/api/style/detail": "?name=retro_jrpg",
+        "/api/style/preview": "?config=character_sheet",
+        "/api/style/training": "?name=retro_jrpg",
+    }
+    needs_arg = {"/api/annotation", "/api/autorig", "/api/file", "/api/run"}
+
+    broken, unanswered = [], []
+    for route in api.table.surface():
+        if route["method"] != "GET":
+            continue
+        path = route["path"]
+        code = status_of(path + sample.get(path, ""))
+        if code >= 500:
+            broken.append(f"{path} -> {code}")
+        elif code != 200 and path not in needs_arg:
+            unanswered.append(f"{path} -> {code}")
+    _assert(not broken, f"routes that fail server-side: {broken}")
+    _assert(not unanswered, f"routes that did not answer: {unanswered}")
+
+
 def _response_shapes() -> None:
     """Every route returns the keys the front-end actually destructures.
 
@@ -1061,16 +1087,19 @@ def _prop_floor() -> None:
 
 
 def _prop_wired() -> None:
-    import inspect
+    import numpy as np
 
-    from pipeline.geometry import depthmap
-    from pipeline.stages import depth, frames
+    from pipeline.geometry import depthmap, props, rigs
 
-    _assert("props" in inspect.signature(depthmap.render_depth).parameters,
-            "the depth map cannot take props")
-    _assert("props_mod" in inspect.getsource(depth), "the depth stage ignores props")
-    _assert("prompt_terms" in inspect.getsource(frames),
-            "props are never named in the prompt")
+    rig = rigs.HUMANOID
+    pose = {k: list(v) for k, v in rigs.tpose(rig).items()}
+    held = props.load([{"name": "sword", "socket": "l_wrist", "length": 0.3,
+                        "aim": [0, 0.4, -0.9], "prompt": "holding a longsword"}])
+
+    bare = np.asarray(depthmap.render_depth(pose, 0.0, 96, 96, rig=rig, props=[]))
+    armed = np.asarray(depthmap.render_depth(pose, 0.0, 96, 96, rig=rig, props=held))
+    _assert(not np.array_equal(bare, armed), "the prop drew nothing into the depth map")
+    _assert("longsword" in props.prompt_terms(held), "the prop never reaches the prompt")
 
 
 def _styles_layer() -> None:
@@ -1107,38 +1136,37 @@ def _styles_layer() -> None:
 
 
 def _annotation_consumed() -> None:
-    """A feature that is saved but never read is worse than one that is absent.
-
-    Annotation went through exactly that state: endpoints, UI and storage
-    existed while no stage looked at it.
-    """
-    import inspect
-
-    from pipeline.stages import pose as pose_stage
-
-    src = inspect.getsource(pose_stage)
-    _assert("annotation" in src, "the pose stage ignores annotations")
-    _assert("_from_annotations" in src, "no path turns an annotation into a pose")
-
     from pipeline.generation.stage import Context
+    from pipeline.stages.pose import PoseStage
 
-    ctx = Context(root=ROOT, outdir=ROOT, config={"rig": "humanoid", "annotate": "skip"})
-    _assert(ctx._measured_proportions() == {},
-            "annotate: skip should measure nothing")
+    ctx = Context(root=ROOT, outdir=ROOT,
+                  config={"rig": "humanoid", "annotate": "skip",
+                          "pose": {"source": "annotation"}})
+    try:
+        PoseStage()._resolve(ctx, ctx.stage_config("pose"), wanted=1)
+    except ValueError as e:
+        _assert("annotat" in str(e).lower(), f"unexpected refusal: {e}")
+    else:
+        raise AssertionError("source: annotation resolved with no annotation present")
+
+    _assert(ctx._measured_proportions() == {}, "annotate: skip should measure nothing")
 
 
 def _pose_guard() -> None:
-    from pipeline.looks import vocabulary
+    from pipeline.looks import vocabulary as v
 
     for word in ("skeleton", "undead", "stick figure"):
-        _assert(word in vocabulary.POSE_NEGATIVE, f"'{word}' missing from the pose guard")
+        _assert(word in v.POSE_NEGATIVE, f"'{word}' missing from the pose guard")
 
-    import inspect
-
-    from pipeline.stages import frames
-
-    src = inspect.getsource(frames)
-    _assert("POSE_NEGATIVE" in src, "the guard is never appended to a generation")
+    guarded = v.negative_for("base", pose_control=True)
+    _assert(v.POSE_NEGATIVE in guarded, "a pose control image got no guard")
+    _assert(v.POSE_NEGATIVE not in v.negative_for("base", pose_control=False),
+            "the guard was added with no control image to justify it")
+    _assert(v.POSE_NEGATIVE not in
+            v.negative_for("base", pose_control=True, guard_skeletons=False),
+            "guard_against_skeletons: false did not turn the guard off")
+    _assert(v.BACKDROP_NEGATIVE in v.negative_for("base", backdrop=True),
+            "a keyed backdrop got no negative")
 
 
 def _proportions() -> None:
@@ -1423,9 +1451,7 @@ def _render_rig(rig) -> None:
 
 def test_api() -> None:
     print("\napi surface")
-    for path in ("/api/schema", "/api/system", "/api/global", "/api/configs",
-                 "/api/runs", "/api/poses", "/api/browse", "/api/rigpose?rig=spider"):
-        check(f"GET {path}", lambda p=path: _assert(status_of(p) == 200, "not 200"))
+    check("every declared GET route answers", _every_get_route_answers)
 
     check("responses carry the fields the UI reads", _response_shapes)
 

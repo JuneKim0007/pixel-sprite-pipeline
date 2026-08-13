@@ -192,11 +192,9 @@ class CanonicalStage(Stage):
             model, pos, neg, vae = comfy.base_graph(
                 g,
                 prompt=prompt,
-                negative=", ".join(p for p in (
-                    cfg["negative"],
-                    vocabulary.BACKDROP_NEGATIVE if backdrop else "",
-                    # Naming the failure is what stops the guide being drawn.
-                    vocabulary.POSE_NEGATIVE if control_names.get("pose") else "") if p),
+                negative=vocabulary.negative_for(
+                    cfg["negative"], backdrop=bool(backdrop),
+                    pose_control=bool(control_names.get("pose"))),
                 lora_strength=cfg["lora_strength"],
                 lcm=lcm,
                 models=ctx.config.get("models") or {},

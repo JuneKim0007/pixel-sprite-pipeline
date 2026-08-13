@@ -1,6 +1,6 @@
 # Working in this repository
 
-Instructions for an agent picking this up. Read `DECISIONS.md` next — it holds
+Instructions for an agent picking this up. Read `docs/DECISIONS.md` next — it holds
 the findings that cost GPU time to establish and that you cannot re-derive by
 reading the code.
 
@@ -40,8 +40,7 @@ you are testing tell you nothing. Every comparison holds the seed.
 **Do not delete code because nothing references it.** The owner's rule: if it
 is a real capability that was merely never wired up, reconnect it. Only code
 that is genuinely superseded — same feature, done better elsewhere — is a
-removal candidate. `audit/APPJS_INVESTIGATION.md` is what that analysis looks
-like.
+removal candidate.
 
 ## Layout
 
