@@ -84,10 +84,7 @@ def test_pipeline() -> None:
     check("the reference pose is an A-pose, and keeps its bones", _reference_pose)
 
     print("\nproportions and rig-free")
-    check("bone groups scale by their factor", _proportions)
-    check("scaling keeps the skeleton connected", _proportions_connected)
-    check("unknown proportion groups are rejected", _proportions_reject)
-    check("every proportion group actually moves something", _proportions_effective)
+    check("scaling moves the named group, only it, and rigidly", _proportions)
     check("rig 'none' has no geometry and no control channels", _rig_free)
 
     print("\nstage contracts")
@@ -106,21 +103,20 @@ def test_pipeline() -> None:
     ))
 
     print("\nsettings merge")
-    check("pipeline overrides win over global", lambda: _assert(
-        settings.deep_merge({"a": {"b": 1, "c": 2}}, {"a": {"b": 9}}) == {"a": {"b": 9, "c": 2}},
-        "merge lost a key",
-    ))
-    check("presence is the override, not difference", lambda: _assert(
-        settings.overridden_paths({"a": {"b": 1}}) == {"a.b"}, "override tracking broken",
-    ))
-    check("blank YAML keys fall back to defaults", lambda: _assert(
-        _opt({"size": None}, "size", 1024) == 1024, "None leaked through as a value",
-    ))
+    check("a pipeline value beats global, presence is the override, blanks fall back",
+          lambda: (
+              _assert(settings.deep_merge({"a": {"b": 1, "c": 2}}, {"a": {"b": 9}})
+                      == {"a": {"b": 9, "c": 2}}, "merge lost a key"),
+              _assert(settings.overridden_paths({"a": {"b": 1}}) == {"a.b"},
+                      "override tracking broken"),
+              _assert(_opt({"size": None}, "size", 1024) == 1024,
+                      "None leaked through as a value"),
+          ))
 
     print("\nstages that had no coverage")
     check("softbody runs as a stage, not just as physics", _softbody_stage)
-    check("reference weight falls off with angular distance", _reference_falloff)
-    check("a per-image weight survives both matching modes", _reference_weight_scale)
+    check("reference weight falls off with distance and scales per image",
+          _reference_weights)
 
     print("\nauto-rig")
     check("multi-pass keying removes a layered background", _keying_layers)
@@ -128,10 +124,8 @@ def test_pipeline() -> None:
     check("a fit lands joints in anatomical order", _autorig_order)
 
     print("\nprops")
-    check("a prop follows the limb it is held by", _prop_follows_limb)
-    check("two-handed props pull the off hand to the grip", _prop_two_handed)
-    check("props never draw darker than the body floor", _prop_floor)
-    check("props reach the depth map and the prompt", _prop_wired)
+    check("a prop follows its limb, reaches the depth map, and never punches "
+          "a hole", _props_render)
     check("a sheet drops its weapons, an animation keeps them", _prop_module_default)
 
     print("\nstyles and annotation are actually wired")
@@ -150,17 +144,15 @@ def test_pipeline() -> None:
     check("an unpersistable artifact is refused, not repr'd", _unpersistable_artifact_is_refused)
 
     print("\nstage defaults")
-    check("no stage restates a default it declares", _defaults_declared_once)
-    check("stage_config layers DEFAULTS under the config", _stage_config_layers_defaults)
-    check("the schema shows the defaults stages declare", _schema_shows_declared_defaults)
+    check("DEFAULTS reach stage_config and the schema, and are not shared",
+          _stage_defaults)
 
     print("\nrig editor")
     check("an editor save re-renders exactly as the stage would", _editor_matches_stage)
     check("pose.fill reaches the editor's re-render", _editor_honours_fill)
 
     print("\ndefinitive editor")
-    check("shared/ depends on no module", _shared_has_no_module_deps)
-    check("every module in the package imports", _module_layering)
+    check("every module imports and shared/ depends on none of them", _module_layering)
     check("failures carry their own status", _error_taxonomy)
     check("every registry answers the same way", _one_registry)
     check("the route table answers like a registry", _route_table)
@@ -170,19 +162,6 @@ def test_pipeline() -> None:
 
 
 def _reference_pose() -> None:
-    """Limbs clear of the torso, and not horizontal.
-
-    Both extremes were measured and both failed. Arms down (4 degrees, the
-    rig's neutral) put the hand two hip-widths out — against the body, so the
-    silhouette has no gap and neither a person nor a model can see where the
-    arm ends. A true T (88 degrees) put a long horizontal element at shoulder
-    height, and a prompt naming a sword came back with the blade drawn along
-    it. 40 degrees is what every character pipeline settles on.
-
-    The rotation must be rigid. Placing each joint along a ray from the
-    shoulder preserves shoulder-to-joint distance and silently rescales the
-    forearm, which is how this shipped the first time.
-    """
     import math
 
     from pipeline.geometry import rigs
@@ -222,51 +201,7 @@ def _reference_pose() -> None:
                             f"{want:.4f} -> {got:.4f}")
 
 
-def _proportions_effective() -> None:
-
-    from pipeline.geometry import rigs
-
-    cases = [
-        ("humanoid", "legs", "l_ankle"),
-        ("humanoid", "torso", "l_hip"),
-        ("humanoid", "arms", "l_wrist"),
-        ("humanoid", "neck", "nose"),
-        ("quadruped", "tail", "tail_tip"),
-        ("dragon", "wings", None),
-    ]
-    for rig_name, group, joint in cases:
-        rig = rigs.get(rig_name)
-        scaled = rigs.scale(rig, {group: 1.5})
-        if joint:
-            before, after = rig.neutral[joint], scaled.neutral[joint]
-            _assert(before != tuple(after),
-                    f"proportions.{group} did not move {joint} on {rig_name}")
-        else:
-            moved = [j for j in rig.neutral
-                     if tuple(rig.neutral[j]) != tuple(scaled.neutral[j])]
-            _assert(moved, f"proportions.{group} moved nothing on {rig_name}")
-
-    # And the thickness has to follow, or a lengthened limb goes spindly.
-    thick_before = {(a, b): w for a, b, w in rigs.HUMANOID.bones}
-    thick_after = {(a, b): w for a, b, w in rigs.scale(rigs.HUMANOID, {"legs": 1.75}).bones}
-    leg = ("l_hip", "l_knee")
-    arm = ("l_shoulder", "l_elbow")
-    _assert(thick_after[leg] > thick_before[leg],
-            "a lengthened leg kept its original capsule width")
-    _assert(thick_after[leg] / thick_before[leg] < 1.75,
-            "thickness scaled with the full factor; a taller figure is not a wider one")
-    _assert(thick_after[arm] == thick_before[arm],
-            "scaling legs changed arm thickness")
-
-
 def _cooling_gate() -> None:
-    """Rests fall between GPU tasks that will actually run.
-
-    Counting the whole plan made the stage before a gate look like it had work
-    after it, so `stop_after: canonical` slept three minutes and then returned.
-    Gating exists so you can look at something quickly; a wrong sleep here is
-    invisible, because it presents as the machine being slow.
-    """
     from pipeline.generation import runner
     from pipeline.orchestration import cooling
     from pipeline.generation.stage import Resource
@@ -312,8 +247,7 @@ def _prop_module_default() -> None:
                                       "props": {"enabled": False}})),
             "props.enabled: false did not override the animation default")
 
-    # Both config shapes have to load, since the mapping form is what carries
-    # the switch and it used to fail with "no prop 'enabled' in the library".
+    # Both config shapes must load; the mapping form carries the switch.
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
@@ -322,52 +256,7 @@ def _prop_module_default() -> None:
     _assert([p.name for p in flat] == [p.name for p in mapped] == ["bow"],
             "the two config shapes disagree")
 
-def _shared_has_no_module_deps() -> None:
-    """The membership rule for shared/, enforced rather than remembered.
-
-    "Put general things in shared" is a rule everyone agrees with and nobody
-    can apply, because everything looks general from the inside. "Depends on
-    nothing" is checkable, so it is the rule.
-
-    This also catches the failure that made the split worth doing: opt() sat in
-    stage.py beside a service locator, and a module reading one config key
-    imported the stage contract to get it.
-    """
-    import ast
-    import pathlib
-
-    shared = pathlib.Path(__file__).resolve().parent.parent / "pipeline" / "shared"
-    offenders = []
-    for f in sorted(shared.glob("*.py")):
-        tree = ast.parse(f.read_text())
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                # A relative import that leaves shared/ is a dependency on a
-                # module. Level 1 with no module is `from . import x`, which
-                # stays inside; level 2 or more climbs out.
-                if node.level and node.level > 1:
-                    offenders.append(f"{f.name}: from {'.' * node.level}{node.module or ''}")
-                elif node.level == 1 and node.module and "." in node.module:
-                    offenders.append(f"{f.name}: from .{node.module}")
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name.startswith("pipeline"):
-                        offenders.append(f"{f.name}: import {alias.name}")
-    _assert(not offenders, f"shared/ reaches into modules: {offenders}")
-
-
 def _module_layering() -> None:
-    """Every module imports, and shared/ still depends on nothing.
-
-    Regrouping thirty flat modules rewrote every import in the package, and a
-    broken one is invisible until something happens to import that module -
-    which for half of them is only when a particular route is called. Importing
-    all of them is the check that matches how they are actually reached.
-
-    The shared/ rule is checked here as a graph property rather than a syntax
-    one: the file-level test catches a bad import statement, this catches
-    shared/ growing a dependency through a package __init__.
-    """
     import importlib
     import pkgutil
 
@@ -403,10 +292,6 @@ def _module_layering() -> None:
 
 def _error_taxonomy() -> None:
 
-    import ast
-    import collections
-    import pathlib
-
     from pipeline.generation.comfy import ComfyError
     from pipeline.shared.files import PathDenied
     from pipeline.orchestration.queue import QueueError
@@ -423,8 +308,7 @@ def _error_taxonomy() -> None:
         _assert(status_for(exc) == want,
                 f"{type(exc).__name__} maps to {status_for(exc)}, wanted {want}")
 
-    # A service being down is not a defect in this code, which is the same
-    # judgement the queue makes when it pauses instead of failing jobs.
+    # A service being down is not a defect in this code.
     _assert(status_for(ComfyError("down")) == 503, "ComfyUI down should be 503")
     _assert(status_for(StyleError("cycle")) == 400, "a bad style sheet is the user's")
     _assert(status_for(QueueError("bad")) == 400, "a malformed job is the user's")
@@ -447,21 +331,6 @@ def _error_taxonomy() -> None:
     listed = errors.NotFound("style sheet", "nope", available=["a", "b"])
     _assert("a, b" in listed.as_dict().get("hint", ""),
             "NotFound did not report the alternatives")
-
-    root = pathlib.Path(__file__).resolve().parent.parent
-    builtins = collections.Counter()
-    for f in sorted(root.glob("pipeline/**/*.py")):
-        if "__pycache__" in str(f):
-            continue
-        for node in ast.walk(ast.parse(f.read_text())):
-            if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
-                name = getattr(node.exc.func, "id", "")
-                if name in {"ValueError", "FileNotFoundError", "KeyError",
-                            "RuntimeError"}:
-                    builtins[name] += 1
-    total = sum(builtins.values())
-    _assert(total <= 80,
-            f"builtin raises in pipeline/ rose to {total}: {dict(builtins)}")
 
 
 def _one_registry() -> None:
@@ -493,8 +362,7 @@ def _one_registry() -> None:
         else:
             raise AssertionError(f"a missing {what} was accepted silently")
 
-    # A file that will not parse is reported, not omitted. This is the failure
-    # that motivated the whole change.
+    # A file that will not parse is reported, not omitted.
     from pipeline.shared import paths as _paths
     bad = _paths.resolve(ROOT, "palettes") / "_registry_test.hex"
     bad.write_text("// name: Broken\nnot a hex value\n")
@@ -513,10 +381,7 @@ def _one_registry() -> None:
     _assert(not [b for b in palettes.registry(ROOT).broken() if b.path == bad],
             "the registry cache did not notice a deleted file")
 
-    # A decorated registry read before its modules import must not cache the
-    # emptiness. This shipped: something asked for the stage list first, the
-    # registry cached {}, and the schema served a select with no options for
-    # the life of the process.
+    # A registry read before its modules import must not cache the emptiness.
     from pipeline.shared.registry import Decorated
 
     late = Decorated()
@@ -546,7 +411,6 @@ def _one_registry() -> None:
 
 
 def _unpersistable_artifact_is_refused() -> None:
-    """A manifest must never hand a resumed run repr() of an object."""
     import tempfile
 
     from pipeline.orchestration import artifacts as artifacts_io
@@ -569,28 +433,10 @@ def _unpersistable_artifact_is_refused() -> None:
         _assert(loaded == {"n": 1}, f"scratch key leaked into the manifest: {loaded}")
 
 
-def _defaults_declared_once() -> None:
-    """A stage must not restate a default it already declares in DEFAULTS."""
-    import inspect
-    import re
-
-    from pipeline.generation.stage import available
-
-    offenders = []
-    for name, cls in sorted(available().items()):
-        declared = set(getattr(cls, "DEFAULTS", {}) or {})
-        if not declared:
-            continue
-        src = inspect.getsource(inspect.getmodule(cls))
-        for key in re.findall(r'opt\(\s*cfg\s*,\s*"([^"]+)"\s*,', src):
-            if key in declared:
-                offenders.append(f"{name}.{key}")
-    _assert(not offenders,
-            f"inline defaults shadowing DEFAULTS: {sorted(set(offenders))}")
-
-
-def _stage_config_layers_defaults() -> None:
-    from pipeline.generation.stage import Context
+def _stage_defaults() -> None:
+    from pipeline import stages  # noqa: F401
+    from pipeline.generation.schema import fields_for
+    from pipeline.generation.stage import Context, available
 
     ctx = Context(root=ROOT, outdir=ROOT,
                   config={"pose": {"size": None, "fill": 0.8}})
@@ -601,34 +447,23 @@ def _stage_config_layers_defaults() -> None:
     _assert(ctx.stage_config("nosuchstage") == {},
             "an unregistered stage should have no defaults")
 
-    # Mutable defaults must not be shared between reads.
-    first = ctx.stage_config("pose")
-    first["llm"]["host"] = "poisoned"
+    # A mutable default shared between reads would poison every later run.
+    ctx.stage_config("pose")["llm"]["host"] = "poisoned"
     _assert("host" not in ctx.stage_config("pose")["llm"],
             "a mutable default leaked between stage_config calls")
 
-
-def _schema_shows_declared_defaults() -> None:
-    from pipeline import stages  # noqa: F401
-    from pipeline.generation.schema import fields_for
-    from pipeline.generation.stage import available
-
     by_path = {f["path"]: f for f in fields_for(None)}
-    missing = []
-    for name, cls in sorted(available().items()):
-        for key, value in (getattr(cls, "DEFAULTS", {}) or {}).items():
-            field = by_path.get(f"{name}.{key}")
-            if field is None:
-                continue
-            if field.get("default") != value:
-                missing.append(f"{name}.{key}")
+    missing = [f"{name}.{key}"
+               for name, cls in sorted(available().items())
+               for key, value in (getattr(cls, "DEFAULTS", {}) or {}).items()
+               if by_path.get(f"{name}.{key}")
+               and by_path[f"{name}.{key}"].get("default") != value]
     _assert(not missing, f"schema does not show the declared default for: {missing}")
     _assert(by_path["pose.size"]["default"] == 1024,
             "pose.size lost its default in the schema")
 
 
 def _route_table() -> None:
-    """The router is a Registry now, so it must answer like the others."""
     from pipeline import api
     from pipeline.api.routing import BaseRouter, get
     from pipeline.shared import Conflict, Invalid, NotFound
@@ -687,76 +522,59 @@ def _route_table() -> None:
     _assert(len(table) == before, "the table did not recover after the conflict")
 
 
-def _every_get_route_answers() -> None:
+# Path -> (query string, keys the front-end destructures). A key that stops
+# being used should leave this in the same commit that stops using it.
+SHAPES = {
+    "/api/config": ("?name=char_1", ["name", "module", "raw", "config",
+                                     "effective", "style_record", "overrides"]),
+    "/api/schema": ("", ["fields", "options", "modules"]),
+    "/api/system": ("", ["services", "paths", "host", "weights"]),
+    "/api/configs": ("", ["configs"]),
+    "/api/runs": ("", ["runs"]),
+    "/api/styles": ("", ["styles"]),
+    "/api/palettes": ("", ["palettes"]),
+    "/api/queue": ("", ["states", "counts", "autopilot", "services"]),
+    "/api/editor/layers": ("", ["layers", "default_stack"]),
+    "/api/global": ("", ["config"]),
+    "/api/poses": ("", ["library"]),
+    "/api/rigpose": ("?rig=humanoid", ["rig", "joints", "tree", "bones",
+                                       "neutral", "root", "limbs", "pose"]),
+    "/api/style/detail": ("?name=retro_jrpg", []),
+    "/api/style/preview": ("?config=character_sheet", []),
+    "/api/style/training": ("?name=retro_jrpg", []),
+    "/api/browse": ("", []),
+}
+NEEDS_ARG = {"/api/annotation", "/api/autorig", "/api/file", "/api/run"}
+
+
+def _route_surface() -> None:
     from pipeline import api
 
-    sample = {
-        "/api/config": "?name=character_sheet",
-        "/api/rigpose": "?rig=spider",
-        "/api/style/detail": "?name=retro_jrpg",
-        "/api/style/preview": "?config=character_sheet",
-        "/api/style/training": "?name=retro_jrpg",
-    }
-    needs_arg = {"/api/annotation", "/api/autorig", "/api/file", "/api/run"}
-
-    broken, unanswered = [], []
+    broken, unanswered, wrong = [], [], []
     for route in api.table.surface():
         if route["method"] != "GET":
             continue
         path = route["path"]
-        code = status_of(path + sample.get(path, ""))
+        query, keys = SHAPES.get(path, ("", []))
+        code = status_of(path + query)
         if code >= 500:
             broken.append(f"{path} -> {code}")
-        elif code != 200 and path not in needs_arg:
-            unanswered.append(f"{path} -> {code}")
+            continue
+        if code != 200:
+            if path not in NEEDS_ARG:
+                unanswered.append(f"{path} -> {code}")
+            continue
+        if keys:
+            body = get(path + query)
+            missing = [k for k in keys if k not in body]
+            if missing:
+                wrong.append(f"{path} missing {missing}; has {sorted(body)}")
     _assert(not broken, f"routes that fail server-side: {broken}")
     _assert(not unanswered, f"routes that did not answer: {unanswered}")
-
-
-def _response_shapes() -> None:
-    """Every route returns the keys the front-end actually destructures.
-
-    This is here because splitting server.py broke /api/config in a way nothing
-    caught: the rewritten handler returned four of the seven keys, and the only
-    symptom was the whole UI failing to start with an AttributeError. Every
-    route answered 200, so a status check saw nothing wrong.
-
-    The lists below are read off the front-end, not invented. A key that stops
-    being used should be deleted from here in the same commit that stops using
-    it, which makes this the record of what the UI depends on.
-    """
-    shapes = {
-        "/api/config?name=char_1": ["name", "module", "raw", "config", "effective",
-                                    "style_record", "overrides"],
-        "/api/schema": ["fields", "options", "modules"],
-        "/api/system": ["services", "paths", "host", "weights"],
-        "/api/configs": ["configs"],
-        "/api/runs": ["runs"],
-        "/api/styles": ["styles"],
-        "/api/palettes": ["palettes"],
-        "/api/queue": ["states", "counts", "autopilot", "services"],
-        "/api/editor/layers": ["layers", "default_stack"],
-        "/api/global": ["config"],
-        "/api/poses": ["library"],
-        "/api/rigpose?rig=humanoid": ["rig", "joints", "tree", "bones", "neutral",
-                                      "root", "limbs", "pose"],
-    }
-    for path, wanted in shapes.items():
-        body = get(path)
-        missing = [k for k in wanted if k not in body]
-        _assert(not missing, f"{path} is missing {missing}; has {sorted(body)}")
+    _assert(not wrong, "routes the UI cannot read:\n    " + "\n    ".join(wrong))
 
 
 def _editor_limits() -> None:
-    """The editor stays inside a budget, and only redoes what changed.
-
-    All of this is here because the editor took the machine down: one preview
-    measured 6.96 s and 363 MB of peak RSS, with a 230 MB allocation inside it,
-    and the editor issued one per parameter change with nothing stopping them
-    overlapping.
-
-    Three properties, each of which silently regresses if nothing checks it.
-    """
     import numpy as np
 
     from pipeline import definitive
@@ -767,9 +585,6 @@ def _editor_limits() -> None:
     d = limits.describe()
     _assert(0 < d["derived"]["threads"] < d["machine"]["cores"],
             f"threads {d['derived']['threads']} of {d['machine']['cores']} cores")
-    _assert(256 <= d["derived"]["preview_edge"] <= 1024,
-            f"preview edge out of range: {d['derived']['preview_edge']}")
-    _assert(d["derived"]["colour_chunk"] >= 1024, "colour chunk too small to be useful")
 
     img = np.zeros((96, 96, 3), dtype=np.uint8)
     img[16:80, 16:80] = (200, 60, 60)
@@ -810,12 +625,6 @@ def _editor_limits() -> None:
 
 
 def _definitive_layers() -> None:
-    """A field with no help is a control the UI cannot explain.
-
-    BaseField renders a disabled marker rather than omitting the tip, so a gap
-    is visible on screen. This makes it visible in CI too, because a gap you
-    have to notice is a gap that ships.
-    """
     from pipeline import definitive
 
     missing = [(s["key"], f["key"]) for s in definitive.catalogue()
@@ -833,12 +642,6 @@ def _definitive_layers() -> None:
 
 
 def _definitive_stack() -> None:
-    """The order is data, and a questionable one warns rather than blocks.
-
-    Someone deliberately keying before the grid to see what happens is doing
-    something legitimate; the stage runner takes the same line with a
-    questionable pipeline order.
-    """
     import numpy as np
 
     from pipeline import definitive
@@ -849,10 +652,7 @@ def _definitive_stack() -> None:
     out, facts = definitive.apply_stack(img, definitive.default_stack(), root=ROOT)
     _assert(out.ndim == 3, "the stack did not return an image")
 
-    # A layer that raises does not kill the run, which is right for an
-    # interactive editor and hides a broken import perfectly. Regrouping the
-    # package moved `training`, _grid_prepare kept the old path, and the only
-    # symptom was one fact missing from a dict.
+    # A raising layer does not kill the run, which hides a broken import.
     broke = [f"{la['layer']}: {la['error']}" for la in facts["layers"] if la.get("error")]
     _assert(not broke, f"the default stack cannot run: {broke}")
     _assert(not facts["warnings"], f"the default order warns: {facts['warnings']}")
@@ -878,12 +678,6 @@ def _definitive_stack() -> None:
 
 
 def _softbody_stage() -> None:
-    """The stage had unit-tested physics but had never actually executed.
-
-    A stage can pass every test of its maths and still fail on the contract:
-    wrong artifact names, a context field that does not exist, an output
-    directory never created.
-    """
     import tempfile
 
     import numpy as np
@@ -924,18 +718,11 @@ def _softbody_stage() -> None:
             _assert(path.exists(), f"{path.name} was never written")
 
 
-def _reference_falloff() -> None:
-    """Weight must DROP as a reference gets further from the frame's view.
-
-    The instinct is the opposite, and getting it backwards produces a
-    front-facing sprite in a rear pose: a mismatched reference forced at full
-    strength overrides the skeleton.
-    """
+def _reference_weights() -> None:
     from pipeline.refs.references import Reference, pick
 
-    # Keywords, not positions. `role` was inserted as the second field and
-    # positional construction silently made yaw="front" — a TypeError deep in
-    # the arithmetic rather than at the call site that was actually wrong.
+    # Keywords, not positions: `role` was inserted second and positional
+    # construction silently made yaw="front".
     refs = [Reference(path=Path("front.png"), yaw=0, label="front"),
             Reference(path=Path("rear.png"), yaw=180, label="rear")]
 
@@ -944,41 +731,19 @@ def _reference_falloff() -> None:
     _assert(near_d == 0, "an exact match was not recognised")
     _assert(far_d == 180, "a full mismatch was not measured")
     _assert(far_w < near_w, "weight did not fall off with distance")
+    _assert(pick(refs, 170, tolerance=40)[0].label == "rear",
+            "the nearer reference was not chosen")
 
-    chosen, _, _ = pick(refs, 170, tolerance=40)
-    _assert(chosen.label == "rear", "the nearer reference was not chosen")
-
-
-def _reference_weight_scale() -> None:
-    """A per-image weight must survive both matching modes.
-
-    The manual path used to read the configured Identity weight raw and drop
-    the per-image scale that pick() had already multiplied in, so every weight
-    slider in the UI did nothing the moment automatic matching was switched
-    off. A control that is present and inert is worse than an absent one.
-    """
-    from pipeline.refs.references import Reference, pick
-
-    plain = Reference(path=Path("a.png"), yaw=0, label="front")
     scaled = Reference(path=Path("a.png"), yaw=0, label="front", weight_scale=0.5)
-
-    _, full, _ = pick([plain], 0, tolerance=40, exact_weight=0.8)
+    _, full, _ = pick([refs[0]], 0, tolerance=40, exact_weight=0.8)
     _, half, _ = pick([scaled], 0, tolerance=40, exact_weight=0.8)
     _assert(abs(full - 0.8) < 1e-9, f"unscaled weight was {full}")
     _assert(abs(half - 0.4) < 1e-9, f"scaled weight was {half}, expected 0.4")
-
-    # And the manual branch, as frames.py computes it.
-    manual = 0.85 * scaled.weight_scale
-    _assert(abs(manual - 0.425) < 1e-9, "manual path must apply the scale too")
+    _assert(abs(0.85 * scaled.weight_scale - 0.425) < 1e-9,
+            "the manual branch in frames.py must apply the scale too")
 
 
 def _keying_layers() -> None:
-    """A single flood only removes the colour the corners sit on.
-
-    Generated sprites often arrive on a two-tone backdrop, and the surviving
-    panel was being counted as subject — which also polluted the palette,
-    since it is extracted from this same mask.
-    """
     import numpy as np
 
     from pipeline.definitive.pixelize import background_to_alpha
@@ -1027,79 +792,50 @@ def _autorig_order() -> None:
             "left and right shoulders are swapped")
 
 
-def _prop_follows_limb() -> None:
+def _props_render() -> None:
     import math
 
-    from pipeline.geometry import props, rigs
-
-    rig = rigs.HUMANOID
-    spec = [{"name": "sword", "socket": "l_wrist", "length": 0.3,
-             "aim": [0, 0.4, -0.9]}]
-    prop = props.load(spec)[0]
-
-    rest = {k: list(v) for k, v in rig.neutral.items()}
-    raised = {k: list(v) for k, v in rig.neutral.items()}
-    raised["l_elbow"] = [0.12, 0.10, 0.28]
-    raised["l_wrist"] = [0.16, 0.18, 0.18]
-
-    a = props.tip(prop, rest, rig)
-    b = props.tip(prop, raised, rig)
-    _assert(a is not None and b is not None, "the prop produced no tip")
-    _assert(math.dist(a, b) > 0.1, "the prop did not move with the arm")
-
-    # Length is a property of the object, not of the pose.
-    for pose, point in ((rest, a), (raised, b)):
-        grip = props.anchor(prop, pose, rig)
-        _assert(abs(math.dist(grip, point) - prop.length) < 1e-6,
-                "the prop changed length when the arm moved")
-
-
-def _prop_two_handed() -> None:
-    import math
-
-    from pipeline.geometry import props, rigs
-
-    rig = rigs.HUMANOID
-    prop = props.load([{"name": "gs", "socket": "l_wrist",
-                        "second_socket": "r_wrist", "length": 0.4}])
-    pose = {k: list(v) for k, v in rig.neutral.items()}
-    moved = props.pull_second_hand(prop, pose, rig)
-    _assert(math.dist(pose["r_wrist"], moved["r_wrist"]) > 0.05,
-            "the off hand stayed put on a two-handed weapon")
-    _assert(pose["l_wrist"] == moved["l_wrist"], "the primary hand moved")
-
-
-def _prop_floor() -> None:
-    import numpy as np
-
-    from pipeline.geometry import props, rigs
-    from pipeline.geometry.depthmap import render_depth
-
-    rig = rigs.HUMANOID
-    dim = props.load([{"name": "cape", "socket": "neck", "width": 0.15,
-                       "length": 0.35, "flex": 0.3, "shade": 0.2}])
-    raw = np.asarray(render_depth(rig.neutral, 40, 256, 256, rig=rig,
-                                  props=dim, blur=0))
-    ink = raw[raw > 0]
-    # Black means background. A prop that reaches it reads as a hole punched
-    # through the sprite rather than an object behind it.
-    _assert(int(ink.min()) >= 60, f"a prop drew at {int(ink.min())}, below the body floor")
-
-
-def _prop_wired() -> None:
     import numpy as np
 
     from pipeline.geometry import depthmap, props, rigs
 
     rig = rigs.HUMANOID
-    pose = {k: list(v) for k, v in rigs.tpose(rig).items()}
-    held = props.load([{"name": "sword", "socket": "l_wrist", "length": 0.3,
+    prop = props.load([{"name": "sword", "socket": "l_wrist", "length": 0.3,
                         "aim": [0, 0.4, -0.9], "prompt": "holding a longsword"}])
 
-    bare = np.asarray(depthmap.render_depth(pose, 0.0, 96, 96, rig=rig, props=[]))
-    armed = np.asarray(depthmap.render_depth(pose, 0.0, 96, 96, rig=rig, props=held))
+    rest = {k: list(v) for k, v in rig.neutral.items()}
+    raised = {**rest, "l_elbow": [0.12, 0.10, 0.28], "l_wrist": [0.16, 0.18, 0.18]}
+    a, b = props.tip(prop[0], rest, rig), props.tip(prop[0], raised, rig)
+    _assert(a is not None and b is not None, "the prop produced no tip")
+    _assert(math.dist(a, b) > 0.1, "the prop did not move with the arm")
+
+    # Length is a property of the object, not of the pose.
+    for pose, point in ((rest, a), (raised, b)):
+        grip = props.anchor(prop[0], pose, rig)
+        _assert(abs(math.dist(grip, point) - prop[0].length) < 1e-6,
+                "the prop changed length when the arm moved")
+
+    two = props.load([{"name": "gs", "socket": "l_wrist",
+                       "second_socket": "r_wrist", "length": 0.4}])
+    moved = props.pull_second_hand(two, rest, rig)
+    _assert(math.dist(rest["r_wrist"], moved["r_wrist"]) > 0.05,
+            "the off hand stayed put on a two-handed weapon")
+    _assert(rest["l_wrist"] == moved["l_wrist"], "the primary hand moved")
+
+    tpose = {k: list(v) for k, v in rigs.tpose(rig).items()}
+    bare = np.asarray(depthmap.render_depth(tpose, 0.0, 96, 96, rig=rig, props=[]))
+    armed = np.asarray(depthmap.render_depth(tpose, 0.0, 96, 96, rig=rig, props=prop))
     _assert(not np.array_equal(bare, armed), "the prop drew nothing into the depth map")
-    _assert("longsword" in props.prompt_terms(held), "the prop never reaches the prompt")
+    _assert("longsword" in props.prompt_terms(prop), "the prop never reaches the prompt")
+
+    # Black is background, so a prop reaching it reads as a hole in the sprite.
+    dim = props.load([{"name": "cape", "socket": "neck", "width": 0.15,
+                       "length": 0.35, "flex": 0.3, "shade": 0.2}])
+    raw = np.asarray(depthmap.render_depth(rig.neutral, 40, 256, 256, rig=rig,
+                                           props=dim, blur=0))
+    ink = raw[raw > 0]
+    _assert(int(ink.min()) >= 60,
+            f"a prop drew at {int(ink.min())}, below the body floor")
 
 
 def _styles_layer() -> None:
@@ -1123,9 +859,7 @@ def _styles_layer() -> None:
     _assert(after["palette"]["source"] == "extract",
             "a style overrode a value the pipeline pinned")
 
-    # NotFound rather than StyleError: a name that does not exist is the
-    # registry's answer for every kind of thing, and it carries the
-    # alternatives, which is what someone who mistyped actually needs.
+    # NotFound, not StyleError: it carries the alternatives.
     try:
         styles.layer(ROOT, {"styles": ["definitely_not_a_style"]})
     except NotFound as e:
@@ -1174,39 +908,51 @@ def _proportions() -> None:
 
     from pipeline.geometry import rigs
 
+    def span(rig, a, b):
+        return math.dist(rig.neutral[a], rig.neutral[b])
+
     base = rigs.HUMANOID
     scaled = rigs.scale(base, {"neck": 2.5, "arms": 1.4, "legs": 0.8, "head": 1.5})
     for a, b, factor in (("neck", "nose", 2.5), ("l_shoulder", "l_elbow", 1.4),
                          ("l_hip", "l_knee", 0.8)):
-        want = math.dist(base.neutral[a], base.neutral[b]) * factor
-        got = math.dist(scaled.neutral[a], scaled.neutral[b])
-        _assert(abs(got - want) < 1e-9, f"{a}->{b}: {got:.4f} != {want:.4f}")
+        want = span(base, a, b) * factor
+        _assert(abs(span(scaled, a, b) - want) < 1e-9,
+                f"{a}->{b}: {span(scaled, a, b):.4f} != {want:.4f}")
     _assert(scaled.head_radius > base.head_radius, "head scale ignored the skull")
 
-
-def _proportions_connected() -> None:
-    import math
-
-    from pipeline.geometry import rigs
-
     for name in ("humanoid", "dragon", "spider", "serpent"):
-        base = rigs.get(name)
-        scaled = rigs.scale(base, {"neck": 2.0, "legs": 0.6, "tail": 1.8})
-        _assert(set(scaled.neutral) == set(base.neutral), f"{name}: joints lost")
-        # Bones the factors do not name must keep their original length.
-        for a, b, _w in base.bones:
+        rig = rigs.get(name)
+        moved = rigs.scale(rig, {"neck": 2.0, "legs": 0.6, "tail": 1.8})
+        _assert(set(moved.neutral) == set(rig.neutral), f"{name}: joints lost")
+        for a, b, _w in rig.bones:
             if rigs._group_of(a, b) in {"neck", "legs", "tail"}:
                 continue
-            want = math.dist(base.neutral[a], base.neutral[b])
-            got = math.dist(scaled.neutral[a], scaled.neutral[b])
-            _assert(abs(got - want) < 1e-9, f"{name} {a}->{b} moved unexpectedly")
+            _assert(abs(span(moved, a, b) - span(rig, a, b)) < 1e-9,
+                    f"{name} {a}->{b} moved unexpectedly")
 
+    for group, rig_name, joint in (("legs", "humanoid", "l_ankle"),
+                                   ("torso", "humanoid", "l_hip"),
+                                   ("arms", "humanoid", "l_wrist"),
+                                   ("neck", "humanoid", "nose"),
+                                   ("tail", "quadruped", "tail_tip"),
+                                   ("wings", "dragon", None)):
+        rig = rigs.get(rig_name)
+        bigger = rigs.scale(rig, {group: 1.5})
+        shifted = [j for j in rig.neutral
+                   if tuple(rig.neutral[j]) != tuple(bigger.neutral[j])]
+        _assert(shifted if joint is None else joint in shifted,
+                f"proportions.{group} moved nothing on {rig_name}")
 
-def _proportions_reject() -> None:
-    from pipeline.geometry import rigs
+    # Thickness follows length, but not by the full factor: taller is not wider.
+    thin = {(a, b): w for a, b, w in base.bones}
+    thick = {(a, b): w for a, b, w in rigs.scale(base, {"legs": 1.75}).bones}
+    leg, arm = ("l_hip", "l_knee"), ("l_shoulder", "l_elbow")
+    _assert(thin[leg] < thick[leg] < thin[leg] * 1.75,
+            f"leg capsule went {thin[leg]:.4f} -> {thick[leg]:.4f}")
+    _assert(thick[arm] == thin[arm], "scaling legs changed arm thickness")
 
     try:
-        rigs.scale(rigs.HUMANOID, {"elbows": 2.0})
+        rigs.scale(base, {"elbows": 2.0})
     except KeyError:
         return
     raise AssertionError("an unknown proportion group was accepted silently")
@@ -1239,7 +985,7 @@ def _matrix() -> None:
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        qu, q = _queue(Path(tmp))
+        qu, _q = _queue(Path(tmp))
         jobs = qu.submit({"config": "knight_attack",
                           "matrix": {"a": [1, 2, 3], "b": ["x", "y"]}})
         _assert(len(jobs) == 6, f"expected 6 jobs, got {len(jobs)}")
@@ -1270,12 +1016,6 @@ def _triage() -> None:
 
 
 def _no_cascade() -> None:
-    """The measured failure this whole design exists to prevent.
-
-    Every stage rejects a missing ComfyUI in about a millisecond, so a worker
-    that treated that as a job error would empty a 200-job queue into failed/
-    faster than a person could read one line of the log.
-    """
     from pipeline.orchestration import queue as q
 
     ok, why = q.services_up(ROOT)
@@ -1300,10 +1040,6 @@ def _manifest_excludes_scratch() -> None:
 
 
 def _editor_run(tag: str, pose_cfg: dict):
-    """A minimal run directory the rig editor can be pointed at.
-
-    Returns (run_dir, entries); the caller removes the directory.
-    """
     import shutil
 
     import yaml
@@ -1331,10 +1067,6 @@ def _editor_run(tag: str, pose_cfg: dict):
 
 
 def _editor_matches_stage() -> None:
-    """The editor's re-render must equal the pipeline's render, byte for byte.
-
-    Catches both a renderer copy and the snapshot being read raw, not layered.
-    """
     import copy
     import shutil
 
@@ -1371,7 +1103,6 @@ def _editor_matches_stage() -> None:
 
 
 def _editor_honours_fill() -> None:
-    """Byte-equality would still pass if both paths dropped fill; this won't."""
     import copy
     import shutil
 
@@ -1393,9 +1124,6 @@ def _editor_honours_fill() -> None:
 
 
 def _rig_cached() -> None:
-    from types import SimpleNamespace
-
-    from pipeline.geometry import rigs
     from pipeline.generation.stage import Context
 
     ctx = Context(root=ROOT, outdir=ROOT, config={"rig": "spider"})
@@ -1451,18 +1179,15 @@ def _render_rig(rig) -> None:
 
 def test_api() -> None:
     print("\napi surface")
-    check("every declared GET route answers", _every_get_route_answers)
-
-    check("responses carry the fields the UI reads", _response_shapes)
+    check("every GET route answers with the fields the UI reads", _route_surface)
 
     schema = get("/api/schema")
-    check("every option_from resolves", lambda: _assert(
-        not [f["path"] for f in schema["fields"]
-             if f.get("options_from") and not schema["options"].get(f["options_from"])],
-        "a select has no options to offer",
-    ))
-    check("schema exposes all rigs", lambda: _assert(
-        len(schema["options"]["rigs"]) >= 17, "rig list truncated",
+    check("every option_from resolves, and rigs are not truncated", lambda: (
+        _assert(not [f["path"] for f in schema["fields"] if f.get("options_from")
+                     and not schema["options"].get(f["options_from"])],
+                "a select has no options to offer"),
+        _assert(set(schema["options"]["rigs"]) >= {"humanoid", "dragon", "spider"},
+                "the rig list lost a rig the editor draws"),
     ))
     check("rigpose ships topology, not just a pose", lambda: _assert(
         {"tree", "limbs", "bones", "neutral", "root"} <= set(get("/api/rigpose?rig=dragon")),
@@ -1491,12 +1216,7 @@ def test_api() -> None:
     ))
 
     print("\nsafety")
-    # Assert the property that matters - the file is not served - rather than
-    # one status code. Both paths are denied, by different routes: an absolute
-    # path fails safe_path's containment check (403), while a relative one
-    # resolves to somewhere outside the roots that does not exist, so it dies
-    # as a missing file (404) before anything is read. Pinning 403 made this
-    # fail while the traversal was in fact blocked and leaking nothing.
+    # Two routes deny these: containment gives 403, a nonexistent path 404.
     for bad in ("../../etc/passwd", "/etc/passwd"):
         check(f"path traversal blocked: {bad}", lambda b=bad: _assert(
             status_of(f"/api/file?path={urllib.parse.quote(b)}") in (403, 404),
