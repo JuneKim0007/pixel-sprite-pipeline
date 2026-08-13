@@ -5,14 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ..geometry import annotate, autorig, bodyspace
+from ..geometry import annotate, autorig
 from ..geometry import rigs as rig_lib
-from ..shared.errors import Invalid, NotFound
-from .context import ROOT, load_roundtrip, runs_dir
-from .routing import BaseRouter, get, post
-from .context import allowed_roots
-from ..shared import files as files_mod
+from ..generation.stage import Context
+from ..looks import styles
 from ..orchestration import artifacts as artifacts_io
+from ..shared import files as files_mod
+from ..shared import settings
+from ..stages import depth as depth_stage
+from ..stages import pose as pose_stage
+from .context import ROOT, allowed_roots, runs_dir
+from .routing import BaseRouter, get, post
 import yaml
 
 
@@ -44,12 +47,25 @@ def poses(run_id: str) -> dict:
     return {"library": library}
 
 
+def _run_context(run: Path, pose_json: dict) -> Context:
+    """A Context equivalent to the one that produced this run.
+
+    The snapshot is the raw config, so styles and globals are re-layered here.
+    """
+    raw = yaml.safe_load((run / "config.yaml").read_text()) or {}
+    styled, _record = styles.layer(ROOT, raw, picks=raw.get("style_picks"))
+    cfg = settings.effective(ROOT, styled)
+    # Pinned from what the run recorded, so `rig: auto` needs no vision model.
+    recorded = pose_json.get("rig")
+    if recorded:
+        cfg = {**cfg, "rig": recorded}
+    return Context(root=ROOT, outdir=run, config=cfg, run_id=run.name)
+
+
 def save_poses(body: dict) -> dict:
     """Write edited skeletons back and re-render their control images.
 
-    The rig editor changes body-space data, but the frames stage consumes
-    rendered PNGs — so saving has to redraw them, or the edit would be
-    recorded and then ignored.
+    The redraw goes through the stages' own renderers, not a copy of them.
     """
     run_id = body.get("run_id", "")
     entries = body.get("entries")
@@ -62,51 +78,23 @@ def save_poses(body: dict) -> dict:
         raise FileNotFoundError(f"run {run_id} has no pose stage output")
     pose_dir = pose_dirs[0]
 
-    from pipeline.geometry.bodyspace import project
-    from pipeline.geometry.depthmap import render_depth
-    from pipeline.geometry.openpose import render
-
-    cfg = yaml.safe_load((run / "config.yaml").read_text()) or {}
-    pose_cfg = cfg.get("pose") or {}
-    size = pose_cfg.get("size") or 1024
-    ds = pose_cfg.get("depth_scale", 1.0) or 1.0
-    ls = pose_cfg.get("lateral_scale", 1.0) or 1.0
-
     existing = json.loads((pose_dir / "pose.json").read_text())
     existing["entries"] = entries
     (pose_dir / "pose.json").write_text(json.dumps(existing, indent=1))
 
-
-    rig = rig_lib.get(cfg.get("rig") if cfg.get("rig") != "auto" else rig_lib.DEFAULT)
-    thickness = pose_cfg.get("thickness")
-
-    for i, entry in enumerate(entries):
-        keypoints = project(
-            entry["pose"], entry["yaw"], depth_scale=ds, lateral_scale=ls
-        )
-        render(keypoints, size, size, thickness=thickness, rig=rig).save(
-            pose_dir / f"skeleton_{i:03d}.png")
+    ctx = _run_context(run, existing)
+    skeletons = pose_stage.render_entries(ctx, entries, pose_dir)
 
     depth_dirs = sorted(run.glob("*_depth"))
-    if depth_dirs:
-        dcfg = cfg.get("depth") or {}
-        for i, entry in enumerate(entries):
-            render_depth(
-                entry["pose"], entry["yaw"], size, size,
-                near=dcfg.get("near", 255), far=dcfg.get("far", 60),
-                blur=dcfg.get("blur", 6.0),
-                depth_scale=ds, lateral_scale=ls,
-            ).save(depth_dirs[0] / f"depth_{i:03d}.png")
+    depthmaps = (
+        depth_stage.render_entries(ctx, entries, depth_dirs[0])
+        if depth_dirs else None
+    )
 
     # The manifest must match the new frame count, or a resume would hand
     # stale skeleton paths to the frames stage. A run written before the
     # typed manifest existed cannot be repaired, so say so rather than
     # leaving a resume to fail later with a confusing error.
-    skeletons = [pose_dir / f"skeleton_{i:03d}.png" for i in range(len(entries))]
-    depthmaps = (
-        [depth_dirs[0] / f"depth_{i:03d}.png" for i in range(len(entries))]
-        if depth_dirs else None
-    )
     manifest_state = "updated"
     try:
         arts, completed = artifacts_io.load(run)

@@ -28,7 +28,8 @@
  */
 
 import { api } from './api.js';
-import { el, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { state, toast } from './store.js';
 
 const KINDS = {
   context: { icon: '◧', label: 'Context', hint: 'an exemplar or note changed' },

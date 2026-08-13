@@ -18,7 +18,9 @@
  */
 
 import { api } from './api.js';
-import { el, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { state, toast } from './store.js';
+import { Button, Empty, Fields, Head, Mini, Num, Ok, Row, Segmented, Select, Warn } from './ui/index.js';
 
 const STATES = [
   { key: 'running', label: 'Running', tone: 'run' },
@@ -42,7 +44,7 @@ function jobRow(job, onAct) {
   const cells = Object.entries(job.matrix_cell || job.overrides || {});
   const main = el('div', { className: 'jobmain' },
     el('div', { className: 'jobid', textContent: job.id }),
-    el('div', { className: 'mini', textContent: facts.join(' · ') }));
+    Mini(facts.join(' · ')));
 
   if (cells.length) {
     main.append(el('div', { className: 'joboverrides' },
@@ -55,29 +57,26 @@ function jobRow(job, onAct) {
   const pf = job.preflight;
   if (pf && pf.problems.length) {
     for (const p of pf.problems) {
-      main.append(el('p', { className: 'warnline', textContent: `✗ ${p}` }));
+      main.append(Warn(p));
     }
   } else if (pf && pf.waiting_on.length) {
     main.append(el('p', { className: 'mini', textContent:
       `⏸ waiting on ${pf.waiting_on.join(', ')} — this is normal in a chained batch` }));
   } else if (pf) {
-    main.append(el('p', { className: 'ok', textContent: '✓ preflight passes' }));
+    main.append(Ok('preflight passes'));
   }
 
   if (job.error) {
     main.append(el('pre', { className: 'joberror', textContent: job.error }));
   }
   if (job.needs?.length) {
-    main.append(el('div', { className: 'mini', textContent: `needs ${job.needs.join(', ')}` }));
+    main.append(Mini(`needs ${job.needs.join(', ')}`));
   }
 
   const actions = el('div', { className: 'jobactions' });
   if (job.state !== 'running') {
-    const add = (action, label, title) => {
-      const b = el('button', { className: 'pill', textContent: label, title });
-      b.onclick = () => onAct(job.id, action);
-      actions.append(b);
-    };
+    const add = (action, label, title) =>
+      actions.append(Button.pill(label, { title, onClick: () => onAct(job.id, action) }));
     if (job.state !== 'pending') add('retry', 'retry', 'Move back to pending and reset attempts');
     if (job.state === 'pending') add('hold', 'hold', 'Postpone for an hour');
     add('drop', 'drop', 'Delete this job');
@@ -99,16 +98,13 @@ function autopilotBar(data, refresh) {
     } catch (e) { toast(e.message, 'error'); }
   };
 
-  const start = el('button', { className: 'btn primary', textContent: 'Start autopilot',
-                               disabled: running });
-  start.onclick = () => act('start');
-  const drain = el('button', { className: 'btn', textContent: 'Start and drain',
-                               disabled: running,
-                               title: 'Exit when the queue empties instead of idling' });
-  drain.onclick = () => act('start', { drain: true });
-  const stop = el('button', { className: 'btn', textContent: 'Stop', disabled: !running,
-                              title: 'Finishes the job it is on, then exits' });
-  stop.onclick = () => act('stop');
+  const start = Button.primary('Start autopilot',
+    { disabled: running, onClick: () => act('start') });
+  const drain = Button('Start and drain',
+    { disabled: running, onClick: () => act('start', { drain: true }),
+      title: 'Exit when the queue empties instead of idling' });
+  const stop = Button('Stop', { disabled: !running, onClick: () => act('stop'),
+                                title: 'Finishes the job it is on, then exits' });
 
   const services = data.services;
   bar.append(
@@ -116,12 +112,10 @@ function autopilotBar(data, refresh) {
       el('div', { className: 'pilotstate' },
         el('span', { className: `dot ${running ? 'up' : ''}` }),
         el('b', { textContent: running ? 'Autopilot running' : 'Autopilot stopped' })),
-      el('div', { className: 'mini', textContent: running
-        ? `since ${started}`
-        : services.ok
-          ? 'services are up — the queue can be drained'
-          : `services down: ${services.why}` })),
-    el('div', { className: 'row' }, start, drain, stop));
+      Mini(running ? `since ${started}`
+        : services.ok ? 'services are up — the queue can be drained'
+          : `services down: ${services.why}`)),
+    Row(start, drain, stop));
   return bar;
 }
 
@@ -129,17 +123,12 @@ function submitForm(refresh) {
   const box = el('details', { className: 'submitbox' });
   box.append(el('summary', { textContent: 'Queue a job' }));
 
-  const config = el('select', { className: 'select' });
-  for (const name of state.configs || []) {
-    config.append(el('option', { value: name, textContent: name,
-                                 selected: name === state.current }));
-  }
-  const priority = el('input', { type: 'number', value: 50, className: 'num',
-                                 min: 0, max: 9999 });
+  const config = Select(state.configs || [], { value: state.current });
+  const priority = Num(50, { min: 0, max: 9999 });
   const matrix = el('textarea', { rows: 4, placeholder:
     '{"canonical.seed": [1, 2, 3], "pose.view": ["front", "side"]}' });
 
-  const go = el('button', { className: 'btn primary', textContent: 'Submit' });
+  const go = Button.primary('Submit');
   go.onclick = async () => {
     let parsed = {};
     const raw = matrix.value.trim();
@@ -157,12 +146,10 @@ function submitForm(refresh) {
     } catch (e) { toast(e.message, 'error'); }
   };
 
-  box.append(el('div', { className: 'fields' },
-    el('div', { className: 'row' },
-      el('span', { className: 'mini', textContent: 'Config' }), config,
-      el('span', { className: 'mini', textContent: 'Priority' }), priority),
+  box.append(Fields(
+    Row(Mini('Config'), config, Mini('Priority'), priority),
     matrix,
-    el('div', { className: 'row' }, go)));
+    Row(go)));
   return box;
 }
 
@@ -172,8 +159,7 @@ export function renderQueue(host) {
 
   const body = el('div', {});
   host.append(
-    el('header', { className: 'head' },
-      el('div', {}, el('h1', { textContent: 'Queue' }))),
+    Head('Queue'),
     body);
 
   (async () => {
@@ -181,7 +167,7 @@ export function renderQueue(host) {
     try {
       data = await api.queue();
     } catch (e) {
-      body.append(el('p', { className: 'empty', textContent: e.message }));
+      body.append(Empty(e.message));
       return;
     }
 
@@ -193,21 +179,14 @@ export function renderQueue(host) {
       } catch (e) { toast(e.message, 'error'); }
     };
 
-    const tabs = el('div', { className: 'segmented' });
-    for (const s of STATES) {
-      const n = data.counts[s.key] || 0;
-      const b = el('button', {
-        className: `seg ${showing === s.key ? 'on' : ''}`,
-        textContent: n ? `${s.label} ${n}` : s.label,
-      });
-      b.onclick = () => { showing = s.key; refresh(); };
-      tabs.append(b);
-    }
+    const tabs = Segmented(
+      STATES.map((s) => [s.key, s.label, data.counts[s.key] || null]),
+      { value: showing, onPick: (k) => { showing = k; refresh(); } });
 
     const jobs = data.states[showing] || [];
     const list = el('div', { className: 'joblist' });
     if (!jobs.length) {
-      list.append(el('p', { className: 'empty', textContent: `Nothing ${showing}.` }));
+      list.append(Empty(`Nothing ${showing}.`));
     } else {
       for (const job of jobs) list.append(jobRow(job, onAct));
     }

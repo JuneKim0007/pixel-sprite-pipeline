@@ -11,7 +11,8 @@
  */
 
 import { api } from './api.js';
-import { el, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { state, toast } from './store.js';
 import {
   COLORS, JOINTS, LIMBS, dragJoint, projectPoint, rgb,
   unprojectX, visibleJoint,

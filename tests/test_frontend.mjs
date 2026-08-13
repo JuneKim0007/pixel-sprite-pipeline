@@ -229,7 +229,7 @@ const { installDom } = await import(join(ROOT, 'tests/domshim.mjs'));
 installDom();
 
 const ui = await import(join(JS, 'ui/index.js'));
-const { el } = await import(join(JS, 'store.js'));
+const { el } = await import(join(JS, 'core/dom.js'));
 
 console.log('\ndom shim');
 test('el() builds a tree with text and children', () => {
@@ -246,6 +246,49 @@ test('querySelector finds by class and by tag.class', () => {
   assert.ok(root.querySelector('.help'));
   assert.ok(root.querySelector('p.help'));
   assert.equal(root.querySelector('.nope'), null);
+});
+
+console.log('\nui kit');
+test('a button variant is named, not spelt as a class', () => {
+  assert.equal(ui.Button.primary('Go').className, 'btn primary');
+  assert.equal(ui.Button.ghost('Go').className, 'btn ghost');
+  assert.equal(ui.Button('Go').className, 'btn');
+});
+test('an unknown variant throws instead of rendering unstyled', () => {
+  // A typo produced a bare button, which nobody notices until a screenshot.
+  assert.throws(() => ui.Button('Go', { variant: 'primry' }), /no button variant/);
+});
+test('Segmented marks the active option and shows its count', () => {
+  const seg = ui.Segmented([['a', 'Alpha', 3], ['b', 'Beta', null]], { value: 'a', onPick() {} });
+  const on = seg.querySelectorAll('.on');
+  assert.equal(on.length, 1);
+  assert.ok(on[0].textContent.includes('Alpha'));
+  assert.ok(on[0].textContent.includes('3'));
+});
+test('Select marks the current value', () => {
+  const sel = ui.Select([['x', 'Ex'], ['y', 'Why']], { value: 'y' });
+  const opts = sel.querySelectorAll('option');
+  assert.equal(opts[1].selected, true);
+  assert.equal(opts[0].selected, false);
+});
+test('the kit builds every widget the views repeat by hand', () => {
+  // Counted from the source before the kit existed: btn in 12 files, mini in
+  // 11, empty in 10. A widget missing here is a widget that gets rebuilt.
+  for (const name of ['Button', 'Select', 'Num', 'Check', 'Range', 'Row', 'Fields',
+                      'Head', 'PanelHead', 'Segmented', 'Mini', 'Mono', 'Empty',
+                      'Warn', 'Ok', 'Note', 'Fact', 'FactGrid']) {
+    assert.equal(typeof ui[name], 'function', `ui.${name} is missing`);
+  }
+});
+test('ui/ knows nothing about the domain', () => {
+  // A primitive that understands a rig has stopped being one, and that is the
+  // rule that keeps this folder testable without a server.
+  const DOMAIN = /\b(rig|palette|canonical|pipeline|stage|sprite|joint|pose)\b/i;
+  for (const f of ['kit.js', 'primitives.js', 'card.js', 'field.js']) {
+    const src = readFileSync(join(JS, 'ui', f), 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    assert.ok(!DOMAIN.test(code), `ui/${f} mentions the domain`);
+  }
 });
 
 console.log('\nui primitives');

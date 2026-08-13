@@ -7,7 +7,8 @@
  */
 
 import { api, getPath } from './api.js';
-import { draftConfig, el, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { draftConfig, state, toast } from './store.js';
 import { VIEW_OPTIONS } from './views.js';
 
 /* Textareas that grow with their content — a two-line box for a paragraph of

@@ -12,7 +12,7 @@
  * of looking like a control that needs none.
  */
 
-import { el } from '../store.js';
+import { el } from '../core/dom.js';
 import { HelpTip } from './primitives.js';
 
 let seq = 0;

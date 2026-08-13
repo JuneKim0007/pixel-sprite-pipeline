@@ -24,6 +24,57 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:48] or "pose"
 
 
+def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path]:
+    """Draw one skeleton PNG per entry; the only renderer for pose images.
+
+    Shared with the rig editor, whose own copy of this loop had drifted.
+    """
+    cfg = ctx.stage_config("pose")
+    size = opt(cfg, "size", 1024)
+    rig = ctx.rig()
+
+    # Hoisted: this used to reload every prop file once per entry.
+    props = props_mod.load(ctx.config.get("props"), root=ctx.root)
+    if props and not props_mod.wanted(ctx):
+        props = []
+
+    fill = float(opt(cfg, "fill", 0.0) or 0.0)
+    thickness = cfg.get("thickness")
+    written: list[Path] = []
+
+    for i, entry in enumerate(entries):
+        dst = outdir / f"skeleton_{i:03d}.png"
+        annotation = entry.get("annotation")
+        if annotation is not None:
+            # Already in screen space — projecting would be meaningless.
+            from ..geometry import annotate as ann
+
+            ann.render(annotation, size, size).save(dst)
+            written.append(dst)
+            entry["pose"] = {}
+            entry["from_annotation"] = str(annotation.image)
+            entry["crop"] = ann.infer_crop(annotation)
+            continue
+
+        if props:
+            entry["pose"] = props_mod.pull_second_hand(props, entry["pose"], rig)
+        keypoints = project(
+            entry["pose"], entry["yaw"],
+            depth_scale=opt(cfg, "depth_scale", 1.0),
+            lateral_scale=opt(cfg, "lateral_scale", 1.0),
+            fill=fill,
+            rig=rig,
+        )
+        # Sticks thicken with the figure, or a larger skeleton is drawn out
+        # of the same thin lines and reads as a wiry character.
+        grow = frame_scale(entry["pose"], fill)
+        render(keypoints, size, size, rig=rig,
+               thickness=(thickness * grow) if thickness else None).save(dst)
+        written.append(dst)
+
+    return written
+
+
 @register
 class PoseStage(Stage):
     name = "pose"
@@ -101,41 +152,7 @@ class PoseStage(Stage):
             print(f"   rig-free: {len(entries)} view(s), steered by prompt")
             return {"skeletons": [], "pose_frames": entries}
 
-        for i, entry in enumerate(entries):
-            annotation = entry.get("annotation")
-            if annotation is not None:
-                # Already in screen space — projecting would be meaningless.
-                from ..geometry import annotate as ann
-
-                dst = outdir / f"skeleton_{i:03d}.png"
-                ann.render(annotation, size, size).save(dst)
-                written.append(dst)
-                entry["pose"] = {}
-                entry["from_annotation"] = str(annotation.image)
-                entry["crop"] = ann.infer_crop(annotation)
-                continue
-
-            props = props_mod.load(ctx.config.get("props"), root=ctx.root)
-            if props and not props_mod.wanted(ctx):
-                props = []
-            if props:
-                entry["pose"] = props_mod.pull_second_hand(props, entry["pose"], rig)
-            fill = float(opt(cfg, "fill", 0.0) or 0.0)
-            keypoints = project(
-                entry["pose"], entry["yaw"],
-                depth_scale=opt(cfg, "depth_scale", 1.0),
-                lateral_scale=opt(cfg, "lateral_scale", 1.0),
-                fill=fill,
-                rig=rig,
-            )
-            dst = outdir / f"skeleton_{i:03d}.png"
-            # Sticks thicken with the figure, or a larger skeleton is drawn out
-            # of the same thin lines and reads as a wiry character.
-            grow = frame_scale(entry["pose"], fill)
-            thickness = cfg.get("thickness")
-            render(keypoints, size, size, rig=rig,
-                   thickness=(thickness * grow) if thickness else None).save(dst)
-            written.append(dst)
+        written = render_entries(ctx, entries, outdir)
 
         serialisable = [
             {k: v for k, v in e.items() if k != "annotation"} for e in entries

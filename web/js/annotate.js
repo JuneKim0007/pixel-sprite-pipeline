@@ -14,7 +14,8 @@
 
 import { api } from './api.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
-import { el, toast } from './store.js';
+import { el } from './core/dom.js';
+import { toast } from './store.js';
 
 const DOT = 7;
 

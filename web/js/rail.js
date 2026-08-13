@@ -26,7 +26,8 @@
  */
 
 import { api } from './api.js';
-import { el, loadConfig, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { loadConfig, state, toast } from './store.js';
 
 /* Which pipeline was last open in each workspace, so returning to one does not
  * dump you on an unrelated config. */

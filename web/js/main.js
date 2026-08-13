@@ -18,7 +18,8 @@ import { renderQueue } from './queue.js';
 import { renderEditor } from './editor.js';
 import { renderOverview } from './overview.js';
 import { configsFor, indexConfigModules, renderRail } from './rail.js';
-import { $, $$, draft, el, loadConfig, state } from './store.js';
+import { $, $$, el } from './core/dom.js';
+import { draft, loadConfig, state } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
 

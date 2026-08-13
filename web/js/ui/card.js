@@ -17,7 +17,7 @@
  *   grid.append(new RefCard({ data, onChange }).render());
  */
 
-import { el } from '../store.js';
+import { el } from '../core/dom.js';
 import { HelpTip } from './primitives.js';
 
 export class BaseCard {

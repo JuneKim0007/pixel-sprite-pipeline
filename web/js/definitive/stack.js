@@ -13,7 +13,7 @@
  * being a thing to remember.
  */
 
-import { el } from '../store.js';
+import { el } from '../core/dom.js';
 import { BaseField } from '../ui/index.js';
 
 /* A control built from a Field declaration.

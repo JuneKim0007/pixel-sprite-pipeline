@@ -146,6 +146,10 @@ def test_pipeline() -> None:
     check("scratch keys stay out of the manifest", _manifest_excludes_scratch)
     check("rig resolves once and is cached", _rig_cached)
 
+    print("\nrig editor")
+    check("an editor save re-renders exactly as the stage would", _editor_matches_stage)
+    check("pose.fill reaches the editor's re-render", _editor_honours_fill)
+
     print("\ndefinitive editor")
     check("shared/ depends on no module", _shared_has_no_module_deps)
     check("every module in the package imports", _module_layering)
@@ -1111,6 +1115,99 @@ def _manifest_excludes_scratch() -> None:
         data = json.loads((out / io.MANIFEST).read_text())
         _assert("_rig" not in data["artifacts"], "a Rig object was persisted as a repr")
         _assert("skeletons" in data["artifacts"], "real artifacts were dropped")
+
+
+def _editor_run(tag: str, pose_cfg: dict):
+    """A minimal run directory the rig editor can be pointed at.
+
+    Returns (run_dir, entries); the caller removes the directory.
+    """
+    import shutil
+
+    import yaml
+
+    from pipeline.api.context import runs_dir
+    from pipeline.geometry import rigs as rig_lib
+
+    run = runs_dir() / f"_test_{tag}"
+    shutil.rmtree(run, ignore_errors=True)
+    (run / "00_pose").mkdir(parents=True)
+
+    (run / "config.yaml").write_text(yaml.safe_dump(
+        {"name": tag, "rig": "humanoid", "pipeline": {"stages": ["pose"]},
+         "pose": pose_cfg},
+        sort_keys=False,
+    ))
+
+    rig = rig_lib.get("humanoid")
+    entries = [{"pose": {k: list(v) for k, v in rig_lib.tpose(rig).items()},
+                "yaw": 30.0, "spec": 0}]
+    (run / "00_pose" / "pose.json").write_text(json.dumps(
+        {"source": "tpose", "rig": "humanoid", "mode": "sequence",
+         "entries": entries}, indent=1))
+    return run, entries
+
+
+def _editor_matches_stage() -> None:
+    """The editor's re-render must equal the pipeline's render, byte for byte.
+
+    Catches both a renderer copy and the snapshot being read raw, not layered.
+    """
+    import copy
+    import shutil
+
+    import yaml
+
+    from pipeline.api.poses import save_poses
+    from pipeline.generation.stage import Context
+    from pipeline.looks import styles
+    from pipeline.shared import settings
+    from pipeline.stages import pose as pose_stage
+
+    run, entries = _editor_run(
+        "editor_match",
+        {"size": 256, "fill": 0.8, "thickness": 0.02, "depth_scale": 1.3},
+    )
+    try:
+        # The pipeline's own derivation, reproduced independently.
+        raw = yaml.safe_load((run / "config.yaml").read_text())
+        styled, _ = styles.layer(ROOT, raw, picks=raw.get("style_picks"))
+        ctx = Context(root=ROOT, outdir=run, config=settings.effective(ROOT, styled),
+                      run_id=run.name)
+        want_dir = run / "_expected"
+        want_dir.mkdir()
+        want = pose_stage.render_entries(ctx, copy.deepcopy(entries), want_dir)
+
+        save_poses({"run_id": run.name, "entries": copy.deepcopy(entries)})
+        got = run / "00_pose" / "skeleton_000.png"
+
+        _assert(got.exists(), "editor save wrote no skeleton")
+        _assert(got.read_bytes() == want[0].read_bytes(),
+                "editor re-render differs from the stage's render")
+    finally:
+        shutil.rmtree(run, ignore_errors=True)
+
+
+def _editor_honours_fill() -> None:
+    """Byte-equality would still pass if both paths dropped fill; this won't."""
+    import copy
+    import shutil
+
+    from pipeline.api.poses import save_poses
+
+    made = []
+    try:
+        for tag, fill in (("fill_off", 0.0), ("fill_on", 0.85)):
+            run, entries = _editor_run(tag, {"size": 256, "fill": fill,
+                                             "thickness": 0.02})
+            made.append(run)
+            save_poses({"run_id": run.name, "entries": copy.deepcopy(entries)})
+        a, b = (r / "00_pose" / "skeleton_000.png" for r in made)
+        _assert(a.read_bytes() != b.read_bytes(),
+                "pose.fill made no difference to the editor's re-render")
+    finally:
+        for run in made:
+            shutil.rmtree(run, ignore_errors=True)
 
 
 def _rig_cached() -> None:

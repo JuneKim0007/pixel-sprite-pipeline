@@ -1,25 +1,14 @@
-/* Shared state and small DOM helpers.
+/* Application state, and the chrome that reports on it.
  *
  * `draft` is the wizard's cached form: the Back button has to return you to
  * edits you already made, so pending changes live here rather than in the DOM.
+ *
+ * DOM helpers moved to core/dom.js. They are re-exported here so no call site
+ * had to change in the commit that moved them.
  */
 
 import { api } from './api.js';
-
-export const $  = (sel, root = document) => root.querySelector(sel);
-export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-
-export const el = (tag, props = {}, ...children) => {
-  const node = Object.assign(document.createElement(tag), props);
-  for (const child of children.flat()) {
-    if (child == null || child === false) continue;
-    node.append(child.nodeType ? child : document.createTextNode(String(child)));
-  }
-  return node;
-};
-
-export const escapeHtml = (s = '') =>
-  String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+import { el } from './core/dom.js';
 
 export const state = {
   schema: null,

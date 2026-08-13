@@ -8,7 +8,8 @@
  */
 
 import { getPath } from './api.js';
-import { el, state } from './store.js';
+import { el } from './core/dom.js';
+import { state } from './store.js';
 import { HelpTip } from './ui/index.js';
 import { VIEW_OPTIONS } from './views.js';
 

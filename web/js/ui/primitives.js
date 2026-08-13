@@ -9,7 +9,7 @@
  * the UI uses, just wrapped in names.
  */
 
-import { el } from '../store.js';
+import { el } from '../core/dom.js';
 
 /* Heading levels are semantic, not visual. `level` picks the tag so the
  * document outline is real; the class carries the look. A page has one h1,

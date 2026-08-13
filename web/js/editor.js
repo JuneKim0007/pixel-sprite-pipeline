@@ -26,7 +26,8 @@
  */
 
 import { api } from './api.js';
-import { el, state, toast } from './store.js';
+import { el } from './core/dom.js';
+import { state, toast } from './store.js';
 import { layerForm, stackList } from './definitive/stack.js';
 import * as gpu from './definitive/gpu.js';
 
