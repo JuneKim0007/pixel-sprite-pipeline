@@ -17,11 +17,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .. import props as props_mod
-from .. import rigs as rig_lib
-from ..bodyspace import resolve_view
-from ..depthmap import render_depth
-from ..stage import Context, Resource, Stage, opt, register
+from ..geometry import props as props_mod
+from ..geometry import rigs as rig_lib
+from ..geometry.bodyspace import resolve_view
+from ..geometry.depthmap import render_depth
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 @register

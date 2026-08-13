@@ -10,14 +10,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .. import annotate, autorig, bodyspace
-from .. import rigs as rig_lib
+from ..geometry import annotate, autorig, bodyspace
+from ..geometry import rigs as rig_lib
 from ..shared.errors import Invalid, NotFound
 from .context import ROOT, load_roundtrip, runs_dir
 from .routing import BaseRouter, get, post
 from .context import allowed_roots
-from .. import files as files_mod
-from .. import artifacts as artifacts_io
+from ..shared import files as files_mod
+from ..orchestration import artifacts as artifacts_io
 import yaml
 
 
@@ -73,9 +73,9 @@ def save_poses(body: dict) -> dict:
         raise FileNotFoundError(f"run {run_id} has no pose stage output")
     pose_dir = pose_dirs[0]
 
-    from pipeline.bodyspace import project
-    from pipeline.depthmap import render_depth
-    from pipeline.openpose import render
+    from pipeline.geometry.bodyspace import project
+    from pipeline.geometry.depthmap import render_depth
+    from pipeline.geometry.openpose import render
 
     cfg = yaml.safe_load((run / "config.yaml").read_text()) or {}
     pose_cfg = cfg.get("pose") or {}
@@ -145,7 +145,7 @@ def save_poses(body: dict) -> dict:
 
 def save_annotation(body: dict) -> dict:
     """Store an image annotation beside its image, and report what it implies."""
-    from pipeline import annotate
+    from pipeline.geometry import annotate
 
     image = files_mod.safe_path(body.get("image", ""), allowed_roots())
     if not image.is_file():

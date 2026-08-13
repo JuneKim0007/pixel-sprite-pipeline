@@ -1,28 +1,12 @@
-"""Palette registry: grouped .hex files, optionally chosen by an LLM.
 
-Palettes live in `palettes/<group>/<name>.hex`, with loose files treated as the
-"general" group. A file may carry metadata in comments:
-
-    // name: Dungeon Steel
-    // tags: cold, metallic, armor, low-saturation
-    // A restrained palette for armoured characters underground.
-    1B1E26
-    ...
-
-Choosing a palette is a semantic judgement — "a knight in steel armour" wants
-cold metals, not tropical pastels — which is the kind of thing a language model
-is good at and a histogram is not. It is also trivially verifiable: the answer
-must be one of N names, so a wrong answer is caught immediately rather than
-producing a bad sprite. Same generate-then-check shape as pose generation.
-"""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from .shared.errors import Invalid
-from .shared.registry import Broken, Registry, Scanned
+from ..shared.errors import Invalid
+from ..shared.registry import Broken, Registry, Scanned
 
 
 @dataclass

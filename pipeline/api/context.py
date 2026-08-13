@@ -18,7 +18,7 @@ from pathlib import Path
 
 import ruamel.yaml
 
-from .. import settings
+from ..shared import settings
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC = ROOT / "web"

@@ -1,23 +1,10 @@
-"""Pick a rig by looking at the reference images.
-
-The task is classification — "which of these body plans is this?" — not
-localization. That distinction is the whole reason this is worth doing: VLM
-spatial localization benchmarks sit around 35% against 26% for random guessing,
-so asking a model to place joints would be worse than useless, while choosing
-among a fixed list of seventeen names is something they handle well and which
-can be checked instantly against the registry.
-
-The result is a proposal, never a commitment. It is written into the run with
-its confidence so the pose gate can show it for confirmation — a wrong guess
-should cost a click, not six GPU-minutes.
-"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from . import rigs
+from ..geometry import rigs
 
 SYSTEM = """You identify the body plan of a creature in reference images.
 You output ONLY JSON. Judge anatomy, not art style or colour."""

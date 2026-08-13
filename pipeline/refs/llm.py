@@ -1,21 +1,3 @@
-"""Local LLM access via Ollama, and LLM-authored poses.
-
-Why an LLM can write poses at all: it is not being asked to draw. It is asked
-to place ~8 named joints in a coordinate system with obvious semantics
-(lateral / depth / height, all roughly -0.5..1.0), starting from a neutral pose
-it is given verbatim. That is a text-shaped task.
-
-Why the result is trustworthy: because generated poses are *cheap to verify*.
-Bone lengths are invariant in body space, so `validate_pose` can reject an
-anatomically impossible skeleton in microseconds. The loop is generate → check
-→ retry, and only poses that pass anatomy checks ever reach the GPU. Without
-that validator this would not be worth doing; with it, a mediocre generator is
-still useful, because its failures are caught rather than rendered.
-
-Memory note: Ollama and SDXL cannot both be resident in 16 GB. `keep_alive=0`
-tells Ollama to unload the model as soon as the request finishes, which is why
-pose generation must complete before any GPU stage starts.
-"""
 
 from __future__ import annotations
 
@@ -28,8 +10,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .bodyspace import JOINTS, NEUTRAL, snap_to_anatomy, validate_pose
-from .shared.errors import Unavailable
+from ..geometry.bodyspace import JOINTS, NEUTRAL, snap_to_anatomy, validate_pose
+from ..shared.errors import Unavailable
 
 
 class LLMError(Unavailable):
@@ -121,10 +103,7 @@ class Ollama:
             "prompt": prompt,
             "stream": False,
             "keep_alive": self.keep_alive,
-            # Reasoning models (qwen3, deepseek-r1) default to thinking mode and
-            # then emit the actual answer into a separate `thinking` field,
-            # leaving `response` empty. For a structured-output task the
-            # reasoning buys nothing and costs a lot of tokens, so it is off.
+
             "think": think,
             "options": {"temperature": temperature},
         }

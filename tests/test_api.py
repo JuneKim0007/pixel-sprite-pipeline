@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""End-to-end checks against a running server, plus pipeline invariants.
-
-Written after shipping a run of avoidable bugs — a config key read without a
-default, a variable declared and never assigned, an editor that reported an
-error instead of falling back. None of them were subtle; they were just never
-exercised. This runs the paths that a person clicking through the UI would.
-
-    make up && python tests/test_api.py
-"""
 
 from __future__ import annotations
 
@@ -67,8 +58,10 @@ def status_of(path: str, payload: dict | None = None, method: str = "GET") -> in
 
 
 def test_pipeline() -> None:
-    from pipeline import rigs, settings, stages  # noqa: F401  (registers stages)
-    from pipeline.stage import available
+    from pipeline import stages  # noqa: F401  (importing registers them)
+    from pipeline.geometry import rigs  # noqa: F401
+    from pipeline.shared import settings  # noqa: F401
+    from pipeline.generation.stage import available
 
     print("\nrigs")
     check("every rig is structurally valid", lambda: [
@@ -155,6 +148,7 @@ def test_pipeline() -> None:
 
     print("\ndefinitive editor")
     check("shared/ depends on no module", _shared_has_no_module_deps)
+    check("every module in the package imports", _module_layering)
     check("failures carry their own status", _error_taxonomy)
     check("every registry answers the same way", _one_registry)
     check("every layer field carries an explanation", _definitive_layers)
@@ -178,7 +172,7 @@ def _reference_pose() -> None:
     """
     import math
 
-    from pipeline import rigs
+    from pipeline.geometry import rigs
 
     rig = rigs.HUMANOID
     neutral = {k: list(v) for k, v in rig.neutral.items()}
@@ -216,18 +210,8 @@ def _reference_pose() -> None:
 
 
 def _proportions_effective() -> None:
-    """A named group must change the skeleton, or the knob is a lie.
 
-    `proportions.torso` was a no-op on the humanoid and nobody noticed, because
-    a no-op looks exactly like a subtle change. The bone from neck to hip is
-    the torso, but `_group_of` returned "neck" for anything with neck at either
-    end, so the only bone torso could have scaled was filed elsewhere. It was
-    set in a shipped style sheet and measured 5.21 heads with and without.
-
-    This checks each group moves at least one joint on a rig that has it,
-    rather than checking one case by hand.
-    """
-    from pipeline import rigs
+    from pipeline.geometry import rigs
 
     cases = [
         ("humanoid", "legs", "l_ankle"),
@@ -270,8 +254,9 @@ def _cooling_gate() -> None:
     Gating exists so you can look at something quickly; a wrong sleep here is
     invisible, because it presents as the machine being slow.
     """
-    from pipeline import cooling, runner
-    from pipeline.stage import Resource
+    from pipeline.generation import runner
+    from pipeline.orchestration import cooling
+    from pipeline.generation.stage import Resource
 
     stages = runner.build(["pose", "depth", "canonical", "frames", "palette"])
     batches = runner.plan(stages)
@@ -295,17 +280,10 @@ def _cooling_gate() -> None:
             "an ungated two-stage run should rest once")
 
 def _prop_module_default() -> None:
-    """The same prop list serves both modules and they want opposite things.
 
-    A sheet is a reference document: a weapon occludes the torso it crosses and
-    is a long rigid volume the model traces instead of the limb behind it. An
-    attack animation without its weapon is an arm swinging at nothing. So the
-    default is per module, which is exactly the kind of default that gets
-    inverted by a later edit and never noticed.
-    """
     from types import SimpleNamespace
 
-    from pipeline import props as props_mod
+    from pipeline.geometry import props as props_mod
 
     def ctx(config):
         return SimpleNamespace(config=config)
@@ -365,31 +343,63 @@ def _shared_has_no_module_deps() -> None:
     _assert(not offenders, f"shared/ reaches into modules: {offenders}")
 
 
-def _error_taxonomy() -> None:
-    """A ValueError reaching the API is a bug; a PixelError is a message.
+def _module_layering() -> None:
+    """Every module imports, and shared/ still depends on nothing.
 
-    Before this, both came back as 500 with a class name in the body, so a
-    person typing nothing into a box got:
+    Regrouping thirty flat modules rewrote every import in the package, and a
+    broken one is invisible until something happens to import that module -
+    which for half of them is only when a particular route is called. Importing
+    all of them is the check that matches how they are actually reached.
 
-        500  {"error": "ValueError: a note needs some text"}
-
-    The status is a property of the exception now, and this checks the two
-    halves of that: the named types report themselves, and the builtins still
-    in use are translated rather than falling through to 500.
-
-    The count at the end is the migration's progress bar. It is asserted as a
-    ceiling rather than a target, so it can only go down.
+    The shared/ rule is checked here as a graph property rather than a syntax
+    one: the file-level test catches a bad import statement, this catches
+    shared/ growing a dependency through a package __init__.
     """
+    import importlib
+    import pkgutil
+
+    import pipeline
+
+    failed = []
+    for info in pkgutil.walk_packages(pipeline.__path__, "pipeline."):
+        if "__pycache__" in info.name:
+            continue
+        try:
+            importlib.import_module(info.name)
+        except Exception as e:                      # noqa: BLE001
+            failed.append(f"{info.name}: {type(e).__name__}: {e}")
+    _assert(not failed, "modules that do not import:\n    " + "\n    ".join(failed))
+
+    groups = {"geometry", "refs", "looks", "generation", "orchestration",
+              "definitive", "api", "stages"}
+    import ast
+    import pathlib
+
+    root = pathlib.Path(pipeline.__path__[0]) / "shared"
+    leaks = []
+    for f in sorted(root.rglob("*.py")):
+        for node in ast.walk(ast.parse(f.read_text())):
+            if isinstance(node, ast.ImportFrom):
+                head = (node.module or "").split(".")[0]
+                if node.level and head in groups:
+                    leaks.append(f"{f.name} -> {node.module}")
+                if not node.level and node.module and node.module.startswith("pipeline."):
+                    leaks.append(f"{f.name} -> {node.module}")
+    _assert(not leaks, f"shared/ reaches into modules: {leaks}")
+
+
+def _error_taxonomy() -> None:
+
     import ast
     import collections
     import pathlib
 
-    from pipeline.comfy import ComfyError
-    from pipeline.files import PathDenied
-    from pipeline.queue import QueueError
-    from pipeline.runner import PipelineError
+    from pipeline.generation.comfy import ComfyError
+    from pipeline.shared.files import PathDenied
+    from pipeline.orchestration.queue import QueueError
+    from pipeline.generation.runner import PipelineError
     from pipeline.shared import PixelError, body_for, errors, status_for
-    from pipeline.styles import StyleError
+    from pipeline.looks.styles import StyleError
 
     for exc, want in ((errors.NotFound("style sheet", "x"), 404),
                       (errors.Invalid("bad"), 400),
@@ -442,21 +452,14 @@ def _error_taxonomy() -> None:
 
 
 def _one_registry() -> None:
-    """Six registries, one set of answers.
 
-    They used to disagree. styles raised on a duplicate name; palettes and
-    props let the later file win silently. All three swallowed a malformed
-    file, so a typo made a palette vanish rather than complain - which presents
-    as "the file I just wrote is not in the list" with nothing anywhere saying
-    why.
-
-    This checks the three behaviours that were decided independently six times:
-    a missing key names the alternatives, a broken file is reported rather than
-    dropped, and the scan is cached until the files change.
-    """
     import pathlib
 
-    from pipeline import palettes, props, rigs, stage, styles
+    from pipeline.generation import stage
+
+    from pipeline.geometry import props, rigs
+
+    from pipeline.looks import palettes, styles
     from pipeline.definitive import layers
     from pipeline.shared import NotFound
     from pipeline.shared.registry import Registry
@@ -696,7 +699,7 @@ def _softbody_stage() -> None:
     from PIL import Image
 
     from pipeline import stages  # noqa: F401  (registers)
-    from pipeline.stage import Context, get
+    from pipeline.generation.stage import Context, get
 
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
@@ -708,7 +711,7 @@ def _softbody_stage() -> None:
             Image.fromarray(arr).save(f)
             frames.append(f)
 
-        from pipeline import rigs
+        from pipeline.geometry import rigs
 
         entries = [{"pose": {k: list(v) for k, v in rigs.HUMANOID.neutral.items()},
                     "yaw": 90.0, "spec": 0} for _ in frames]
@@ -737,7 +740,7 @@ def _reference_falloff() -> None:
     front-facing sprite in a rear pose: a mismatched reference forced at full
     strength overrides the skeleton.
     """
-    from pipeline.references import Reference, pick
+    from pipeline.refs.references import Reference, pick
 
     # Keywords, not positions. `role` was inserted as the second field and
     # positional construction silently made yaw="front" — a TypeError deep in
@@ -763,7 +766,7 @@ def _reference_weight_scale() -> None:
     slider in the UI did nothing the moment automatic matching was switched
     off. A control that is present and inert is worse than an absent one.
     """
-    from pipeline.references import Reference, pick
+    from pipeline.refs.references import Reference, pick
 
     plain = Reference(path=Path("a.png"), yaw=0, label="front")
     scaled = Reference(path=Path("a.png"), yaw=0, label="front", weight_scale=0.5)
@@ -787,7 +790,7 @@ def _keying_layers() -> None:
     """
     import numpy as np
 
-    from pipeline.pixelize import background_to_alpha
+    from pipeline.definitive.pixelize import background_to_alpha
 
     # border colour, inner panel, subject
     img = np.full((80, 80, 3), 40, dtype=np.uint8)
@@ -802,7 +805,7 @@ def _keying_layers() -> None:
 def _keying_guard() -> None:
     import numpy as np
 
-    from pipeline.pixelize import background_to_alpha
+    from pipeline.definitive.pixelize import background_to_alpha
 
     # A subject filling the frame must not be keyed away entirely.
     solid = np.full((40, 40, 3), 90, dtype=np.uint8)
@@ -813,7 +816,7 @@ def _keying_guard() -> None:
 def _autorig_order() -> None:
     import numpy as np
 
-    from pipeline import autorig
+    from pipeline.geometry import autorig
 
     # A crude standing figure: head, shoulders, torso, two legs.
     mask = np.zeros((200, 120), dtype=bool)
@@ -836,7 +839,7 @@ def _autorig_order() -> None:
 def _prop_follows_limb() -> None:
     import math
 
-    from pipeline import props, rigs
+    from pipeline.geometry import props, rigs
 
     rig = rigs.HUMANOID
     spec = [{"name": "sword", "socket": "l_wrist", "length": 0.3,
@@ -863,7 +866,7 @@ def _prop_follows_limb() -> None:
 def _prop_two_handed() -> None:
     import math
 
-    from pipeline import props, rigs
+    from pipeline.geometry import props, rigs
 
     rig = rigs.HUMANOID
     prop = props.load([{"name": "gs", "socket": "l_wrist",
@@ -878,8 +881,8 @@ def _prop_two_handed() -> None:
 def _prop_floor() -> None:
     import numpy as np
 
-    from pipeline import props, rigs
-    from pipeline.depthmap import render_depth
+    from pipeline.geometry import props, rigs
+    from pipeline.geometry.depthmap import render_depth
 
     rig = rigs.HUMANOID
     dim = props.load([{"name": "cape", "socket": "neck", "width": 0.15,
@@ -895,7 +898,7 @@ def _prop_floor() -> None:
 def _prop_wired() -> None:
     import inspect
 
-    from pipeline import depthmap
+    from pipeline.geometry import depthmap
     from pipeline.stages import depth, frames
 
     _assert("props" in inspect.signature(depthmap.render_depth).parameters,
@@ -906,7 +909,7 @@ def _prop_wired() -> None:
 
 
 def _styles_layer() -> None:
-    from pipeline import styles
+    from pipeline.looks import styles
     from pipeline.shared import NotFound
 
     found = styles.discover(ROOT)
@@ -952,7 +955,7 @@ def _annotation_consumed() -> None:
     _assert("annotation" in src, "the pose stage ignores annotations")
     _assert("_from_annotations" in src, "no path turns an annotation into a pose")
 
-    from pipeline.stage import Context
+    from pipeline.generation.stage import Context
 
     ctx = Context(root=ROOT, outdir=ROOT, config={"rig": "humanoid", "annotate": "skip"})
     _assert(ctx._measured_proportions() == {},
@@ -960,7 +963,7 @@ def _annotation_consumed() -> None:
 
 
 def _pose_guard() -> None:
-    from pipeline import comfy
+    from pipeline.generation import comfy
 
     for word in ("skeleton", "undead", "stick figure"):
         _assert(word in comfy.POSE_NEGATIVE, f"'{word}' missing from the pose guard")
@@ -976,7 +979,7 @@ def _pose_guard() -> None:
 def _proportions() -> None:
     import math
 
-    from pipeline import rigs
+    from pipeline.geometry import rigs
 
     base = rigs.HUMANOID
     scaled = rigs.scale(base, {"neck": 2.5, "arms": 1.4, "legs": 0.8, "head": 1.5})
@@ -991,7 +994,7 @@ def _proportions() -> None:
 def _proportions_connected() -> None:
     import math
 
-    from pipeline import rigs
+    from pipeline.geometry import rigs
 
     for name in ("humanoid", "dragon", "spider", "serpent"):
         base = rigs.get(name)
@@ -1007,7 +1010,7 @@ def _proportions_connected() -> None:
 
 
 def _proportions_reject() -> None:
-    from pipeline import rigs
+    from pipeline.geometry import rigs
 
     try:
         rigs.scale(rigs.HUMANOID, {"elbows": 2.0})
@@ -1017,7 +1020,7 @@ def _proportions_reject() -> None:
 
 
 def _rig_free() -> None:
-    from pipeline import rigs
+    from pipeline.geometry import rigs
     from pipeline.stages.frames import _view_words
 
     none = rigs.get("none")
@@ -1029,7 +1032,7 @@ def _rig_free() -> None:
 
 
 def _queue(tmp: Path):
-    from pipeline import queue as q
+    from pipeline.orchestration import queue as q
 
     (tmp / "configs").mkdir(parents=True, exist_ok=True)
     for name in ("knight_attack", "character_sheet", "_global"):
@@ -1080,7 +1083,7 @@ def _no_cascade() -> None:
     that treated that as a job error would empty a 200-job queue into failed/
     faster than a person could read one line of the log.
     """
-    from pipeline import queue as q
+    from pipeline.orchestration import queue as q
 
     ok, why = q.services_up(ROOT)
     _assert(isinstance(ok, bool), "health check should return a verdict, not raise")
@@ -1091,7 +1094,9 @@ def _no_cascade() -> None:
 def _manifest_excludes_scratch() -> None:
     import tempfile
 
-    from pipeline import artifacts as io, rigs
+    from pipeline.geometry import rigs
+
+    from pipeline.orchestration import artifacts as io
 
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
@@ -1104,8 +1109,8 @@ def _manifest_excludes_scratch() -> None:
 def _rig_cached() -> None:
     from types import SimpleNamespace
 
-    from pipeline import rigs
-    from pipeline.stage import Context
+    from pipeline.geometry import rigs
+    from pipeline.generation.stage import Context
 
     ctx = Context(root=ROOT, outdir=ROOT, config={"rig": "spider"})
     first, second = ctx.rig(), ctx.rig()
@@ -1114,7 +1119,7 @@ def _rig_cached() -> None:
 
 
 def _opt(cfg, key, default):
-    from pipeline.stage import opt
+    from pipeline.generation.stage import opt
 
     return opt(cfg, key, default)
 
@@ -1144,9 +1149,9 @@ def _validate_rig(name, rig) -> None:
 
 
 def _render_rig(rig) -> None:
-    from pipeline import bodyspace as bs
-    from pipeline.depthmap import render_depth
-    from pipeline.openpose import render
+    from pipeline.geometry import bodyspace as bs
+    from pipeline.geometry.depthmap import render_depth
+    from pipeline.geometry.openpose import render
 
     kp = bs.project(rig.neutral, 40, rig=rig)
     _assert(len(kp) == len(rig.joints), f"{rig.name}: projection length mismatch")

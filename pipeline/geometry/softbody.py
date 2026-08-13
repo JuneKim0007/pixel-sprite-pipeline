@@ -1,35 +1,4 @@
-"""Secondary motion — spring-driven jiggle, applied as a warp.
 
-Secondary motion is the reaction of loose mass to primary motion: a belly that
-keeps moving after the torso stops, a cape that trails a turn. The animation
-term is *secondary motion*; the rigging term is *spring bones* (also jiggle,
-wiggle or dynamic bones depending on the engine).
-
-Two design decisions worth stating, because both could reasonably have gone the
-other way.
-
-**Soft nodes are simulated, not posed.** A belly jiggles *because* the torso
-moved — the motion is derived, so the user authors attachment and material
-(stiffness, damping, mass) and never a per-frame position. That is also why
-these are not extra skeleton joints: skeleton joints are inputs you pose, and
-these are outputs you compute.
-
-**Soft nodes may have any topology.** The 18-joint limit exists because the
-OpenPose ControlNet was trained on exactly that layout and misreads anything
-else as a human limb. Soft nodes never reach that ControlNet — they drive a
-warp — so you can add as many as you like, anywhere.
-
-Applied by warping the generated frame before pixelization. Warping at 1024 and
-then downscaling is far cleaner than nudging already-quantized pixels, and it
-keeps the result deterministic: identical inputs give identical output, so
-frames cannot disagree with each other.
-
-The honest limit: a warp redistributes pixels that already exist. It cannot
-invent silhouette. A cape flapping outside the drawn outline has nothing to
-move, and past roughly 4px of displacement at 128px output the stretching
-becomes visible. For silhouette-changing motion the displacement belongs in the
-depth map instead, before generation.
-"""
 
 from __future__ import annotations
 

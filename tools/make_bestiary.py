@@ -1,26 +1,4 @@
 #!/usr/bin/env python3
-"""Queue a bestiary: one character sheet per monster, each chaining animations.
-
-Written as a script rather than a matrix in a single job file because subject
-and rig have to travel together. A matrix crosses its axes, so listing ten
-subjects against ten rigs would produce a hundred jobs, ninety-nine of them
-nonsense like a goblin on a spider rig.
-
-Each monster becomes:
-
-    monster_sheet          four views, T-pose, full quality
-      then  attack         one frame, the payoff of the swing
-      then  idle           two frames, a breathing loop
-      then  hit            one frame, recoil
-      then  fall           one frame, collapse
-
-The animations inherit the sheet's run by reference, so identity and palette
-come from the sheet rather than being regenerated — which is both cheaper and
-the only way the four animations stay on-model with each other.
-
-    tools/make_bestiary.py            # queue everything
-    tools/make_bestiary.py --dry-run  # show the plan and the GPU estimate
-"""
 
 from __future__ import annotations
 
@@ -31,11 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pipeline import queue as q  # noqa: E402
+from pipeline.orchestration import queue as q  # noqa: E402
 
-# Each monster names a rig that suits its anatomy — which is also a spread
-# across the rig library, so a bad body plan shows up in one run rather than
-# after ten of them.
 BESTIARY: list[tuple[str, str, str]] = [
     ("goblin",      "humanoid",
      "a snarling goblin with a rusty dagger, ragged leather"),
@@ -59,8 +34,6 @@ BESTIARY: list[tuple[str, str, str]] = [
      "a gelatinous slime, translucent body, wobbling"),
 ]
 
-# (job name, pose spec). Frame counts are the retro convention: reactions read
-# from a single frame, only the idle needs two.
 ANIMATIONS: list[tuple[str, dict]] = [
     # The payoff of the swing, not the wind-up — frame 4 is full extension.
     ("attack", {"pose.set": [{"name": "attack", "frame": 4,
@@ -73,7 +46,6 @@ ANIMATIONS: list[tuple[str, dict]] = [
                 "pose.view": "three_quarter_front"}),
 ]
 
-# Rough per-frame costs measured on this machine, for the estimate only.
 SECONDS_PER_FRAME = 210
 SECONDS_CANONICAL = 150
 

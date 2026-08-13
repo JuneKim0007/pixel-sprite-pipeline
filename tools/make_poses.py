@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Author the pose library, in body space.
-
-Poses are written once as (lateral, depth, height) per joint and projected to
-any viewing angle at render time — so a single `attack.json` serves the front,
-side, three-quarter and rear-turned views instead of needing four hand-kept
-copies. See pipeline/bodyspace.py for the projection.
-
-    tools/make_poses.py                       # regenerate poses/
-    tools/make_poses.py --preview             # + contact sheets, side view
-    tools/make_poses.py --preview --views all # + one sheet per named view
-"""
 
 from __future__ import annotations
 
@@ -22,8 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PIL import Image
 
-from pipeline.bodyspace import NEUTRAL, VIEWS, pose_from, project, resolve_view
-from pipeline.openpose import JOINTS, render
+from pipeline.geometry.bodyspace import NEUTRAL, VIEWS, pose_from, project, resolve_view
+from pipeline.geometry.openpose import JOINTS, render
 
 ROOT = Path(__file__).resolve().parent.parent
 POSE_DIR = ROOT / "poses"
@@ -50,12 +39,7 @@ IDLE_BREATHE = [
     ),
 ]
 
-# Six-frame sword swing in the character's LEFT arm. The motion lives almost
-# entirely in depth and height, which is exactly what body space represents
-# well — and why the same swing still reads correctly from behind.
-#
-# The payoff frames are 4 and 5: full extension, then follow-through. That is
-# the "just finished swinging" read, not mid-swing.
+
 ATTACK = [
     # 0 — wind up: weight back, weapon arm drawing behind
     p(

@@ -1,21 +1,3 @@
-#!/usr/bin/env python3
-"""Local web UI for the sprite pipeline.
-
-    python server.py            # http://127.0.0.1:8000
-
-Why a server and not a static page: the browser cannot read your directories,
-edit config files, or start a run. Those are the whole point of the interface,
-so there is a small backend - stdlib plus the YAML libraries already in use, no
-framework.
-
-What is left in this file is HTTP and only HTTP. Everything that decides what a
-request *means* lives in pipeline/api/, as functions taking a Request and
-returning a dict, so a handler can be exercised without opening a socket.
-Dispatch is a table lookup; it used to be three if-chains, 125 lines for GET
-alone, and every backend feature landed in the middle of one.
-
-Binds to loopback only. Nothing here is authenticated, so do not expose it.
-"""
 
 from __future__ import annotations
 
@@ -30,55 +12,20 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-# Before anything imports numpy: the BLAS thread pools read their environment
-# once, at load. This caps the SERVER, whose only CPU-heavy work is the editor.
-# A generation run is a separate process and is deliberately left uncapped.
+
 from pipeline.shared import limits  # noqa: E402
 
 limits.apply()
 
 from pipeline import api  # noqa: E402
-from pipeline import files as files_mod  # noqa: E402
+from pipeline.shared import files as files_mod  # noqa: E402
 from pipeline.api.context import STATIC, allowed_roots, input_dir, runs_dir  # noqa: E402
 from pipeline.shared import errors  # noqa: E402
-from pipeline.stage import available  # noqa: E402
-
-
-# --------------------------------------------------------------------- helpers
-
-
-# ------------------------------------------------------------------ run state
-
-
-# ------------------------------------------------------------------ editor
-#
-# The interactive half of the pixelisation stage. Everything here already
-# existed as pipeline code and as CLI flags; what was missing was a way to see
-# the effect of a choice before committing a night's GPU time to it.
-#
-# One thing this does that the usual converters do not: block size and grid
-# phase are MEASURED rather than guessed with a slider. Both are recoverable
-# from the image — the block size is the largest factor that reduces without
-# loss, the phase is the offset whose blocks are most internally uniform — so
-# offering a slider and no ruler would be withholding an answer we already
-# have.
-
-
-# ------------------------------------------------------------------- queue
-# ------------------------------------------------------------------- handler
+from pipeline.generation.stage import available  # noqa: E402
 
 
 class Handler(BaseHTTPRequestHandler):
-    """HTTP, and nothing else.
 
-    Everything that decides what a request means now lives in pipeline/api/,
-    reachable as functions. What is left here is the part that genuinely needs
-    a socket: reading a body, streaming a file, parsing a multipart upload, and
-    turning a failure into a status.
-
-    Dispatch is a table lookup. It used to be three if-chains, 125 lines for
-    GET alone, and every backend feature landed in the middle of one.
-    """
 
     def log_message(self, fmt, *args):  # quieter console
         pass
@@ -98,20 +45,6 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": msg}, code)
 
     def _fail(self, exc: BaseException) -> None:
-        """One place that turns a failure into a response.
-
-        There were three copies of the same catch-and-guess, and the last
-        clause of each was `except Exception -> 500`, which reported a person
-        typing nothing into a box as a server fault:
-
-            POST /api/style/note {"text": "  "}
-            500  {"error": "ValueError: a note needs some text"}
-
-        The status now belongs to the exception. A PixelError describes itself,
-        including a hint where there is a useful one; anything else is
-        translated by type, and a body still carrying a bare class name is the
-        signal that a raise site has not been named yet.
-        """
         self._json(errors.body_for(exc), errors.status_for(exc))
 
     def _body(self) -> dict:

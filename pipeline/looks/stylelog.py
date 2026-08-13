@@ -1,38 +1,3 @@
-"""The history of a look: what was added, what was tuned, what was trained.
-
-A style sheet accumulates three kinds of change, and none of them are visible
-in the sheet itself once they have happened. The YAML shows `lora_strength:
-1.05` but not that it used to be 1.2 and moved because a person picked the
-softer one three times out of three. It names a LoRA file but not which
-twenty-four images produced it.
-
-This module is the missing record. It is append-only, one JSON object per
-line, living beside the sheet it describes:
-
-    styles/retro_jrpg/history.jsonl
-
-Four event kinds, which between them cover everything that can change a look:
-
-    context     an exemplar or a note was added or removed
-    tune        a setting moved, with the evidence that moved it
-    train       a LoRA was produced from a dataset
-    note        a human wrote something down
-
-The design decision worth stating: **a train event stores the dataset's
-manifest, not the dataset.** Training images are bulky and, once the weights
-exist, redundant — the LoRA is the artifact, and keeping the inputs invites
-the fiction that retraining from them would reproduce it (it would not; the
-seed, the optimiser state and the library version are all gone). So the log
-keeps names, hashes, sizes and a thumbnail strip: enough to answer "what did I
-train this on?" and to detect that an image has since changed, but not enough
-to pretend it is a reproducible dataset. The images themselves can then be
-deleted or archived without losing the account of what happened.
-
-Append-only matters for the same reason it matters in an accounting ledger. A
-history you can edit is a history you cannot trust, and the whole value of the
-tab is being able to look at a look that has gone wrong and find the change
-that did it.
-"""
 
 from __future__ import annotations
 
@@ -150,11 +115,6 @@ def read(home: Path) -> list[dict[str, Any]]:
 def stream(home: Path) -> Iterator[dict[str, Any]]:
     yield from read(home)
 
-
-# ------------------------------------------------------------ event builders
-#
-# Constructors rather than raw dicts, so the shape of an event is defined in
-# one place and the UI can rely on the field names.
 
 
 def context_event(added: list[Path], removed: list[Path] | None = None,

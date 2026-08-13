@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""Pipeline entry point.
-
-    ./run.py configs/knight_attack.yaml              # run it
-    ./run.py configs/knight_attack.yaml --explain    # show the plan, run nothing
-    ./run.py --resume 20260809_121504_knight_attack  # continue a gated run
-    ./run.py --list-stages                           # what's available
-
-Stage order lives in the config, not here, and the runner validates whatever
-order you write before executing anything — so a bad reordering fails in a
-second with a readable message rather than ten minutes in with a KeyError.
-
-A config may also gate itself with `pipeline.stop_after: <stage>`, which stops
-the run so its output can be inspected or edited (skeletons in the rig editor)
-before the expensive stages consume them. `--resume` picks it back up.
-"""
 
 from __future__ import annotations
 
@@ -30,14 +15,13 @@ import yaml
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-# Stage progress is only useful if it arrives while the stage is running. Python
-# block-buffers stdout when it isn't a terminal, which hides all output until
-# the process exits — unhelpful for a ten-minute run, and fatal for anything
-# tailing this to show live progress.
 sys.stdout.reconfigure(line_buffering=True)
 
-from pipeline import artifacts as artifacts_io  # noqa: E402
-from pipeline import runner, settings, stage as stage_mod, stages, styles  # noqa: E402,F401
+from pipeline.orchestration import artifacts as artifacts_io  # noqa: E402
+from pipeline import stages  # noqa: E402,F401  (importing registers them)
+from pipeline.generation import runner, stage as stage_mod  # noqa: E402
+from pipeline.looks import styles  # noqa: E402
+from pipeline.shared import settings  # noqa: E402
 
 
 def load_config(path: Path) -> dict:
@@ -51,12 +35,7 @@ def load_config(path: Path) -> dict:
 
 
 def apply_compute(cfg: dict) -> None:
-    """Honour the compute settings before anything imports torch heavily.
 
-    MPS has no way to partition the GPU, so these are the only real levers:
-    how much unified memory PyTorch may claim, and how many CPU threads the
-    host-side work gets.
-    """
     compute = cfg.get("compute") or {}
     watermark = compute.get("mps_high_watermark")
     if watermark is not None:
@@ -154,10 +133,6 @@ def main() -> int:
         )
         outdir = base / run_id
         outdir.mkdir(parents=True, exist_ok=True)
-        # Snapshot the exact config next to its output. Six months from now the
-        # only reliable record of how a sprite was made is the config beside it.
-        # A queued job has already materialised its merged config here, so the
-        # copy would be onto itself.
         snapshot = outdir / "config.yaml"
         if config_path.resolve() != snapshot.resolve():
             shutil.copy2(config_path, snapshot)

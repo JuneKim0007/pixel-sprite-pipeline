@@ -26,14 +26,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .. import comfy
-from .. import cooling
-from .. import props as props_mod
-from .. import rigs as rig_lib
-from ..bodyspace import resolve_view
-from .. import references as refs_mod
-from ..references import Reference, explain, pick
-from ..stage import Context, Resource, Stage, opt, register
+from ..generation import comfy
+from ..orchestration import cooling
+from ..geometry import props as props_mod
+from ..geometry import rigs as rig_lib
+from ..geometry.bodyspace import resolve_view
+from ..refs import references as refs_mod
+from ..refs.references import Reference, explain, pick
+from ..generation.stage import Context, Resource, Stage, opt, register
 # One definition of which way the anchor faces, shared with the stage that
 # rendered it. Two copies drifted once already.
 from .canonical import _anchor_view

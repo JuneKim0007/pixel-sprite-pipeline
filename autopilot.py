@@ -1,25 +1,4 @@
-#!/usr/bin/env python3
-"""Run the queue unattended.
 
-    ./autopilot.py                 # work until the queue is empty, then idle
-    ./autopilot.py --once          # one job, then exit
-    ./autopilot.py --drain         # exit when nothing is left instead of idling
-    ./autopilot.py --status        # what is queued, without running anything
-
-Designed around a measurement rather than an intuition. Every stage checks
-whether ComfyUI is reachable and gives up in about a millisecond when it is
-not, so a loop that simply caught errors and moved on would mark two hundred
-jobs failed in under a second if the GPU service died overnight. The guards
-below exist to make that impossible:
-
-  a job that cannot work         fails immediately, no retries
-  a job that is merely early     is held and retried later
-  a service that is down         pauses the worker; no job is blamed
-  repeated failures              trip a breaker and stop, leaving the queue
-
-Everything it does is a file move, so killing it at any moment is safe: at
-worst one job sits in running/ and is reclaimed on the next start.
-"""
 
 from __future__ import annotations
 
@@ -37,8 +16,8 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(line_buffering=True)
 
-from pipeline import queue as q  # noqa: E402
-from pipeline import settings  # noqa: E402
+from pipeline.orchestration import queue as q  # noqa: E402
+from pipeline.shared import settings  # noqa: E402
 
 STOPPING = False
 
@@ -68,7 +47,7 @@ def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
     """Execute one job. Returns (ok, run_id, detail)."""
     import yaml
 
-    from pipeline import schema
+    from pipeline.generation import schema
 
     cfg_path = root / "configs" / f"{job.config}.yaml"
     raw = yaml.safe_load(cfg_path.read_text()) or {}
@@ -105,12 +84,7 @@ def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
 
 
 def chain(queue: q.Queue, job: q.Job, run_id: str) -> int:
-    """Queue whatever this job said should follow it.
 
-    A child inherits by reference — it points at the finished run rather than
-    regenerating its canonical, so an animation is guaranteed to match the
-    sheet it came from and does not pay two GPU-minutes to rediscover it.
-    """
     made = 0
     for spec in job.data.get("then") or []:
         spec = dict(spec)
@@ -248,13 +222,7 @@ def main() -> int:
                          "ready (default 600)")
     ap.add_argument("--service-wait", type=float, default=60,
                     help="seconds between health checks while paused (default 60)")
-    # Must exceed the SUM of the per-stage timeouts plus every cooling rest,
-    # or it kills work that is progressing normally. It was 7200 while
-    # canonical.timeout alone is 14400 - one stage allowed twice what the whole
-    # job got - and a character sheet measured at 113 minutes of compute plus
-    # ~35 minutes of rests was being killed mid-frames and reported as a
-    # failure. Per-view canonicals multiply the canonical stage, so the ceiling
-    # has to have real headroom rather than track the last measurement.
+
     ap.add_argument("--timeout", type=float, default=28800,
                     help="seconds before a single job is killed (default 28800, 8h)")
     ap.add_argument("--retries", type=int, default=2,
@@ -265,9 +233,7 @@ def main() -> int:
 
     if a.status:
         return show_status()
-    # --once used to set --drain, which means "exit when the queue empties" —
-    # so it ran every job in the queue rather than one. The loop now returns
-    # after the first job completes; drain still means drain.
+
     if a.once:
         a.drain = True          # so an empty queue exits rather than idling
     return work(a)

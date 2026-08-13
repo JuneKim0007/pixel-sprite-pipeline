@@ -16,7 +16,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from .. import files as files_mod
+from ..shared import files as files_mod
 from ..shared.errors import Invalid
 from .context import ROOT, allowed_roots, download_dir, human_size, input_dir
 from .routing import BaseRouter, get, post

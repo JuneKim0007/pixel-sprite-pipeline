@@ -1,29 +1,4 @@
-"""Held objects: swords, staves, shields, capes.
 
-A prop attaches to a joint and inherits that joint's motion, so a sword swung
-through an attack traces the arc the arm already describes and needs no
-separate authoring.
-
-Props deliberately do not become skeleton joints. The OpenPose ControlNet was
-trained on eighteen human joints, and an extra chain hanging off a wrist reads
-to it as a malformed limb — the same failure that made non-humanoid rigs
-impossible. Instead a prop is drawn into the depth map, which we render
-ourselves and which has no opinion about anatomy, and named in the prompt.
-
-That split matters for a failure we measured: told only "holding a sword", the
-model decides for itself where the blade goes, and sometimes puts two of them
-sticking out sideways. A socketed prop occupies a definite volume in the depth
-map, so there is a place for the blade to be.
-
-Flexible props — a whip, a chain, a cape — set `flex` above zero and sag along
-their length rather than staying rigid.
-
-The honest limit: a prop is drawn as a tapered line, which suits anything
-long and thin — swords, staves, spears, tails, whips. A broad cloak is a
-surface rather than a line, and comes out as a slab. For cloth that needs to
-read as cloth, soft-body nodes deform the generated sprite itself and do a
-better job than any depth-map primitive would.
-"""
 
 from __future__ import annotations
 
@@ -33,8 +8,8 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from .bodyspace import project_point
-from .shared.errors import Invalid
-from .shared.registry import Broken, Registry, Scanned
+from ..shared.errors import Invalid
+from ..shared.registry import Broken, Registry, Scanned
 
 
 @dataclass
@@ -99,7 +74,7 @@ def wanted(ctx) -> bool:
     layer and compositing them is the other half of this, and belongs to the
     editor rather than to generation.
     """
-    from .shared.config import opt
+    from ..shared.config import opt
 
     cfg = ctx.config.get("props")
     if isinstance(cfg, dict):

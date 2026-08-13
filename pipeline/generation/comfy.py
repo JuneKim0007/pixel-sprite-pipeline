@@ -1,14 +1,3 @@
-"""ComfyUI HTTP client and graph construction.
-
-Graphs are built by composition rather than from static JSON templates: the
-canonical stage and the frames stage share a spine (checkpoint → pixel LoRA →
-prompts → sampler → VAE → save) and differ only in which conditioning adapters
-get spliced in. Templates would mean duplicating that spine and letting the
-copies drift.
-
-Node ids are strings and a link is [node_id, output_slot], which is ComfyUI's
-API format — the same structure the web UI posts.
-"""
 
 from __future__ import annotations
 
@@ -23,7 +12,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
-from .shared.errors import Unavailable
+from ..shared.errors import Unavailable
 
 Link = list  # [node_id, slot]
 

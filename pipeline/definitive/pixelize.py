@@ -505,7 +505,7 @@ def apply_fixed_palette(
     #
     # Chunking makes the peak a constant without changing the answer: argmin
     # over a block is argmin over the block.
-    from .shared import limits
+    from ..shared import limits
 
     chunk = max(256, limits.get("colour_chunk"))
     idx = np.empty(len(a), dtype=np.int64)

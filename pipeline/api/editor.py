@@ -13,7 +13,7 @@ from PIL import Image
 
 from .. import definitive
 from ..shared import limits
-from .. import files as files_mod
+from ..shared import files as files_mod
 from .context import ROOT, allowed_roots
 from .routing import BaseRouter, get, post
 
@@ -104,7 +104,7 @@ def edit_apply(body: dict) -> dict:
 
 def editor_layers() -> dict:
     """The layer catalogue and a starting stack, for building the form."""
-    from pipeline.palettes import discover
+    from pipeline.looks.palettes import discover
 
     cat = definitive.catalogue()
     names = sorted(discover(ROOT))

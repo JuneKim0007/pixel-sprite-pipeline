@@ -11,9 +11,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from .. import schema, settings
+from ..generation import schema
+from ..shared import settings
 from .. import stages  # noqa: F401  (importing registers the stages)
-from ..stage import available
+from ..generation.stage import available
 from .context import (CONFIGS, ROOT, dir_size, download_dir, global_cfg,
                       human_size, input_dir, runs_dir)
 from .routing import BaseRouter, get
@@ -47,14 +48,14 @@ def system_info() -> dict:
 
     services = {}
     try:
-        from pipeline.comfy import Client
+        from pipeline.generation.comfy import Client
 
         c = Client()
         services["comfyui"] = {"url": c.host, "up": c.alive()}
     except Exception as e:  # pragma: no cover
         services["comfyui"] = {"up": False, "error": str(e)}
     try:
-        from pipeline.llm import Ollama
+        from pipeline.refs.llm import Ollama
 
         o = Ollama()
         up = o.alive()

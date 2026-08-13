@@ -1,14 +1,4 @@
-"""Persist and restore what stages produced, so a run can be resumed.
 
-A gated run stops after a stage, the user edits something (the skeletons, in
-the rig editor), and the rest continues. That only works if the artifacts from
-the completed stages survive the gap between two processes.
-
-Stringifying everything loses type: `skeletons` is a list of file paths that
-must come back as paths, while `pose_frames` is plain JSON data that must not
-be turned into a path. So the manifest records which is which rather than
-guessing on the way back in.
-"""
 
 from __future__ import annotations
 
@@ -42,9 +32,7 @@ def _decode(entry: dict) -> Any:
 
 def save(outdir: Path, artifacts: dict[str, Any], completed: list[str]) -> Path:
     path = outdir / MANIFEST
-    # Underscore keys are in-process scratch — the resolved Rig object, for
-    # instance. Persisting one would store a repr, and a resume would then hand
-    # that string to code expecting a rig.
+
     persisted = {k: v for k, v in artifacts.items() if not k.startswith("_")}
     path.write_text(
         json.dumps(

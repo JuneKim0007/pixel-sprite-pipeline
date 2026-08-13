@@ -19,9 +19,9 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from ..pixelize import (background_to_alpha, extract_palette, find_phase,
+from ..definitive.pixelize import (background_to_alpha, extract_palette, find_phase,
                         load_palette, pixelize, reduce_blocks, save_palette)
-from ..stage import Context, Resource, Stage, opt, register
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def _one_frame(args: tuple) -> str:
@@ -171,7 +171,7 @@ class PaletteStage(Stage):
     @staticmethod
     def _resolve_file(ctx: Context, ref: str) -> Path:
         """Accept a registry key ('character/dungeon_steel') or a plain path."""
-        from ..palettes import discover
+        from ..looks.palettes import discover
 
         found = discover(ctx.root)
         if ref in found:
@@ -191,8 +191,8 @@ class PaletteStage(Stage):
         the point: an LLM is a reasonable judge of which palette suits a
         subject, and a terrible mechanism for applying one consistently.
         """
-        from ..llm import Ollama
-        from ..palettes import choose
+        from ..refs.llm import Ollama
+        from ..looks.palettes import choose
 
         llm_cfg = {**(ctx.stage_config("pose").get("llm") or {}), **(cfg.get("llm") or {})}
         client = Ollama(

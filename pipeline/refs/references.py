@@ -1,37 +1,3 @@
-"""Reference images, typed by the job they do.
-
-A reference used to be one flat list labelled only by viewing angle, which
-quietly conflated four different things. They are not interchangeable: an
-illustration of your character and a good pixel-art sprite both "look like
-what I want", but one says *who* and the other says *how*, and feeding either
-into the other's slot produces the wrong sprite.
-
-    identity   who the character is. Illustrations, concept art, photographs
-               — anything, and deliberately not required to be pixel art.
-               Best without a held weapon: IP-Adapter carries content, so a
-               bow in the reference becomes a bow in the output whether or not
-               anything placed one. Weapons belong to the animation, via
-               props, where the geometry says where the hand is.
-               Matched to each frame by viewing angle, driven through
-               IP-Adapter at a high weight.
-
-    style      what the art should look like. Good sprites in the target
-               idiom. Weak weight on purpose: a style reference at identity
-               strength overwrites the character with the exemplar.
-
-    pose       composition and framing to reproduce, via its annotation and
-               the pose ControlNet.
-
-    palette    colours to lock to, read once and imposed deterministically.
-
-The weights differ by an order of magnitude between roles, which is the real
-reason they cannot share a list.
-
-One trap worth naming: identity references are usually illustrations, and
-img2img from an illustration traces its rendering — gradients, soft edges,
-anti-aliasing — which is the opposite of a sprite. Identity therefore goes
-through IP-Adapter only, and the pixelation comes from generation.
-"""
 
 from __future__ import annotations
 
@@ -40,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .bodyspace import VIEWS, resolve_view
+from ..geometry.bodyspace import VIEWS, resolve_view
 
 ROLES = ("identity", "style", "pose", "palette")
 
@@ -140,11 +106,7 @@ def load(root: Path, cfg: dict | None) -> Library:
     return lib
 
 
-# Labels a person actually writes, mapped to the pipeline's yaw. The named
-# views only span 0-180, so a character's RIGHT side has no name and is a raw
-# angle - which is exactly the thing people get wrong by hand. These aliases
-# exist so `side_right` resolves rather than silently becoming `side` (90),
-# which is the character's LEFT and a rear frame away from what was meant.
+
 VIEW_ALIASES: dict[str, float] = {
     "front": 0.0,
     "back": 180.0, "rear": 180.0,
@@ -154,28 +116,7 @@ VIEW_ALIASES: dict[str, float] = {
 
 
 def from_pattern(root: Path, cfg: dict, existing: list[Reference]) -> list[Reference]:
-    """Discover per-view identity references by filename pattern.
 
-    Why a pattern and not a list: a job that names four files by path can be
-    written by a script, queued in bulk, and run somewhere with more compute
-    without anything being uploaded first. `references.pattern` is a template
-    over `{name}` (or `{id}`) and `{view}`:
-
-        pattern: overnight/{name}/refs/{view}.png
-
-    Only views whose file EXISTS are added, and an explicitly configured view
-    always wins - the pattern fills gaps, it does not override intent.
-
-    Missing sides are handled by `match.side_fallback`, because the honest
-    options differ in kind and the right one is a judgement about the costume:
-
-        mirror  reuse the other side, flipped. Correct for a symmetric outfit,
-                wrong for char_2's cape or char_3's slit skirt.
-        back    let the rear reference cover the sides. The default: it is the
-                view that shares most silhouette with a profile.
-        front   for costumes whose front reads better in profile.
-        none    add nothing and let pick()'s falloff do its job.
-    """
     pattern = cfg.get("pattern")
     if not pattern:
         return []

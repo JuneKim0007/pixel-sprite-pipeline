@@ -1,18 +1,4 @@
-"""Render a depth map from a body-space pose.
 
-Complements the OpenPose skeleton. The skeleton says where joints are on
-screen; the depth map says how far each one is from the viewer. Those are
-different channels of information, and a 2D skeleton alone cannot express the
-second — which is why three-quarter-rear and full-rear views project to almost
-identical keypoints despite looking quite different.
-
-Limbs are drawn as depth-shaded capsules, nearer surfaces brighter, and painted
-back-to-front so nearer limbs occlude farther ones. That occlusion ordering is
-most of what makes a view read as "turned" rather than "flat".
-
-The ControlNet Union model accepts this as its `depth` type, so it stacks with
-the pose conditioning without loading a second model.
-"""
 
 from __future__ import annotations
 

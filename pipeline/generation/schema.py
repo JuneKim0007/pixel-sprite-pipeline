@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .bodyspace import VIEWS as VIEWS_FOR_UI
+from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 
 # What a pipeline is for. Fields may scope themselves to a subset, so a T-pose
 # character sheet does not show eight knobs about LLM-authored motion.
@@ -784,7 +784,7 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
         f"generated/{p.stem}" for p in (root / "poses" / "generated").glob("*.json")
     )
 
-    from .palettes import discover
+    from ..looks.palettes import discover
 
     palettes = sorted(discover(root))
 
@@ -794,7 +794,7 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
 
     models: list[str] = []
     try:
-        from .llm import Ollama
+        from ..refs.llm import Ollama
 
         client = Ollama()
         if client.alive():
@@ -821,13 +821,13 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
 
 
 def _style_names(root: Path) -> list[str]:
-    from .styles import discover
+    from ..looks.styles import discover
 
     return sorted(discover(root))
 
 
 def _rig_summaries() -> list[dict]:
-    from .rigs import summaries
+    from ..geometry.rigs import summaries
 
     return summaries()
 

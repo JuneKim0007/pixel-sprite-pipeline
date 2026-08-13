@@ -1,17 +1,3 @@
-"""Render OpenPose skeletons from authored keypoints.
-
-Why authored and not estimated: pose estimators (OpenPose, DWPose) are trained
-on photographs of people and degrade badly on game sprites — exaggerated
-proportions, hidden limbs, non-human silhouettes. The Sprite Sheet Diffusion
-authors hit this and fell back to annotating poses by hand.
-
-So the skeleton is *input*, never something we recover from a generated image.
-That inverts the usual workflow and makes the pose exact, versionable in git,
-and reusable across every character.
-
-Keypoints use the 18-point COCO layout ControlNet expects, stored normalised to
-[0, 1] so one pose file renders at any canvas size.
-"""
 
 from __future__ import annotations
 

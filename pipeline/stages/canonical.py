@@ -11,12 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .. import comfy
-from .. import cooling
-from .. import rigs as rig_lib
-from ..bodyspace import resolve_view
-from .. import references as refs_mod
-from ..stage import Context, Resource, Stage, opt, register
+from ..generation import comfy
+from ..orchestration import cooling
+from ..geometry import rigs as rig_lib
+from ..geometry.bodyspace import resolve_view
+from ..refs import references as refs_mod
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def _label_for(yaw: float) -> str:
@@ -26,7 +26,7 @@ def _label_for(yaw: float) -> str:
     becomes its angle. That is deliberate: `side` already means 90, and giving
     270 a name that reads like a mirror of it is how the two get swapped.
     """
-    from ..bodyspace import VIEWS
+    from ..geometry.bodyspace import VIEWS
     for name, deg in VIEWS.items():
         if abs(deg - (round(yaw) % 360)) < 0.5:
             return name

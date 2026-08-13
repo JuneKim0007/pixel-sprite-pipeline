@@ -1,32 +1,3 @@
-"""Body-space poses, projected to any viewing angle.
-
-A pose stored as flat 2D screen coordinates is locked to one camera. Authoring
-front, three-quarter, side and rear versions of the same animation by hand
-means maintaining four copies that drift apart.
-
-So poses are authored once in body space — each joint as
-(lateral, depth, height) relative to the character — and projected to screen
-coordinates at whatever yaw you ask for:
-
-    lateral  -/+   character's right / left
-    depth    -/+   behind / in front of the character
-    height    0..1 top of head to feet (already screen-space; no pitch)
-
-Projection, with yaw 0 = facing the viewer and increasing clockwise from above:
-
-    x = centre + depth·sin(yaw) − lateral·cos(yaw)
-
-At yaw 0 the lateral spread is fully visible and depth collapses (front view).
-At yaw 90 depth maps to screen-x and the limbs overlap (side view). At yaw 180
-lateral reappears mirrored (rear view).
-
-Which head keypoints get emitted is derived from the same angle, and that
-matters more than it sounds: **the presence or absence of nose and eyes is how
-a skeleton tells ControlNet which way the character faces.** A rear view with a
-nose keypoint reads as a front view wearing a backpack. Omitting them is what
-makes "facing away" unambiguous — and it is the direct fix for front and back
-views collapsing into each other.
-"""
 
 from __future__ import annotations
 

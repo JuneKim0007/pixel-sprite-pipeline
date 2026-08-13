@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .. import pixelize as px
+from . import pixelize as px
 from .layers import Field, layer
 
 REDUCERS = [
@@ -181,7 +181,7 @@ def _palette(img, cfg, facts):
         name = cfg.get("file") or ""
         if not name:
             return img
-        from ..palettes import discover
+        from ..looks.palettes import discover
         from pathlib import Path
 
         found = discover(facts["root"]).get(name)

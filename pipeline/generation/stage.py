@@ -29,9 +29,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
-from .shared.config import opt
-from .shared.errors import Invalid
-from .shared.registry import Decorated, Registry
+from ..shared.config import opt
+from ..shared.errors import Invalid
+from ..shared.registry import Decorated, Registry
 
 __all__ = ["opt", "Resource", "Context", "Stage", "register", "get", "available"]
 
@@ -97,8 +97,8 @@ class Context:
         cached = self.artifacts.get("_refs")
         if cached is not None:
             return cached
-        from . import references as refs_mod
-        from . import settings as settings_mod
+        from ..refs import references as refs_mod
+        from ..shared import settings as settings_mod
 
         cfg = dict(self.config.get("references") or {})
         # from_run resolves against wherever runs actually live, which the
@@ -128,7 +128,8 @@ class Context:
         cached = self.artifacts.get("_rig")
         if cached is not None:
             return cached
-        from . import detect, rigs as _rigs
+        from ..geometry import rigs as _rigs
+        from ..refs import detect
 
         rig, record = detect.resolve(self)
 
@@ -149,7 +150,7 @@ class Context:
         if self.config.get("annotate", "skip") == "skip":
             return {}
         try:
-            from . import annotate as ann
+            from ..geometry import annotate as ann
         except ImportError:  # pragma: no cover
             return {}
 

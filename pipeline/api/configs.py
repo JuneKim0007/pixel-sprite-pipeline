@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 import re
 
-from .. import settings, styles
+from ..looks import styles
+from ..shared import settings
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, dump_roundtrip, global_cfg, load_roundtrip
 from .routing import BaseRouter, get, put

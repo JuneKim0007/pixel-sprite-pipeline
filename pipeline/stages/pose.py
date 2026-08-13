@@ -13,11 +13,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .. import props as props_mod
-from .. import rigs as rig_lib
-from ..bodyspace import frame_scale, project, resolve_view, validate_pose
-from ..openpose import render
-from ..stage import Context, Resource, Stage, opt, register
+from ..geometry import props as props_mod
+from ..geometry import rigs as rig_lib
+from ..geometry.bodyspace import frame_scale, project, resolve_view, validate_pose
+from ..geometry.openpose import render
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def _slug(text: str) -> str:
@@ -105,7 +105,7 @@ class PoseStage(Stage):
             annotation = entry.get("annotation")
             if annotation is not None:
                 # Already in screen space — projecting would be meaningless.
-                from .. import annotate as ann
+                from ..geometry import annotate as ann
 
                 dst = outdir / f"skeleton_{i:03d}.png"
                 ann.render(annotation, size, size).save(dst)
@@ -184,7 +184,7 @@ class PoseStage(Stage):
         be projected to other angles, so each annotation yields exactly one
         entry, at the view it was measured at.
         """
-        from .. import annotate as ann
+        from ..geometry import annotate as ann
 
         found = ann.gather(ctx.root, ctx.config.get("references") or {})
         if not found:
@@ -264,7 +264,7 @@ class PoseStage(Stage):
         return frames[:limit] if limit else frames
 
     def _from_llm(self, ctx: Context, cfg: dict, n_frames: int) -> list[dict]:
-        from ..llm import Ollama, generate_pose
+        from ..refs.llm import Ollama, generate_pose
 
         llm_cfg = opt(cfg, "llm", {}) or {}
         action = cfg.get("action") or cfg.get("name") or "idle standing"

@@ -12,7 +12,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from .shared.errors import Denied
+from .errors import Denied
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")

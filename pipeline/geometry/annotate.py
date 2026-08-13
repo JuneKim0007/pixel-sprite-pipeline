@@ -1,28 +1,4 @@
-"""Per-image rig annotation: where the parts are in *this* picture.
 
-Separate from the authored poses in `bodyspace` because the two jobs are not
-the same one, and treating them alike is what produced a standing skeleton laid
-over a seated, cropped reference:
-
-    authored pose      a body you intend to generate. 3D body space, full
-                       skeleton, projectable to any viewing angle, reusable.
-
-    annotation         markup of an image that already exists. 2D screen
-                       space, partial by nature, belongs to that one image.
-
-Three consequences follow from "the image already exists":
-
-  no depth        a photograph gives you no way to recover how far a wrist is
-                  from the camera, so annotations are two numbers per joint.
-  partial         a cropped thigh or an occluded hand has no position at all.
-                  Absent is a legitimate, meaningful value.
-  no bone rules   foreshortening genuinely shortens an arm on screen, so
-                  enforcing bone lengths here would fight the evidence.
-
-Annotations live beside their image as `<name>.rig.json`, so they travel with
-the file instead of bloating a config, and an image can be annotated once and
-reused by any pipeline.
-"""
 
 from __future__ import annotations
 
@@ -262,7 +238,7 @@ def gather(root: Path, ref_cfg: dict) -> list[Annotation]:
     Only identity and pose references can carry one — a palette swatch or a
     style exemplar has no anatomy to mark up.
     """
-    from .references import load as load_refs
+    from ..refs.references import load as load_refs
 
     lib = load_refs(root, ref_cfg or {})
     out = []

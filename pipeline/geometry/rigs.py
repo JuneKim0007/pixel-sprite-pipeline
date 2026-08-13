@@ -1,38 +1,11 @@
-"""Rig templates: what a skeleton *is*, per creature type.
-
-Everything used to assume one humanoid — an 18-joint COCO layout with named
-arms and legs, hardcoded in bodyspace. That is the reason a dragon or a snake
-could not be posed: not a missing feature, a missing abstraction.
-
-A Rig carries the whole description of a body plan, so the pose, depth and
-frame stages read it instead of assuming.
-
-The important asymmetry, and the reason non-humanoid support is cheap:
-
-  the SKELETON channel is topology-locked   OpenPose ControlNet was trained on
-                                            exactly 18 human joints; feed it a
-                                            centipede and it reads the segments
-                                            as misplaced limbs
-
-  the DEPTH channel is not                  we render depth ourselves, from
-                                            body-space coordinates, so any
-                                            topology at all produces a valid
-                                            depth map
-
-So a humanoid gets openpose + depth, and everything else leans on depth plus
-scribble — which is the most forgiving conditioning type and does not care what
-the drawing depicts.
-"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable
-from .shared.registry import Decorated, Registry
+from ..shared.registry import Decorated, Registry
 
-# The canonical OpenPose colour wheel. ControlNet was trained against these
-# exact hues, so for the humanoid rig they are protocol, not decoration.
-# Other rigs reuse the wheel purely so limbs stay visually distinguishable.
+
 COLORS: tuple[tuple[int, int, int], ...] = (
     (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0),
     (85, 255, 0), (0, 255, 0), (0, 255, 85), (0, 255, 170), (0, 255, 255),

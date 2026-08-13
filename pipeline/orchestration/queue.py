@@ -1,31 +1,3 @@
-"""A filesystem job queue, and the rules that keep an unattended run alive.
-
-Jobs are JSON files, and their directory is their state:
-
-    queue/pending/  waiting            0010_knight.json
-    queue/running/  exactly one
-    queue/done/     finished           + .result.json
-    queue/failed/   errored            + .error.txt
-    queue/held/     waiting on a dependency that is not ready yet
-
-Directories rather than a database because the point is to write a night's work
-by hand: `ls queue/pending | wc -l` answers how much is left, and moving a file
-between folders is an atomic, crash-safe state transition.
-
-The design is shaped by one measurement. Every stage checks whether ComfyUI is
-reachable and fails in about a millisecond when it is not — so if the GPU
-service dies at 3am, a naive "catch the error, take the next job" loop burns two
-hundred queued jobs in under a second and the night is gone. Four guards follow
-from that:
-
-  pre-flight     config errors are caught before a job is dequeued, in
-                 milliseconds, without touching the GPU
-  health gate    a missing service makes the worker WAIT, never fail a job;
-                 "the machine is broken" is not "this job is broken"
-  circuit break  consecutive failures pause the queue instead of draining it
-  held state     a job whose dependency has not finished yet is not a failure,
-                 it is early — so it goes back with a retry time
-"""
 
 from __future__ import annotations
 
@@ -38,7 +10,7 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from .shared.errors import Invalid
+from ..shared.errors import Invalid
 
 PENDING, RUNNING, DONE, FAILED, HELD = "pending", "running", "done", "failed", "held"
 STATES = (PENDING, RUNNING, DONE, FAILED, HELD)
@@ -213,7 +185,10 @@ def preflight(root: Path, job: Job) -> Preflight:
         # themselves on import, and without it the registry is empty and every
         # job fails validation — turning the guard into the cascade it exists
         # to prevent.
-        from . import runner, schema, settings, stages, styles  # noqa: F401
+        from .. import stages  # noqa: F401  (importing registers them)
+        from ..generation import runner, schema  # noqa: F401
+        from ..looks import styles  # noqa: F401
+        from ..shared import settings  # noqa: F401
 
         try:
             raw = yaml.safe_load(cfg_path.read_text()) or {}
@@ -239,7 +214,7 @@ def preflight(root: Path, job: Job) -> Preflight:
 
         rig = merged.get("rig")
         if rig and rig != "auto":
-            from . import rigs
+            from ..geometry import rigs
 
             if rig not in rigs.REGISTRY:
                 problems.append(f"unknown rig '{rig}'")
@@ -250,7 +225,7 @@ def preflight(root: Path, job: Job) -> Preflight:
                 "references.images was replaced by typed roles: identity, "
                 "style, pose, palette"
             )
-        from . import references as refs_mod
+        from ..refs import references as refs_mod
 
         for role in refs_mod.ROLES:
             entries = ref_cfg.get(role) or []
@@ -271,7 +246,7 @@ def preflight(root: Path, job: Job) -> Preflight:
         # `annotate: require` is a deliberate hold, not a failure: the job is
         # waiting for a person to mark up its references.
         if merged.get("annotate") == "require":
-            from . import annotate as ann
+            from ..geometry import annotate as ann
 
             for role in ("identity", "pose"):
                 for entry in (ref_cfg.get(role) or []):
@@ -289,15 +264,15 @@ def preflight(root: Path, job: Job) -> Preflight:
 
 def services_up(root: Path, need_llm: bool = False) -> tuple[bool, str]:
     """Are the services this queue depends on reachable?"""
-    from .comfy import Client
-    from .settings import load_global
+    from ..generation.comfy import Client
+    from ..shared.settings import load_global
 
     host = (load_global(root).get("comfy") or {}).get("host", "http://127.0.0.1:8188")
     if not Client(host).alive():
         return False, f"ComfyUI unreachable at {host}"
 
     if need_llm:
-        from .llm import Ollama
+        from ..refs.llm import Ollama
 
         if not Ollama().alive():
             return False, "Ollama unreachable"

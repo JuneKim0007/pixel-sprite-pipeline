@@ -1,17 +1,4 @@
-"""Executes a configured stage order, with validation and honest parallelism.
 
-Two jobs:
-
-1. **Validate the order you wrote.** Stage order is config, so it can be wrong.
-   Rather than failing halfway through a ten-minute run with a KeyError, the
-   runner walks the order first and reports exactly which artifact is missing
-   and which stage would have produced it.
-
-2. **Parallelise only what is actually parallel.** Consecutive CPU stages that
-   do not depend on each other run concurrently. GPU stages never do: there is
-   one Metal device and SDXL already occupies most of 16 GB, so running two at
-   once trades a small overlap for a large amount of swapping.
-"""
 
 from __future__ import annotations
 
@@ -21,9 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from . import cooling
+from ..orchestration import cooling
 from .stage import Context, Resource, Stage, get
-from .shared.errors import Invalid
+from ..shared.errors import Invalid
 
 
 class PipelineError(Invalid):

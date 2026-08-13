@@ -163,7 +163,7 @@ for (const file of readdirSync(JS).filter((f) => f.endsWith('.js'))) {
  * nowhere. The list is now an ordering hint with a derived fallback, and this
  * test is what keeps it that way.
  */
-const schemaSrc = readFileSync(join(ROOT, 'pipeline/schema.py'), 'utf8');
+const schemaSrc = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
 const settingsSrc = readFileSync(join(JS, 'settings.js'), 'utf8');
 
 const declaredGroups = new Set(
@@ -197,7 +197,7 @@ test('every schema group is reachable', () => {
  * have to be the same four, or an image gets tagged with a role that fails
  * validation only once the job reaches the queue. */
 test('reference roles match the backend', () => {
-  const backend = [...readFileSync(join(ROOT, 'pipeline/references.py'), 'utf8')
+  const backend = [...readFileSync(join(ROOT, 'pipeline/refs/references.py'), 'utf8')
     .match(/ROLES = \(([^)]+)\)/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   const frontend = [...readFileSync(join(JS, 'input.js'), 'utf8')
     .match(/export const ROLES = \[([\s\S]*?)\n\];/)[1]
@@ -360,7 +360,7 @@ console.log('\nschema coverage');
 test('every schema field carries help, so no (?) is ever empty', async () => {
   // The BaseField marker makes a missing explanation visible rather than
   // invisible; this keeps the count from growing quietly.
-  const src = readFileSync(join(ROOT, 'pipeline/schema.py'), 'utf8');
+  const src = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
   const paths = [...src.matchAll(/\{"path":\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.ok(paths.length > 100, `only found ${paths.length} schema paths`);
 });

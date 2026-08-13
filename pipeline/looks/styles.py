@@ -1,53 +1,3 @@
-"""Style sheets: a reusable, composable description of a look.
-
-Before this, an aesthetic decision had nowhere to live. "Pokémon-like,
-monochrome, dynamic poses" was retyped into `subject` and `style` for every
-pipeline, and drifted between them — while the settings that also carry a look
-(palette, LoRA strength, CFG) sat somewhere else entirely.
-
-A style sheet is deliberately not restricted to prompts. It may set any config
-subtree, because consistency is the goal and a tidy boundary that forces you to
-retype `lora_strength` in three files does not serve it. It slots in as a
-layer:
-
-    global defaults  ->  style sheets  ->  pipeline config  ->  job overrides
-
-so a pipeline still wins over a style, and a single job still wins over
-everything.
-
-Style survives across four mechanisms of increasing strength, and a sheet can
-carry all of them at once — the file's shape does not change as a style matures
-from words into trained weights:
-
-    vocabulary      prompt fragments. Instant, weak.
-    settings        palette and sampler values. Exact, because palette snapping
-                    is deterministic — frames cannot drift in colour.
-    exemplars       images fed to IP-Adapter alongside the character reference.
-                    Strong, no training.
-    token / lora    a textual-inversion pseudo-word, then a style LoRA. The
-                    strongest, and the only ones that need training.
-
-A sheet may be a single file or a directory, and both are discovered:
-
-    styles/dark_fantasy.yaml            a look that is only words and numbers
-
-    styles/retro_jrpg/
-        style.yaml                      the same document
-        context/exemplars/*.png         dropped in, no YAML edit needed
-        context/notes.md                prose, for the LLM orchestrator
-        training/images/*.png           outputs promoted as future LoRA data
-        tuning/history.jsonl            every trial this look has been through
-
-The directory form exists because the three strengthening mechanisms have
-different shapes: exemplars are files, training data is files, and tuning
-history is an append-only log. None of them fit inside a YAML document, and
-scattering them across the project would break the one property that makes a
-style sheet worth having — that a look is one thing you can copy, share, and
-delete.
-
-Relative paths inside a sheet resolve against its own directory, so a style
-folder is self-contained and can be moved without editing it.
-"""
 
 from __future__ import annotations
 
@@ -59,9 +9,9 @@ from typing import Any
 
 import yaml
 
-from .settings import deep_merge
-from .shared.errors import Invalid
-from .shared.registry import Registry, Scanned
+from ..shared.settings import deep_merge
+from ..shared.errors import Invalid
+from ..shared.registry import Registry, Scanned
 
 DIRNAME = "styles"
 SHEET = "style.yaml"

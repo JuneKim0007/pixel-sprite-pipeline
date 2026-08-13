@@ -1,51 +1,3 @@
-"""What to train a look on, and whether the images you staged will do it.
-
-There is one model here, not several. A character sheet and an animation run
-through the same checkpoint and the same style LoRA; what differs between them
-is the conditioning — rig, depth, ControlNet — not the weights. So "training
-data for the character sheet model" and "training data for the animation
-model" describe a split that does not exist, and building folders around it
-would divide one dataset into two halves that each fail for lack of size.
-
-The split that IS real runs along a different axis:
-
-    style      the rendering vocabulary — outline discipline, palette size,
-               shading steps, pixel density. This is what the LoRA is.
-    views      how this style draws a back and a side. A LoRA can only render
-               what it has seen, so a dataset of front views produces a look
-               that degrades the moment the camera turns.
-    (pose)     nothing. Pose comes from the rig and the depth map. Training on
-               poses is how you lose the ability to choose them.
-
-That last line is the one worth internalising, because the failure it prevents
-is subtle. A LoRA learns whatever is CONSTANT across its dataset and cancels
-whatever varies. Nine images of a figure standing front-on with its arms down
-teach "standing, front-on, arms down" just as surely as they teach the
-outline, and the result fights the ControlNet forever after: the pose lands,
-roughly, and then the weights drag the proportions and the framing back toward
-the only composition they know.
-
-Two independent levers keep composition out:
-
-    vary it      three poses per character beats three characters standing
-    caption it   anything named in a caption is attributed to the caption
-                 rather than absorbed into the style
-
-The rule that follows is short: caption what you want to control, and omit
-what you want to learn.
-
-The checks below are deliberately the ones a machine can actually make, and
-one of them changed after being wrong. Distinct-colour count looked like a
-measure of "how pixel-art is this", and it is not: palette snapping runs after
-generation and is deterministic, so drifted colour comes back. What does not
-come back is feature scale. Reducing by a factor of eight destroys detail that
-was one pixel wide and preserves detail that was already eight pixels wide, so
-a dataset mixing the two teaches a grid the pipeline cannot then reduce. Block
-size is measured; colour is reported and ignored.
-
-A perceptual hash really does find near-duplicates. Whether a figure is
-"dynamically posed" is not something this module pretends to know — it asks.
-"""
 
 from __future__ import annotations
 
@@ -55,18 +7,7 @@ from typing import Any
 
 IMAGES = (".png", ".jpg", ".jpeg", ".webp")
 
-# What actually has to be consistent is FEATURE SCALE, not colour count.
-#
-# Colour count was the first thing measured here and it was the wrong thing.
-# Palette snapping is deterministic and runs after generation, so a look whose
-# colours drift gets pulled back to the sheet's palette regardless — diffused
-# colour is recoverable. Feature scale is not. If half a dataset draws detail
-# one pixel wide and half draws it in eight-pixel blocks, the LoRA learns
-# detail at both scales, and reducing the output by a factor of eight destroys
-# the fine half while the coarse half survives. No post-process fixes that,
-# because by then the information is gone.
-#
-# So block size is the blocker and colour count is a note.
+
 BLOCK_BANDS = (
     (1.0, 1.6, "1px", "detail one pixel wide — native sprite resolution"),
     (1.6, 3.5, "2-3px", "small blocks"),
@@ -74,8 +15,7 @@ BLOCK_BANDS = (
     (6.5, 64.0, "8px+", "large blocks — an upscaled or low-res sprite"),
 )
 
-# Informational only. High counts mean lossy compression or soft shading;
-# neither survives palette snapping, so neither decides whether to train.
+
 NOISY_COLOURS = 4_000
 
 MIN_DATASET = 20
@@ -382,7 +322,7 @@ def figure_height(arr, tolerance: int = 16) -> int:
     """
     import numpy as np
 
-    from .pixelize import background_to_alpha
+    from ..definitive.pixelize import background_to_alpha
 
     keyed = background_to_alpha(arr, tolerance)
     rows = np.where((keyed[..., 3] > 0).any(axis=1))[0]

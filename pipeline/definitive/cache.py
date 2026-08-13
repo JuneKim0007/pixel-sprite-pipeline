@@ -191,7 +191,7 @@ def key(what: str, image: np.ndarray, params: Any = None) -> str:
 
 def measured_block(image: np.ndarray) -> float:
     """The block size of this image. A pure function of the pixels."""
-    from .. import training
+    from ..looks import training
 
     return CACHE.get(key("block", image),
                      lambda: training.estimate_block_size(image))
@@ -199,7 +199,7 @@ def measured_block(image: np.ndarray) -> float:
 
 def phase_for(image: np.ndarray, factor: int) -> tuple[int, int]:
     """Where the lattice starts. Depends only on the image and the factor."""
-    from .. import pixelize as px
+    from . import pixelize as px
 
     return CACHE.get(key("phase", image, factor),
                      lambda: px.find_phase(image, factor))
@@ -207,7 +207,7 @@ def phase_for(image: np.ndarray, factor: int) -> tuple[int, int]:
 
 def generated_palette(image: np.ndarray, colours: int, method: str) -> list:
     """k-means over the image. The single most expensive step in the stack."""
-    from .. import pixelize as px
+    from . import pixelize as px
 
     return CACHE.get(key("palette", image, [colours, method]),
                      lambda: px.generate_palette(image, colours, method=method))

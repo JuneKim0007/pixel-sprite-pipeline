@@ -20,8 +20,8 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from ..softbody import SoftNode, build_tracks, describe, warp_frame
-from ..stage import Context, Resource, Stage, opt, register
+from ..geometry.softbody import SoftNode, build_tracks, describe, warp_frame
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 @register

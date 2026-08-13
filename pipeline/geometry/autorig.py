@@ -1,31 +1,4 @@
-"""Propose a rig by looking at a sprite's silhouette.
 
-The alternative was asking a vision model where the joints are, and the
-benchmarks rule that out: VLM spatial localization sits near 35% against 26%
-for random guessing. Classification is a different task and they handle it
-well, which is why `detect.py` uses one to choose a body plan — but placing
-coordinates is not something to delegate to a guess.
-
-Silhouette geometry is not a guess. A standing humanoid has a width profile
-with a recognisable shape:
-
-    narrow      head
-    wide        shoulders
-    narrower    waist
-    wide        hips
-    two lobes   legs
-
-so the joints can be read off that profile directly, and the limb thicknesses
-that fall out of the same measurement give the proportions.
-
-Skeletonization was the obvious approach and is the wrong one here: a medial
-axis of a 128px sprite sprouts spurious branches at every bump in the outline,
-and pruning them back reliably is harder than not creating them.
-
-Everything here produces a *proposal*. It opens in the rig editor for review
-rather than feeding generation directly, because a wrong fit should cost a
-glance, not six GPU-minutes.
-"""
 
 from __future__ import annotations
 
@@ -39,7 +12,7 @@ from PIL import Image
 from scipy import ndimage
 
 from . import rigs
-from .pixelize import background_to_alpha
+from ..definitive.pixelize import background_to_alpha
 
 
 @dataclass

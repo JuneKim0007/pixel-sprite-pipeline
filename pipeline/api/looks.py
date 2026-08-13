@@ -8,9 +8,9 @@ import shutil
 import time
 from pathlib import Path
 
-from .. import files as files_mod
-from .. import palettes as palette_lib
-from .. import styles, stylelog
+from ..shared import files as files_mod
+from ..looks import palettes as palette_lib
+from ..looks import styles, stylelog
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, allowed_roots, dump_roundtrip, load_roundtrip
 from .routing import BaseRouter, get, post
@@ -178,7 +178,7 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
 
 
 def palette_list() -> dict:
-    from pipeline.palettes import discover
+    from pipeline.looks.palettes import discover
 
     out = []
     for name, pal in sorted(discover(ROOT).items()):
@@ -217,7 +217,7 @@ class Looks(BaseRouter):
 
     @get("/style/training", "what this sheet has collected for training")
     def training(self, req):
-        from .. import training
+        from ..looks import training
 
         sheet = _sheet(req.required("name"))
         return training.assess(sheet.home / "training" / "images")

@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import queue as queue_lib
+from ..orchestration import queue as queue_lib
 from ..shared.errors import Conflict, Invalid, NotFound
 from .context import CONFIGS, ROOT, load_roundtrip
 from .routing import BaseRouter, get, post
@@ -27,7 +27,7 @@ AUTOPILOT_LOG = "autopilot.log"
 
 
 def _queue():
-    from pipeline import queue as q
+    from pipeline.orchestration import queue as q
 
     return q, q.Queue(ROOT)
 

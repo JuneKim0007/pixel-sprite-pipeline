@@ -8,7 +8,7 @@ from typing import Any
 
 from PIL import Image
 
-from ..stage import Context, Resource, Stage, opt, register
+from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 @register
