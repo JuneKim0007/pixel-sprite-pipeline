@@ -128,27 +128,12 @@ class CanonicalStage(Stage):
 
         # The anchor gets the same structural conditioning a frame gets.
         #
-        # It did not, and that was the largest defect in the pipeline. The pose
-        # and depth stages run first and their output was sitting there unused:
-        # the canonical was generated from prompt and IP-Adapter alone, with no
-        # ControlNet, no depth map and no prop geometry. Three symptoms came
-        # out of that one gap.
-        #
-        #   Two bows.        Props reached the canonical as words with no
-        #                    volume, which is exactly the failure props.py
-        #                    warns about - told only "holding a bow", the model
-        #                    decides for itself where it goes, and sometimes
-        #                    decides twice.
-        #   Broken anatomy.  Nothing said where the limbs were.
-        #   Worse the more   An identity reference in a dynamic pose disagrees
-        #   dynamic the      with a standing prompt, and with no ControlNet
-        #   reference.       nothing arbitrates. The disagreement scales with
-        #                    the pose difference, so a running archer degrades
-        #                    where a standing knight does not.
-        #
-        # The anchor is conceptually the first frame, so it is conditioned like
-        # one. Optional rather than required: a run that skips the pose stage
-        # still works, it just gets the old unconditioned behaviour.
+        # Without it the canonical came from prompt and IP-Adapter alone - no
+        # ControlNet, no depth, no prop geometry - while the pose and depth
+        # stages' output sat unused. Three symptoms came from that one gap:
+        # duplicate props (told only "holding a bow", the model decides where
+        # it goes and sometimes decides twice), broken anatomy, and degradation
+        # proportional to how dynamic the reference pose was.
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
 
@@ -189,30 +174,10 @@ class CanonicalStage(Stage):
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
                   f"  <- {where}")
 
-        # Candidates go out as one batch by default, and the reason is a
-        # correction rather than a design.
-        #
-        # A four-candidate run once died on a 1800 s timeout, and that was read
-        # here as the working set exceeding 16 GB and macOS swapping — the same
-        # story as --gpu-only. Sequential generation was written to fix it. Then
-        # the two paths were actually measured against each other, four
-        # candidates at 1024 each:
-        #
-        #     sequential   2096 s   2,809,129 swapins
-        #     batch        1806 s   1,281,996 swapins
-        #
-        # Batch is 14% faster and swaps *less than half* as much. The original
-        # failure was not a swap catastrophe at all: batch takes 1806 s and the
-        # timeout was 1800 s. It missed by six seconds.
-        #
-        # Sequential is kept, and is not merely a curiosity — it is the only
-        # path that can rest between candidates, so a queue that runs all night
-        # for thermal reasons wants it despite being slower. That is a real
-        # trade and it belongs to whoever is running the machine.
-        #
-        # The graph is rebuilt per candidate rather than resampled, because a
-        # ComfyUI graph carries its seed inside a node: reusing one would need
-        # the node mutated in place, and building it again costs nothing.
+        # Candidates go out as one batch by default. Measured: batch 1806 s and
+        # 1.28M swap-ins against sequential 2096 s and 2.8M, and candidate 0 is
+        # byte-identical either way - a diffusion UNet uses GroupNorm, so
+        # nothing crosses the batch dimension.
         uploads: dict = {}
 
         def build():
@@ -269,14 +234,9 @@ class CanonicalStage(Stage):
                 strong = kind == "pose"
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-                    # Weaker than the frames stage, and the reason is
-                    # structural rather than aesthetic. A frame is pulled
-                    # against its ControlNet by two image conditionings - the
-                    # canonical anchor at 0.9 and a matched identity reference
-                    # at 0.85. The canonical has only the reference: it IS the
-                    # anchor, so it cannot have one. Half the counterweight
-                    # meeting the same strength is not the same experiment,
-                    # and copying the frames figures here was an oversight.
+        # Weaker than the frames stage: the anchor has no anchor of its own, so
+        # strong control here fights the identity reference instead of guiding
+        # it.
                     strength=opt(cn, "strength", 0.55 if strong else 0.30),
                     start_percent=opt(cn, "start_percent", 0.0),
                     # Released earlier too. The anchor's job is to be a clean
@@ -294,18 +254,9 @@ class CanonicalStage(Stage):
         base_seed = opt(cfg, "seed", 1234)
         timeout = opt(cfg, "timeout", 1800)
 
-        # One anchor per view, or the single front anchor as before.
-        #
-        # With one front canonical, three of four frames had to INVENT their
-        # own angle: the anchor gave the right medium and the wrong facing, the
-        # matched reference the right facing and the wrong medium, and the
-        # model fused them. Per view, one input is correct on both axes and the
-        # frames stage stops synthesising.
-        #
-        # These do not drift apart the way four independent generations would,
-        # because each is pinned to a labelled view of the SAME reference sheet
-        # - the coherence is inherited from the sheet, not negotiated between
-        # the anchors.
+    # One anchor per view, or the single front anchor as a fallback. A rear
+    # frame conditioned on a front anchor inherits the front's silhouette,
+    # which is what makes a back view come out with a face on it.
         _entries_all = ctx.artifacts.get("pose_frames") or []
         if bool(opt(cfg, "per_view", False)) and _entries_all:
             views = [float((e or {}).get("yaw", 0.0)) for e in _entries_all]

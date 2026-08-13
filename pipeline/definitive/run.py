@@ -1,46 +1,24 @@
 """Running a layer stack: prepare what is orderless, then walk forward.
 
-Two halves, and the split between them is the whole design.
+    prepare   Everything that is a function of the image reaching a layer and
+              that layer's own settings, and of nothing else. Block size,
+              lattice phase, a clustered palette. Pure, so it is cached by
+              content: an edit that does not reach a layer never recomputes it.
 
-    prepare   For each layer, work out everything that is a function of the
-              image reaching it and that layer's own settings, and of nothing
-              else. Block size. Lattice phase. A generated palette. These are
-              pure, so they are cached by content, and an edit that does not
-              reach a layer never recomputes its preparation.
+    apply     Walks forward, taking what prepare worked out and doing the cheap
+              ordered thing. Nothing here measures, searches or clusters.
 
-    apply     Walk forward. Each step takes the image and the answers prepared
-              for it, and does the cheap ordered thing. Nothing here measures,
-              searches or clusters; if it did, it would be doing orderless work
-              inside the one pass that cannot skip any of it.
+Preparation is interleaved rather than done up front - what Grid prepares
+depends on the image Curves produced. The separation still pays, because the
+cache key is the arriving image plus that layer's settings, so a preparation is
+skipped whenever those match no matter what else in the stack moved.
 
-Before this the two were tangled: layers reached into the cache module from
-inside their own bodies, so which work was orderless was invisible from the
-outside and the runner could not skip, batch or report any of it. Separating
-them makes three things possible that were not:
+A layer that raises does not kill the run: a half-typed hex colour should show
+an error against that layer rather than blanking the preview. The image passes
+through unchanged and the failure lands in `facts`.
 
-  - the expensive half is cached by content, so the same picture with the same
-    settings never clusters twice
-  - the forward half is cheap enough to run whole, so a change late in the
-    stack does not depend on a snapshot to feel fast
-  - `facts` can say what was computed and what was reused, which is the
-    difference between a preview you trust and one you wait on
-
-Preparation is interleaved rather than done up front, and that is forced: what
-Grid prepares depends on the image Curves produced. What makes separating it
-worthwhile anyway is the cache key - the arriving image plus that layer's own
-settings - so a preparation is skipped whenever those match, no matter what
-else in the stack moved.
-
-Two behaviours worth stating because the loop does not show them.
-
-A layer that raises does not kill the run. The editor is interactive, and a
-half-typed hex colour should show an error against that layer rather than
-blanking the preview. The image passes through unchanged and the failure is
-reported in `facts`.
-
-Alpha travels with the image. `background` produces a fourth channel and
-everything after it has to preserve it, so layers receive whatever the previous
-one returned rather than a normalised RGB array.
+Alpha travels with the image, so layers receive whatever the previous one
+returned rather than a normalised RGB array.
 """
 
 from __future__ import annotations
@@ -57,9 +35,8 @@ from .layers import REGISTRY, check_order
 def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -> dict:
     """The orderless half of one layer, from cache when the inputs match.
 
-    Keyed on the content of the arriving image and this layer's settings, and
-    on nothing else - which is exactly the claim that makes it orderless. Two
-    stacks differing anywhere after this layer still get the same answer here.
+    Keyed on the arriving image and this layer's settings and nothing else,
+    which is the claim that makes it orderless.
     """
     if spec.prepare is None:
         return {}
@@ -75,11 +52,10 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
                 use_cache: bool = True) -> tuple[np.ndarray, dict]:
     """Prepare and apply every enabled layer in order.
 
-    `source` opts into resuming from a snapshot of the image partway through.
-    Moving one slider changes one layer, and every layer before it is unchanged
-    by definition. Passing no `source` runs the whole stack, which is what a
-    pipeline stage wants: it runs once, on an image nothing will ask about
-    again, and keeping snapshots for it would evict the editor's for nothing.
+    `source` opts into resuming from a snapshot partway through: moving one
+    slider changes one layer, and every layer before it is unchanged by
+    definition. A pipeline stage passes none - it runs once, on an image
+    nothing will ask about again.
     """
     facts: dict[str, Any] = {
         "root": root,

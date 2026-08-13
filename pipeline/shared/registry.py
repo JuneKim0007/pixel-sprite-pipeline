@@ -1,32 +1,16 @@
 """One registry, two ways of filling it.
 
-Six registries existed, in three implementations. Three scanned the filesystem
-(palettes, styles, props) and three were filled at import time (stages, rigs,
-layers), and each decided independently what to do about caching, duplicate
-names, and a file that will not parse. The answers disagreed:
+Six existed in three implementations, and they disagreed on the things that
+matter: styles raised on a duplicate name, palettes and props let the later
+file win silently, and all three swallowed a malformed file. A typo made a
+palette vanish, so the symptom was "the file I wrote is not in the list" with
+nothing anywhere saying why.
 
-    styles      raises on a duplicate name
-    palettes    lets the later file win, silently
-    props       lets the later entry win, silently
-
-    all three   swallow a malformed file, so a typo in a palette makes it
-                vanish rather than complain
-    all three   rescan and reparse on every call
-
-A vanishing palette is the one that matters. Nothing reports it, so the failure
-presents as "the palette I wrote is not in the list" and the only way to find
-the cause is to notice the file is fine and go reading the scanner.
-
-So the decisions are made once, here, and the two ways of filling a registry
-are a strategy rather than two codebases:
-
-    Decorated   a decorator adds entries as modules import
+    Decorated   entries added by a decorator at import time
     Scanned     a glob plus a parse function, cached against file mtimes
 
-What the entries are is deliberately unconstrained beyond needing a key. Rigs,
-palettes, styles and editor layers are four different dataclasses; requiring a
-common base class would buy nothing that a key does not already buy, and would
-mean editing four dataclasses to gain it.
+Entries need only a key. Rigs, palettes, styles and layers are four different
+dataclasses, and a common base would buy nothing a key does not.
 """
 
 from __future__ import annotations
@@ -44,9 +28,8 @@ T = TypeVar("T")
 class Broken:
     """A file that should have been an entry and was not.
 
-    Kept rather than discarded, because "your palette has a typo on line 3" is
-    the message the person actually needs, and the alternative - the file
-    silently not being there - is the failure mode this class exists to end.
+    Kept rather than discarded: "your palette has a typo on line 3" is the
+    message the person needs, and silence is the failure this exists to end.
     """
 
     path: Path
@@ -71,9 +54,8 @@ class Source(Generic[T]):
 class Decorated(Source[T]):
     """Filled by a decorator at import time.
 
-    A duplicate key here is a programming error rather than a user's typo -
-    two stages claiming the same name - so it is refused at import, which is
-    the earliest possible moment and long before anything runs.
+    A duplicate key is a programming error rather than a typo, so it is refused
+    at import.
     """
 
     def __init__(self) -> None:
@@ -88,13 +70,9 @@ class Decorated(Source[T]):
     def signature(self) -> Any:
         """The entry count, because a decorated registry DOES change.
 
-        The first version returned None here, on the reasoning that decorated
-        entries are fixed once imports finish. They are - but "once imports
-        finish" is not a moment any caller can observe. Something asked for the
-        stage list before pipeline.stages had been imported, the registry
-        cached an empty dict, and `signature() == self._signature` kept it
-        empty for the life of the process. The schema then served a select with
-        no options.
+        "Fixed once imports finish" is not a moment any caller can observe: a
+        registry read before its modules import would otherwise cache the
+        emptiness for the life of the process.
         """
         return len(self.entries)
 
@@ -105,14 +83,11 @@ class Decorated(Source[T]):
 class Scanned(Source[T]):
     """Filled from disk, and honest about what would not parse.
 
-    `parse` returns one (key, value), a dict of many, or None to skip the file
-    entirely. Many is not an afterthought: a palette file is one palette, but a
-    props file is a list of props, and forcing the second shape into the first
-    would mean a file per sword.
+    `parse` returns one (key, value), a dict of many, or None to skip the file.
+    Many because a palette file is one palette and a props file is a list, and
+    forcing the second into the first would mean a file per sword.
 
-    Raising is the supported way to reject a file. The exception message
-    becomes what the user is told, so `raise Invalid("no colours found")` reads
-    better in the UI than returning None ever could.
+    Raising rejects a file, and the message is what the user is told.
     """
 
     def __init__(self, base: Path, patterns: Iterable[str],
@@ -163,11 +138,7 @@ class Scanned(Source[T]):
 
 
 class Registry(Generic[T]):
-    """A named collection with one answer for missing, duplicate and broken.
-
-    `get` raises NotFound carrying the alternatives, which is the difference
-    between "no palette 'pico'" and a message that also says pico8 exists.
-    """
+    """A named collection with one answer for missing, duplicate and broken."""
 
     def __init__(self, what: str, source: Source[T]) -> None:
         self.what = what

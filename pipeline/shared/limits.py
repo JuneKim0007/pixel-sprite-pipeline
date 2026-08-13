@@ -1,50 +1,30 @@
-"""How much of the machine the editor may take, as a share rather than a count.
+"""How much of the machine the editor may take, as a share of what it has.
 
-Written after the editor took the machine down. One preview measured 6.96 s and
-363 MB of peak RSS, with a single 230 MB allocation inside it, across all ten
-cores - and the editor issues one per parameter change while a WebGPU path
-renders in parallel.
+These bound the EDITOR, not the pipeline. A generation run is a separate
+process (subprocess.Popen from the run and queue routes) and is deliberately
+left alone. What shares a process with the editor is the web server, whose only
+CPU-heavy work is the editor - so capping this process costs nothing else.
 
-**These bound the editor, not the pipeline.** A generation run is a separate
-process, started with `subprocess.Popen` from the run and queue routes, and is
-left alone: it is the thing you want to be fast, it runs on its own, and
-slowing it so an interactive preview can be polite would be exactly backwards.
-What shares a process with the editor is the web server, whose only CPU-heavy
-work *is* the editor - so capping this process costs nothing else.
+Importing this module does nothing; only server.py calls apply().
 
-Importing this module does nothing. Only `server.py` calls `apply()`.
-
-## Shares, not numbers
-
-The first version said "half the cores, at most four" and "640 px". Those are
-this laptop's numbers wearing the clothes of a policy. A machine with four
-cores and one with sixty-four want different absolutes and the same *intent*,
-which is "leave most of it for whatever the person is actually doing".
-
-So the configuration is ratios, and the absolutes are derived:
+Configuration is ratios and the absolutes are derived, because "half the cores"
+means something different on four cores and on sixty-four:
 
     cpu_share      0.4   of the cores this process can see
     memory_share   0.05  of physical RAM, for one preview's working set
-    preview_ms     150   how long an interactive preview should take
+    preview_ms     150   budget for one interactive preview
 
-`preview_ms` is a budget rather than a size. The size that fits in it depends
-on the machine, so it is measured once and remembered: the benchmark
-pixelises a small array, derives a cost per megapixel, and solves for the
-largest edge that stays inside the budget. A fast machine gets a bigger preview
-and a slow one gets a smaller one, from the same setting.
+preview_ms is a budget rather than a size. A one-time benchmark measures cost
+per megapixel and solves for the largest edge that fits, so a faster machine
+gets a bigger preview from the same setting.
 
-## What cannot be limited, stated plainly
+GPU share is NOT capped. There is no portable mechanism and none at all on
+Metal - no equivalent of CUDA_MPS_ACTIVE_THREAD_PERCENTAGE exists. The only
+lever is how much work gets submitted, which is what preview_edge controls.
 
-There is no portable way to cap GPU share, and on Apple's Metal there is no way
-at all - no equivalent of CUDA_MPS_ACTIVE_THREAD_PERCENTAGE exists. The only
-lever on GPU cost is how much work is submitted, which is what `preview_edge`
-controls for the browser path too. Anything claiming to cap GPU utilisation
-here would be a comment, not a mechanism.
-
-CPU capping is by environment variable, which every BLAS respects (OpenMP, MKL,
-OpenBLAS, Accelerate) and which works on every platform. It is coarse: it
-bounds thread count, not scheduling priority. Linux cgroups and macOS QoS
-classes would be finer, and neither is portable, so neither is used.
+CPU capping is by environment variable: every BLAS respects it and it works
+everywhere, but it bounds thread count rather than scheduling priority. cgroups
+and QoS classes would be finer and neither is portable.
 """
 
 from __future__ import annotations
@@ -83,9 +63,8 @@ _THREAD_VARS = (
 def cores() -> int:
     """Cores this process may actually use.
 
-    `sched_getaffinity` is the honest answer where it exists, because a
-    container or a taskset can give a process fewer cores than the machine has
-    and `cpu_count` will not notice. macOS has no such call, so it falls back.
+    sched_getaffinity where it exists: a container can give a process fewer
+    cores than the machine has, and cpu_count will not notice.
     """
     try:
         return len(os.sched_getaffinity(0))          # Linux, and containers
@@ -106,7 +85,7 @@ def memory_bytes() -> int:
 
 
 def threads() -> int:
-    """Cores to allow, as a share. At least one, and never all of them."""
+    """Cores to allow. At least one, never all of them."""
     n = cores()
     want = int(round(n * float(_STATE["cpu_share"])))
     return max(1, min(want, max(1, n - 1)))
@@ -115,10 +94,9 @@ def threads() -> int:
 def colour_chunk() -> int:
     """Colours matched against the palette at once.
 
-    The distance matrix is chunk x entries x 3 float32. Sized from the memory
-    share so a 4 GB machine and a 64 GB one both spend the same fraction, with
-    a floor that keeps the loop from becoming the cost and a ceiling because
-    past this the allocation stops being the bottleneck.
+    The distance matrix is chunk x entries x 3 float32. Floored so the loop
+    does not become the cost, ceilinged because past this the allocation stops
+    being the bottleneck.
     """
     budget = memory_bytes() * float(_STATE["memory_share"])
     # 256 palette entries is the maximum the editor allows; size for the worst
@@ -130,10 +108,8 @@ def colour_chunk() -> int:
 def preview_edge() -> int:
     """Longest side an interactive preview is computed at.
 
-    Derived from the measured cost per megapixel and the time budget, so the
-    same setting yields a bigger preview on a faster machine. Bounded at both
-    ends: below 256 the preview stops showing what it is for, and above 1024
-    there is nothing left to gain because the source is rarely larger.
+    Below 256 a preview stops showing what it is for; above 1024 there is
+    nothing to gain because the source is rarely larger.
     """
     bench = benchmark()
     budget_s = float(_STATE["preview_ms"]) / 1000.0
@@ -152,10 +128,9 @@ def _cache_file() -> Path:
 def benchmark(force: bool = False) -> dict:
     """Cost per megapixel on this machine, measured once and remembered.
 
-    Cached on disk keyed by the machine's shape, so a startup does not pay for
-    it and a different machine (or a changed core count, which is what a
-    container reshuffle looks like) re-measures rather than inheriting a number
-    that was never about it.
+    Cached on disk, keyed by the machine's shape so a different machine or a
+    changed core count re-measures instead of inheriting a number that was
+    never about it.
     """
     global _BENCH
     if _BENCH is not None and not force:
@@ -174,15 +149,9 @@ def benchmark(force: bool = False) -> dict:
 
     import numpy as np
 
-    # Measure what the editor actually does, on data shaped like what it does
-    # it to. The first version of this benchmarked np.unique over uniform
-    # random pixels, where every pixel is its own colour - the worst case that
-    # never occurs, and it under-reported the machine by a factor of several,
-    # producing a 320 px preview on hardware that comfortably does more.
-    #
-    # A render has smooth regions and a bounded palette. A blurred gradient
-    # plus noise reproduces that: tens of thousands of distinct colours in a
-    # small image, not one per pixel.
+    # Render-shaped data, not uniform noise. Under noise every pixel is its
+    # own colour - a worst case that never occurs, and benchmarking it
+    # under-reported this machine badly enough to produce a 320 px preview.
     edge = 384
     rng = np.random.default_rng(0)
     ramp = np.linspace(0, 255, edge, dtype=np.float32)
@@ -217,9 +186,7 @@ def benchmark(force: bool = False) -> dict:
 def apply(**overrides) -> None:
     """Cap this process. Call before numpy is imported.
 
-    Anything already exported wins: someone who set OMP_NUM_THREADS meant it,
-    and silently overriding it would make this module the thing to debug rather
-    than the thing that helps.
+    Anything already exported wins: someone who set OMP_NUM_THREADS meant it.
     """
     global _APPLIED
     for key, value in overrides.items():

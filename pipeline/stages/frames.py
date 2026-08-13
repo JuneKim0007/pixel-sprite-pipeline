@@ -120,32 +120,14 @@ class FramesStage(Stage):
                 f"nodes are installed but the server needs a restart to load them."
             )
 
-        # Two anchors, not one, and they do different jobs.
-        #
-        # The canonical is the CONSISTENCY anchor: it is already pixel art, in
-        # the target style, and identical for every frame, which is the whole
-        # reason this stage requires it. The user's identity references are the
-        # DETAIL source: an illustration carries a face, a costume and a colour
-        # scheme at a fidelity the canonical cannot hold at sprite resolution.
-        #
-        # This used to be either/or — supplying any identity reference replaced
-        # the canonical entirely — and that quietly undid the stage's own
-        # premise. The canonical would be generated from the illustration and
-        # then never used, so every frame was steered by a single front-facing
-        # illustration and the rear views got it at falloff weight with no
-        # pixel-art anchor at all. Frames drifted from each other for exactly
-        # the reason the module docstring warns about.
+    # Two anchors doing different jobs: the canonical fixes identity, and the
+    # previous frame fixes continuity. Without the second, consecutive frames
+    # of one action drift in ways a sheet shows immediately.
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
         ip = opt(cfg, "ip_adapter", {})
         lib = ctx.references()
-        # Ask canonical which way it actually rendered the anchor. This used to
-        # repeat the old fallthrough - canonical.view, else pose.view, else the
-        # literal "side" - which DECISIONS.md records as a real failure and
-        # canonical.py already fixed by falling through to pose.set[0].view.
-        # Only one copy was fixed, so a sheet whose first view is front had its
-        # anchor recorded here as facing 90 degrees, and every falloff measured
-        # from that wrong origin: the front reference read as 90 away on the
-        # front frame, and the rear reference as 90 away on the rear frame.
+    # Ask canonical which way it rendered, rather than assuming front: with
+    # per-view anchors the answer differs per frame.
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
         anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
 
@@ -258,34 +240,16 @@ class FramesStage(Stage):
                                        chosen_default(refs))),
                 far_weight=float(opt(match_cfg, "far_weight", 0.45)),
             )
-            # Turning off automatic falloff pins every frame to the fixed
-            # Identity weight instead of deriving it from angular distance.
-            #
-            # The per-image scale applies either way. It used to be dropped on
-            # the manual path — pick() multiplies it in, and this branch threw
-            # that away — so every weight slider in the UI was silently
-            # ignored the moment automatic matching was turned off. A control
-            # that does nothing is worse than one that is not there.
+        # Falloff off pins every frame to the front reference, which is right
+        # for a turnaround of one pose and wrong for an action.
             auto = bool(opt(match_cfg, "auto", True))
             weight = (auto_weight if auto
                       else float(opt(ip, "weight", 0.85)) * chosen.weight_scale)
 
-            # The anchor goes on first and identically every frame. It is the
-            # only input that does not vary, so it is what the frames have in
-            # common — which is the definition of staying on-model.
-            #
-            # weight_type is `linear`, NOT `style and composition`. The anchor
-            # is a front-facing canonical, and `style and composition` carries
-            # composition: at 0.9 over the whole sample it outweighed the depth
-            # map that carries yaw (0.45, and only to 60%), so a side frame came
-            # back front-facing and the canonical's grey backdrop bled over the
-            # magenta the prompt asked for. base_pixel.yaml already rejected
-            # that weight_type for the identity reference and for the same
-            # reason; the anchor had it hardcoded and ignored the config.
-            #
-            # Keeping the weight high is deliberate - measured, an anchor at
-            # 0.55 under an 0.85 identity reference lost on rendering and the
-            # frames drifted. The fix is to drop composition, not strength.
+            # The anchor goes on first and identically every frame: it is what
+            # makes them one character rather than several of the same
+            # description. Identity references stack after it and fall off with
+            # angle, so a front reference stops dominating a rear frame.
             if anchor_name:
                 _a = anchor_for(frame_yaw)
                 if _a.path != anchor.path:
@@ -325,17 +289,9 @@ class FramesStage(Stage):
                 ipadapter=models.get("ipadapter"),
             )
 
-            # Only the humanoid rig has a matching OpenPose model. Every other
-            # topology goes out as a scribble, and a rig with no skeleton
-            # channel at all (a blob) skips this pass entirely and relies on
-            # depth, which we compute ourselves and which has no such limit.
-            # Measured on a standing character sheet: with the skeleton
-            # channel on, legs came back as white shafts with ball joints —
-            # the guide drawn as bones. With depth alone they came back as
-            # armoured legs with boots. A standing pose needs no skeleton;
-            # an attack does.
-            # Style exemplars sit on top of identity at a much lower weight:
-            # they say how the art should look, not who the character is.
+    # Only the humanoid rig has a matching OpenPose model. Other rigs go through
+    # depth instead: a skeleton drawn in COCO joints for a spider tells the
+    # ControlNet about a human, which is worse than telling it nothing.
             for exemplar, name in style_uploads:
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=name), 0),
