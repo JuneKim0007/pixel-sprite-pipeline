@@ -68,7 +68,8 @@ make check                     # 설정 검사만, GPU 안 씀
 | [STYLES.md](STYLES.md) | 스타일 시트. 한 번 정한 화풍을 캐릭터마다 재사용 |
 | [DECISIONS.md](DECISIONS.md) | 기본값을 그렇게 정한 이유. 대부분 직접 재보고 정했습니다 |
 | [OVERNIGHT.md](OVERNIGHT.md) | 다른 컴퓨터에서 밤새 돌리기 |
+| [WEIGHTS.md](WEIGHTS.md) | 쓰는 오픈 웨이트 목록과 사양, 훈련 요구사항 |
 | [docs/PROJECT.md](docs/PROJECT.md) | 설치, 구조, 자세한 설명 |
 
 Apple Silicon (M4, 16GB) 에서 만들고 재봤습니다.
-SDXL과 픽셀아트 LoRA를 씁니다. 둘 다 오픈 웨이트라 각자 컴퓨터에서 돌릴 수 있습니다.
+쓰는 모델은 전부 오픈 웨이트입니다. 20.5 GB이고 목록은 [WEIGHTS.md](WEIGHTS.md) 에 있습니다.
