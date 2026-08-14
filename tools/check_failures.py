@@ -171,3 +171,32 @@ def violations(index: Index) -> list[Violation]:
                 found.append(Violation(path, child.lineno, raised, node.name,
                                        reason_missing=marked))
     return sorted(set(found), key=lambda v: (str(v.path), v.line))
+
+
+def report(found: list[Violation]) -> str:
+    """The violations, in the shape `make check` prints things."""
+    lines = []
+    for v in found:
+        why = ("marker needs a reason after the colon" if v.reason_missing
+               else f"reachable from a route, via {v.function}()")
+        lines.append(f"  {v.path}:{v.line}\n"
+                     f"    raise {v.exception} - {why}")
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import sys as _sys
+
+    roots = [Path(a) for a in (argv if argv is not None else _sys.argv[1:])]
+    if not roots:
+        roots = [Path("pipeline")]
+    found = violations(Index(roots))
+    if found:
+        print(report(found))
+        print(f"  {len(found)} unnamed failure(s) on a path a request can reach")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())  # not-a-message: CLI exit code, this is not a route

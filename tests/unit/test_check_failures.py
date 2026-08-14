@@ -116,3 +116,36 @@ class Looks(BaseRouter):
         )  # not-a-message: internal invariant, callers cannot trigger it
 """})
     assert cf.violations(cf.Index([tmp_path])) == []
+
+
+def test_the_report_names_the_file_line_and_exception(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise FileNotFoundError("gone")
+"""})
+    text = cf.report(cf.violations(cf.Index([tmp_path])))
+    assert "api.py" in text
+    assert "FileNotFoundError" in text
+    assert "listing" in text
+
+
+def test_exit_code_is_one_when_something_is_unnamed(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "x")
+    def listing(self, req):
+        raise ValueError("nope")
+"""})
+    assert cf.main([str(tmp_path)]) == 1
+
+
+def test_exit_code_is_zero_when_clean(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "x")
+    def listing(self, req):
+        raise NotFound("look", "x")
+"""})
+    assert cf.main([str(tmp_path)]) == 0
