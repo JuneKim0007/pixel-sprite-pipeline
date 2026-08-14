@@ -19,9 +19,29 @@ in front of someone.
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from pathlib import Path
 
 ROUTE_DECORATORS = {"get", "post", "put", "delete", "patch"}
+
+# Builtins that mean "a defect", as opposed to the taxonomy which means "a
+# message". SystemExit is here because a CLI raising one is correct and a route
+# handler raising one is not - which is exactly the distinction reachability
+# draws, so it is listed rather than exempted.
+BUILTIN_FAILURES = {
+    "ValueError", "FileNotFoundError", "KeyError", "RuntimeError", "TypeError",
+    "PermissionError", "NotADirectoryError", "IsADirectoryError", "OSError",
+    "TimeoutError", "IndexError", "SystemExit", "NotImplementedError",
+    "Exception", "AttributeError", "ArithmeticError", "AssertionError",
+}
+
+
+@dataclass(frozen=True)
+class Violation:
+    path: Path
+    line: int
+    exception: str
+    function: str
 
 
 class Index:
@@ -89,3 +109,33 @@ def reachable(index: Index, entries) -> set[tuple[str, str]]:
                 if (str(target[0]), target[1].name) not in seen:
                     queue.append(target)
     return seen
+
+
+def _raised_name(node: ast.Raise) -> str | None:
+    if node.exc is None:
+        return None                      # a bare `raise` re-raises; not a site
+    exc = node.exc
+    if isinstance(exc, ast.Call):
+        exc = exc.func
+    if isinstance(exc, ast.Name):
+        return exc.id
+    if isinstance(exc, ast.Attribute):
+        return exc.attr
+    return None
+
+
+def violations(index: Index) -> list[Violation]:
+    """Every builtin raise a request can reach."""
+    live = reachable(index, entry_points(index))
+    found: list[Violation] = []
+    for path, defs in ((p, d) for name in index.definitions
+                       for p, d in index.definitions[name]):
+        if (str(path), defs.name) not in live:
+            continue
+        for node in ast.walk(defs):
+            if not isinstance(node, ast.Raise):
+                continue
+            name = _raised_name(node)
+            if name in BUILTIN_FAILURES:
+                found.append(Violation(path, node.lineno, name, defs.name))
+    return sorted(set(found), key=lambda v: (str(v.path), v.line))

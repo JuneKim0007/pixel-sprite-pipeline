@@ -48,3 +48,35 @@ def unrelated():
     assert "load" in found
     assert "helper" in found, "reachability stopped at one hop"
     assert "unrelated" not in found, "everything was treated as reachable"
+
+
+def test_a_builtin_raise_a_request_can_reach_is_flagged(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        return load()
+
+def load():
+    raise FileNotFoundError("gone")
+"""})
+    found = cf.violations(cf.Index([tmp_path]))
+    assert [(v.function, v.exception) for v in found] == [("load", "FileNotFoundError")]
+
+
+def test_a_builtin_raise_no_request_can_reach_is_left_alone(tmp_path):
+    _tree(tmp_path, {"cli.py": """
+def main():
+    raise SystemExit(2)
+"""})
+    assert cf.violations(cf.Index([tmp_path])) == []
+
+
+def test_a_named_failure_is_not_a_violation(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise NotFound("look", "x")
+"""})
+    assert cf.violations(cf.Index([tmp_path])) == []
