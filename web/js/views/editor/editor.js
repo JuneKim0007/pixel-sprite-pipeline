@@ -79,8 +79,14 @@ function factsBar() {
     add('phase', (facts.phase || []).join(', '));
   }
   if (b && a) {
-    add('size', `${b.width}x${b.height} to ${a.width}x${a.height}`);
+    // The deferred size when there is one, because that is the picture on
+    // screen and the one a write would produce. Reporting the computed size
+    // instead would be honest about the array and wrong about the result.
+    const d = facts.deferred;
+    const shown = d && d.scale > 1 ? `${d.width}x${d.height}` : `${a.width}x${a.height}`;
+    add('size', `${b.width}x${b.height} to ${shown}`);
     add('colours', `${b.colours.toLocaleString()} to ${a.colours}`);
+    if (d && d.scale > 1) add('magnified by', `${d.scale}x on display`, 'measured');
   }
   if (facts.palette_size) add('palette', `${facts.palette_size} entries`);
   if (facts.kept !== undefined) add('subject', `${Math.round(facts.kept * 100)}%`);
@@ -147,9 +153,21 @@ export function renderEditor(host) {
       const r = await api.editPreview({ source, stack });
       facts = r.facts;
       engine = 'exact';
-      after.replaceChildren(head('exact'), el('img', { src: r.image, className: 'pixel' }));
+
+      /* The magnification the server did not do. Every result surface carries
+       * `image-rendering: pixelated`, which IS nearest-neighbour, so setting
+       * the size here produces the same picture the server used to compute -
+       * without the array. At zoom 16 that array was 38 megapixels for a
+       * panel about 500 CSS pixels wide. */
+      const img = el('img', { src: r.image, className: 'pixel' });
+      const d = r.facts?.deferred;
+      if (d && d.width && d.height) { img.width = d.width; img.height = d.height; }
+
+      after.replaceChildren(head('exact'), img);
       factsHost.replaceChildren(factsBar());
       palette = [];      // refreshed from the rendered image below
+      // Sampled from the unmagnified image, which is both cheaper and the same
+      // answer: repetition cannot introduce a colour.
       samplePalette(r.image);
     } catch (e) {
       after.replaceChildren(el('h4', { textContent: 'Result' }),
@@ -254,7 +272,7 @@ export function renderEditor(host) {
   apply.onclick = async () => {
     try {
       const r = await api.editApply({ source, stack });
-      toast(`Wrote ${r.written.split('/').pop()}`);
+      toast(`Wrote ${r.written.split('/').pop()} at ${r.width}x${r.height}`);
     } catch (e) { toast(e.message, 'error'); }
   };
 

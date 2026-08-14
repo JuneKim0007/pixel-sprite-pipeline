@@ -22,6 +22,7 @@ limits.apply()
 from pipeline import api  # noqa: E402
 from pipeline.api.context import STATIC, input_dir, runs_dir  # noqa: E402
 from pipeline.shared import errors  # noqa: E402
+from pipeline.shared import guard  # noqa: E402
 from pipeline.generation.stage import available  # noqa: E402
 
 
@@ -104,14 +105,26 @@ def main() -> int:
     runs_dir()
     input_dir()
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+
+    # From outside the work, because the failure this catches is the machine
+    # dying rather than this process erring - see pipeline/shared/guard.py.
+    # Itself included: the editor is not exempt from its own limit.
+    guard.GUARD.watch(os.getpid(), "ui")
+    adopted = guard.adopt_pidfiles(ROOT / ".run")
+    guard.GUARD.start()
+
     print(f"sprite pipeline UI -> http://127.0.0.1:{port}")
     print(f"  stages: {', '.join(sorted(available()))}")
     print(f"  inputs: {input_dir()}")
     print(f"  runs:   {runs_dir()}")
+    print(f"  guard:  {limits.get('rss_bytes') / (1 << 30):.1f} GB per process"
+          f"; watching ui{''.join(', ' + a for a in adopted)}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped")
+    finally:
+        guard.GUARD.stop()
     return 0
 
 

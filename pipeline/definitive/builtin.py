@@ -264,6 +264,18 @@ def _background(img, cfg, facts, prep):
                    "anything. Applied to the written file too, which is what "
                    "makes a 128px sprite viewable outside a pixel-art editor."),
     ],
+    # Zoom squared, because it repeats along both axes. The only layer in the
+    # set that grows, and the reason admission control exists: at the declared
+    # maximum it is 256x the pixels, which on a full-resolution source is 16 GB
+    # and a panicked kernel.
+    magnify=lambda cfg: max(1, int(cfg.get("upscale", 1))) ** 2,
+    # The viewer already does this. Every surface that shows a result carries
+    # `image-rendering: pixelated`, which IS nearest-neighbour magnification,
+    # so computing it server-side and shipping the pixels produces a picture
+    # the browser then scales back down to fit the panel. Deferring it is not
+    # an approximation - it is the identical image, arrived at without the
+    # array.
+    deferrable=True,
 )
 def _scale(img, cfg, facts, prep):
     n = max(1, int(cfg.get("upscale", 1)))

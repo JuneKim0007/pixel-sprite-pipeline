@@ -84,6 +84,26 @@ class Denied(PixelError):
     kind = "denied"
 
 
+class TooLarge(PixelError):
+    """The request is refused because computing it would not fit.
+
+    Distinct from Invalid: nothing here is malformed. The numbers are all in
+    range and the answer is simply bigger than this machine can hold, which is
+    a different thing to tell someone and a different thing to do about it.
+
+    Refused before allocating rather than after. A 413 costs a rejected
+    request; discovering the same fact by allocating is what took the machine
+    down - see docs/DECISIONS.md.
+    """
+
+    status = 413
+    kind = "too_large"
+
+    def __init__(self, message: str, *, field: str = "", hint: str = "", **detail):
+        super().__init__(message, hint=hint,
+                         **({"field": field} if field else {}), **detail)
+
+
 class Conflict(PixelError):
     """The request contradicts current state: a running job cannot be moved."""
 

@@ -381,3 +381,102 @@ It detects crashes, missing dependencies, dead services and invalid configs. It
 does not detect two hundred jobs producing consistently ugly sprites — those
 complete successfully. No online agent is required to *run* the queue; judgment
 is still required to decide it is worth running.
+
+### The editor rebooting the laptop was macOS doing it on purpose
+
+Four reboots on 2026-08-13, each a ~30 second freeze and then a restart with the
+windows restored. It reads like a crash and is not one. From
+`/Library/Logs/DiagnosticReports/Retired/panic-full-2026-08-13-103229.panic`:
+
+    panic(cpu 0, caller 0xfffffe003fd1fbc0): userspace watchdog timeout:
+    no successful checkins from WindowServer (2 induced crashes) in 120 seconds
+
+`watchdogd` requires WindowServer to check in. When it stops, watchdogd kills and
+restarts it — the "2 induced crashes" — and if check-ins do not resume within 120
+seconds it panics the kernel deliberately. So the reboot is a designed response
+to a starved compositor, not a fault in this program. Nothing here crashed, and
+nothing here could have caught anything: **the process that dies is never the
+process at fault.** That is why ten fixes aimed at the Python process missed.
+
+What starved it, from `JetsamEvent-2026-08-09-194451.ips`:
+
+    largestProcess: python3.12
+      14.94 GB  'python3.12'  pid=77424  prio=180  states=['active']
+       0.65 GB  'WindowServer'            prio=170
+
+14.94 GB of 16 GB. Note the jetsam priorities: the runaway process sits *above*
+WindowServer, so the memory killer protects it and starves the compositor.
+
+The six WindowServer watchdog hangs that day separate cleanly by free memory —
+0.10 and 0.15 GB free both panicked; 3.03 and 3.39 GB free both recovered.
+
+The 15 GB is arithmetic, not a leak: a 4096 px source at the declared maximum
+zoom of 16 is 65536² × 4 bytes = 16.00 GB, against 14.94 GB observed. Four
+independent defects combined to allow it, and each is worth stating because each
+looked fine on its own:
+
+- `Field(min=1, max=16)` was serialised to the browser and never enforced on the
+  server, so the API accepted any zoom at all. A request is not a form.
+- the budget guard checked what *entered* a layer, never what *left* one — so
+  Scale, the only layer that multiplies size, was structurally exempt from the
+  one check in the system.
+- `np.repeat(np.repeat(...))` holds the n× intermediate and the n² result at once.
+- the result came back as a base64 data URI inside JSON: six live copies of the
+  output between the array and the socket.
+
+And `memory_share` in `shared/limits.py`, which reads like a cap on the process,
+only ever sized one numpy chunk. The 14.94 GB obeyed it exactly.
+
+### Magnification is the viewer's job, and it always was
+
+Every result surface carries `image-rendering: pixelated` — which *is*
+nearest-neighbour magnification. The server was computing the same magnification,
+encoding it, base64-ing it and shipping it, for a picture the browser then scaled
+back down with `max-width: 100%` to fit a panel about 500 CSS pixels wide. At
+zoom 16 a 384 px preview is 38 megapixels of thrown-away work.
+
+So Scale is now *deferred*: the server sends the unmagnified image and the zoom it
+owes, and the `<img>` carries the size. This is lossless rather than approximate,
+and the codebase already contained the proof twice — repetition invents no detail
+and cannot introduce a colour, which is why `_scale` counts colours before
+magnifying and why `count_colours` strides.
+
+For the written file the pixels are genuinely needed, so `definitive/pngstream.py`
+encodes PNG a scanline at a time: output row r is source row r // n with each
+pixel repeated n times, built and forgotten before row r+1 exists. Measured on a
+512 px RGBA source at zoom 16 — 2.89 MB peak streamed against 272.00 MB
+materialised, 94x — and the output verified identical to
+`np.repeat(np.repeat(...))`. Peak does not grow with height at all, which is the
+property that makes it a bound. Writing a real 16384² file peaked at 411 MB
+instead of 1 GB for the array plus 6 GB of copies.
+
+An unexpected second win: filter 0 on already-magnified data beat Pillow's
+adaptive filtering on size, 49.8 KB against 90.7 KB for a 128 px sprite at zoom 8,
+because magnification lengthens exactly the runs zlib is best at and a filter that
+subtracts neighbours breaks them up.
+
+### A limit a process sets on itself cannot save the machine
+
+`shared/guard.py` watches from outside and its only action is SIGKILL, because
+self-restraint fails three ways here and all three happened: it is too late (an
+allocation is only observable once made), it is not universal (ComfyUI and the
+generation subprocess have their own allocators and `limits.py` deliberately
+leaves them alone — they are the ones that reach 15 GB), and it does not measure
+the thing that fails, which is the machine and not the process.
+
+Two signals: resident memory per process, and
+`kern.memorystatus_vm_pressure_level` — the same subsystem jetsam uses, so it is
+the machine's own opinion rather than ours. Sustained critical pressure kills the
+largest watched process; a spike does not, because pressure spikes during
+ordinary things and killing a render for one is a worse bug than the one this
+fixes. ComfyUI is marked `expected_large` and is exempt from the per-process
+ceiling: holding a diffusion model resident is its job, and at that point being
+the biggest is exactly what makes it the right one to kill.
+
+macOS has no cgroups, and `RLIMIT_AS` is unreliable under Metal — MPS reserves
+address space far beyond its resident set, so a limit low enough to matter
+refuses allocations that would have been fine. Polling RSS from outside is cruder
+and actually works.
+
+Killing is blunt on purpose. The alternative to a killed render is not a
+completed render; it is a reboot that loses every unsaved thing on the desktop.

@@ -6,7 +6,8 @@ from typing import Any, Callable
 
 from contextvars import ContextVar
 
-from ..shared.errors import Invalid
+from ..shared import limits
+from ..shared.errors import Invalid, TooLarge
 from ..shared.registry import Decorated, Registry
 
 # The pixel count of the image entering the stack. A layer may never be handed
@@ -66,6 +67,37 @@ class Field:
             "default": self.default, "when": self.when,
         }
 
+    def clamp(self, value):
+        """The caller's value, coerced to this field's kind and bounds.
+
+        min and max were declared here from the beginning and, until this
+        existed, went nowhere but the browser: as_dict sent them to build the
+        form and the server then took whatever arrived in the request body.
+        A zoom declared max=16 accepted 64, which is sixteen times the pixels
+        the control admits to - and a request is not a form. Anything the UI
+        cannot ask for, the API now will not accept either.
+        """
+        if value is None:
+            return self.default
+        try:
+            if self.kind == "int":
+                value = int(value)
+            elif self.kind == "float":
+                value = float(value)
+            elif self.kind == "bool":
+                return bool(value)
+        except (TypeError, ValueError):
+            return self.default
+        if self.kind == "select" and self.options:
+            allowed = {str(o[0]) for o in self.options}
+            return value if str(value) in allowed else self.default
+        if self.kind in ("int", "float"):
+            if self.min is not None:
+                value = max(value, type(value)(self.min))
+            if self.max is not None:
+                value = min(value, type(value)(self.max))
+        return value
+
 
 def _guard_prepare(key: str, fn):
     if fn is None:
@@ -81,13 +113,38 @@ def _guard_prepare(key: str, fn):
     return wrapped
 
 
+def _produced(key: str, image) -> None:
+    """Refuse a result too big to carry, after the layer has built it.
+
+    The backstop to admission control rather than the mechanism: by the time
+    this can see the array, the array exists. It is here because admission
+    control depends on every enlarging layer declaring `magnify`, and a
+    guarantee that depends on an author remembering something is not one. A
+    layer that grows without saying so gets caught here on its first run
+    instead of on the day it meets a big enough image.
+    """
+    ceiling = limits.get("output_pixels")
+    got = int(image.shape[0]) * int(image.shape[1])
+    if got > ceiling:
+        raise TooLarge(
+            f"'{key}' produced {got / 1e6:.1f} MP, over the {ceiling / 1e6:.1f} MP "
+            f"a single result may hold.",
+            field=key,
+            hint="If this layer resizes, it needs to declare magnify= so the "
+                 "size is checked before the memory is spent rather than after.",
+        )
+
+
 def _guard_apply(key: str, fn):
     if getattr(fn, "_budgeted", False):
         return fn
 
     def wrapped(image, cfg, facts, prep):
         _within(key, image)
-        return fn(image, cfg, facts, prep)
+        out = fn(image, cfg, facts, prep)
+        if getattr(out, "shape", None) is not None and len(out.shape) >= 2:
+            _produced(key, out)
+        return out
 
     wrapped._budgeted = True
     return wrapped
@@ -107,6 +164,17 @@ class LayerSpec:
     # arranged one yet.
     order: int = 50
     repeatable: bool = False
+    # How this layer multiplies the pixel count, from its settings alone. The
+    # default says "produces what it was given", which is true of every layer
+    # that maps colours. A layer that resizes MUST declare this or admission
+    # control cannot see it coming - and the output guard in _guard_apply is
+    # what catches one that forgets.
+    magnify: Callable[[dict], float] | None = None
+    # Whether this layer's effect can be handed to the display instead of
+    # computed. True only for a transform that invents nothing and that the
+    # viewer reproduces exactly: integer nearest-neighbour magnification is
+    # the case, because `image-rendering: pixelated` already does it.
+    deferrable: bool = False
 
     def __post_init__(self) -> None:
         # Guarding here rather than in the runner is the guarantee: a LayerSpec
@@ -116,6 +184,34 @@ class LayerSpec:
 
     def defaults(self) -> dict:
         return {f.key: f.default for f in self.fields}
+
+    def settings(self, cfg: dict | None) -> dict:
+        """Defaults, overlaid with whatever the caller sent, clamped.
+
+        The single place a request's numbers become a layer's settings. Every
+        caller goes through it, so a field's declared bounds hold for the API
+        exactly as they hold for the form.
+        """
+        by_key = {f.key: f for f in self.fields}
+        out = self.defaults()
+        for key, value in (cfg or {}).items():
+            field = by_key.get(key)
+            # An unknown key is passed through rather than dropped: layers read
+            # cfg with .get and a stale one is harmless, while silently eating
+            # it would hide a rename behind a working preview.
+            out[key] = field.clamp(value) if field else value
+        return out
+
+    def growth(self, cfg: dict) -> float:
+        """What this layer multiplies the pixel count by, before it runs."""
+        if self.magnify is None:
+            return 1.0
+        try:
+            return max(0.0, float(self.magnify(self.settings(cfg))))
+        except Exception:                        # noqa: BLE001
+            # A layer that cannot say is assumed to grow, because the safe
+            # reading of "I do not know" is not "it is fine".
+            return float("inf")
 
     def as_dict(self) -> dict:
         return {
@@ -127,12 +223,15 @@ class LayerSpec:
 
 def layer(key: str, *, label: str, summary: str, fields: list[Field],
           order: int = 50, repeatable: bool = False,
-          prepare: Callable | None = None):
+          prepare: Callable | None = None,
+          magnify: Callable[[dict], float] | None = None,
+          deferrable: bool = False):
 
     def wrap(fn):
         _SOURCE.add(key, LayerSpec(key=key, label=label, summary=summary,
                                    fields=fields, apply=fn, order=order,
-                                   repeatable=repeatable, prepare=prepare),
+                                   repeatable=repeatable, prepare=prepare,
+                                   magnify=magnify, deferrable=deferrable),
                     what="layer")
         return fn
     return wrap
@@ -153,6 +252,59 @@ def default_stack() -> list[dict]:
     return [{"layer": s.key, "id": f"{s.key}0", "enabled": True,
              "config": s.defaults()}
             for s in sorted(REGISTRY.values(), key=lambda s: s.order)]
+
+
+# -------------------------------------------------------- admission control
+
+
+def projected_pixels(stack: list[dict], pixels: int,
+                     defer: set[str] | None = None) -> int:
+    """Pixels the largest intermediate will hold, worked out before running.
+
+    Arithmetic on the settings, touching no image. That is the whole point:
+    the answer costs nothing and arrives while refusing is still free, whereas
+    the same fact discovered by allocating is a machine that has to be
+    rebooted. Growth compounds along the stack, so a two-layer stack that each
+    doubles an edge is checked as the sixteen-fold it actually is.
+
+    The peak rather than the final size, because a stack that enlarges and then
+    reduces still had to hold the enlarged image on the way through.
+    """
+    defer = defer or set()
+    peak = current = float(pixels)
+    for entry in stack:
+        if not entry.get("enabled", True):
+            continue
+        spec = REGISTRY.get(entry.get("layer"))
+        if spec is None or spec.key in defer:
+            continue
+        current *= spec.growth(entry.get("config") or {})
+        peak = max(peak, current)
+        if peak == float("inf"):
+            break
+    return int(min(peak, float(1 << 62)))
+
+
+def admit(stack: list[dict], pixels: int, defer: set[str] | None = None) -> None:
+    """Refuse a stack that cannot fit, naming the layer that made it too big."""
+    ceiling = limits.get("output_pixels")
+    want = projected_pixels(stack, pixels, defer)
+    if want <= ceiling:
+        return
+    culprit = max(
+        (e for e in stack
+         if e.get("enabled", True) and REGISTRY.get(e.get("layer"))),
+        key=lambda e: REGISTRY[e["layer"]].growth(e.get("config") or {}),
+        default=None)
+    name = culprit.get("layer") if culprit else ""
+    raise TooLarge(
+        f"This stack would compute {want / 1e6:.1f} MP from a "
+        f"{pixels / 1e6:.1f} MP image, over the {ceiling / 1e6:.1f} MP limit.",
+        field=name,
+        hint=(f"'{name}' is what multiplies it. Lower it, or turn it off and "
+              f"let the viewer magnify instead." if name else
+              "Use a smaller source image."),
+        projected=want, ceiling=ceiling)
 
 
 # ----------------------------------------------------------------- ordering

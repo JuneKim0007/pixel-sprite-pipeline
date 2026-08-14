@@ -30,7 +30,7 @@ import numpy as np
 
 from . import cache
 from . import layers as layer_mod
-from .layers import REGISTRY, check_order
+from .layers import REGISTRY, admit, check_order
 
 
 def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -> dict:
@@ -50,14 +50,26 @@ def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -
 def apply_stack(image: np.ndarray, stack: list[dict], *,
                 root: Path | None = None,
                 source: str | None = None,
-                use_cache: bool = True) -> tuple[np.ndarray, dict]:
+                use_cache: bool = True,
+                defer: set[str] | None = None) -> tuple[np.ndarray, dict]:
     """Prepare and apply every enabled layer in order.
 
     `source` opts into resuming from a snapshot partway through: moving one
     slider changes one layer, and every layer before it is unchanged by
     definition. A pipeline stage passes none - it runs once, on an image
     nothing will ask about again.
+
+    `defer` names layers to describe rather than run, for a caller that can
+    reproduce them itself. Only a layer marked `deferrable` is eligible, so
+    this cannot quietly drop work: the caller asks, the layer decides. What
+    comes back in facts["deferred"] is what the caller then owes the picture.
     """
+    defer = {k for k in (defer or set())
+             if getattr(REGISTRY.get(k), "deferrable", False)}
+    # Before anything is allocated. A stack that cannot fit is a 413 here and a
+    # reboot two lines later.
+    admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
+
     facts: dict[str, Any] = {
         "root": root,
         "before": {"width": int(image.shape[1]), "height": int(image.shape[0]),
@@ -67,6 +79,15 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
         "prepared": 0,
         "reused": 0,
     }
+
+    deferred: dict[str, Any] = {"scale": 1.0, "layers": []}
+
+    # A deferred layer leaves an image the prefix key would otherwise claim was
+    # the scaled one, so a later full run would resume from it and skip the
+    # scaling for real. Deferring changes what the snapshots mean, so it
+    # changes which set they belong to.
+    if source and defer:
+        source = f"{source}|defer={','.join(sorted(defer))}"
 
     start, out = 0, image
     if source:
@@ -97,7 +118,20 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
                     cache.remember(source, stack, index + 1, out)
                 continue
 
-            cfg = {**spec.defaults(), **(entry.get("config") or {})}
+            cfg = spec.settings(entry.get("config"))
+
+            if spec.key in defer:
+                # Described, not run. The image is unchanged and the caller is
+                # told what it still owes; nothing is allocated on its behalf.
+                grow = spec.growth(cfg)
+                record["deferred"] = True
+                deferred["scale"] *= grow ** 0.5
+                deferred["layers"].append(spec.key)
+                facts["layers"].append(record)
+                if source:
+                    cache.remember(source, stack, index + 1, out)
+                continue
+
             try:
                 before = cache.CACHE.misses
                 prep = prepare_for(spec, out, cfg, use_cache=use_cache)
@@ -119,5 +153,16 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
                       "colours": facts.pop("_colours", None)
                       if facts.get("_colours") is not None
                       else cache.count_colours(out)}
+
+    # What the caller still owes the picture. The colour count is unchanged by
+    # construction - a deferrable layer invents nothing - so `after.colours`
+    # remains true of the magnified image and only the dimensions move.
+    zoom = round(deferred["scale"], 6)
+    facts["deferred"] = {
+        "scale": zoom,
+        "layers": deferred["layers"],
+        "width": int(round(out.shape[1] * zoom)),
+        "height": int(round(out.shape[0] * zoom)),
+    }
     facts.pop("root", None)
     return out, facts

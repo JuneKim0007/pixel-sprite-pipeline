@@ -13,6 +13,15 @@ means something different on four cores and on sixty-four:
     cpu_share      0.4   of the cores this process can see
     memory_share   0.05  of physical RAM, for one preview's working set
     preview_ms     150   budget for one interactive preview
+    output_share   0.05  of physical RAM, for one result and its copies
+    rss_share      0.35  of physical RAM, before a process is killed outright
+
+memory_share sizes one array and nothing else. That is worth saying plainly,
+because the name reads like a cap on the process and it never was one: a
+14.9 GB python3.12 on this 16 GB machine obeyed it exactly. Bounding the input
+does not bound the output, and the output is what does the damage - the two
+shares above were added for that, and shared/guard.py enforces the second from
+outside the process.
 
 preview_ms is a budget rather than a size. A one-time benchmark measures cost
 per megapixel and solves for the largest edge that fits, so a faster machine
@@ -39,7 +48,20 @@ SHARES: dict[str, float] = {
     "memory_share": 0.05,    # of physical RAM, per preview working set
     "preview_ms": 150.0,     # budget for one interactive preview
     "concurrent": 1.0,       # previews in flight; two is always waste
+    "output_share": 0.05,    # of physical RAM, for one result and its copies
+    "rss_share": 0.35,       # of physical RAM, before a process is killed
 }
+
+# What one output pixel costs between being computed and being sent, counted
+# rather than guessed: the RGBA array itself, the PIL image fromarray copies,
+# the encoder's buffer, the base64 expansion at 4/3, its str decode, and the
+# JSON serialisation. Six live copies at 4 bytes, so a result is budgeted at
+# 24 bytes per pixel and not at 4.
+#
+# This number is why bounding the *input* was never enough. A 384 px preview
+# obeying every existing limit still produces 38 megapixels at the default
+# zoom of 16, and 38 megapixels through this path is 0.9 GB.
+BYTES_PER_OUTPUT_PIXEL = 24
 
 _STATE = dict(SHARES)
 # Whether numpy was already loaded when apply() ran. Recorded then, not asked
@@ -103,6 +125,30 @@ def colour_chunk() -> int:
     # case rather than the current palette, so the bound holds when it changes.
     per_colour = 256 * 3 * 4
     return int(max(1024, min(65536, budget / per_colour / 8)))
+
+
+def output_pixels() -> int:
+    """Most pixels any single layer result may contain.
+
+    A backstop, not the mechanism. The editor's interactive path defers
+    magnification to the display and its write path streams, so nothing that
+    obeys the design comes near this. What it catches is a layer that enlarges
+    without declaring it - see `magnify` in definitive/layers.py - which is the
+    one way a future layer could reintroduce the failure this exists for.
+    """
+    budget = memory_bytes() * float(_STATE["output_share"])
+    return int(max(1 << 20, budget / BYTES_PER_OUTPUT_PIXEL))
+
+
+def rss_bytes() -> int:
+    """Resident memory one pipeline process may hold before it is killed.
+
+    Deliberately generous. This is not a tuning knob for performance; it is the
+    line past which a process is judged to be taking the machine down with it,
+    and the only correct response is to kill the process instead. See
+    shared/guard.py for why this cannot be a limit the process sets on itself.
+    """
+    return int(memory_bytes() * float(_STATE["rss_share"]))
 
 
 def preview_edge() -> int:
@@ -205,6 +251,8 @@ def get(name: str) -> int:
         "threads": threads,
         "colour_chunk": colour_chunk,
         "preview_edge": preview_edge,
+        "output_pixels": output_pixels,
+        "rss_bytes": rss_bytes,
         "concurrent": lambda: max(1, int(_STATE["concurrent"])),
     }[name]()
 
@@ -215,6 +263,8 @@ def describe() -> dict:
         "machine": {"cores": cores(), "memory_gb": round(memory_bytes() / (1 << 30), 1)},
         "derived": {"threads": threads(), "colour_chunk": colour_chunk(),
                     "preview_edge": preview_edge(),
+                    "output_pixels": output_pixels(),
+                    "rss_bytes": rss_bytes(),
                     "concurrent": get("concurrent")},
         "seconds_per_megapixel": round(benchmark()["seconds_per_megapixel"], 4),
         # None means apply() was never called - which is the correct state for
