@@ -19,6 +19,7 @@ in front of someone.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +36,11 @@ BUILTIN_FAILURES = {
     "Exception", "AttributeError", "ArithmeticError", "AssertionError",
 }
 
+# The escape hatch, and the reason it demands a reason. "This is a defect, not
+# a message" is a real claim about a call site and someone should be able to
+# read it and disagree. A bare marker is an omission wearing a hatch.
+MARKER = re.compile(r"#\s*not-a-message:(?P<reason>.*)$")
+
 
 @dataclass(frozen=True)
 class Violation:
@@ -42,6 +48,7 @@ class Violation:
     line: int
     exception: str
     function: str
+    reason_missing: bool = False
 
 
 class Index:
@@ -124,18 +131,43 @@ def _raised_name(node: ast.Raise) -> str | None:
     return None
 
 
+def _marker(source: list[str], node: ast.Raise) -> tuple[bool, str]:
+    """Whether the raise carries a marker, and the reason given.
+
+    Searched across the whole statement, because a raise with a long message
+    wraps and the comment lands on the closing paren.
+    """
+    last = getattr(node, "end_lineno", node.lineno) or node.lineno
+    for line_no in range(node.lineno, last + 1):
+        if line_no - 1 >= len(source):
+            break
+        found = MARKER.search(source[line_no - 1])
+        if found:
+            return True, found.group("reason").strip()
+    return False, ""
+
+
 def violations(index: Index) -> list[Violation]:
     """Every builtin raise a request can reach."""
     live = reachable(index, entry_points(index))
     found: list[Violation] = []
-    for path, defs in ((p, d) for name in index.definitions
-                       for p, d in index.definitions[name]):
-        if (str(path), defs.name) not in live:
-            continue
-        for node in ast.walk(defs):
-            if not isinstance(node, ast.Raise):
+    for name in index.definitions:
+        for path, node in index.definitions[name]:
+            if (str(path), node.name) not in live:
                 continue
-            name = _raised_name(node)
-            if name in BUILTIN_FAILURES:
-                found.append(Violation(path, node.lineno, name, defs.name))
+            try:
+                source = path.read_text().splitlines()
+            except OSError:
+                source = []
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Raise):
+                    continue
+                raised = _raised_name(child)
+                if raised not in BUILTIN_FAILURES:
+                    continue
+                marked, reason = _marker(source, child)
+                if marked and reason:
+                    continue
+                found.append(Violation(path, child.lineno, raised, node.name,
+                                       reason_missing=marked))
     return sorted(set(found), key=lambda v: (str(v.path), v.line))

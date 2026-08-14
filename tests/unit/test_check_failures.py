@@ -80,3 +80,39 @@ class Looks(BaseRouter):
         raise NotFound("look", "x")
 """})
     assert cf.violations(cf.Index([tmp_path])) == []
+
+
+def test_a_marker_with_a_reason_suppresses_the_flag(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise SystemExit(2)  # not-a-message: CLI exit code, never reaches HTTP
+"""})
+    assert cf.violations(cf.Index([tmp_path])) == []
+
+
+def test_a_marker_with_no_reason_is_itself_the_failure(tmp_path):
+    # The whole point of the hatch is that using it says something out loud.
+    # A bare marker says nothing and would let the count creep back silently.
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise SystemExit(2)  # not-a-message:
+"""})
+    found = cf.violations(cf.Index([tmp_path]))
+    assert len(found) == 1
+    assert found[0].reason_missing is True
+
+
+def test_a_marker_on_a_multiline_raise_is_found(tmp_path):
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise ValueError(
+            "a long message"
+        )  # not-a-message: internal invariant, callers cannot trigger it
+"""})
+    assert cf.violations(cf.Index([tmp_path])) == []
