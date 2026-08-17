@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 
 from ..shared import files as files_mod
-from ..shared.errors import Invalid
+from ..shared.errors import Invalid, NotFound
 from .context import ROOT, allowed_roots, download_dir, human_size, input_dir
 from .routing import BaseRouter, Raw, get, post
 from .context import runs_dir
@@ -16,7 +16,7 @@ def download(body: dict, dry_run: bool) -> dict:
     stage = body.get("stage")
     run = runs_dir() / run_id
     if not run.is_dir():
-        raise FileNotFoundError(run_id)
+        raise NotFound("run", run_id)
 
     sources: list[Path] = []
     for d in sorted(run.iterdir()):
@@ -26,7 +26,8 @@ def download(body: dict, dry_run: bool) -> dict:
             continue
         sources += sorted(d.glob("*.png"))
     if not sources:
-        raise FileNotFoundError("nothing to download for that selection")
+        raise NotFound("download", stage or run_id,
+                       hint="that run has no PNGs for that stage")
 
     target_raw = body.get("target") or str(download_dir() / run_id)
     target = files_mod.safe_path(target_raw, allowed_roots())
@@ -57,7 +58,7 @@ class Files(BaseRouter):
     def file(self, req):
         p = files_mod.safe_path(req.required("path"), allowed_roots())
         if not p.is_file():
-            raise FileNotFoundError(req.query("path"))
+            raise NotFound("file", req.query("path"))
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         return Raw(p.read_bytes(), ctype)
 

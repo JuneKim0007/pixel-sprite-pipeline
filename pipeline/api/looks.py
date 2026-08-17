@@ -91,9 +91,9 @@ def add_style_note(name: str, text: str) -> dict:
 def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
     sheet = _sheet(name)
     if not sheet.foldered:
-        raise ValueError(
-            f"'{name}' is a single YAML file, so it has no exemplar folder. "
-            f"Move it to styles/{name}/style.yaml first.")
+        raise Invalid(
+            f"'{name}' is a single YAML file, so it has no exemplar folder.",
+            hint=f"move it to styles/{name}/style.yaml")
 
     folder = sheet.home / "context" / "exemplars"
     folder.mkdir(parents=True, exist_ok=True)
@@ -128,12 +128,14 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
 
     if vocabulary is not None:
         if not isinstance(vocabulary, dict):
-            raise ValueError("vocabulary must be an object of group -> list")
+            raise Invalid("vocabulary must be an object of group -> list",
+                          field="vocabulary")
         doc = load_roundtrip(sheet.path)
         clean = {}
         for group, fragments in vocabulary.items():
             if not isinstance(fragments, list):
-                raise ValueError(f"vocabulary.{group} must be a list")
+                raise Invalid(f"vocabulary.{group} must be a list",
+                              field=f"vocabulary.{group}")
             kept = [str(f).strip() for f in fragments if str(f).strip()]
             if kept:
                 clean[group] = kept
@@ -143,8 +145,9 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
 
     if notes is not None:
         if not sheet.foldered:
-            raise ValueError(
-                f"'{name}' is a single file, so it has nowhere to keep notes.")
+            raise Invalid(
+                f"'{name}' is a single file, so it has nowhere to keep notes.",
+                hint=f"move it to styles/{name}/style.yaml")
         sidecar = sheet.home / "context" / "notes.md"
         sidecar.parent.mkdir(parents=True, exist_ok=True)
         sidecar.write_text(notes)

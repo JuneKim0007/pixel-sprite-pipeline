@@ -15,7 +15,8 @@ import yaml
 
 def save_config(name: str, body: dict) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9_\-]+", name or ""):
-        raise ValueError("invalid config name")
+        raise Invalid("a config name is letters, digits, dash and underscore",
+                      field="name")
     CONFIGS.mkdir(exist_ok=True)
     target = CONFIGS / f"{name}.yaml"
 
@@ -23,15 +24,16 @@ def save_config(name: str, body: dict) -> dict:
         parsed = yaml.safe_load(body["raw"])  # reject invalid YAML first
         problem = validate_order(parsed)
         if problem and not body.get("force"):
-            raise ValueError(problem)
+            raise Invalid(problem, field="stages",
+                          hint="pass force to save it anyway")
         target.write_text(body["raw"])
         return {"saved": name}
 
     incoming = body.get("config", {}) or {}
     problem = validate_order(incoming)
     if problem and not body.get("force"):
-
-        raise ValueError(problem)
+        raise Invalid(problem, field="stages",
+                      hint="pass force to save it anyway")
 
     if target.exists():
         doc = load_roundtrip(target)

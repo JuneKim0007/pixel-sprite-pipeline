@@ -12,6 +12,7 @@ from ..looks import styles
 from ..orchestration import artifacts as artifacts_io
 from ..shared import files as files_mod
 from ..shared import settings
+from ..shared.errors import Invalid, NotFound
 from ..stages import depth as depth_stage
 from ..stages import pose as pose_stage
 from .context import ROOT, allowed_roots, runs_dir
@@ -39,7 +40,7 @@ def poses(run_id: str) -> dict:
                     "neutral": {k: list(v) for k, v in rig.neutral.items()},
                 }
                 return data
-        raise FileNotFoundError(f"run {run_id} has no pose stage output")
+        raise NotFound("pose stage output", run_id)
 
     from ..looks import poses as pose_lib
 
@@ -70,12 +71,12 @@ def save_poses(body: dict) -> dict:
     run_id = body.get("run_id", "")
     entries = body.get("entries")
     if not run_id or not isinstance(entries, list):
-        raise ValueError("run_id and entries are required")
+        raise Invalid("run_id and entries are required")
 
     run = runs_dir() / run_id
     pose_dirs = sorted(run.glob("*_pose"))
     if not pose_dirs:
-        raise FileNotFoundError(f"run {run_id} has no pose stage output")
+        raise NotFound("pose stage output", run_id)
     pose_dir = pose_dirs[0]
 
     existing = json.loads((pose_dir / "pose.json").read_text())
@@ -122,7 +123,7 @@ def _save_annotation(body: dict) -> dict:
 
     image = files_mod.safe_path(body.get("image", ""), allowed_roots())
     if not image.is_file():
-        raise FileNotFoundError(body.get("image", ""))
+        raise NotFound("image", body.get("image", ""))
 
     points = {
         k: [float(v[0]), float(v[1])]
@@ -161,7 +162,7 @@ class Poses(BaseRouter):
     def autorig(self, req):
         image = files_mod.safe_path(req.required("image"), allowed_roots())
         if not image.is_file():
-            raise FileNotFoundError(req.query("image"))
+            raise NotFound("image", req.query("image"))
         return autorig.propose(image, req.query("rig", "humanoid")).as_dict()
 
     @get("/rigpose", "a rig's whole topology, not only its pose")

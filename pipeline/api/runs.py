@@ -158,7 +158,7 @@ def run_audit(run_dir: Path) -> dict:
 def run_detail(run_id: str) -> dict:
     d = runs_dir() / run_id
     if not d.is_dir():
-        raise FileNotFoundError(run_id)
+        raise NotFound("run", run_id)
     info = next((r for r in list_runs() if r["id"] == run_id), {"id": run_id})
     log = d / "run.log"
     info["log"] = log.read_text(errors="replace") if log.exists() else ""
@@ -176,14 +176,14 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
     if resume:
         out = runs_dir() / resume
         if not out.is_dir():
-            raise FileNotFoundError(resume)
+            raise NotFound("run", resume)
         run_id = resume
         cmd += ["--resume", resume]
         log_mode = "a"
     else:
         cfg_path = CONFIGS / f"{config_name}.yaml"
         if not cfg_path.exists():
-            raise FileNotFoundError(config_name)
+            raise NotFound("config", config_name)
         run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{config_name}"
         out = runs_dir() / run_id
         out.mkdir(parents=True, exist_ok=True)

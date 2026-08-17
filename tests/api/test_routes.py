@@ -78,3 +78,20 @@ def test_every_layer_field_carries_an_explanation(http, spec):
         assert f["help"].strip(), f"{spec}.{f['key']} has no help"
         if f["kind"] == "select":
             assert f["options"], f"{spec}.{f['key']} is a select with no options"
+
+
+def test_a_missing_run_is_a_404_that_names_it(http):
+    # GET /api/run?id=... — the detail route, which read runs_dir() and raised
+    # a bare FileNotFoundError that reached the client as a 500.
+    code, body = http.failure("/api/run?id=does_not_exist")
+    assert code == 404
+    assert body["kind"] == "not_found"
+    assert "does_not_exist" in body["error"]
+
+
+def test_a_bad_config_name_is_a_400_naming_the_field(http):
+    code, body = http.failure("/api/config?name=has%20a%20space",
+                              {"config": {}}, "PUT")
+    assert code == 400
+    assert body["kind"] == "invalid"
+    assert body["detail"]["field"] == "name"

@@ -47,4 +47,16 @@ def http(host):
             except urllib.error.HTTPError as e:
                 return e.code
 
+        def failure(self, path, payload=None, method="GET"):
+            """The code AND the body. status() discards the body, which is
+            most of what a good failure is."""
+            try:
+                if payload is None:
+                    urllib.request.urlopen(host + path, timeout=20)
+                else:
+                    self.send(path, payload, method)
+                return 200, {}
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+
     return Client()
