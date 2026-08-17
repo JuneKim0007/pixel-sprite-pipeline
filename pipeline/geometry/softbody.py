@@ -10,6 +10,7 @@ import numpy as np
 from scipy.ndimage import map_coordinates
 
 from .bodyspace import NEUTRAL, project_point
+from ..shared.errors import Invalid, NotFound
 
 
 @dataclass
@@ -32,9 +33,9 @@ class SoftNode:
         known = {f for f in cls.__dataclass_fields__}
         unknown = set(entry) - known
         if unknown:
-            raise KeyError(
-                f"soft node '{entry.get('name', '?')}' has unknown key(s) "
-                f"{sorted(unknown)}. Valid: {sorted(known)}"
+            raise Invalid(
+                f"soft node '{entry.get('name', '?')}' has unknown key(s) {sorted(unknown)}",
+                hint=f"valid: {sorted(known)}",
             )
         data = dict(entry)
         for key in ("offset", "axis"):
@@ -62,10 +63,8 @@ def anchor_positions(
         pose = entry["pose"]
         base = pose.get(node.anchor) or NEUTRAL.get(node.anchor)
         if base is None:
-            raise KeyError(
-                f"soft node '{node.name}' anchors to unknown joint "
-                f"'{node.anchor}'"
-            )
+            raise NotFound(f"joint that soft node '{node.name}' anchors to",
+                           node.anchor, available=list(NEUTRAL))
         point = tuple(base[i] + node.offset[i] for i in range(3))
         out.append(
             project_point(

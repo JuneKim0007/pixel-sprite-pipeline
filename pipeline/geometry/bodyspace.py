@@ -6,6 +6,7 @@ from typing import Iterable, Mapping, Sequence
 
 from . import rigs as _rigs
 from .openpose import JOINTS
+from ..shared.errors import Invalid, NotFound
 
 # Named angles. Pokémon-style battle backs sit around 165-200: mostly rear,
 # turned just enough to read as a body rather than a silhouette.
@@ -369,17 +370,18 @@ def resolve_view(view: str | float) -> float:
     try:
         return float(key)
     except ValueError:
-        raise KeyError(
-            f"unknown view '{view}'. Use a number of degrees, or one of: "
-            + ", ".join(f"{k} ({v:g}°)" for k, v in VIEWS.items())
-        ) from None
+        raise NotFound("view", str(view), available=list(VIEWS),
+                       hint="a number of degrees, or one of: "
+                            + ", ".join(f"{k} ({v:g}°)"
+                                        for k, v in VIEWS.items())) from None
 
 
 def pose_from(base: Mapping[str, Sequence[float]], rig=None, **overrides) -> dict:
     known = set(rig.joints) if rig is not None else set(JOINTS)
     unknown = set(overrides) - known
     if unknown:
-        raise KeyError(f"unknown joint(s): {sorted(unknown)}")
+        raise Invalid(f"unknown joint(s): {sorted(unknown)}", field="overrides",
+                      hint=f"this rig has: {', '.join(sorted(known))}")
     return {**base, **overrides}
 
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from .bodyspace import project_point
-from ..shared.errors import Invalid
+from ..shared.errors import Invalid, NotFound
 from ..shared.registry import Broken, Registry, Scanned
 
 
@@ -39,9 +39,9 @@ class Prop:
         known = set(cls.__dataclass_fields__)
         unknown = set(entry) - known
         if unknown:
-            raise KeyError(
-                f"prop '{entry.get('name', '?')}' has unknown key(s) "
-                f"{sorted(unknown)}. Valid: {sorted(known)}"
+            raise Invalid(
+                f"prop '{entry.get('name', '?')}' has unknown key(s) {sorted(unknown)}",
+                hint=f"valid: {sorted(known)}",
             )
         data = dict(entry)
         for key in ("offset", "aim"):
@@ -163,17 +163,14 @@ def load(specs, root=None) -> list[Prop]:
             continue
         if isinstance(spec, str):
             if spec not in library:
-                raise KeyError(
-                    f"no prop '{spec}' in the library. Available: "
-                    f"{', '.join(sorted(library)) or '(none)'}")
+                raise NotFound("prop", spec, available=list(library))
             entry = dict(library[spec])
         elif spec.get("from"):
             base_name = spec["from"]
             if base_name not in library:
-                raise KeyError(
-                    f"prop '{spec.get('name', base_name)}' extends '{base_name}', "
-                    f"which is not in the library. Available: "
-                    f"{', '.join(sorted(library)) or '(none)'}")
+                raise NotFound(
+                    f"prop that '{spec.get('name', base_name)}' extends",
+                    base_name, available=list(library))
             entry = {**library[base_name], **{k: v for k, v in spec.items() if k != "from"}}
         else:
             entry = dict(spec)

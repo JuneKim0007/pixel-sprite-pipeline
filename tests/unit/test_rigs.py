@@ -155,5 +155,19 @@ def test_thickness_follows_length_but_not_by_the_full_factor():
 
 
 def test_unknown_proportion_group_is_rejected():
-    with pytest.raises(KeyError):
+    from pipeline.shared.errors import Invalid
+
+    with pytest.raises(Invalid) as caught:
         rigs.scale(rigs.HUMANOID, {"elbows": 2.0})
+    assert caught.value.status == 400
+
+
+def test_an_unknown_view_names_the_ones_that_exist():
+    from pipeline.shared.errors import NotFound
+
+    with pytest.raises(NotFound) as caught:
+        bs.resolve_view("sideways")
+    assert caught.value.status == 404
+    # The alternatives are the answer usually wanted, and NotFound builds them
+    # rather than each call site writing its own sentence.
+    assert "front" in caught.value.hint

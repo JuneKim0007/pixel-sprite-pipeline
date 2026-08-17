@@ -8,6 +8,8 @@ from typing import Sequence
 
 from PIL import Image, ImageDraw
 
+from ..shared.errors import Invalid
+
 # Index -> joint. Order is fixed by the ControlNet convention; don't reorder.
 JOINTS = (
     "nose", "neck",
@@ -80,8 +82,9 @@ def render(
     rig = rig if rig is not None else _rigs.HUMANOID
     limbs = rig.limb_pairs
     if len(keypoints) != len(rig.joints):
-        raise ValueError(
-            f"{rig.name}: expected {len(rig.joints)} keypoints, got {len(keypoints)}"
+        raise Invalid(
+            f"{rig.name}: expected {len(rig.joints)} keypoints, got {len(keypoints)}",
+            field="keypoints",
         )
 
     # OpenPose's reference stick width is 4px on a 368px canvas; scale it so

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable
+from ..shared.errors import Invalid
 from ..shared.registry import Decorated, Registry
 
 
@@ -675,9 +676,10 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
 
     unknown = set(factors) - set(PROPORTION_GROUPS)
     if unknown:
-        raise KeyError(
-            f"unknown proportion group(s) {sorted(unknown)}. "
-            f"Available: {', '.join(sorted(PROPORTION_GROUPS))}"
+        raise Invalid(
+            f"unknown proportion group(s) {sorted(unknown)}",
+            field="proportions",
+            hint=f"available: {', '.join(sorted(PROPORTION_GROUPS))}",
         )
 
     import math
