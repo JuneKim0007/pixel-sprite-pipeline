@@ -70,6 +70,22 @@ def test_an_editor_save_renders_exactly_as_the_stage_would(root, editor_run):
         "editor re-render differs from the stage's render"
 
 
+def test_a_corrupt_manifest_is_rebuilt_not_left_failing(editor_run):
+    # artifacts.json truncated mid-write (a crash) is valid JSON up to a
+    # point, so json.loads() raises JSONDecodeError - a ValueError subclass,
+    # not NotFound/Invalid. save_poses must still recover from it: this is
+    # the "no usable manifest" case the except block exists for, and the
+    # most likely real one, more likely than the file being absent outright.
+    run, entries = editor_run("corrupt_manifest",
+                              {"size": 256, "fill": 0.8, "thickness": 0.02})
+    (run / "artifacts.json").write_text('{"completed": ["pose"], "artif')
+
+    result = save_poses({"run_id": run.name, "entries": copy.deepcopy(entries)})
+
+    assert result["manifest"] == "rebuilt", \
+        "a truncated manifest should be rebuilt, not surfaced as a failure"
+
+
 def test_pose_fill_reaches_the_editors_re_render(editor_run):
     made = []
     for tag, fill in (("fill_off", 0.0), ("fill_on", 0.85)):

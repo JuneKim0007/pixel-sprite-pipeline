@@ -6,7 +6,7 @@ from ..shared import paths
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from ..shared.errors import Invalid
+from ..shared.errors import Internal, Invalid
 from ..shared.registry import Broken, Registry, Scanned
 
 
@@ -143,8 +143,11 @@ def choose(
     """Ask the LLM to pick a palette; verify the pick exists."""
     available = discover(root)
     if not available:
-        raise Invalid("no palettes found under palettes/",
-                      hint="add a .hex file under palettes/")
+        # Nothing the caller sent is at fault here - subject/style/client are
+        # all fine. An empty palettes/ is a broken install, so this is ours
+        # to fix, not theirs.
+        raise Internal("no palettes found under palettes/",
+                       hint="add a .hex file under palettes/")
 
     catalogue = "\n".join(
         f"- {p.key}: {p.name} ({p.size} colours)"

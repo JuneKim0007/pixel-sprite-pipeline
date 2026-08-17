@@ -104,9 +104,18 @@ def save_poses(body: dict) -> dict:
         if depthmaps:
             arts["depthmaps"] = depthmaps
         artifacts_io.save(run, arts, completed)
-    except (NotFound, Invalid):
+    except (NotFound, Invalid, ValueError, OSError):
         # No usable manifest: write one from what we just rendered, so the
         # run becomes resumable rather than staying stuck.
+        #
+        # NotFound and Invalid are artifacts_io.load's own raises, but they
+        # are not the only way this can fail: it calls json.loads() after its
+        # NotFound guard, and a manifest left truncated by a crash mid-write
+        # raises json.JSONDecodeError, a ValueError subclass. path.read_text()
+        # can also lose a TOCTOU race against path.exists() and raise
+        # OSError/FileNotFoundError. Both are ours to catch here too, or the
+        # exact "no usable manifest" case this block exists for reaches the
+        # caller as a raw 400/500 instead of getting repaired.
         arts = {"skeletons": skeletons, "pose_frames": entries}
         if depthmaps:
             arts["depthmaps"] = depthmaps
