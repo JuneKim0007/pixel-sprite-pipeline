@@ -91,16 +91,38 @@ def entry_points(index: Index) -> list[tuple[Path, ast.FunctionDef]]:
             if _decorator_names(node) & ROUTE_DECORATORS]
 
 
+def _own_body(node: ast.FunctionDef) -> list[ast.AST]:
+    """Every descendant of a function's body, not descending into nested defs.
+
+    A nested FunctionDef/AsyncFunctionDef is Index's territory, not this
+    function's: Index.__init__ registers it separately under its own name,
+    and (since reachable() now enqueues nested defs directly - see there)
+    it is scanned for its own raises and its own calls independently. Code
+    physically inside it belongs to it, not to the function lexically
+    containing it, so both raise-scanning and call-scanning stop here.
+    """
+    found: list[ast.AST] = []
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        child = stack.pop()
+        found.append(child)
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue  # separately indexed and separately enqueued
+        stack.extend(ast.iter_child_nodes(child))
+    return found
+
+
 def _called_names(node: ast.FunctionDef) -> set[str]:
-    # Deliberately still ast.walk, including into nested defs: a closure built
-    # inside a handler and handed off (a callback, a thread target) still runs
-    # as part of that request, so a call made in its body is a call the outer
-    # function is responsible for reaching. Narrowing this to the outer
-    # function's own statements would drop that edge and under-approximate
-    # reachability - the wrong direction per the module docstring, since a
-    # missed edge here means a raise downstream is never flagged at all.
+    # Scoped to node's own body: a name called only inside a nested def's
+    # body is that nested def's own edge. It used to matter that this walked
+    # into nested defs too, because that was the only way a closure's calls
+    # were ever attributed to anything - but reachable() now enqueues a
+    # nested def directly whenever its enclosing function is live, whether
+    # or not the nested def is ever called by name. So the nested def gets
+    # its own _called_names() call when it is dequeued, and walking into it
+    # from here would just find the same edges a second time.
     names = set()
-    for child in ast.walk(node):
+    for child in _own_body(node):
         if isinstance(child, ast.Call):
             func = child.func
             if isinstance(func, ast.Name):
@@ -119,16 +141,7 @@ def _raises_in_own_body(node: ast.FunctionDef) -> list[ast.Raise]:
     here too would attribute the same physical raise to both functions,
     and `sorted(set(found))` cannot dedupe them because `.function` differs.
     """
-    found: list[ast.Raise] = []
-    stack = list(ast.iter_child_nodes(node))
-    while stack:
-        child = stack.pop()
-        if isinstance(child, ast.Raise):
-            found.append(child)
-        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue  # separately indexed; its body is that function's own
-        stack.extend(ast.iter_child_nodes(child))
-    return found
+    return [n for n in _own_body(node) if isinstance(n, ast.Raise)]
 
 
 def _comment_map(source: str) -> dict[int, str]:
@@ -169,6 +182,20 @@ def reachable(index: Index, entries) -> set[tuple[str, str]]:
             for target in index.definitions.get(name, []):
                 if (str(target[0]), target[1].name) not in seen:
                     queue.append(target)
+        # A def lexically nested inside a live function is live too, whether
+        # or not its name ever appears in a Call. It was written there to
+        # run - as a callback, a thread target, a sort key, a decorator -
+        # and a `threading.Thread(target=helper)` never calls `helper` by
+        # name, it just passes it. Requiring a Call as proof of reachability
+        # would invert this checker's stated bias: a false positive costs
+        # one `# not-a-message:` marker, a false negative costs a 500 in
+        # front of a user. So enqueue nested defs unconditionally.
+        for child in ast.walk(node):
+            if child is node:
+                continue
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if (str(path), child.name) not in seen:
+                    queue.append((path, child))
     return seen
 
 

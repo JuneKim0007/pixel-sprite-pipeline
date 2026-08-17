@@ -175,6 +175,29 @@ class Looks(BaseRouter):
     assert found[0].reason_missing is False
 
 
+def test_a_raise_inside_a_callback_closure_is_still_reported(tmp_path):
+    # helper is never called by name anywhere - only handed to Thread as
+    # `target=helper`, an argument value, not a Call whose func is "helper".
+    # A checker that only marks a nested def live when its name appears in a
+    # Call would miss this: the def is enqueued because reachable() now
+    # treats any def lexically nested inside a live function as live too.
+    _tree(tmp_path, {"api.py": """
+import threading
+
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        def helper():
+            raise ValueError("boom")
+        threading.Thread(target=helper).start()
+        return "ok"
+"""})
+    found = cf.violations(cf.Index([tmp_path]))
+    assert len(found) == 1
+    assert found[0].function == "helper"
+    assert found[0].exception == "ValueError"
+
+
 def test_exit_code_is_zero_when_clean(tmp_path):
     _tree(tmp_path, {"api.py": """
 class Looks(BaseRouter):
