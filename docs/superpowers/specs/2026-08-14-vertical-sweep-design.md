@@ -6,6 +6,11 @@ so the reasoning survives the diff.
 `REFACTOR.md` called §5 "the vertical sweep" and listed five coupled clusters.
 Three landed. This specifies the rest, and corrects two things §5 got wrong.
 
+> **`docs/REFACTOR.md` has since been deleted** — its horizontal work is done and
+> its §5 is superseded by this document, which carries forward everything still
+> live (including §5e in full, at the end). Citations to it here and in
+> `docs/NODES.md` are historical: read it with `git show <commit>:docs/REFACTOR.md`.
+
 ---
 
 ## 1. Where the sweep actually stands
@@ -282,10 +287,21 @@ Each ships on its own. None needs the next to be useful.
 
 ## 7. Explicitly out of scope
 
-- **`REFACTOR.md` §5e** — the `run_audit` model-default duplication and the
-  `web/js` ↔ `bodyspace.py` cross-language twins. Both real, neither is a
-  declaration-carries-its-policy problem, and folding them in would make this
-  three unrelated things again.
+- **The two duplications `REFACTOR.md` §5e named.** Recorded here in full because
+  that file has since been deleted — its other sections were done or are
+  superseded by this spec, and these two were the only live content left:
+
+  - `run_audit` (now `pipeline/api/runs.py:102`, moved there when `server.py` was
+    split behind the dispatch table) re-hardcodes the model default filenames
+    that already live in `pipeline/generation/comfy.py`. Guaranteed to drift, and
+    it is the kind of drift nothing fails on.
+  - `web/js` and `pipeline/geometry/bodyspace.py` are cross-language twins whose
+    behaviour has already diverged once. Not fixable by moving files; worth a
+    test that asserts the two agree on a fixed set of inputs.
+
+  Both are real. Neither is a declaration-carries-its-policy problem, so folding
+  them in would make this spec three unrelated things again. They want their own
+  small piece of work.
 - **Runtime response validation** — decided against above; revisit if the API
   gains callers other than this repo's own frontend.
 - **Frontend changes** — stage 2 is invisible to it by construction, enforced by
