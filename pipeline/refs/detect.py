@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from ..geometry import rigs
+from ..shared.errors import Invalid
 
 SYSTEM = """You identify the body plan of a creature in reference images.
 You output ONLY JSON. Judge anatomy, not art style or colour."""
@@ -40,7 +41,7 @@ def detect(
 ) -> tuple[rigs.Rig, float, str]:
     """Return (rig, confidence, reason). Falls back to humanoid on failure."""
     if not images:
-        raise ValueError("no reference images to inspect")
+        raise Invalid("no reference images to inspect", field="images")
 
     prompt = TEMPLATE.format(catalogue=catalogue())
     last = ""
@@ -86,12 +87,13 @@ def resolve(ctx, verbose: bool = True) -> tuple[rigs.Rig, dict]:
     lib = ctx.references()
     refs = lib.identity or lib.pose
     if not refs:
-        raise ValueError(
+        raise Invalid(
             "rig is 'auto' but there are no reference images to look at. "
-            "Add references, or name a rig explicitly."
+            "Add references, or name a rig explicitly.",
+            field="references",
         )
 
-    from .llm import Ollama
+    from .llm import LLMError, Ollama
 
     llm_cfg = (ctx.config.get("detect") or {})
     client = Ollama(
@@ -100,7 +102,7 @@ def resolve(ctx, verbose: bool = True) -> tuple[rigs.Rig, dict]:
         keep_alive=llm_cfg.get("keep_alive", 0),
     )
     if not client.alive():
-        raise RuntimeError(
+        raise LLMError(
             "rig is 'auto' but Ollama is not running. Start it, or name a rig."
         )
 

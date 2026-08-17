@@ -40,7 +40,9 @@ class Source(Generic[T]):
     """Where a registry's entries come from."""
 
     def load(self) -> tuple[dict[str, T], list[Broken]]:
-        raise NotImplementedError
+        # Source is never instantiated directly, only through Decorated,
+        # Scanned or a route's own subclass, all of which override this.
+        raise NotImplementedError  # not-a-message: reaching it means one was built without doing that
 
     def signature(self) -> Any:
         """Cheap value that changes when the entries might have.

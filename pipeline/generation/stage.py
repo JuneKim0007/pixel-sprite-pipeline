@@ -9,7 +9,7 @@ from typing import Any, ClassVar, Mapping
 
 from ..shared.config import opt
 from ..shared import paths
-from ..shared.errors import Invalid
+from ..shared.errors import Invalid, NotFound
 from ..shared.registry import Decorated, Registry
 
 __all__ = ["opt", "Resource", "Context", "Stage", "register", "get",
@@ -164,9 +164,10 @@ class Context:
 
     def require(self, key: str) -> Any:
         if key not in self.artifacts:
-            raise KeyError(
-                f"artifact '{key}' is missing. Either an earlier stage failed, "
-                f"or the stage order in your config puts its producer later."
+            raise NotFound(
+                "artifact", key, available=list(self.artifacts),
+                hint="an earlier stage failed, or the stage order in your "
+                     "config puts its producer later",
             )
         return self.artifacts[key]
 

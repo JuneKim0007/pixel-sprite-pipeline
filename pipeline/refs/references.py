@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ..geometry.bodyspace import VIEWS, resolve_view
+from ..shared.errors import Invalid, NotFound
 
 ROLES = ("identity", "style", "pose", "palette")
 
@@ -65,11 +66,12 @@ def _one(root: Path, entry: Any, role: str, index: int) -> Reference:
     if isinstance(entry, str):
         entry = {"path": entry}
     if not isinstance(entry, dict) or "path" not in entry:
-        raise ValueError(f"references.{role}[{index}] needs at least a 'path'")
+        raise Invalid(f"references.{role}[{index}] needs at least a 'path'",
+                      field="path")
 
     path = (root / entry["path"]).resolve()
     if not path.exists():
-        raise FileNotFoundError(f"reference image not found: {entry['path']}")
+        raise NotFound("reference image", entry["path"])
 
     label = str(entry.get("view", "front"))
     return Reference(
@@ -87,11 +89,12 @@ def load(root: Path, cfg: dict | None) -> Library:
     cfg = cfg or {}
 
     if "images" in cfg:
-        raise ValueError(
+        raise Invalid(
             "references.images was replaced by typed roles. Use "
             "references.identity for who the character is, references.style "
             "for the art style to imitate, references.pose for a composition "
-            "to match, and references.palette for colours."
+            "to match, and references.palette for colours.",
+            field="images",
         )
 
     lib = Library()
@@ -212,10 +215,7 @@ def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:
 
     base = Path(cfg.get("_runs_dir") or paths.resolve(root, "runs")) / run_id
     if not base.is_dir():
-        raise FileNotFoundError(
-            f"references.from_run points at '{run_id}', which is not a run in "
-            f"{base.parent}"
-        )
+        raise NotFound("run", run_id, hint=f"not a run in {base.parent}")
 
     yaws: list[float] = []
     for pose_dir in sorted(base.glob("*_pose")):
@@ -235,7 +235,8 @@ def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:
         if images:
             break
     if not images:
-        raise FileNotFoundError(f"run '{run_id}' has no generated frames to reference")
+        raise Invalid(f"run '{run_id}' has no generated frames to reference",
+                      field="from_run")
 
     if yaws and len(yaws) != len(images):
         yaws = []          # edited after the fact; better unlabelled than wrong
@@ -270,7 +271,7 @@ def pick(
     evidence, latitude where there is not.
     """
     if not refs:
-        raise ValueError("no references to choose from")
+        raise Invalid("no references to choose from", field="references")
 
     best = min(refs, key=lambda r: angular_distance(r.yaw, yaw))
     dist = angular_distance(best.yaw, yaw)

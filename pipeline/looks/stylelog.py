@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from ..shared.errors import NotFound, TooLarge
+
 FILENAME = "history.jsonl"
 KINDS = ("context", "tune", "train", "note")
 
@@ -67,12 +69,12 @@ def append(home: Path, event: Event) -> Path:
     reader below tolerates exactly that.
     """
     if event.kind not in KINDS:
-        raise ValueError(f"unknown history event '{event.kind}'; expected one of {KINDS}")
+        raise NotFound("history event kind", event.kind, available=list(KINDS))
 
     home.mkdir(parents=True, exist_ok=True)
     line = json.dumps(event.as_dict(), ensure_ascii=False) + "\n"
     if len(line) > MAX_LINE:
-        raise ValueError(
+        raise TooLarge(
             f"history event is {len(line)} bytes. The log records what happened, "
             f"not the data it happened to — store a manifest, not the payload."
         )

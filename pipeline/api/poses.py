@@ -104,7 +104,7 @@ def save_poses(body: dict) -> dict:
         if depthmaps:
             arts["depthmaps"] = depthmaps
         artifacts_io.save(run, arts, completed)
-    except (FileNotFoundError, ValueError):
+    except (NotFound, Invalid):
         # No usable manifest: write one from what we just rendered, so the
         # run becomes resumable rather than staying stuck.
         arts = {"skeletons": skeletons, "pose_frames": entries}

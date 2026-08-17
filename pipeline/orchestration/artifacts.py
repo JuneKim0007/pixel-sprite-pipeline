@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..shared.errors import Invalid, NotFound
+
 MANIFEST = "artifacts.json"
 
 
@@ -21,6 +23,11 @@ def _encode(value: Any) -> dict:
         # Storing repr() here would hand a resumed run a string where a stage
         # expects an object. Scratch keys are already filtered, so this is a bug.
         raise TypeError(
+            # not-a-message: save() only ever calls _encode() on artifacts
+            # already stripped of scratch (`_`-prefixed) keys, so an
+            # unpersistable value here means a stage handed back something it
+            # should not have — a defect upstream, not a message for the
+            # caller who asked to save.
             f"artifact {type(value).__name__} cannot be persisted, so the run "
             f"would not be resumable. Prefix the key with '_' if it is scratch."
         ) from e
@@ -54,15 +61,15 @@ def save(outdir: Path, artifacts: dict[str, Any], completed: list[str]) -> Path:
 def load(outdir: Path) -> tuple[dict[str, Any], list[str]]:
     path = outdir / MANIFEST
     if not path.exists():
-        raise FileNotFoundError(f"no {MANIFEST} in {outdir} — nothing to resume")
+        raise NotFound("manifest", str(path), hint="nothing to resume")
     data = json.loads(path.read_text())
 
     # Tolerate manifests written before this format existed.
     raw = data.get("artifacts", data)
     if raw and not isinstance(next(iter(raw.values()), None), dict):
-        raise ValueError(
-            f"{path} is in the old untyped format and cannot be resumed. "
-            f"Start a fresh run."
+        raise Invalid(
+            f"{path} is in the old untyped format and cannot be resumed.",
+            hint="start a fresh run",
         )
 
     artifacts = {k: _decode(v) for k, v in raw.items()}
@@ -73,8 +80,8 @@ def load(outdir: Path) -> tuple[dict[str, Any], list[str]]:
         if isinstance(p, Path) and not p.exists()
     ]
     if missing:
-        raise FileNotFoundError(
-            f"{len(missing)} artifact file(s) referenced by {path} are gone, "
-            f"e.g. {missing[0]}"
+        raise NotFound(
+            "artifact file", missing[0],
+            hint=f"{len(missing)} artifact file(s) referenced by {path} are gone",
         )
     return artifacts, data.get("completed", [])

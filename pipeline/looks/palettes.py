@@ -143,7 +143,8 @@ def choose(
     """Ask the LLM to pick a palette; verify the pick exists."""
     available = discover(root)
     if not available:
-        raise FileNotFoundError("no palettes found under palettes/")
+        raise Invalid("no palettes found under palettes/",
+                      hint="add a .hex file under palettes/")
 
     catalogue = "\n".join(
         f"- {p.key}: {p.name} ({p.size} colours)"

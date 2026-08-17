@@ -39,6 +39,18 @@ def test_a_missing_sheet_raises_not_found_with_alternatives(root):
     assert "base_pixel" in caught.value.hint
 
 
+def test_naming_an_unknown_history_kind_lists_the_ones_that_do(tmp_path):
+    # stylelog.append() is a real converted site (there is no styles.load()):
+    # the checker names it directly, and it hand-wrote the same "expected one
+    # of" alternatives NotFound now builds.
+    from pipeline.looks import stylelog
+
+    with pytest.raises(NotFound) as caught:
+        stylelog.append(tmp_path, stylelog.Event(kind="not_a_kind"))
+    assert caught.value.status == 404
+    assert "context" in caught.value.hint
+
+
 def test_source_annotation_refuses_when_no_annotation_was_made(root):
     from pipeline.shared.errors import Invalid
 

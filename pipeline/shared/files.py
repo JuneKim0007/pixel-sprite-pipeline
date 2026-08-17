@@ -12,7 +12,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from .errors import Denied
+from .errors import Denied, Invalid, NotFound
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
@@ -68,7 +68,7 @@ class Entry:
 def browse(directory: Path, images_only: bool = False) -> dict:
     """List a directory: sub-directories first, then files."""
     if not directory.is_dir():
-        raise FileNotFoundError(f"not a directory: {directory}")
+        raise NotFound("directory", str(directory))
 
     dirs, files = [], []
     for child in sorted(directory.iterdir(), key=lambda p: p.name.lower()):
@@ -117,7 +117,7 @@ def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, byte
     """
     marker = "boundary="
     if marker not in content_type:
-        raise ValueError("multipart request has no boundary")
+        raise Invalid("multipart request has no boundary", field="content_type")
     boundary = content_type.split(marker, 1)[1].strip().strip('"')
     sep = b"--" + boundary.encode()
 
