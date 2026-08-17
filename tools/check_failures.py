@@ -19,7 +19,9 @@ in front of someone.
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -90,6 +92,13 @@ def entry_points(index: Index) -> list[tuple[Path, ast.FunctionDef]]:
 
 
 def _called_names(node: ast.FunctionDef) -> set[str]:
+    # Deliberately still ast.walk, including into nested defs: a closure built
+    # inside a handler and handed off (a callback, a thread target) still runs
+    # as part of that request, so a call made in its body is a call the outer
+    # function is responsible for reaching. Narrowing this to the outer
+    # function's own statements would drop that edge and under-approximate
+    # reachability - the wrong direction per the module docstring, since a
+    # missed edge here means a raise downstream is never flagged at all.
     names = set()
     for child in ast.walk(node):
         if isinstance(child, ast.Call):
@@ -99,6 +108,51 @@ def _called_names(node: ast.FunctionDef) -> set[str]:
             elif isinstance(func, ast.Attribute):
                 names.add(func.attr)
     return names
+
+
+def _raises_in_own_body(node: ast.FunctionDef) -> list[ast.Raise]:
+    """Every `raise` in a function's own body, not descending into nested defs.
+
+    ast.walk(node) would also visit any FunctionDef/AsyncFunctionDef nested
+    inside node - but Index.__init__ already walks the whole tree and
+    registers that nested function under its own name. Counting its raises
+    here too would attribute the same physical raise to both functions,
+    and `sorted(set(found))` cannot dedupe them because `.function` differs.
+    """
+    found: list[ast.Raise] = []
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        child = stack.pop()
+        if isinstance(child, ast.Raise):
+            found.append(child)
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue  # separately indexed; its body is that function's own
+        stack.extend(ast.iter_child_nodes(child))
+    return found
+
+
+def _comment_map(source: str) -> dict[int, str]:
+    """Real comment tokens in a file, by line number.
+
+    tokenize is the only reliable way to tell a `#` inside a string literal
+    from an actual comment; a regex over raw text cannot, and a false match
+    there would silently suppress a real violation - the worst failure mode
+    this tool has, since the marker is the only thing standing between
+    "flagged" and "suppressed".
+
+    If the file fails to tokenize at all (encoding oddities, syntax tokenize's
+    grammar can't handle), the fallback is no comments found: every raise in
+    that file is then scanned against an empty map, finds no marker, and gets
+    flagged. Failing to flag is never the safe direction here.
+    """
+    comments: dict[int, str] = {}
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+            if tok.type == tokenize.COMMENT:
+                comments[tok.start[0]] = tok.string
+    except Exception:
+        return {}
+    return comments
 
 
 def reachable(index: Index, entries) -> set[tuple[str, str]]:
@@ -131,17 +185,20 @@ def _raised_name(node: ast.Raise) -> str | None:
     return None
 
 
-def _marker(source: list[str], node: ast.Raise) -> tuple[bool, str]:
+def _marker(comments: dict[int, str], node: ast.Raise) -> tuple[bool, str]:
     """Whether the raise carries a marker, and the reason given.
 
     Searched across the whole statement, because a raise with a long message
-    wraps and the comment lands on the closing paren.
+    wraps and the comment lands on the closing paren. `comments` maps line
+    number to real comment text (see `_comment_map`), so a marker-shaped
+    string inside the raised message itself is never mistaken for one.
     """
     last = getattr(node, "end_lineno", node.lineno) or node.lineno
     for line_no in range(node.lineno, last + 1):
-        if line_no - 1 >= len(source):
-            break
-        found = MARKER.search(source[line_no - 1])
+        comment = comments.get(line_no)
+        if comment is None:
+            continue
+        found = MARKER.search(comment)
         if found:
             return True, found.group("reason").strip()
     return False, ""
@@ -151,21 +208,27 @@ def violations(index: Index) -> list[Violation]:
     """Every builtin raise a request can reach."""
     live = reachable(index, entry_points(index))
     found: list[Violation] = []
+    # A comment map is a full tokenize pass over a file's text and depends
+    # only on the file, not on which function within it is being scanned -
+    # build each file's map once and reuse it, rather than retokenizing once
+    # per function that happens to live in that file.
+    comments_by_path: dict[Path, dict[int, str]] = {}
     for name in index.definitions:
         for path, node in index.definitions[name]:
             if (str(path), node.name) not in live:
                 continue
-            try:
-                source = path.read_text().splitlines()
-            except OSError:
-                source = []
-            for child in ast.walk(node):
-                if not isinstance(child, ast.Raise):
-                    continue
+            if path not in comments_by_path:
+                try:
+                    text = path.read_text()
+                except OSError:
+                    text = ""
+                comments_by_path[path] = _comment_map(text)
+            comments = comments_by_path[path]
+            for child in _raises_in_own_body(node):
                 raised = _raised_name(child)
                 if raised not in BUILTIN_FAILURES:
                     continue
-                marked, reason = _marker(source, child)
+                marked, reason = _marker(comments, child)
                 if marked and reason:
                     continue
                 found.append(Violation(path, child.lineno, raised, node.name,

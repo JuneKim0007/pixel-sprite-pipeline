@@ -141,6 +141,40 @@ class Looks(BaseRouter):
     assert cf.main([str(tmp_path)]) == 1
 
 
+def test_a_raise_inside_a_nested_function_is_counted_once(tmp_path):
+    # ast.walk(listing) would also visit helper's body, and Index registers
+    # helper under its own name too - the same physical raise must not turn
+    # into two Violations (one per attribution) that `sorted(set(...))` then
+    # fails to dedupe because their `.function` differs.
+    _tree(tmp_path, {"api.py": """
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        def helper():
+            raise ValueError("boom")
+        return helper()
+"""})
+    found = cf.violations(cf.Index([tmp_path]))
+    assert len(found) == 1
+    assert found[0].function == "helper"
+    assert found[0].exception == "ValueError"
+
+
+def test_a_marker_shaped_string_inside_the_message_does_not_suppress(tmp_path):
+    # _marker used to regex raw source text, so a raise whose own message
+    # happens to contain marker-shaped text would read as carrying a real
+    # marker and get suppressed - the worst failure mode this tool has.
+    _tree(tmp_path, {"api.py": '''
+class Looks(BaseRouter):
+    @get("/looks", "list them")
+    def listing(self, req):
+        raise ValueError("oops # not-a-message: pretending")
+'''})
+    found = cf.violations(cf.Index([tmp_path]))
+    assert [(v.function, v.exception) for v in found] == [("listing", "ValueError")]
+    assert found[0].reason_missing is False
+
+
 def test_exit_code_is_zero_when_clean(tmp_path):
     _tree(tmp_path, {"api.py": """
 class Looks(BaseRouter):
