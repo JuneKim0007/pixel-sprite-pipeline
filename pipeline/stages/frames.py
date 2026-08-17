@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Mapping, Any
 
 from ..generation import comfy
+from ..generation.comfy import ComfyError
 from ..orchestration import cooling
 from ..geometry import props as props_mod
 from ..geometry import rigs as rig_lib
@@ -71,18 +72,25 @@ class FramesStage(Stage):
         depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
         if depthmaps and len(depthmaps) != len(skeletons):
             raise RuntimeError(
+                # not-a-message: both lists are written one file per pose entry
+                # by render_entries(), from the same pose_frames — a length
+                # mismatch means a partial write or a stage version skew, not
+                # a config the caller can fix.
                 f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
                 f"they must correspond one to one."
             )
 
         client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))
         if not client.alive():
-            raise RuntimeError("ComfyUI is not running — start it with ./start.sh")
+            raise ComfyError("ComfyUI is not running — start it with ./start.sh")
 
         missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
                    if not client.has_node(n)]
         if missing:
-            raise RuntimeError(
+            # The nodes are on disk but not loaded into the running server, so
+            # this is the same "dependency not ready" shape as ComfyUI being
+            # down entirely — the fix is a restart, not a different request.
+            raise ComfyError(
                 f"ComfyUI is missing node(s) {missing}. The IPAdapter_plus custom "
                 f"nodes are installed but the server needs a restart to load them."
             )

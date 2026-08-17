@@ -57,6 +57,16 @@ def test_a_failing_layer_reports_against_itself(root, img):
     assert any(la.get("error") for la in facts["layers"])
 
 
+def test_a_bad_hex_colour_is_a_message_not_a_defect():
+    stack = [{"layer": "background", "id": "b0", "enabled": True,
+              "config": {"enabled": True, "tolerance": 14, "colour": "#zzzzzz"}}]
+    # A half-typed hex is something the user is in the middle of doing, so it
+    # must arrive as a message against that layer rather than a 500.
+    _, facts = definitive.apply_stack(np.zeros((8, 8, 3), np.uint8), stack)
+    errors = [layer.get("error", "") for layer in facts["layers"]]
+    assert any("Invalid" in e for e in errors)
+
+
 def test_a_cold_run_resumes_from_nowhere(root, img, stack):
     cache.SNAPSHOTS.clear()
     _, facts = definitive.apply_stack(img, stack, root=root, source="t")

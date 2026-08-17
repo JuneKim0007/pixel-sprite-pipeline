@@ -10,6 +10,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from ..shared.errors import Invalid, NotFound
+
+REDUCE_MODES = ("mean", "median", "mode", "clipped", "salient")
+
 # ---------------------------------------------------------------- grid phase
 
 
@@ -19,7 +23,7 @@ def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
     bh = (h - oy) // factor
     bw = (w - ox) // factor
     if bh < 1 or bw < 1:
-        raise ValueError(f"factor {factor} too large for image {w}x{h}")
+        raise Invalid(f"factor {factor} too large for image {w}x{h}", field="factor")
     cropped = arr[oy : oy + bh * factor, ox : ox + bw * factor]
     c = arr.shape[2]
     return cropped.reshape(bh, factor, bw, factor, c).swapaxes(1, 2)
@@ -129,7 +133,7 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         contrasty = spread > SALIENT_THRESHOLD
         return np.where(contrasty[..., None], extreme, med).round().astype(np.uint8)
 
-    raise ValueError(f"unknown reduce mode: {how}")
+    raise NotFound("reduce mode", how, available=list(REDUCE_MODES))
 
 
 # -------------------------------------------------------------- palette
@@ -153,7 +157,7 @@ def load_palette(path: Path) -> list[tuple[int, int, int]]:
         except ValueError:
             continue
     if not colours:
-        raise ValueError(f"no colours parsed from {path}")
+        raise Invalid(f"no colours parsed from {path}", field="file")
     return colours
 
 
@@ -165,7 +169,7 @@ def extract_palette(
     if ignore_alpha is not None:
         pixels = pixels[ignore_alpha.reshape(-1) > 0]
     if len(pixels) == 0:
-        raise ValueError("no opaque pixels to extract a palette from")
+        raise Invalid("no opaque pixels to extract a palette from")
 
     strip = Image.fromarray(pixels.reshape(-1, 1, 3).astype(np.uint8), mode="RGB")
     q = strip.quantize(colors=colours, method=Image.Quantize.MEDIANCUT)
@@ -318,8 +322,7 @@ def apply_fixed_palette(
     method: str = "weighted",
 ) -> np.ndarray:
     if method not in MATCH_METHODS:
-        raise ValueError(
-            f"unknown palette match method '{method}'; expected one of {MATCH_METHODS}")
+        raise NotFound("palette match method", method, available=list(MATCH_METHODS))
 
     pal = np.asarray(palette, dtype=np.float32)
 

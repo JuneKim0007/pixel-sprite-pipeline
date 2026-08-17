@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Mapping, Any
 
 from ..generation import comfy
+from ..generation.comfy import ComfyError
 from ..orchestration import cooling
 from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
@@ -80,7 +81,7 @@ class CanonicalStage(Stage):
         subject = ctx.config.get("subject", "a knight in armor")
         client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))
         if not client.alive():
-            raise RuntimeError("ComfyUI is not running — start it with ./start.sh")
+            raise ComfyError("ComfyUI is not running — start it with ./start.sh")
 
         default_style = vocabulary.DEFAULT_STYLE
         style = ctx.config.get("style", default_style)

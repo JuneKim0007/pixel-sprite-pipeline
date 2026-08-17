@@ -40,10 +40,12 @@ def test_a_missing_sheet_raises_not_found_with_alternatives(root):
 
 
 def test_source_annotation_refuses_when_no_annotation_was_made(root):
+    from pipeline.shared.errors import Invalid
+
     ctx = Context(root=root, outdir=root,
                   config={"rig": "humanoid", "annotate": "skip",
                           "pose": {"source": "annotation"}})
-    with pytest.raises(ValueError, match="(?i)annotat"):
+    with pytest.raises(Invalid, match="(?i)annotat"):
         PoseStage()._resolve(ctx, ctx.stage_config("pose"), wanted=1)
 
 

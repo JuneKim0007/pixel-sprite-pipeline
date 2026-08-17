@@ -5,6 +5,7 @@ import numpy as np
 
 from . import pixelize as px
 from .layers import Field, layer
+from ..shared.errors import Invalid
 
 REDUCERS = [
     ("median", "Median, robust to a stray bright pixel"),
@@ -246,7 +247,13 @@ def _background(img, cfg, facts, prep):
     if not cfg.get("enabled", True):
         return img
     raw = str(cfg.get("colour") or "").lstrip("#")
-    key = tuple(int(raw[i:i + 2], 16) for i in (0, 2, 4)) if len(raw) == 6 else None
+    key = None
+    if len(raw) == 6:
+        try:
+            key = tuple(int(raw[i:i + 2], 16) for i in (0, 2, 4))
+        except ValueError:
+            raise Invalid(f"'{cfg.get('colour')}' is not a hex colour",
+                          field="colour") from None
     out = px.background_to_alpha(img[..., :3], int(cfg.get("tolerance", 14)), key=key)
     facts["kept"] = float((out[..., 3] > 0).mean())
     return out

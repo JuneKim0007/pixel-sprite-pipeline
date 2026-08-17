@@ -22,6 +22,7 @@ from PIL import Image
 from ..definitive.pixelize import (background_to_alpha, extract_palette, find_phase,
                         load_palette, pixelize, reduce_blocks, save_palette)
 from ..generation.stage import Context, Resource, Stage, opt, register
+from ..shared.errors import Invalid, NotFound
 
 
 def _one_frame(args: tuple) -> str:
@@ -69,9 +70,10 @@ class PaletteStage(Stage):
         if source == "file":
             ref = cfg["file"]
             if not ref:
-                raise ValueError(
+                raise Invalid(
                     "palette.source is 'file' but palette.file is not set. "
-                    "Pick a palette, or use source: extract."
+                    "Pick a palette, or use source: extract.",
+                    field="file",
                 )
             given = self._resolve_file(ctx, ref)
             palette = load_palette(given)
@@ -175,9 +177,7 @@ class PaletteStage(Stage):
         direct = ctx.root / ref
         if direct.exists():
             return direct
-        raise FileNotFoundError(
-            f"no palette '{ref}'. Known keys: {', '.join(sorted(found)) or '(none)'}"
-        )
+        raise NotFound("palette", ref, available=list(found))
 
     @staticmethod
     def _choose(ctx: Context, cfg: dict):
@@ -187,7 +187,7 @@ class PaletteStage(Stage):
         the point: an LLM is a reasonable judge of which palette suits a
         subject, and a terrible mechanism for applying one consistently.
         """
-        from ..refs.llm import Ollama
+        from ..refs.llm import LLMError, Ollama
         from ..looks.palettes import choose
 
         llm_cfg = {**(ctx.stage_config("pose").get("llm") or {}), **(cfg.get("llm") or {})}
@@ -197,7 +197,7 @@ class PaletteStage(Stage):
             keep_alive=opt(llm_cfg, "keep_alive", 0),
         )
         if not client.alive():
-            raise RuntimeError(
+            raise LLMError(
                 "palette.source is 'llm' but Ollama is not running. Start it with "
                 "`ollama serve`, or use source: extract."
             )

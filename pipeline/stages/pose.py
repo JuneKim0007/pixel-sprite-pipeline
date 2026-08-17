@@ -18,6 +18,7 @@ from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import frame_scale, project, resolve_view, validate_pose
 from ..geometry.openpose import render
 from ..generation.stage import Context, Resource, Stage, opt, register
+from ..shared.errors import Invalid, NotFound
 
 
 def _slug(text: str) -> str:
@@ -119,7 +120,7 @@ class PoseStage(Stage):
         if specs:
             for i, spec in enumerate(specs):
                 if not isinstance(spec, dict):
-                    raise ValueError(f"pose.set[{i}] must be a mapping")
+                    raise Invalid(f"pose.set[{i}] must be a mapping", field="set")
                 merged = {**cfg, **spec}
                 merged.pop("set", None)
                 pick = spec.get("frame")
@@ -131,9 +132,10 @@ class PoseStage(Stage):
                 )
                 if pick is not None:
                     if not 0 <= pick < len(got):
-                        raise IndexError(
+                        raise Invalid(
                             f"pose.set[{i}].frame={pick} but that pose has "
-                            f"{len(got)} frame(s)"
+                            f"{len(got)} frame(s)",
+                            field="frame",
                         )
                     got = [got[pick]]
                 yaw = resolve_view(merged["view"])
@@ -210,9 +212,10 @@ class PoseStage(Stage):
 
         found = ann.gather(ctx.root, ctx.config.get("references") or {})
         if not found:
-            raise ValueError(
+            raise Invalid(
                 "pose.source is 'annotation' but no reference has one. "
-                "Annotate at least one image, or use another pose source."
+                "Annotate at least one image, or use another pose source.",
+                field="source",
             )
         out = []
         for a in found:
@@ -227,9 +230,10 @@ class PoseStage(Stage):
         lib = ctx.references()
         refs = lib.identity or lib.pose
         if not refs:
-            raise ValueError(
+            raise Invalid(
                 "pose.views is 'from_references' but no references are set. "
-                "Add reference images, or list the views explicitly."
+                "Add reference images, or list the views explicitly.",
+                field="views",
             )
         seen, out = set(), []
         for ref in refs:
@@ -258,10 +262,8 @@ class PoseStage(Stage):
             return self._from_library(ctx, cfg, wanted)
         if source == "llm":
             return self._from_llm(ctx, cfg, wanted or 6)
-        raise ValueError(
-            f"pose.source '{source}' is not supported. "
-            f"Use 'annotation', 'tpose', 'library' or 'llm'."
-        )
+        raise NotFound("pose source", source,
+                       available=["annotation", "tpose", "library", "llm"])
 
     # ------------------------------------------------------------- backends
 
@@ -271,9 +273,10 @@ class PoseStage(Stage):
         pose_name = cfg["name"]
         data = pose_lib.load(ctx.root, pose_name)
         if data.get("space") != "body":
-            raise ValueError(
-                f"pose '{pose_name}' is in legacy screen space. "
-                f"Re-run tools/make_poses.py."
+            raise Invalid(
+                f"pose '{pose_name}' is in legacy screen space.",
+                field="name",
+                hint="re-run tools/make_poses.py",
             )
         rig = ctx.rig()
         base = {k: list(v) for k, v in rig.neutral.items()}
@@ -281,7 +284,7 @@ class PoseStage(Stage):
         return frames[:limit] if limit else frames
 
     def _from_llm(self, ctx: Context, cfg: dict, n_frames: int) -> list[dict]:
-        from ..refs.llm import Ollama, generate_pose
+        from ..refs.llm import LLMError, Ollama, generate_pose
 
         llm_cfg = cfg["llm"]
         action = cfg.get("action") or cfg.get("name") or "idle standing"
@@ -303,7 +306,7 @@ class PoseStage(Stage):
             keep_alive=opt(llm_cfg, "keep_alive", 0),
         )
         if not client.alive():
-            raise RuntimeError(
+            raise LLMError(
                 "Ollama is not running. Start it with `ollama serve`, or switch "
                 "pose.source back to 'library'."
             )
@@ -319,7 +322,14 @@ class PoseStage(Stage):
         for i, f in enumerate(frames):
             issues = validate_pose(f, opt(llm_cfg, "tolerance", 0.3))
             if issues:
-                raise RuntimeError(f"frame {i} failed validation after accept: {issues}")
+                raise RuntimeError(
+                    # not-a-message: generate_pose() only returns frames once
+                    # every one of them passed this exact validate_pose(tolerance)
+                    # check with no issues, so a failure here means a frame was
+                    # mutated (or the tolerance changed) after acceptance — an
+                    # invariant break, not something the caller did wrong.
+                    f"frame {i} failed validation after accept: {issues}"
+                )
 
         if opt(llm_cfg, "cache", True):
             cache_dir.mkdir(parents=True, exist_ok=True)

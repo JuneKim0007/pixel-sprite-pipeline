@@ -45,6 +45,8 @@ from typing import BinaryIO
 
 import numpy as np
 
+from ..shared.errors import Invalid
+
 _SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 # Filter 0 (None) on every scanline, which costs nothing here and turns out to
@@ -82,7 +84,7 @@ def write_scaled(path: Path | str, image: np.ndarray, zoom: int = 1, *,
     is exactly what `np.repeat(np.repeat(image, zoom, 0), zoom, 1)` would give.
     """
     if image.ndim != 3 or image.shape[2] not in (3, 4):
-        raise ValueError(f"expected (h, w, 3|4) uint8, got {image.shape}")
+        raise Invalid(f"expected (h, w, 3|4) uint8, got {image.shape}", field="image")
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
     zoom = max(1, int(zoom))
