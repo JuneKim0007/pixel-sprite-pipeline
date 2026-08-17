@@ -319,6 +319,6 @@ are how the work gets verified.
 |---|---|
 | `props` reaches `llm` | walk the import graph for a path between them; it should not exist after step 1 |
 | six registries | count `discover`/`REGISTRY`/`register` definitions; should reach one implementation |
-| 79 builtin raises | count `ast.Raise` by exception name; should fall toward zero |
+| 79 builtin raises | count `ast.Raise` by exception name; the target is not zero — a CLI exit code and an abstract method are correctly builtins. The claim is "no builtin raise on a path reachable from a route handler", checked by `tools/check_failures.py` in `make check` |
 | `server.py` at 1,307 lines | line count per module |
 | every field explained | already a test for `definitive`; extend to `schema.FIELDS` |

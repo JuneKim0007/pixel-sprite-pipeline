@@ -480,3 +480,42 @@ and actually works.
 
 Killing is blunt on purpose. The alternative to a killed render is not a
 completed render; it is a reboot that loses every unsaved thing on the desktop.
+
+### A taxonomy nobody checks goes backwards
+
+`shared/errors.py` gave every failure a status and `server.py` a single dispatch
+block, and the count of builtin raises then went from 79 to 80 across the next
+refactor. Total raises grew 114 to 131: the new ones used the taxonomy and the
+old ones were never converted, so the pattern looked installed and was half
+installed. `BUILTIN_STATUS` — described in its own comment as scaffolding whose
+entries should disappear — lost none.
+
+The fix was not more conversion but a check that cannot be skipped, and getting
+the claim right first. "Zero builtin raises" is the wrong target: `errors.py`
+draws the rule that a ValueError reaching the server is a defect and a
+PixelError is a message, so a CLI exit code and an abstract method must stay
+builtins. Converting them would make every failure look like a user message,
+which is the mirror of the bug.
+
+The checkable claim is **no builtin raise on a path reachable from a route
+handler**. `tools/check_failures.py` walks the call graph out from every
+`@get`/`@post`/`@put` handler and fails `make check` on one. Name resolution is
+by bare name and over-approximates deliberately: a false positive costs one
+`# not-a-message: <reason>` marker, a false negative costs a 500 in front of
+someone. The marker requires a reason, so the exemption is a claim someone can
+read and disagree with rather than an omission nobody can see.
+
+`BUILTIN_STATUS` turned out to be the same trap in miniature. Its own comment
+called it scaffolding — each entry that disappears a module whose failures have
+been named — and the natural next step was a test asserting every entry still
+has a raise site, deleting the ones that do not. Measured against the tree
+before any conversion, four of its seven entries already had zero: `open()` and
+`os` raise the permission and directory errors, and `urllib` raises
+`TimeoutError` from the ComfyUI HTTP client, which is exactly what its 504 is
+for. They were never stale; they map exceptions raised by code this repo does
+not own, so nothing here will ever raise them. The planned cleanup would have
+deleted all four and turned a ComfyUI timeout from 504 into 500 — the taxonomy
+regressing the exact bug it exists to prevent, in the name of tidying it up. The
+table's comment now says what it actually is, permanent rather than
+transitional, and a parametrized test locks the four entries and their statuses
+in place instead of chasing a raise site that was never coming.
