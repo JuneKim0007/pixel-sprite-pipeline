@@ -47,3 +47,21 @@ def test_an_unnamed_failure_shows_its_type():
 def test_not_found_reports_the_alternatives():
     listed = errors.NotFound("style sheet", "nope", available=["a", "b"])
     assert "a, b" in listed.as_dict().get("hint", "")
+
+
+@pytest.mark.parametrize("exc,status", [
+    (TimeoutError, 504),
+    (PermissionError, 403),
+    (NotADirectoryError, 400),
+    (IsADirectoryError, 400),
+])
+def test_library_raised_failures_keep_their_status(exc, status):
+    """These have no raise site in this codebase and never did.
+
+    They map what stdlib raises on a request path - urllib's TimeoutError from
+    the ComfyUI client, os's permission and directory errors. A tidy-up that
+    removes an entry because nothing here raises it turns a 504 into a 500,
+    which is the bug the taxonomy exists to prevent.
+    """
+    assert errors.BUILTIN_STATUS[exc] == status
+    assert errors.status_for(exc("x")) == status

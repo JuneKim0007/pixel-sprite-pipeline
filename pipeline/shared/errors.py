@@ -129,8 +129,16 @@ class Internal(PixelError):
     kind = "internal"
 
 
-# Builtins translated while raise sites are still being converted. Each entry
-# that disappears is a module whose failures have been named.
+# Exceptions raised by code we do not own, mapped to what they mean to a caller.
+#
+# This is not scaffolding, though it was written as though it were. Four of
+# these seven have had no raise site in this codebase from the start:
+# open() and os raise the permission and directory errors, and urllib raises
+# TimeoutError from the ComfyUI client - which is what the 504 is for.
+#
+# So an entry with no raise site here is not a finished migration, and deleting
+# one on those grounds regresses a real status to 500. Our own raise sites are
+# named by tools/check_failures.py; this table is for everyone else's.
 BUILTIN_STATUS: dict[type, int] = {
     FileNotFoundError: 404,
     PermissionError: 403,

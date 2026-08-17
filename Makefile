@@ -97,6 +97,9 @@ lint:
 	    catch (e) { console.error('  $$f: ' + e.message); process.exit(1); }" \
 	    2>/dev/null || { printf '\033[31m%s failed to compile as a module\033[0m\n' "$$f"; exit 1; }; \
 	done
+	@$(PY) tools/check_failures.py pipeline \
+	  || { printf '  \033[31munnamed failures on a user-reachable path\033[0m\n'; exit 1; }
+	@printf '  \033[32mevery user-reachable failure named\033[0m\n'
 	@printf '  \033[32mno undefined names\033[0m\n'
 
 # The api suite starts its own server on a free port, so `make test` needs
