@@ -98,6 +98,30 @@ def test_a_layer_field_is_a_field():
     assert LayerFieldAlias is LayerField
 
 
+def test_a_config_field_speaks_the_form_s_dialect():
+    """path and key are the same concept under two names, and so are type and
+    kind. The base picks one; ConfigField emits the other, because the frontend
+    reads `path` and `type` and this migration must not reach it."""
+    from pipeline.shared.contracts import ConfigField
+
+    spec = ConfigField(key="frames.steps", label="Steps", kind="int",
+                       help="How many denoising steps.", group="Frames",
+                       min=1, max=150)
+    got = spec.as_dict()
+    assert got["path"] == "frames.steps"
+    assert got["type"] == "int"
+    assert got["group"] == "Frames"
+    assert "key" not in got and "kind" not in got
+
+
+def test_every_config_field_is_a_config_field():
+    from pipeline.generation import schema
+    from pipeline.shared.contracts import ConfigField
+
+    assert len(schema.FIELDS) == 137
+    assert all(isinstance(f, ConfigField) for f in schema.FIELDS)
+
+
 def test_the_settings_form_is_unchanged_by_the_migration():
     """137 dicts become 137 declarations. The frontend must not be able to tell.
 

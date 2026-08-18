@@ -355,6 +355,7 @@
     {
       "default": 1024,
       "group": "Canonical",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -372,6 +373,7 @@
     },
     {
       "group": "Frames",
+      "help": "TODO",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -507,6 +509,7 @@
     {
       "default": "",
       "group": "Palette",
+      "help": "TODO",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -641,6 +644,7 @@
     {
       "default": 1,
       "group": "Export",
+      "help": "TODO",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -649,12 +653,14 @@
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "Ollama host",
       "modules": [
         "animation"
@@ -772,6 +778,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -790,6 +797,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -968,6 +976,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -1043,6 +1052,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -1086,6 +1096,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -1209,6 +1220,7 @@
     },
     {
       "group": "Canonical",
+      "help": "TODO",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -1230,6 +1242,7 @@
     {
       "default": 1024,
       "group": "Frames",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -1249,6 +1262,7 @@
     {
       "default": 1.2,
       "group": "Frames",
+      "help": "TODO",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -1259,18 +1273,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
+      "help": "TODO",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -1290,6 +1307,7 @@
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -1309,6 +1327,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -1318,6 +1337,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -1634,6 +1654,7 @@
     {
       "default": 1024,
       "group": "Canonical",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -1651,6 +1672,7 @@
     },
     {
       "group": "Frames",
+      "help": "TODO",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -1761,6 +1783,7 @@
     {
       "default": "",
       "group": "Palette",
+      "help": "TODO",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -1895,6 +1918,7 @@
     {
       "default": 1,
       "group": "Export",
+      "help": "TODO",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -1903,6 +1927,7 @@
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -2017,6 +2042,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -2035,6 +2061,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -2213,6 +2240,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -2288,6 +2316,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -2331,6 +2360,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -2454,6 +2484,7 @@
     },
     {
       "group": "Canonical",
+      "help": "TODO",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -2475,6 +2506,7 @@
     {
       "default": 1024,
       "group": "Frames",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -2494,6 +2526,7 @@
     {
       "default": 1.2,
       "group": "Frames",
+      "help": "TODO",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -2504,18 +2537,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
+      "help": "TODO",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -2535,6 +2571,7 @@
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -2554,6 +2591,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -2563,6 +2601,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -2981,6 +3020,7 @@
     {
       "default": 1024,
       "group": "Canonical",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -2998,6 +3038,7 @@
     },
     {
       "group": "Frames",
+      "help": "TODO",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -3133,6 +3174,7 @@
     {
       "default": "",
       "group": "Palette",
+      "help": "TODO",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -3267,6 +3309,7 @@
     {
       "default": 1,
       "group": "Export",
+      "help": "TODO",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -3275,12 +3318,14 @@
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "Ollama host",
       "modules": [
         "animation"
@@ -3398,6 +3443,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -3416,6 +3462,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -3594,6 +3641,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -3669,6 +3717,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -3712,6 +3761,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -3835,6 +3885,7 @@
     },
     {
       "group": "Canonical",
+      "help": "TODO",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -3856,6 +3907,7 @@
     {
       "default": 1024,
       "group": "Frames",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -3875,6 +3927,7 @@
     {
       "default": 1.2,
       "group": "Frames",
+      "help": "TODO",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -3885,18 +3938,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
+      "help": "TODO",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -3916,6 +3972,7 @@
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -3935,6 +3992,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -3944,6 +4002,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -4226,6 +4285,7 @@
     {
       "default": 1024,
       "group": "Canonical",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -4243,6 +4303,7 @@
     },
     {
       "group": "Frames",
+      "help": "TODO",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -4353,6 +4414,7 @@
     {
       "default": "",
       "group": "Palette",
+      "help": "TODO",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -4487,6 +4549,7 @@
     {
       "default": 1,
       "group": "Export",
+      "help": "TODO",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -4495,6 +4558,7 @@
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -4609,6 +4673,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -4627,6 +4692,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -4805,6 +4871,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -4880,6 +4947,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -4923,6 +4991,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -5046,6 +5115,7 @@
     },
     {
       "group": "Canonical",
+      "help": "TODO",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -5067,6 +5137,7 @@
     {
       "default": 1024,
       "group": "Frames",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -5086,6 +5157,7 @@
     {
       "default": 1.2,
       "group": "Frames",
+      "help": "TODO",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -5096,18 +5168,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
+      "help": "TODO",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -5127,6 +5202,7 @@
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -5146,6 +5222,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -5155,6 +5232,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -5437,6 +5515,7 @@
     {
       "default": 1024,
       "group": "Canonical",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -5454,6 +5533,7 @@
     },
     {
       "group": "Frames",
+      "help": "TODO",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -5564,6 +5644,7 @@
     {
       "default": "",
       "group": "Palette",
+      "help": "TODO",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -5698,6 +5779,7 @@
     {
       "default": 1,
       "group": "Export",
+      "help": "TODO",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -5706,6 +5788,7 @@
     },
     {
       "group": "Services",
+      "help": "TODO",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -5820,6 +5903,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -5838,6 +5922,7 @@
     },
     {
       "group": "Quality",
+      "help": "TODO",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -6016,6 +6101,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -6091,6 +6177,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -6134,6 +6221,7 @@
     },
     {
       "group": "Models",
+      "help": "TODO",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -6257,6 +6345,7 @@
     },
     {
       "group": "Canonical",
+      "help": "TODO",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -6278,6 +6367,7 @@
     {
       "default": 1024,
       "group": "Frames",
+      "help": "TODO",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -6297,6 +6387,7 @@
     {
       "default": 1.2,
       "group": "Frames",
+      "help": "TODO",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -6307,18 +6398,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
+      "help": "TODO",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -6338,6 +6432,7 @@
     },
     {
       "group": "Pose control",
+      "help": "TODO",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -6357,6 +6452,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -6366,6 +6462,7 @@
     },
     {
       "group": "Identity",
+      "help": "TODO",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,

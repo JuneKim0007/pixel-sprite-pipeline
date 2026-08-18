@@ -173,7 +173,7 @@ const schemaSrc = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf
 const settingsSrc = readFileSync(join(JS, 'views/settings/settings.js'), 'utf8');
 
 const declaredGroups = new Set(
-  [...schemaSrc.matchAll(/"group":\s*"([^"]+)"/g)].map((m) => m[1]));
+  [...schemaSrc.matchAll(/group="([^"]+)"/g)].map((m) => m[1]));
 
 test('schema declares groups at all', () => {
   assert.ok(declaredGroups.size > 5, `only found ${declaredGroups.size} groups`);

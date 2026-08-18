@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
+from ..shared.contracts import ConfigField
 
 
 MODULES: dict[str, dict[str, Any]] = {
@@ -43,302 +44,302 @@ MODULES: dict[str, dict[str, Any]] = {
 # type: text | textarea | int | float | bool | select | stages
 # `modules` restricts a field to certain pipeline kinds; absent means all.
 # `help_for` reworks the explanation per module where the meaning shifts.
-FIELDS: list[dict[str, Any]] = [
+FIELDS: list[ConfigField] = [
     # ------------------------------------------------------------- identity
-    {"path": "rig", "label": "Creature", "type": "select",
-     "options_from": "rigs_with_auto", "group": "Asset",
-     "help": "Body plan. Decides joint layout and which ControlNet channel the "
+    ConfigField(key="rig", label="Creature", kind="select",
+     options_from="rigs_with_auto", group="Asset",
+     help="Body plan. Decides joint layout and which ControlNet channel the "
              "skeleton can be sent to. Only 'humanoid' has a matching OpenPose "
              "model; every other rig uses scribble + depth, and 'blob' uses "
-             "depth alone."},
-    {"modules": ["character_sheet"], "path": "detect.model", "label": "Vision model", "type": "text",
-     "group": "Asset",
-     "help": "Used only when Creature is 'auto'. Must be a vision model in "
+             "depth alone."),
+    ConfigField(modules=["character_sheet"], key="detect.model", label="Vision model", kind="text",
+     group="Asset",
+     help="Used only when Creature is 'auto'. Must be a vision model in "
              "Ollama, e.g. qwen2.5vl:3b. Classification only — a VLM is a poor "
-             "judge of joint positions but a good judge of body plan."},
-    {"modules": ["character_sheet"], "path": "detect.min_confidence", "label": "Min confidence", "type": "float",
-     "min": 0.0, "max": 1.0, "step": 0.05, "group": "Asset",
-     "help": "Below this the detection is discarded and humanoid is used. 0 "
-             "accepts any answer."},
-    {"path": "styles", "label": "Style sheets", "type": "styles",
-     "options_from": "style_names", "group": "Asset",
-     "help": "Named looks applied beneath this pipeline. A sheet may set "
+             "judge of joint positions but a good judge of body plan."),
+    ConfigField(modules=["character_sheet"], key="detect.min_confidence", label="Min confidence", kind="float",
+     min=0.0, max=1.0, step=0.05, group="Asset",
+     help="Below this the detection is discarded and humanoid is used. 0 "
+             "accepts any answer."),
+    ConfigField(key="styles", label="Style sheets", kind="styles",
+     options_from="style_names", group="Asset",
+     help="Named looks applied beneath this pipeline. A sheet may set "
              "prompts, palette, sampler values and exemplar images together, "
              "because all of those carry a look. Later sheets win over earlier "
-             "ones, and the pipeline wins over all of them."},
-    {"path": "annotate", "label": "Reference annotation", "type": "select",
-     "options": ["skip", "if_present", "require"], "group": "Asset",
-     "help": "Whether this pipeline uses per-image rig annotations. 'skip' "
+             "ones, and the pipeline wins over all of them."),
+    ConfigField(key="annotate", label="Reference annotation", kind="select",
+     options=["skip", "if_present", "require"], group="Asset",
+     help="Whether this pipeline uses per-image rig annotations. 'skip' "
              "ignores them, which is the right default for unattended runs. "
              "'if_present' uses any that exist. 'require' holds the job until "
              "every reference has one, for when you intend to mark them by "
-             "hand before a long batch."},
-    {"path": "name", "label": "Run name", "type": "text", "group": "Asset",
-     "help": "Used for the output folder name."},
-    {"path": "subject", "label": "Subject", "type": "textarea", "group": "Asset",
-     "help": "The character. Read by every stage that writes a prompt, so it "
-             "lives in one place."},
-    {"path": "style", "label": "Style", "type": "textarea", "group": "Asset",
-     "help": "Appended to the subject. 'plain flat background' makes the "
-             "background keying in the palette stage much cleaner."},
+             "hand before a long batch."),
+    ConfigField(key="name", label="Run name", kind="text", group="Asset",
+     help="Used for the output folder name."),
+    ConfigField(key="subject", label="Subject", kind="textarea", group="Asset",
+     help="The character. Read by every stage that writes a prompt, so it "
+             "lives in one place."),
+    ConfigField(key="style", label="Style", kind="textarea", group="Asset",
+     help="Appended to the subject. 'plain flat background' makes the "
+             "background keying in the palette stage much cleaner."),
 
     # --------------------------------------------------------------- order
-    {"path": "pipeline.stop_after", "label": "Pause after stage", "type": "select",
-     "options_from": "stage_names", "group": "Pipeline",
-     "help": "Stop the run after this stage so its output can be reviewed or "
+    ConfigField(key="pipeline.stop_after", label="Pause after stage", kind="select",
+     options_from="stage_names", group="Pipeline",
+     help="Stop the run after this stage so its output can be reviewed or "
              "edited before the expensive stages consume it. Stopping after "
              "'pose' is what makes the rig editor useful — resume continues "
-             "with whatever you saved."},
-    {"path": "pipeline.stages", "label": "Stage order", "type": "stages",
-     "group": "Pipeline",
-     "help": "Validated before anything runs: a stage whose inputs aren't "
+             "with whatever you saved."),
+    ConfigField(key="pipeline.stages", label="Stage order", kind="stages",
+     group="Pipeline",
+     help="Validated before anything runs: a stage whose inputs aren't "
              "produced earlier is rejected with an explanation. Consecutive "
-             "independent CPU stages run in parallel; GPU stages never do."},
+             "independent CPU stages run in parallel; GPU stages never do."),
 
     # ---------------------------------------------------------------- pose
-    {"path": "pose.source", "label": "Pose source", "type": "select",
-     "options": ["library", "llm", "tpose", "annotation"], "group": "Pose",
-     "help": "'library' uses hand-authored poses (best quality). 'llm' drafts "
+    ConfigField(key="pose.source", label="Pose source", kind="select",
+     options=["library", "llm", "tpose", "annotation"], group="Pose",
+     help="'library' uses hand-authored poses (best quality). 'llm' drafts "
              "a new action from text and caches it. 'tpose' synthesises the "
              "rig's reference pose — what a character sheet uses. 'annotation' "
              "takes the pose from a reference image you marked up: the joints "
              "you placed become the control image, so the generation "
              "reproduces that composition with your character in it. Mark one "
-             "up in the Run tab under 'Annotate reference'."},
-    {"modules": ["animation"], "path": "pose.name", "label": "Library pose", "type": "select",
-     "options_from": "poses", "group": "Pose", "when": {"pose.source": "library"},
-     "help": "A file in poses/. Regenerate with tools/make_poses.py."},
-    {"modules": ["animation"], "path": "pose.action", "label": "Action (LLM)", "type": "textarea",
-     "group": "Pose", "when": {"pose.source": "llm"},
-     "help": "Plain description of the motion. Be explicit about the ending "
-             "position — 'ending in follow-through' beats 'attacking'."},
-    {"path": "pose.symmetric", "label": "Symmetric reference pose",
-     "type": "bool", "modules": ["character_sheet"], "group": "Pose",
-     "help": "Off by default, and worth leaving off. A mirrored T-pose puts two "
+             "up in the Run tab under 'Annotate reference'."),
+    ConfigField(modules=["animation"], key="pose.name", label="Library pose", kind="select",
+     options_from="poses", group="Pose", when={"pose.source": "library"},
+     help="A file in poses/. Regenerate with tools/make_poses.py."),
+    ConfigField(modules=["animation"], key="pose.action", label="Action (LLM)", kind="textarea",
+     group="Pose", when={"pose.source": "llm"},
+     help="Plain description of the motion. Be explicit about the ending "
+             "position — 'ending in follow-through' beats 'attacking'."),
+    ConfigField(key="pose.symmetric", label="Symmetric reference pose",
+     kind="bool", modules=["character_sheet"], group="Pose",
+     help="Off by default, and worth leaving off. A mirrored T-pose puts two "
              "horizontal limbs at shoulder height, and a prompt mentioning a "
              "sword or staff often comes back with blades drawn along them "
              "instead of arms. Arms-down also matches how references are "
-             "usually posed."},
-    {"path": "pose.view", "label": "Viewing angle", "type": "select",
-     "options": ["front", "three_quarter_front", "side", "three_quarter_rear",
+             "usually posed."),
+    ConfigField(key="pose.view", label="Viewing angle", kind="select",
+     options=["front", "three_quarter_front", "side", "three_quarter_rear",
                  "rear_turned", "rear"],
-     "free_numeric": True, "group": "Pose",
-     "help": "Poses are stored in body space and projected here, so one pose "
+     free_numeric=True, group="Pose",
+     help="Poses are stored in body space and projected here, so one pose "
              "file serves every camera. Accepts a raw angle too (e.g. 160). "
              "Past ~100 degrees the face keypoints drop automatically, which "
-             "is how the skeleton tells ControlNet the character faces away."},
-    {"path": "pose.frames", "label": "Frame count", "type": "int",
-     "min": 1, "max": 24, "group": "Pose",
-     "help": "Blank uses every frame in the pose file."},
-    {"path": "pose.fill", "label": "Frame fill", "type": "float",
-     "min": 0.0, "max": 0.98, "step": 0.02, "group": "Pose",
-     "help": "Fraction of the canvas the figure occupies. 0 leaves the pose at "
+             "is how the skeleton tells ControlNet the character faces away."),
+    ConfigField(key="pose.frames", label="Frame count", kind="int",
+     min=1, max=24, group="Pose",
+     help="Blank uses every frame in the pose file."),
+    ConfigField(key="pose.fill", label="Frame fill", kind="float",
+     min=0.0, max=0.98, step=0.02, group="Pose",
+     help="Fraction of the canvas the figure occupies. 0 leaves the pose at "
              "the size the rig was authored at, which is small — the humanoid "
              "spans 68%, so a third of the generation resolution goes to empty "
              "background. 0.88 makes a 128px sprite's character 113 pixels tall "
              "instead of 87, for the same GPU time. The tightest axis decides, "
-             "so a wingspan cannot run off the sides."},
-    {"path": "pose.size", "label": "Skeleton size", "type": "int",
-     "min": 256, "max": 2048, "step": 64, "group": "Pose",
-     "help": "Should match the generation resolution."},
-    {"path": "pose.depth_scale", "label": "Depth exaggeration", "type": "float",
-     "min": 0.0, "max": 2.5, "step": 0.05, "group": "Pose",
-     "help": "Scales forward/back motion without re-authoring the pose. Above "
-             "1.0 makes a swing reach further."},
-    {"path": "pose.lateral_scale", "label": "Stance width", "type": "float",
-     "min": 0.0, "max": 2.5, "step": 0.05, "group": "Pose",
-     "help": "Scales the character's left/right spread."},
+             "so a wingspan cannot run off the sides."),
+    ConfigField(key="pose.size", label="Skeleton size", kind="int",
+     min=256, max=2048, step=64, group="Pose",
+     help="Should match the generation resolution."),
+    ConfigField(key="pose.depth_scale", label="Depth exaggeration", kind="float",
+     min=0.0, max=2.5, step=0.05, group="Pose",
+     help="Scales forward/back motion without re-authoring the pose. Above "
+             "1.0 makes a swing reach further."),
+    ConfigField(key="pose.lateral_scale", label="Stance width", kind="float",
+     min=0.0, max=2.5, step=0.05, group="Pose",
+     help="Scales the character's left/right spread."),
 
-    {"path": "depth.near", "label": "Nearest brightness", "type": "int",
-     "min": 0, "max": 255, "step": 5, "group": "Depth",
-     "help": "Grey value for the part of the body closest to the camera. "
-             "255 is the convention the ControlNet was trained on."},
-    {"path": "depth.far", "label": "Farthest brightness", "type": "int",
-     "min": 0, "max": 255, "step": 5, "group": "Depth",
-     "help": "Grey value for the farthest part. Raising it flattens the map, "
+    ConfigField(key="depth.near", label="Nearest brightness", kind="int",
+     min=0, max=255, step=5, group="Depth",
+     help="Grey value for the part of the body closest to the camera. "
+             "255 is the convention the ControlNet was trained on."),
+    ConfigField(key="depth.far", label="Farthest brightness", kind="int",
+     min=0, max=255, step=5, group="Depth",
+     help="Grey value for the farthest part. Raising it flattens the map, "
              "which weakens the sense of rotation; lowering it past ~40 starts "
-             "losing the far limb into the background."},
-    {"path": "depth.build", "label": "Build (bulk)", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Depth",
-     "help": "How heavy the creature is, as distinct from how tall. The depth "
+             "losing the far limb into the background."),
+    ConfigField(key="depth.build", label="Build (bulk)", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Depth",
+     help="How heavy the creature is, as distinct from how tall. The depth "
              "capsules hang off the bones, and their radius is the only thing "
              "that says a character is broad — proportions make a figure "
              "taller, this makes the same skeleton read as heavyset. A YAML "
              "mapping works too, for a pot-bellied build with thin arms: "
              "{torso: 1.6, arms: 0.9}, using the same group names as "
-             "proportions."},
-    {"path": "depth.blur", "label": "Softness", "type": "float",
-     "min": 0.0, "max": 24.0, "step": 0.5, "group": "Depth",
-     "help": "Gaussian radius over the rendered limbs. Some blur is wanted: a "
-             "hard-edged depth map reads as geometry and the model draws tubes."},
+             "proportions."),
+    ConfigField(key="depth.blur", label="Softness", kind="float",
+     min=0.0, max=24.0, step=0.5, group="Depth",
+     help="Gaussian radius over the rendered limbs. Some blur is wanted: a "
+             "hard-edged depth map reads as geometry and the model draws tubes."),
 
     # ----------------------------------------------------------------- llm
-    {"modules": ["animation"], "path": "pose.llm.model", "label": "Model", "type": "select",
-     "options_from": "ollama", "group": "LLM", "when": {"pose.source": "llm"},
-     "help": "Must be pulled in Ollama. Bigger models write better motion."},
-    {"modules": ["animation"], "path": "pose.llm.temperature", "label": "Temperature", "type": "float",
-     "min": 0.0, "max": 2.0, "step": 0.05, "group": "LLM",
-     "when": {"pose.source": "llm"},
-     "help": "Creativity of the LLM only. This has nothing to do with image "
-             "variation — that is CFG and seed."},
-    {"modules": ["animation"], "path": "pose.llm.attempts", "label": "Retry attempts", "type": "int",
-     "min": 1, "max": 8, "group": "LLM", "when": {"pose.source": "llm"},
-     "help": "Rejected poses are fed back as explicit criticism and retried."},
-    {"modules": ["animation"], "path": "pose.llm.tolerance", "label": "Anatomy tolerance", "type": "float",
-     "min": 0.05, "max": 1.0, "step": 0.05, "group": "LLM",
-     "when": {"pose.source": "llm"},
-     "help": "Allowed bone-length drift after anatomy snapping. Tighter is "
-             "stricter; snapping already makes bones near-exact."},
-    {"modules": ["animation"], "path": "pose.llm.cache", "label": "Cache accepted poses", "type": "bool",
-     "group": "LLM", "when": {"pose.source": "llm"},
-     "help": "Writes to poses/generated/ so a good sequence is reusable."},
+    ConfigField(modules=["animation"], key="pose.llm.model", label="Model", kind="select",
+     options_from="ollama", group="LLM", when={"pose.source": "llm"},
+     help="Must be pulled in Ollama. Bigger models write better motion."),
+    ConfigField(modules=["animation"], key="pose.llm.temperature", label="Temperature", kind="float",
+     min=0.0, max=2.0, step=0.05, group="LLM",
+     when={"pose.source": "llm"},
+     help="Creativity of the LLM only. This has nothing to do with image "
+             "variation — that is CFG and seed."),
+    ConfigField(modules=["animation"], key="pose.llm.attempts", label="Retry attempts", kind="int",
+     min=1, max=8, group="LLM", when={"pose.source": "llm"},
+     help="Rejected poses are fed back as explicit criticism and retried."),
+    ConfigField(modules=["animation"], key="pose.llm.tolerance", label="Anatomy tolerance", kind="float",
+     min=0.05, max=1.0, step=0.05, group="LLM",
+     when={"pose.source": "llm"},
+     help="Allowed bone-length drift after anatomy snapping. Tighter is "
+             "stricter; snapping already makes bones near-exact."),
+    ConfigField(modules=["animation"], key="pose.llm.cache", label="Cache accepted poses", kind="bool",
+     group="LLM", when={"pose.source": "llm"},
+     help="Writes to poses/generated/ so a good sequence is reusable."),
 
     # ----------------------------------------------------------- canonical
-    {"path": "canonical.seed", "label": "Seed", "type": "int",
-     "min": 0, "max": 2147483647, "group": "Canonical",
-     "help": "PIN THIS. Every frame reuses it; changing it changes the "
-             "character entirely."},
-    {"path": "canonical.lcm", "label": "Fast LCM mode", "type": "bool",
-     "group": "Canonical",
-     "help": "Off for the canonical. LCM is ~3x faster but drops prompt "
-             "details — it lost 'holding a sword' in testing."},
-    {"path": "canonical.steps", "label": "Steps", "type": "int",
-     "min": 1, "max": 150, "group": "Canonical",
-     "help": "25 for quality. Below ~8 you pay fixed overhead for worse output."},
-    {"path": "canonical.cfg", "label": "CFG", "type": "float",
-     "min": 1.0, "max": 14.0, "step": 0.1, "group": "Canonical",
-     "help": "Prompt adherence. 7 is the SDXL sweet spot; use 1.5 with LCM."},
-    {"path": "canonical.lora_strength", "label": "Pixel LoRA strength",
-     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Canonical",
-     "help": "1.2 is the pixel-art-xl author's recommendation."},
-    {"path": "canonical.width", "label": "Width", "type": "int",
-     "min": 512, "max": 2048, "step": 64, "group": "Canonical",
-     "help": "SDXL is trained at 1024; smaller degrades quality and saves less "
-             "time than you'd expect."},
-    {"path": "canonical.height", "label": "Height", "type": "int",
-     "min": 512, "max": 2048, "step": 64, "group": "Canonical"},
+    ConfigField(key="canonical.seed", label="Seed", kind="int",
+     min=0, max=2147483647, group="Canonical",
+     help="PIN THIS. Every frame reuses it; changing it changes the "
+             "character entirely."),
+    ConfigField(key="canonical.lcm", label="Fast LCM mode", kind="bool",
+     group="Canonical",
+     help="Off for the canonical. LCM is ~3x faster but drops prompt "
+             "details — it lost 'holding a sword' in testing."),
+    ConfigField(key="canonical.steps", label="Steps", kind="int",
+     min=1, max=150, group="Canonical",
+     help="25 for quality. Below ~8 you pay fixed overhead for worse output."),
+    ConfigField(key="canonical.cfg", label="CFG", kind="float",
+     min=1.0, max=14.0, step=0.1, group="Canonical",
+     help="Prompt adherence. 7 is the SDXL sweet spot; use 1.5 with LCM."),
+    ConfigField(key="canonical.lora_strength", label="Pixel LoRA strength",
+     kind="float", min=0.0, max=2.0, step=0.05, group="Canonical",
+     help="1.2 is the pixel-art-xl author's recommendation."),
+    ConfigField(key="canonical.width", label="Width", kind="int",
+     min=512, max=2048, step=64, group="Canonical",
+     help="SDXL is trained at 1024; smaller degrades quality and saves less "
+             "time than you'd expect."),
+    ConfigField(key="canonical.height", label="Height", kind="int",
+     min=512, max=2048, step=64, group="Canonical", help="TODO"),
 
     # -------------------------------------------------------------- frames
-    {"path": "frames.lcm", "label": "Fast LCM mode", "type": "bool",
-     "group": "Frames",
-     "help": "On for drafts, off for the final render."},
-    {"path": "frames.steps", "label": "Steps", "type": "int",
-     "min": 1, "max": 150, "group": "Frames"},
-    {"path": "frames.cfg", "label": "CFG", "type": "float",
-     "min": 1.0, "max": 14.0, "step": 0.1, "group": "Frames",
-     "help": "1.5 with LCM. Using 7 with LCM burns the image."},
-    {"path": "frames.denoise", "label": "Denoise", "type": "float",
-     "min": 0.0, "max": 1.0, "step": 0.05, "group": "Frames",
-     "help": "1.0 generates fresh. Below 1.0 carries over the input latent — "
-             "this is the 'how much of the previous step survives' dial."},
-    {"path": "frames.guard_against_faces", "label": "Guard against faces on rear views",
-     "type": "bool", "group": "Pose control",
-     "help": "Add face, eyes, nose to the NEGATIVE on rear and near-rear "
+    ConfigField(key="frames.lcm", label="Fast LCM mode", kind="bool",
+     group="Frames",
+     help="On for drafts, off for the final render."),
+    ConfigField(key="frames.steps", label="Steps", kind="int",
+     min=1, max=150, group="Frames", help="TODO"),
+    ConfigField(key="frames.cfg", label="CFG", kind="float",
+     min=1.0, max=14.0, step=0.1, group="Frames",
+     help="1.5 with LCM. Using 7 with LCM burns the image."),
+    ConfigField(key="frames.denoise", label="Denoise", kind="float",
+     min=0.0, max=1.0, step=0.05, group="Frames",
+     help="1.0 generates fresh. Below 1.0 carries over the input latent — "
+             "this is the 'how much of the previous step survives' dial."),
+    ConfigField(key="frames.guard_against_faces", label="Guard against faces on rear views",
+     kind="bool", group="Pose control",
+     help="Add face, eyes, nose to the NEGATIVE on rear and near-rear "
              "frames. Depth renders the head as a capsule - measured, a front "
              "and rear depth map differ ~6% across the head and the two side "
              "maps are identical under mirroring - and the skeleton channel, "
              "which does encode facing, is off for a standing sheet. So "
-             "nothing geometric says 'no face' and the model draws one."},
-    {"path": "frames.guard_against_skeletons", "label": "Guard against tracing",
-     "type": "bool", "group": "Pose control",
-     "help": "Appends anti-skeleton terms to the negative prompt whenever a "
+             "nothing geometric says 'no face' and the model draws one."),
+    ConfigField(key="frames.guard_against_skeletons", label="Guard against tracing",
+     kind="bool", group="Pose control",
+     help="Appends anti-skeleton terms to the negative prompt whenever a "
              "pose guide is used. Without it the model sometimes draws the "
              "guide itself — measured: a T-pose produced a figure with swords "
-             "where its arms should be, and an undead-looking body."},
-    {"path": "frames.controlnet.enabled", "label": "Use the pose guide",
-     "type": "bool", "group": "Pose control",
-     "help": "Off is right for a standing character sheet. Measured: with it "
+             "where its arms should be, and an undead-looking body."),
+    ConfigField(key="frames.controlnet.enabled", label="Use the pose guide",
+     kind="bool", group="Pose control",
+     help="Off is right for a standing character sheet. Measured: with it "
              "on, legs came back as white shafts with ball joints — the guide "
              "drawn as bones — while depth alone gave armoured legs and boots. "
              "Leave it on for attack, hit and fall, where the pose is the "
-             "point."},
-    {"path": "frames.controlnet.strength", "label": "ControlNet strength",
-     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Pose control",
-     "help": "How hard the pose guide is enforced. Above ~0.85 the model starts "
+             "point."),
+    ConfigField(key="frames.controlnet.strength", label="ControlNet strength",
+     kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
+     help="How hard the pose guide is enforced. Above ~0.85 the model starts "
              "tracing the guide instead of using it, which is what produces "
-             "stick-figure or skeletal output."},
-    {"path": "frames.controlnet.end_percent", "label": "ControlNet end %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control",
-     "help": "Fraction of sampling the guide steers for. 0.55 lands the pose "
+             "stick-figure or skeletal output."),
+    ConfigField(key="frames.controlnet.end_percent", label="ControlNet end %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
+     help="Fraction of sampling the guide steers for. 0.55 lands the pose "
              "and leaves the second half for the LoRA to render a character "
-             "over it; holding it longer produces a traced stick figure."},
-    {"path": "frames.ip_adapter.weight", "label": "IP-Adapter weight",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Identity",
-     "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too "
-             "high looks pasted on and fights the pose."},
-    {"path": "frames.ip_adapter.weight_type", "label": "Weight type",
-     "type": "select", "group": "Identity",
-     "options": ["standard", "prompt is more important", "style transfer",
+             "over it; holding it longer produces a traced stick figure."),
+    ConfigField(key="frames.ip_adapter.weight", label="IP-Adapter weight",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Identity",
+     help="0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too "
+             "high looks pasted on and fights the pose."),
+    ConfigField(key="frames.ip_adapter.weight_type", label="Weight type",
+     kind="select", group="Identity",
+     options=["standard", "prompt is more important", "style transfer",
                  "composition", "style and composition"],
-     "help": "How the reference is blended into conditioning."},
+     help="How the reference is blended into conditioning."),
 
     # ------------------------------------------------------------- palette
-    {"modules": ["animation"], "path": "softbody.fps", "label": "Playback fps",
-     "type": "float", "min": 1, "max": 60, "step": 1, "group": "Softbody",
-     "help": "The rate the spring simulation assumes when it computes lag."},
-    {"modules": ["animation"], "path": "softbody.loop", "label": "Cyclic motion",
-     "type": "bool", "group": "Softbody",
-     "help": "Pre-rolls the simulation so frame 0 is not sitting at rest, which "
-             "otherwise reads as a hitch every time the loop restarts."},
-    {"path": "palette.source", "label": "Palette source", "type": "select",
-     "options": ["extract", "file", "llm"], "group": "Palette",
-     "help": "'extract' derives from the canonical and always matches the art. "
+    ConfigField(modules=["animation"], key="softbody.fps", label="Playback fps",
+     kind="float", min=1, max=60, step=1, group="Softbody",
+     help="The rate the spring simulation assumes when it computes lag."),
+    ConfigField(modules=["animation"], key="softbody.loop", label="Cyclic motion",
+     kind="bool", group="Softbody",
+     help="Pre-rolls the simulation so frame 0 is not sitting at rest, which "
+             "otherwise reads as a hitch every time the loop restarts."),
+    ConfigField(key="palette.source", label="Palette source", kind="select",
+     options=["extract", "file", "llm"], group="Palette",
+     help="'extract' derives from the canonical and always matches the art. "
              "'file' reuses a committed palette, keeping separate runs of the "
              "same character on-model. 'llm' chooses one by subject — only "
              "chooses; applying it stays deterministic, which is what stops "
-             "frames drifting in colour."},
-    {"path": "palette.file", "label": "Palette file", "type": "select",
-     "options_from": "palettes", "group": "Palette",
-     "when": {"palette.source": "file"}},
-    {"path": "palette.size", "label": "Palette size", "type": "int",
-     "min": 2, "max": 64, "group": "Palette",
-     "help": "Number of colours the whole animation is quantised to."},
-    {"path": "palette.factor", "label": "Downscale factor", "type": "int",
-     "min": 2, "max": 16, "group": "Palette",
-     "help": "8 gives 128px sprites from 1024. Verified as this LoRA's true "
-             "pixel grid by an intra-block variance sweep."},
-    {"path": "palette.reduce", "label": "Block reduction", "type": "select",
-     "options": ["median", "salient", "clipped", "mode", "mean"], "group": "Palette",
-     "help": "median measured 100% structural accuracy against ground truth; "
+             "frames drifting in colour."),
+    ConfigField(key="palette.file", label="Palette file", kind="select",
+     options_from="palettes", group="Palette",
+     when={"palette.source": "file"}, help="TODO"),
+    ConfigField(key="palette.size", label="Palette size", kind="int",
+     min=2, max=64, group="Palette",
+     help="Number of colours the whole animation is quantised to."),
+    ConfigField(key="palette.factor", label="Downscale factor", kind="int",
+     min=2, max=16, group="Palette",
+     help="8 gives 128px sprites from 1024. Verified as this LoRA's true "
+             "pixel grid by an intra-block variance sweep."),
+    ConfigField(key="palette.reduce", label="Block reduction", kind="select",
+     options=["median", "salient", "clipped", "mode", "mean"], group="Palette",
+     help="median measured 100% structural accuracy against ground truth; "
              "mode only 70% (noise makes every colour unique). 'clipped' means "
              "the block after throwing out pixels further than the tolerance "
              "from its mean, then re-averaging - it rejects a specular outlier "
              "that would drag a plain mean, while still letting the survivors "
-             "average rather than picking one of them."},
-    {"path": "palette.clip_tolerance", "label": "Clip tolerance", "type": "float",
-     "min": 0.0, "max": 255.0, "step": 1.0, "group": "Palette",
-     "when": {"palette.reduce": "clipped"},
-     "help": "RGB distance from the block mean beyond which a pixel is "
+             "average rather than picking one of them."),
+    ConfigField(key="palette.clip_tolerance", label="Clip tolerance", kind="float",
+     min=0.0, max=255.0, step=1.0, group="Palette",
+     when={"palette.reduce": "clipped"},
+     help="RGB distance from the block mean beyond which a pixel is "
              "discarded before re-averaging. Fixed rather than a multiple of "
              "the block's own spread, so one setting behaves the same on a "
              "flat block and a busy one. Blocks where too little survives fall "
-             "back to median, which is what stops thin outlines being eaten."},
-    {"path": "palette.alpha_tolerance", "label": "Background tolerance",
-     "type": "int", "min": 0, "max": 128, "group": "Palette",
-     "help": "Edge-connected background within this tolerance becomes "
-             "transparent. Enclosed regions are preserved."},
-    {"path": "palette.upscale", "label": "Frame upscale", "type": "int",
-     "min": 1, "max": 16, "group": "Palette",
-     "help": "Nearest-neighbour, for viewing."},
-    {"path": "palette.workers", "label": "Worker processes", "type": "int",
-     "min": 1, "max": 16, "group": "Palette",
-     "help": "Blank uses one per core. Frames are independent."},
+             "back to median, which is what stops thin outlines being eaten."),
+    ConfigField(key="palette.alpha_tolerance", label="Background tolerance",
+     kind="int", min=0, max=128, group="Palette",
+     help="Edge-connected background within this tolerance becomes "
+             "transparent. Enclosed regions are preserved."),
+    ConfigField(key="palette.upscale", label="Frame upscale", kind="int",
+     min=1, max=16, group="Palette",
+     help="Nearest-neighbour, for viewing."),
+    ConfigField(key="palette.workers", label="Worker processes", kind="int",
+     min=1, max=16, group="Palette",
+     help="Blank uses one per core. Frames are independent."),
 
-    {"path": "background.colour", "label": "Backdrop colour", "type": "text",
-     "group": "Palette",
-     "help": "Named in the prompt and removed by the keyer, so the two agree. "
+    ConfigField(key="background.colour", label="Backdrop colour", kind="text",
+     group="Palette",
+     help="Named in the prompt and removed by the keyer, so the two agree. "
              "Asking for a 'plain' background gets a lit studio card with a "
              "cast shadow, because that is what the words describe. Magenta "
              "rather than chroma green: green sits close to skin and cloth "
              "tones, and every pixel it bleeds into is one the palette has to "
-             "spend an entry on."},
-    {"path": "background.enabled", "label": "Force a backdrop", "type": "bool",
-     "group": "Palette",
-     "help": "Off leaves the background to the prompt, which is what you want "
-             "if a scene is part of the art."},
-    {"path": "palette.match", "label": "Colour matching", "type": "select",
-     "options": ["weighted", "luma", "lab", "rgb"], "group": "Palette",
-     "help": "How 'nearest colour' is decided when snapping to a fixed "
+             "spend an entry on."),
+    ConfigField(key="background.enabled", label="Force a backdrop", kind="bool",
+     group="Palette",
+     help="Off leaves the background to the prompt, which is what you want "
+             "if a scene is part of the art."),
+    ConfigField(key="palette.match", label="Colour matching", kind="select",
+     options=["weighted", "luma", "lab", "rgb"], group="Palette",
+     help="How 'nearest colour' is decided when snapping to a fixed "
              "palette. 'weighted' applies luminance weights and costs nothing "
              "over plain RGB. 'luma' matches brightness first and is the one "
              "built for sprites — a sprite reads by its value structure, so "
@@ -346,149 +347,149 @@ FIELDS: list[dict[str, Any]] = [
              "the hue is right. 'lab' is perceptually uniform and the most "
              "faithful for recolouring, at roughly ten times the cost. 'rgb' "
              "is what earlier outputs used. Irrelevant when the palette is "
-             "extracted, since it already came from these pixels."},
-    {"path": "palette.dither", "label": "Dither", "type": "bool", "group": "Palette",
-     "help": "Trades flat blocks for apparent colour depth. Leave off for the "
+             "extracted, since it already came from these pixels."),
+    ConfigField(key="palette.dither", label="Dither", kind="bool", group="Palette",
+     help="Trades flat blocks for apparent colour depth. Leave off for the "
              "chunky RPG-Maker idiom; turn on when a small palette has to "
-             "carry a gradient."},
-    {"path": "export.columns", "label": "Sheet columns", "type": "int",
-     "min": 1, "max": 32, "group": "Export",
-     "help": "Blank puts every frame in one row."},
-    {"path": "export.scale", "label": "Sheet upscale", "type": "int",
-     "min": 1, "max": 16, "group": "Export"},
+             "carry a gradient."),
+    ConfigField(key="export.columns", label="Sheet columns", kind="int",
+     min=1, max=32, group="Export",
+     help="Blank puts every frame in one row."),
+    ConfigField(key="export.scale", label="Sheet upscale", kind="int",
+     min=1, max=16, group="Export", help="TODO"),
 
     # --------------------------------------------------------------- infra
-    {"path": "comfy.host", "label": "ComfyUI host", "type": "text",
-     "group": "Services"},
-    {"modules": ["animation"], "path": "pose.llm.host", "label": "Ollama host", "type": "text",
-     "group": "Services"},
+    ConfigField(key="comfy.host", label="ComfyUI host", kind="text",
+     group="Services", help="TODO"),
+    ConfigField(modules=["animation"], key="pose.llm.host", label="Ollama host", kind="text",
+     group="Services", help="TODO"),
 
     # ---------------------------------------------------------- references
-    {"path": "references.from_run", "label": "Inherit from run", "type": "text",
-     "group": "References",
-     "help": "A previous run whose output becomes this run's identity and "
+    ConfigField(key="references.from_run", label="Inherit from run", kind="text",
+     group="References",
+     help="A previous run whose output becomes this run's identity and "
              "palette. How a character sheet feeds an animation without "
-             "regenerating the character."},
-    {"path": "frames.style_weight", "label": "Style exemplar strength",
-     "type": "float", "min": 0.0, "max": 0.6, "step": 0.05, "group": "References",
-     "help": "How hard style references push. Deliberately an order of "
+             "regenerating the character."),
+    ConfigField(key="frames.style_weight", label="Style exemplar strength",
+     kind="float", min=0.0, max=0.6, step=0.05, group="References",
+     help="How hard style references push. Deliberately an order of "
              "magnitude below identity — at identity strength a style exemplar "
-             "replaces your character with the exemplar."},
-    {"path": "references.match.tolerance_degrees", "label": "Match tolerance",
-     "type": "float", "min": 0.0, "max": 180.0, "step": 5.0, "group": "References",
-     "help": "A reference within this many degrees of the frame's viewing "
-             "angle counts as a match and gets full weight."},
-    {"path": "references.pattern", "label": "Reference path pattern", "type": "text",
-     "group": "References",
-     "help": "Find per-view references by filename instead of listing them, so "
+             "replaces your character with the exemplar."),
+    ConfigField(key="references.match.tolerance_degrees", label="Match tolerance",
+     kind="float", min=0.0, max=180.0, step=5.0, group="References",
+     help="A reference within this many degrees of the frame's viewing "
+             "angle counts as a match and gets full weight."),
+    ConfigField(key="references.pattern", label="Reference path pattern", kind="text",
+     group="References",
+     help="Find per-view references by filename instead of listing them, so "
              "a job can be written by a script and queued in bulk with nothing "
              "uploaded. Template over {name} (or {id}) and {view}, e.g. "
              "overnight/{name}/refs/{view}.png. Views: front, back, side_left, "
              "side_right. Only files that exist are added, and a view you "
-             "configured explicitly always wins."},
-    {"path": "references.match.side_fallback", "label": "Missing side",
-     "type": "select", "options": ["none", "mirror", "back", "front"],
-     "group": "References",
-     "help": "What covers a side with no reference of its own. 'mirror' reuses "
+             "configured explicitly always wins."),
+    ConfigField(key="references.match.side_fallback", label="Missing side",
+     kind="select", options=["none", "mirror", "back", "front"],
+     group="References",
+     help="What covers a side with no reference of its own. 'mirror' reuses "
              "the other side flipped - right for a symmetric outfit, wrong for "
              "a cape or an asymmetric skirt. 'back' shares most silhouette "
              "with a profile. 'none' leaves pick() to weaken the nearest "
-             "reference, which is the honest default when nothing is known."},
-    {"path": "references.match.exact_weight", "label": "Weight when matched",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "References",
-     "help": "IP-Adapter weight when a reference matches the view. High is "
+             "reference, which is the honest default when nothing is known."),
+    ConfigField(key="references.match.exact_weight", label="Weight when matched",
+     kind="float", min=0.0, max=1.5, step=0.05, group="References",
+     help="IP-Adapter weight when a reference matches the view. High is "
              "correct here — you have real evidence of what that side looks "
-             "like."},
-    {"path": "references.match.far_weight", "label": "Weight when unmatched",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "References",
-     "help": "Weight at a full 180-degree mismatch, interpolated in between. "
+             "like."),
+    ConfigField(key="references.match.far_weight", label="Weight when unmatched",
+     kind="float", min=0.0, max=1.5, step=0.05, group="References",
+     help="Weight at a full 180-degree mismatch, interpolated in between. "
              "Keep this LOW. Forcing a front reference onto a rear generation "
              "produces a front-facing sprite that fights the pose; a weak hint "
-             "leaves the model free to invent the unseen side."},
-    {"path": "references.match.auto", "label": "Automatic falloff", "type": "bool",
-     "group": "References",
-     "help": "On: weight is chosen per frame from angular distance. Off: the "
-             "fixed Identity weight is used for every frame."},
+             "leaves the model free to invent the unseen side."),
+    ConfigField(key="references.match.auto", label="Automatic falloff", kind="bool",
+     group="References",
+     help="On: weight is chosen per frame from angular distance. Off: the "
+             "fixed Identity weight is used for every frame."),
 
 
     # ------------------------------------------------------------- quality
     # Compute-heavy knobs. Ceilings are generous on purpose: the same config
     # runs on a laptop and on a lab machine, and only the numbers change.
-    {"path": "canonical.sampler", "label": "Sampler", "type": "select",
-     "options": ['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], "group": "Quality",
-     "help": "dpmpp_2m is the SDXL workhorse. dpmpp_3m_sde and uni_pc cost "
+    ConfigField(key="canonical.sampler", label="Sampler", kind="select",
+     options=['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], group="Quality",
+     help="dpmpp_2m is the SDXL workhorse. dpmpp_3m_sde and uni_pc cost "
              "more per step and can resolve finer detail. Must be 'lcm' when "
-             "LCM mode is on."},
-    {"path": "canonical.scheduler", "label": "Scheduler", "type": "select",
-     "options": ['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], "group": "Quality",
-     "help": "karras concentrates steps where they matter most. sgm_uniform is "
-             "required by LCM."},
-    {"path": "frames.sampler", "label": "Sampler (frames)", "type": "select",
-     "options": ['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], "group": "Quality"},
-    {"path": "frames.scheduler", "label": "Scheduler (frames)", "type": "select",
-     "options": ['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], "group": "Quality"},
-    {"path": "canonical.controlnet.enabled", "label": "Condition the anchor",
-     "type": "bool", "group": "Canonical",
-     "help": "Send the pose guide and depth map to the anchor as well as to "
+             "LCM mode is on."),
+    ConfigField(key="canonical.scheduler", label="Scheduler", kind="select",
+     options=['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], group="Quality",
+     help="karras concentrates steps where they matter most. sgm_uniform is "
+             "required by LCM."),
+    ConfigField(key="frames.sampler", label="Sampler (frames)", kind="select",
+     options=['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], group="Quality", help="TODO"),
+    ConfigField(key="frames.scheduler", label="Scheduler (frames)", kind="select",
+     options=['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], group="Quality", help="TODO"),
+    ConfigField(key="canonical.controlnet.enabled", label="Condition the anchor",
+     kind="bool", group="Canonical",
+     help="Send the pose guide and depth map to the anchor as well as to "
              "the frames. Without it the anchor is generated from prompt and "
              "reference alone, which is how a bow ended up drawn twice: the "
              "words said 'holding a bow' and nothing said where. With it too "
              "strong the anchor traces the depth silhouette instead. The "
              "strengths below default lower than the frames stage's because "
-             "the anchor has no anchor of its own to pull against."},
-    {"path": "canonical.controlnet.strength", "label": "Anchor pose strength",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Canonical",
-     "help": "0 disables the pose channel without disabling depth."},
-    {"path": "canonical.controlnet.end_percent", "label": "Anchor control end",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Canonical",
-     "help": "Fraction of sampling the control steers for. Held late, the "
-             "model draws the guide rather than a character."},
-    {"path": "canonical.timeout", "label": "Timeout (seconds)", "type": "int",
-     "min": 60, "max": 21600, "step": 60, "group": "Canonical",
-     "help": "How long one image may take before the run gives up. Per image, "
+             "the anchor has no anchor of its own to pull against."),
+    ConfigField(key="canonical.controlnet.strength", label="Anchor pose strength",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Canonical",
+     help="0 disables the pose channel without disabling depth."),
+    ConfigField(key="canonical.controlnet.end_percent", label="Anchor control end",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
+     help="Fraction of sampling the control steers for. Held late, the "
+             "model draws the guide rather than a character."),
+    ConfigField(key="canonical.timeout", label="Timeout (seconds)", kind="int",
+     min=60, max=21600, step=60, group="Canonical",
+     help="How long one image may take before the run gives up. Per image, "
              "not per stage — candidates are generated sequentially, so four "
-             "of them get four separate budgets."},
-    {"path": "frames.timeout", "label": "Timeout (seconds)", "type": "int",
-     "min": 60, "max": 21600, "step": 60, "group": "Frames",
-     "help": "Per frame. A stage that hangs holds the queue, so this is the "
-             "difference between one bad job and a wasted night."},
-    {"path": "canonical.candidates", "label": "Canonical candidates", "type": "int",
-     "min": 1, "max": 8, "group": "Quality",
-     "help": "Generate this many canonical sprites in one batch and keep them "
+             "of them get four separate budgets."),
+    ConfigField(key="frames.timeout", label="Timeout (seconds)", kind="int",
+     min=60, max=21600, step=60, group="Frames",
+     help="Per frame. A stage that hangs holds the queue, so this is the "
+             "difference between one bad job and a wasted night."),
+    ConfigField(key="canonical.candidates", label="Canonical candidates", kind="int",
+     min=1, max=8, group="Quality",
+     help="Generate this many canonical sprites in one batch and keep them "
              "all, so you can pick the best identity anchor instead of "
-             "re-rolling. Batching amortises the ~35s fixed cost per prompt."},
+             "re-rolling. Batching amortises the ~35s fixed cost per prompt."),
 
     # --------------------------------------------------------- proportions
     # Bone-group multipliers on top of the body plan, so a long-necked variant
     # is a config change rather than a new rig. Everything below a lengthened
     # bone moves with it, keeping the skeleton connected.
-    {"path": "proportions.head", "label": "Head size", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Also grows the skull in the depth map, which is where head volume actually reads."},
-    {"path": "proportions.neck", "label": "Neck length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "1.0 is the rig's default. 2.0 gives a giraffe-like or serpentine neck."},
-    {"path": "proportions.torso", "label": "Torso length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Stretches the spine; the limbs follow their anchors."},
-    {"path": "proportions.arms", "label": "Arm length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Long-armed apes, short-armed brawlers."},
-    {"path": "proportions.legs", "label": "Leg length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Below 1.0 gives a stubby, chibi stance."},
-    {"path": "proportions.tail", "label": "Tail length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Ignored by rigs with no tail."},
-    {"path": "proportions.wings", "label": "Wing span", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Ignored by rigs with no wings."},
-    {"path": "proportions.tentacles", "label": "Tentacle length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Octopoid rigs only."},
-    {"path": "proportions.segments", "label": "Segment length", "type": "float",
-     "min": 0.3, "max": 3.0, "step": 0.05, "group": "Proportions",
-     "help": "Serpent and centipede rigs only."},
+    ConfigField(key="proportions.head", label="Head size", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Also grows the skull in the depth map, which is where head volume actually reads."),
+    ConfigField(key="proportions.neck", label="Neck length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="1.0 is the rig's default. 2.0 gives a giraffe-like or serpentine neck."),
+    ConfigField(key="proportions.torso", label="Torso length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Stretches the spine; the limbs follow their anchors."),
+    ConfigField(key="proportions.arms", label="Arm length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Long-armed apes, short-armed brawlers."),
+    ConfigField(key="proportions.legs", label="Leg length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Below 1.0 gives a stubby, chibi stance."),
+    ConfigField(key="proportions.tail", label="Tail length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Ignored by rigs with no tail."),
+    ConfigField(key="proportions.wings", label="Wing span", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Ignored by rigs with no wings."),
+    ConfigField(key="proportions.tentacles", label="Tentacle length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Octopoid rigs only."),
+    ConfigField(key="proportions.segments", label="Segment length", kind="float",
+     min=0.3, max=3.0, step=0.05, group="Proportions",
+     help="Serpent and centipede rigs only."),
 
     # --------------------------------------------------------------- props
     # Props live in a list editor (see fields.js); this entry documents the
@@ -499,14 +500,14 @@ FIELDS: list[dict[str, Any]] = [
     # here was destroyed by the next save. props.py already reads this
     # top-level key as its fallback, and a scalar beside the list cannot be
     # clobbered by it.
-    {"path": "props_enabled", "label": "Draw held objects", "type": "bool",
-     "group": "Props",
-     "help": "Off by default for a character sheet, on for an animation, and "
+    ConfigField(key="props_enabled", label="Draw held objects", kind="bool",
+     group="Props",
+     help="Off by default for a character sheet, on for an animation, and "
              "the same prop list serves both. A sheet is a reference document "
              "- a weapon occludes the torso and arm it crosses, and is a long "
              "rigid volume the model will trace instead of the limb behind it. "
              "An attack animation is the opposite: without the weapon the arm "
-             "swings at nothing."},
+             "swings at nothing."),
     # The prop LIST itself is edited by fields.js's list editor at path
     # `props`. It deliberately has no scalar field here: one existed as
     # `props._doc` purely to give the sidebar a heading, and because
@@ -516,210 +517,210 @@ FIELDS: list[dict[str, Any]] = [
     # -------------------------------------------------------------- models
     # Per-pipeline weight selection: a lighter pipeline can point at a smaller
     # LLM or a different LoRA without touching the others.
-    {"path": "models.checkpoint", "label": "Checkpoint", "type": "select",
-     "options_from": "checkpoints", "group": "Models",
-     "help": "Base diffusion weights. SDXL is what the pixel LoRA was trained "
-             "against; swapping the base usually means swapping the LoRA too."},
-    {"path": "models.pixel_lora", "label": "Style LoRA", "type": "select",
-     "options_from": "loras", "group": "Models"},
-    {"path": "frames.ip_adapter.anchor", "label": "Anchor to canonical",
-     "type": "bool", "group": "Identity",
-     "help": "Apply the canonical sprite to every frame at equal weight, "
+    ConfigField(key="models.checkpoint", label="Checkpoint", kind="select",
+     options_from="checkpoints", group="Models",
+     help="Base diffusion weights. SDXL is what the pixel LoRA was trained "
+             "against; swapping the base usually means swapping the LoRA too."),
+    ConfigField(key="models.pixel_lora", label="Style LoRA", kind="select",
+     options_from="loras", group="Models", help="TODO"),
+    ConfigField(key="frames.ip_adapter.anchor", label="Anchor to canonical",
+     kind="bool", group="Identity",
+     help="Apply the canonical sprite to every frame at equal weight, "
              "underneath the matched identity reference. It is the only input "
              "that does not vary, so it is what keeps frames on-model with "
              "each other. Turning it off reverts to steering from the "
-             "reference alone, which leaves rear views with no anchor."},
-    {"path": "frames.ip_adapter.anchor_weight", "label": "Anchor weight",
-     "type": "float", "min": 0.0, "max": 1.2, "step": 0.05, "group": "Identity",
-     "help": "How hard the canonical pulls. Too high and every frame becomes "
-             "the canonical's pose; too low and the frames drift apart."},
-    {"path": "frames.ip_adapter.anchor_weight_type", "label": "Anchor transfer",
-     "type": "select",
-     "options": ["linear", "style transfer", "style and composition", "strong style transfer"],
-     "group": "Identity",
-     "help": "What the anchor carries. Keep 'linear'. 'style and composition' "
+             "reference alone, which leaves rear views with no anchor."),
+    ConfigField(key="frames.ip_adapter.anchor_weight", label="Anchor weight",
+     kind="float", min=0.0, max=1.2, step=0.05, group="Identity",
+     help="How hard the canonical pulls. Too high and every frame becomes "
+             "the canonical's pose; too low and the frames drift apart."),
+    ConfigField(key="frames.ip_adapter.anchor_weight_type", label="Anchor transfer",
+     kind="select",
+     options=["linear", "style transfer", "style and composition", "strong style transfer"],
+     group="Identity",
+     help="What the anchor carries. Keep 'linear'. 'style and composition' "
              "also copies the canonical's LAYOUT, and the canonical is "
              "front-facing — at anchor weight 0.9 it outvoted the depth map "
              "that carries yaw and every side and rear frame came back facing "
-             "front, with the canonical's backdrop over the keyed one."},
-    {"path": "frames.ip_adapter.anchor_falloff", "label": "Anchor falloff",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity",
-     "help": "How much the anchor weakens as a frame turns away from it. "
+             "front, with the canonical's backdrop over the keyed one."),
+    ConfigField(key="frames.ip_adapter.anchor_falloff", label="Anchor falloff",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
+     help="How much the anchor weakens as a frame turns away from it. "
              "Reference weight already falls off with angle; the anchor's did "
              "not, so on a rear frame the FRONT canonical stayed at full "
              "weight while the rear reference was discounted for being far "
              "away — the anchor outvoted the only image showing the back. "
              "0 keeps the old fixed behaviour. Needs a reference at the far "
-             "views, or nothing holds them together."},
-    {"path": "frames.ip_adapter.anchor_far_weight", "label": "Anchor weight when opposite",
-     "type": "float", "min": 0.0, "max": 1.2, "step": 0.05, "group": "Identity",
-     "help": "What the anchor decays to 180 degrees away, at falloff 1.0."},
-    {"path": "frames.ip_adapter.anchor_end_at", "label": "Anchor end %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity",
-     "help": "Fraction of sampling the anchor steers for. 1.0 holds identity "
+             "views, or nothing holds them together."),
+    ConfigField(key="frames.ip_adapter.anchor_far_weight", label="Anchor weight when opposite",
+     kind="float", min=0.0, max=1.2, step=0.05, group="Identity",
+     help="What the anchor decays to 180 degrees away, at falloff 1.0."),
+    ConfigField(key="frames.ip_adapter.anchor_end_at", label="Anchor end %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
+     help="Fraction of sampling the anchor steers for. 1.0 holds identity "
              "throughout. Lower it if frames still inherit the anchor's pose "
-             "after switching transfer to linear."},
-    {"path": "models.style_lora", "label": "Style LoRA", "type": "select",
-     "options_from": "loras", "group": "Models",
-     "help": "A look you trained, stacked on top of the pixel LoRA. One style "
+             "after switching transfer to linear."),
+    ConfigField(key="models.style_lora", label="Style LoRA", kind="select",
+     options_from="loras", group="Models",
+     help="A look you trained, stacked on top of the pixel LoRA. One style "
              "LoRA serves every character, which is why it is the better first "
              "thing to train. Watch the total: pixel-art-xl already runs at "
-             "1.2, so two style signals compete unless one comes down."},
-    {"path": "models.style_lora_strength", "label": "Style LoRA strength",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Models"},
-    {"path": "models.character_lora", "label": "Character LoRA", "type": "select",
-     "options_from": "loras", "group": "Models",
-     "help": "One character, trained across ALL its views. A LoRA cancels what "
+             "1.2, so two style signals compete unless one comes down."),
+    ConfigField(key="models.style_lora_strength", label="Style LoRA strength",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Models", help="TODO"),
+    ConfigField(key="models.character_lora", label="Character LoRA", kind="select",
+     options_from="loras", group="Models",
+     help="One character, trained across ALL its views. A LoRA cancels what "
              "varies, so pooling the angles teaches it who the character is "
              "and discards the camera - which is right, because depth and "
              "ControlNet supply the angle. Split per view it would bake the "
-             "camera into identity and fight them."},
-    {"path": "models.character_lora_strength", "label": "Character LoRA strength",
-     "type": "float", "min": 0.0, "max": 1.5, "step": 0.05, "group": "Models",
-     "help": "Start low (0.4-0.6) and raise. Strength at inference is a "
-             "reversible dial; an under-trained LoRA is not."},
-    {"path": "models.vae", "label": "VAE", "type": "select",
-     "options_from": "vae", "group": "Models",
-     "help": "Must match the checkpoint's family. A mismatched VAE does not "
+             "camera into identity and fight them."),
+    ConfigField(key="models.character_lora_strength", label="Character LoRA strength",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Models",
+     help="Start low (0.4-0.6) and raise. Strength at inference is a "
+             "reversible dial; an under-trained LoRA is not."),
+    ConfigField(key="models.vae", label="VAE", kind="select",
+     options_from="vae", group="Models",
+     help="Must match the checkpoint's family. A mismatched VAE does not "
              "error — it decodes to a colour cast with crushed blacks, which "
-             "is what an Illustrious A/B produced while borrowing SDXL's."},
-    {"path": "models.controlnet", "label": "ControlNet", "type": "select",
-     "options_from": "controlnets", "group": "Models",
-     "help": "The Union ProMax model covers openpose, depth, scribble and more "
-             "in one file, which keeps memory down versus one model per type."},
-    {"path": "models.ipadapter", "label": "IP-Adapter", "type": "select",
-     "options_from": "ipadapters", "group": "Models"},
+             "is what an Illustrious A/B produced while borrowing SDXL's."),
+    ConfigField(key="models.controlnet", label="ControlNet", kind="select",
+     options_from="controlnets", group="Models",
+     help="The Union ProMax model covers openpose, depth, scribble and more "
+             "in one file, which keeps memory down versus one model per type."),
+    ConfigField(key="models.ipadapter", label="IP-Adapter", kind="select",
+     options_from="ipadapters", group="Models", help="TODO"),
 
     # ------------------------------------------------------------- compute
     # NOTE: there is deliberately no "GPU cores" control. Metal exposes no way
     # to partition the GPU between processes — no equivalent of
     # CUDA_VISIBLE_DEVICES or MIG. The honest levers are memory ceiling, VRAM
     # policy, CPU threads, and how much work you ask for.
-    {"path": "cooling.enabled", "label": "Rest between GPU tasks", "type": "bool",
-     "group": "Compute",
-     "help": "Pause after each GPU task so a long queue does not hold the "
+    ConfigField(key="cooling.enabled", label="Rest between GPU tasks", kind="bool",
+     group="Compute",
+     help="Pause after each GPU task so a long queue does not hold the "
              "machine at its throttle point all night. Nothing needs the pause "
              "to work — it is there because sustained heat shortens a battery "
-             "and a throttling machine finishes anyway, quietly aged."},
-    {"path": "cooling.seconds", "label": "Rest length (seconds)", "type": "int",
-     "min": 0, "max": 1800, "step": 30, "group": "Compute",
-     "help": "Per rest, and rests fall between tasks — between stages, between "
+             "and a throttling machine finishes anyway, quietly aged."),
+    ConfigField(key="cooling.seconds", label="Rest length (seconds)", kind="int",
+     min=0, max=1800, step=30, group="Compute",
+     help="Per rest, and rests fall between tasks — between stages, between "
              "candidates, between frames — never before the first or after the "
              "last. At 180s a fifty-image night spends two and a half hours "
-             "resting; that is the trade being made."},
-    {"path": "compute.vram_mode", "label": "VRAM policy", "type": "select",
-     "options": ["gpu-only", "highvram", "normalvram", "lowvram", "cpu"],
-     "group": "Compute",
-     "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on "
+             "resting; that is the trade being made."),
+    ConfigField(key="compute.vram_mode", label="VRAM policy", kind="select",
+     options=["gpu-only", "highvram", "normalvram", "lowvram", "cpu"],
+     group="Compute",
+     help="Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on "
              "the GPU (~8% faster here). 'lowvram' offloads aggressively — "
-             "slower, but survives bigger models. Requires a restart."},
-    {"path": "compute.mps_high_watermark", "label": "MPS memory ceiling",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Compute",
-     "help": "Fraction of unified memory PyTorch may allocate "
+             "slower, but survives bigger models. Requires a restart."),
+    ConfigField(key="compute.mps_high_watermark", label="MPS memory ceiling",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Compute",
+     help="Fraction of unified memory PyTorch may allocate "
              "(PYTORCH_MPS_HIGH_WATERMARK_RATIO). 0.0 disables the limit. "
-             "Lower it to leave room for other apps; too low causes OOM."},
-    {"path": "compute.torch_threads", "label": "CPU threads (torch)",
-     "type": "int", "min": 1, "max": 16, "group": "Compute",
-     "help": "Threads for CPU-side tensor work. The M4 has 4 performance and "
-             "6 efficiency cores; more threads is not always faster."},
-    {"path": "compute.cpu_workers", "label": "CPU worker processes",
-     "type": "int", "min": 1, "max": 16, "group": "Compute",
-     "help": "Parallel processes for CPU stages such as pixelization. "
-             "Overrides palette.workers when set."},
-    {"path": "compute.batch", "label": "Batch size", "type": "int",
-     "min": 1, "max": 8, "group": "Compute",
-     "help": "Images per queued prompt. Each prompt costs ~35s of fixed "
+             "Lower it to leave room for other apps; too low causes OOM."),
+    ConfigField(key="compute.torch_threads", label="CPU threads (torch)",
+     kind="int", min=1, max=16, group="Compute",
+     help="Threads for CPU-side tensor work. The M4 has 4 performance and "
+             "6 efficiency cores; more threads is not always faster."),
+    ConfigField(key="compute.cpu_workers", label="CPU worker processes",
+     kind="int", min=1, max=16, group="Compute",
+     help="Parallel processes for CPU stages such as pixelization. "
+             "Overrides palette.workers when set."),
+    ConfigField(key="compute.batch", label="Batch size", kind="int",
+     min=1, max=8, group="Compute",
+     help="Images per queued prompt. Each prompt costs ~35s of fixed "
              "overhead regardless of steps, so batching amortises it: batch 4 "
-             "measured 49s/image versus 71s one at a time."},
+             "measured 49s/image versus 71s one at a time."),
 
     # --------------------------------------------------- previously unreachable
     # Settings the stages already read but nothing declared, so the form could
     # not show them and they could only be set by hand-editing YAML. Found by
     # diffing every opt(cfg, "...") call against this list.
-    {"path": "canonical.per_view", "label": "One anchor per view", "type": "bool",
-     "group": "Canonical",
-     "help": "Generate a canonical for every view in pose.set instead of one "
+    ConfigField(key="canonical.per_view", label="One anchor per view", kind="bool",
+     group="Canonical",
+     help="Generate a canonical for every view in pose.set instead of one "
              "for the first. With a single front anchor the other views must "
              "invent their angle - the anchor is the right medium facing the "
              "wrong way, the matched reference the right way in the wrong "
              "medium. Per view one input is correct on both. They do not drift "
              "apart, because each is pinned to a labelled view of the same "
-             "reference sheet. Costs one generation per view."},
-    {"path": "canonical.batch_candidates", "label": "Batch the candidates",
-     "type": "bool", "group": "Canonical",
-     "help": "One prompt for all candidates instead of one each. Measured 14% "
+             "reference sheet. Costs one generation per view."),
+    ConfigField(key="canonical.batch_candidates", label="Batch the candidates",
+     kind="bool", group="Canonical",
+     help="One prompt for all candidates instead of one each. Measured 14% "
              "faster and under half the swapping — but batching cannot rest "
              "between candidates, so an overnight run with cooling on wants "
-             "this off, and a 1280 canvas may not fit the batch in 16 GB."},
-    {"path": "canonical.style_weight", "label": "Style exemplar strength",
-     "type": "float", "min": 0.0, "max": 0.6, "step": 0.05, "group": "Canonical",
-     "help": "Exemplars carry rendering, not colour. At the 0.35 role default "
+             "this off, and a 1280 canvas may not fit the batch in 16 GB."),
+    ConfigField(key="canonical.style_weight", label="Style exemplar strength",
+     kind="float", min=0.0, max=0.6, step=0.05, group="Canonical",
+     help="Exemplars carry rendering, not colour. At the 0.35 role default "
              "silver-haired exemplars pulled a crimson character toward "
              "lavender; 0.18 keeps the brushwork and lets the prompt keep the "
-             "palette. frames.style_weight was declared and this was not."},
-    {"path": "canonical.view", "label": "Anchor view", "type": "text",
-     "group": "Canonical",
-     "help": "Which way the anchor faces — a named view or degrees. Blank "
+             "palette. frames.style_weight was declared and this was not."),
+    ConfigField(key="canonical.view", label="Anchor view", kind="text",
+     group="Canonical",
+     help="Which way the anchor faces — a named view or degrees. Blank "
              "follows the first entry in pose.set, which is what a sheet "
-             "wants: every other frame then turns away from it symmetrically."},
-    {"path": "canonical.negative", "label": "Negative prompt", "type": "textarea",
-     "group": "Canonical",
-     "help": "Naming a failure is what stops it. The default names the "
-             "tracing failure (skeleton, bones, stick figure, wireframe)."},
-    {"path": "canonical.controlnet.union_type", "label": "Anchor control type",
-     "type": "text", "group": "Canonical",
-     "help": "The Union model handles ten conditioning types and defaults to "
+             "wants: every other frame then turns away from it symmetrically."),
+    ConfigField(key="canonical.negative", label="Negative prompt", kind="textarea",
+     group="Canonical",
+     help="Naming a failure is what stops it. The default names the "
+             "tracing failure (skeleton, bones, stick figure, wireframe)."),
+    ConfigField(key="canonical.controlnet.union_type", label="Anchor control type",
+     kind="text", group="Canonical",
+     help="The Union model handles ten conditioning types and defaults to "
              "guessing. Naming the input is the difference between the pose "
-             "being applied and quietly ignored."},
-    {"path": "canonical.controlnet.start_percent", "label": "Anchor control start",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Canonical"},
+             "being applied and quietly ignored."),
+    ConfigField(key="canonical.controlnet.start_percent", label="Anchor control start",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical", help="TODO"),
 
-    {"path": "frames.width", "label": "Width", "type": "int",
-     "min": 512, "max": 2048, "step": 64, "group": "Frames",
-     "help": "Keep equal to canonical.width — the anchor and the frames should "
-             "be drawn at one scale."},
-    {"path": "frames.height", "label": "Height", "type": "int",
-     "min": 512, "max": 2048, "step": 64, "group": "Frames"},
-    {"path": "frames.seed", "label": "Seed", "type": "int",
-     "min": 0, "max": 2147483647, "group": "Frames",
-     "help": "Identical for every frame on purpose: same seed, same prompt, "
-             "same anchor, DIFFERENT skeleton is the consistency recipe."},
-    {"path": "frames.lora_strength", "label": "Pixel LoRA strength",
-     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Frames"},
-    {"path": "frames.negative", "label": "Negative prompt", "type": "textarea",
-     "group": "Frames"},
-    {"path": "frames.controlnet.union_type", "label": "Pose control type",
-     "type": "text", "group": "Pose control"},
-    {"path": "frames.controlnet.start_percent", "label": "ControlNet start %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control"},
-    {"path": "frames.depth_controlnet.strength", "label": "Depth strength",
-     "type": "float", "min": 0.0, "max": 2.0, "step": 0.05, "group": "Pose control",
-     "help": "Depth is the ONLY channel that carries the viewing angle — a 2D "
+    ConfigField(key="frames.width", label="Width", kind="int",
+     min=512, max=2048, step=64, group="Frames",
+     help="Keep equal to canonical.width — the anchor and the frames should "
+             "be drawn at one scale."),
+    ConfigField(key="frames.height", label="Height", kind="int",
+     min=512, max=2048, step=64, group="Frames", help="TODO"),
+    ConfigField(key="frames.seed", label="Seed", kind="int",
+     min=0, max=2147483647, group="Frames",
+     help="Identical for every frame on purpose: same seed, same prompt, "
+             "same anchor, DIFFERENT skeleton is the consistency recipe."),
+    ConfigField(key="frames.lora_strength", label="Pixel LoRA strength",
+     kind="float", min=0.0, max=2.0, step=0.05, group="Frames", help="TODO"),
+    ConfigField(key="frames.negative", label="Negative prompt", kind="textarea",
+     group="Frames", help="TODO"),
+    ConfigField(key="frames.controlnet.union_type", label="Pose control type",
+     kind="text", group="Pose control", help="TODO"),
+    ConfigField(key="frames.controlnet.start_percent", label="ControlNet start %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control", help="TODO"),
+    ConfigField(key="frames.depth_controlnet.strength", label="Depth strength",
+     kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
+     help="Depth is the ONLY channel that carries the viewing angle — a 2D "
              "skeleton cannot express yaw. But the capsules are a bare body, "
              "so pushing this hard makes a costumed character collapse toward "
-             "the naked silhouette: at 0.75 a veiled figure came back columnar."},
-    {"path": "frames.depth_controlnet.start_percent", "label": "Depth start %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control"},
-    {"path": "frames.depth_controlnet.end_percent", "label": "Depth end %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Pose control",
-     "help": "Hold it long enough to survive the anchor, which runs to 100%."},
-    {"path": "frames.ip_adapter.start_at", "label": "Identity start %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity"},
-    {"path": "frames.ip_adapter.end_at", "label": "Identity end %",
-     "type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "group": "Identity"},
+             "the naked silhouette: at 0.75 a veiled figure came back columnar."),
+    ConfigField(key="frames.depth_controlnet.start_percent", label="Depth start %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control", help="TODO"),
+    ConfigField(key="frames.depth_controlnet.end_percent", label="Depth end %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
+     help="Hold it long enough to survive the anchor, which runs to 100%."),
+    ConfigField(key="frames.ip_adapter.start_at", label="Identity start %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity", help="TODO"),
+    ConfigField(key="frames.ip_adapter.end_at", label="Identity end %",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity", help="TODO"),
 
-    {"path": "depth.size", "label": "Depth map size", "type": "int",
-     "min": 256, "max": 2048, "step": 64, "group": "Depth",
-     "help": "Blank follows pose.size. Both are control images, so they should "
-             "match the canvas they steer."},
+    ConfigField(key="depth.size", label="Depth map size", kind="int",
+     min=256, max=2048, step=64, group="Depth",
+     help="Blank follows pose.size. Both are control images, so they should "
+             "match the canvas they steer."),
     # softbody.nodes is intentionally absent: it holds a LIST and fields.js
     # already registers a list editor for that path. Declaring it as an int
     # here drew a SECOND control on the same key, and typing in it replaced
     # the list with a number.
-    {"path": "softbody.preroll_cycles", "label": "Preroll cycles", "type": "int",
-     "min": 0, "max": 16, "group": "Softbody",
-     "help": "Cycles simulated before the first kept frame, so the wobble "
-             "starts settled instead of springing from rest."},
+    ConfigField(key="softbody.preroll_cycles", label="Preroll cycles", kind="int",
+     min=0, max=16, group="Softbody",
+     help="Cycles simulated before the first kept frame, so the wobble "
+             "starts settled instead of springing from rest."),
 ]
 
 
@@ -806,10 +807,10 @@ def fields_for(module: str | None) -> list[dict[str, Any]]:
     """Fields relevant to a pipeline kind, with any per-module rewording applied."""
     out = []
     for field in FIELDS:
-        scope = field.get("modules")
+        scope = field.modules
         if scope and module and module not in scope:
             continue
-        entry = dict(field)
+        entry = field.as_dict()
         override = (entry.pop("help_for", None) or {}).get(module or "")
         if override:
             entry["help"] = override

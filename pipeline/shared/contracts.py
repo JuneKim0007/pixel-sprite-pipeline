@@ -151,3 +151,54 @@ class LayerField(Field):
     every consumer instead of one.
     """
 
+
+@dataclass
+class ConfigField(Field):
+    """A `Field` on the pipeline settings form.
+
+    `kind` also accepts `text`, `textarea`, `styles`, `stages` here.
+    `styles`/`stages` are opaque lists owned by the frontend's list editor
+    (fields.js) - no bounds apply, so clamp/check just pass them through.
+    """
+
+    group: str = ""
+    modules: list[str] = dc_field(default_factory=list)
+    options_from: str = ""
+    free_numeric: bool = False
+
+    def as_dict(self) -> dict:
+        base = super().as_dict()
+        base["path"] = base.pop("key")
+        base["type"] = base.pop("kind")
+        base["group"] = self.group
+        # Every `options` in this file is a flat list of strings, not the
+        # base's (value, label) tuples - the base's `list(o)` would shred
+        # each string into its characters. Only listify actual tuples.
+        base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
+                            for o in self.options]
+        # No `default` on a ConfigField: fields_for() fills it from the
+        # stage's own DEFAULTS and detects that via `"default" not in entry`.
+        # Keeping a `default: None` key here would defeat that check.
+        del base["default"]
+        # Unset bounds are dropped, not nulled, so a field that never
+        # declared one doesn't grow a key it never had.
+        for key, empty in (("min", None), ("max", None), ("step", None),
+                            ("options", []), ("when", {})):
+            if base[key] == empty:
+                del base[key]
+        if self.modules:
+            base["modules"] = self.modules
+        if self.options_from:
+            base["options_from"] = self.options_from
+        if self.free_numeric:
+            base["free_numeric"] = self.free_numeric
+        return base
+
+    def _in_range(self, value) -> bool:
+        # The base assumes (value, label) tuples and reads o[0]; on a flat
+        # string that reads the first character instead of the option.
+        if self.kind == "select" and self.options and not isinstance(
+                self.options[0], (list, tuple)):
+            return str(value) in {str(o) for o in self.options}
+        return super()._in_range(value)
+
