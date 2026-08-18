@@ -98,6 +98,31 @@ def test_a_layer_field_is_a_field():
     assert LayerFieldAlias is LayerField
 
 
+def test_the_settings_form_is_unchanged_by_the_migration():
+    """137 dicts become 137 declarations. The frontend must not be able to tell.
+
+    Captured before the migration and asserted after it, so this is proof rather
+    than hope - the settings form is generated from exactly this shape, and a
+    silently dropped key is a control that stops rendering.
+    """
+    import json
+    import pathlib
+
+    from pipeline.generation import schema
+
+    want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
+    # None is not a valid JSON object key. json.dumps would normally convert it
+    # to "null" during encoding, but sort_keys=True sorts the raw dict items
+    # first - comparing None against the str keys of the other modules raises
+    # TypeError before encoding gets the chance. Converting it ourselves keeps
+    # capture (see the golden file's generation) and comparison identical.
+    got = json.loads(json.dumps(
+        {("null" if m is None else m): schema.fields_for(m)
+         for m in [None, *schema.MODULES]},
+        sort_keys=True, default=str))
+    assert got == want
+
+
 def test_contracts_depends_on_nothing_but_errors():
     """shared/ is defined by having no dependencies, not by being useful.
 
