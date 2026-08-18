@@ -138,3 +138,16 @@ class Field:
             raise Invalid(f"'{self.key}' got {value!r}, which is out of range"
                           f"{detail}", field=self.key)
         return coerced
+
+
+@dataclass
+class LayerField(Field):
+    """A `Field` describing one setting of a `definitive` layer.
+
+    No attributes of its own: it exists so the surface has a name distinct
+    from the base, and so a bound that only ever makes sense for a layer -
+    something about how it interacts with admission control, say - has
+    somewhere to go later that is not `Field` itself, where it would apply to
+    every consumer instead of one.
+    """
+

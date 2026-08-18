@@ -77,6 +77,27 @@ def test_as_dict_carries_everything_a_form_needs():
     assert got["min"] == 1 and got["max"] == 150
 
 
+def test_the_layer_catalogue_is_unchanged_by_the_migration():
+    """The editor's form is built from this. A migration that changes its shape
+    changes the UI, which is not what a migration is for."""
+    import json
+    import pathlib
+
+    from pipeline import definitive
+
+    want = json.loads(pathlib.Path("tests/golden/layer_catalogue.json").read_text())
+    got = json.loads(json.dumps(definitive.catalogue(), sort_keys=True, default=str))
+    assert got == want
+
+
+def test_a_layer_field_is_a_field():
+    from pipeline.definitive.layers import Field as LayerFieldAlias
+    from pipeline.shared.contracts import Field, LayerField
+
+    assert issubclass(LayerFieldAlias, Field)
+    assert LayerFieldAlias is LayerField
+
+
 def test_contracts_depends_on_nothing_but_errors():
     """shared/ is defined by having no dependencies, not by being useful.
 

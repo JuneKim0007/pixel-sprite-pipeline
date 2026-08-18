@@ -1,12 +1,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field as dc_field
-from typing import Any, Callable
+from dataclasses import dataclass
+from typing import Callable
 
 from contextvars import ContextVar
 
 from ..shared import limits
+from ..shared.contracts import LayerField as Field
 from ..shared.errors import Invalid, TooLarge
 from ..shared.registry import Decorated, Registry
 
@@ -41,62 +42,6 @@ _LAYERS: Registry["LayerSpec"] = Registry("layer", _SOURCE)
 
 # Kept as a name because callers read it directly; it is the same dict.
 REGISTRY: dict[str, "LayerSpec"] = _SOURCE.entries
-
-
-@dataclass
-class Field:
-    """One configurable value, and everything any consumer needs to know."""
-
-    key: str
-    label: str
-    kind: str = "float"                       # float | int | bool | select | text
-    help: str = ""
-    min: float | None = None
-    max: float | None = None
-    step: float | None = None
-    options: list[tuple[str, str]] = dc_field(default_factory=list)
-    default: Any = None
-    # A control that only makes sense when another is set a certain way.
-    when: dict[str, Any] = dc_field(default_factory=dict)
-
-    def as_dict(self) -> dict:
-        return {
-            "key": self.key, "label": self.label, "kind": self.kind,
-            "help": self.help, "min": self.min, "max": self.max,
-            "step": self.step, "options": [list(o) for o in self.options],
-            "default": self.default, "when": self.when,
-        }
-
-    def clamp(self, value):
-        """The caller's value, coerced to this field's kind and bounds.
-
-        min and max were declared here from the beginning and, until this
-        existed, went nowhere but the browser: as_dict sent them to build the
-        form and the server then took whatever arrived in the request body.
-        A zoom declared max=16 accepted 64, which is sixteen times the pixels
-        the control admits to - and a request is not a form. Anything the UI
-        cannot ask for, the API now will not accept either.
-        """
-        if value is None:
-            return self.default
-        try:
-            if self.kind == "int":
-                value = int(value)
-            elif self.kind == "float":
-                value = float(value)
-            elif self.kind == "bool":
-                return bool(value)
-        except (TypeError, ValueError):
-            return self.default
-        if self.kind == "select" and self.options:
-            allowed = {str(o[0]) for o in self.options}
-            return value if str(value) in allowed else self.default
-        if self.kind in ("int", "float"):
-            if self.min is not None:
-                value = max(value, type(value)(self.min))
-            if self.max is not None:
-                value = min(value, type(value)(self.max))
-        return value
 
 
 def _guard_prepare(key: str, fn):

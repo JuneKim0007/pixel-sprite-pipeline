@@ -1,0 +1,357 @@
+[
+  {
+    "fields": [
+      {
+        "default": 1.0,
+        "help": "Redistributes values inside the range instead of shifting the whole range. This is what 'the shadows are too dark but the highlights are fine' actually needs.",
+        "key": "gamma",
+        "kind": "float",
+        "label": "Gamma",
+        "max": 2.5,
+        "min": 0.4,
+        "options": [],
+        "step": 0.05,
+        "when": {}
+      },
+      {
+        "default": 1.0,
+        "help": "Where this layer sits decides what it does. Before the palette, lifting contrast pushes midtones out to the ends of the ramp and the sprite takes up its light and dark entries. After it, the same adjustment just moves colours off the palette again.",
+        "key": "contrast",
+        "kind": "float",
+        "label": "Contrast",
+        "max": 2.5,
+        "min": 0.4,
+        "options": [],
+        "step": 0.05,
+        "when": {}
+      },
+      {
+        "default": 0.0,
+        "help": "Shifts every value equally, which flattens the ramp. Gamma is usually the better tool.",
+        "key": "brightness",
+        "kind": "float",
+        "label": "Brightness",
+        "max": 0.4,
+        "min": -0.4,
+        "options": [],
+        "step": 0.02,
+        "when": {}
+      },
+      {
+        "default": 1.0,
+        "help": "Colour intensity. Dropping it toward 0 is how a limited palette gets a muted variant of the same art.",
+        "key": "saturation",
+        "kind": "float",
+        "label": "Saturation",
+        "max": 2.5,
+        "min": 0.0,
+        "options": [],
+        "step": 0.05,
+        "when": {}
+      }
+    ],
+    "key": "curves",
+    "label": "Curves",
+    "order": 10,
+    "repeatable": false,
+    "summary": "Tone, before anything is quantised"
+  },
+  {
+    "fields": [
+      {
+        "default": 0,
+        "help": "How many screen pixels become one logical pixel. Zero measures it: the largest factor that reduces the image without loss. Override only when the measurement is visibly wrong, because it is a property of the picture rather than a preference.",
+        "key": "factor",
+        "kind": "int",
+        "label": "Block size",
+        "max": 64,
+        "min": 0,
+        "options": [],
+        "step": 1,
+        "when": {}
+      },
+      {
+        "default": "auto",
+        "help": "Where the lattice starts. The generated grid rarely begins at 0,0 and sampling on the wrong phase straddles block boundaries, smearing two logical pixels into one. This is the single biggest cause of muddy output.",
+        "key": "phase",
+        "kind": "select",
+        "label": "Grid origin",
+        "max": null,
+        "min": null,
+        "options": [
+          [
+            "auto",
+            "Auto, minimum variance inside each block"
+          ],
+          [
+            "manual",
+            "Manual"
+          ]
+        ],
+        "step": null,
+        "when": {}
+      },
+      {
+        "default": 0,
+        "help": "Horizontal offset of the lattice.",
+        "key": "phase_x",
+        "kind": "int",
+        "label": "Origin x",
+        "max": 63,
+        "min": 0,
+        "options": [],
+        "step": 1,
+        "when": {
+          "phase": "manual"
+        }
+      },
+      {
+        "default": 0,
+        "help": "Vertical offset of the lattice.",
+        "key": "phase_y",
+        "kind": "int",
+        "label": "Origin y",
+        "max": 63,
+        "min": 0,
+        "options": [],
+        "step": 1,
+        "when": {
+          "phase": "manual"
+        }
+      },
+      {
+        "default": "median",
+        "help": "How the pixels inside one block collapse to a single colour. Median measured 100% structural accuracy against ground truth where mode managed 70%, because on anti-aliased input almost every pixel is unique and the most frequent one is arbitrary.",
+        "key": "reduce",
+        "kind": "select",
+        "label": "Block reduce",
+        "max": null,
+        "min": null,
+        "options": [
+          [
+            "median",
+            "Median, robust to a stray bright pixel"
+          ],
+          [
+            "salient",
+            "Salient, keeps the extreme where a block has contrast"
+          ],
+          [
+            "mode",
+            "Mode, the most common exact colour"
+          ],
+          [
+            "mean",
+            "Mean, smooth and most likely to invent a colour"
+          ]
+        ],
+        "step": null,
+        "when": {}
+      }
+    ],
+    "key": "grid",
+    "label": "Grid",
+    "order": 20,
+    "repeatable": false,
+    "summary": "Screen pixels collapse into logical ones"
+  },
+  {
+    "fields": [
+      {
+        "default": "generate",
+        "help": "A committed palette is what keeps separate runs of one character on-model: snapping is deterministic, so colour stops being probabilistic and becomes exact.",
+        "key": "source",
+        "kind": "select",
+        "label": "Colours from",
+        "max": null,
+        "min": null,
+        "options": [
+          [
+            "generate",
+            "Generate from this image"
+          ],
+          [
+            "file",
+            "A committed palette"
+          ],
+          [
+            "none",
+            "Leave the colours alone"
+          ]
+        ],
+        "step": null,
+        "when": {}
+      },
+      {
+        "default": "",
+        "help": "A file under palettes/.",
+        "key": "file",
+        "kind": "select",
+        "label": "Palette",
+        "max": null,
+        "min": null,
+        "options": [],
+        "step": null,
+        "when": {
+          "source": "file"
+        }
+      },
+      {
+        "default": 24,
+        "help": "Clustered in the matching metric's own space rather than by median cut. Median cut subdivides the RGB cube and will spend five of eight entries inside one midtone: measured luminances 52,144,145,145,145,145,148,227, a palette with almost no value range for a medium that reads by value.",
+        "key": "colours",
+        "kind": "int",
+        "label": "How many",
+        "max": 256,
+        "min": 2,
+        "options": [],
+        "step": 1,
+        "when": {
+          "source": "generate"
+        }
+      },
+      {
+        "default": "weighted",
+        "help": "How 'nearest colour' is decided. Luma matches brightness first and is the one built for sprites, because a sprite reads by its value structure and an entry of the wrong lightness collapses the form even when the hue is right.",
+        "key": "match",
+        "kind": "select",
+        "label": "Matching",
+        "max": null,
+        "min": null,
+        "options": [
+          [
+            "weighted",
+            "Weighted, luminance-weighted RGB"
+          ],
+          [
+            "luma",
+            "Luma, brightness first"
+          ],
+          [
+            "lab",
+            "Lab, perceptually uniform"
+          ],
+          [
+            "rgb",
+            "RGB, plain euclidean"
+          ]
+        ],
+        "step": null,
+        "when": {}
+      },
+      {
+        "default": false,
+        "help": "Stretches the picture's value range onto the palette's before snapping. Nearest matching is absolute and cannot widen anything: a subject spanning luminance 86 to 170 snapped onto a palette spanning 0 to 255 comes back spanning 86 to 170, using 11 of 32 entries with the sprite reading flat. With this on the same case used 26 and spanned the full range. It changes the colours in exchange for using the palette, which is a trade rather than a fix, so it is off by default.",
+        "key": "fit",
+        "kind": "bool",
+        "label": "Fit to the palette's range",
+        "max": null,
+        "min": null,
+        "options": [],
+        "step": null,
+        "when": {}
+      },
+      {
+        "default": 1.0,
+        "help": "Below 1 interpolates back toward the original, for when a full stretch is more than the picture wants.",
+        "key": "fit_strength",
+        "kind": "float",
+        "label": "Fit amount",
+        "max": 1.0,
+        "min": 0.0,
+        "options": [],
+        "step": 0.05,
+        "when": {
+          "fit": true
+        }
+      },
+      {
+        "default": false,
+        "help": "Trades flat blocks for apparent depth. Off suits a chunky idiom; on when a small palette has to carry a gradient.",
+        "key": "dither",
+        "kind": "bool",
+        "label": "Dither",
+        "max": null,
+        "min": null,
+        "options": [],
+        "step": null,
+        "when": {}
+      }
+    ],
+    "key": "palette",
+    "label": "Palette",
+    "order": 30,
+    "repeatable": false,
+    "summary": "A bounded set of colours, imposed exactly"
+  },
+  {
+    "fields": [
+      {
+        "default": true,
+        "help": "Off when the background is part of the art.",
+        "key": "enabled",
+        "kind": "bool",
+        "label": "Key out the backdrop",
+        "max": null,
+        "min": null,
+        "options": [],
+        "step": null,
+        "when": {}
+      },
+      {
+        "default": 14,
+        "help": "Colour distance from the backdrop that still counts as background. Raise it when a two-tone backdrop survives, lower it when the sprite starts losing its own dark edges.",
+        "key": "tolerance",
+        "kind": "int",
+        "label": "Tolerance",
+        "max": 64,
+        "min": 0,
+        "options": [],
+        "step": 1,
+        "when": {
+          "enabled": true
+        }
+      },
+      {
+        "default": "",
+        "help": "Hex, if the prompt named the backdrop. Then the keyer removes that exact hue instead of flooding from a corner and guessing, which also reaches a gap enclosed by the character that a flood cannot.",
+        "key": "colour",
+        "kind": "text",
+        "label": "Named colour",
+        "max": null,
+        "min": null,
+        "options": [],
+        "step": null,
+        "when": {
+          "enabled": true
+        }
+      }
+    ],
+    "key": "background",
+    "label": "Background",
+    "order": 40,
+    "repeatable": false,
+    "summary": "The backdrop becomes transparent"
+  },
+  {
+    "fields": [
+      {
+        "default": 4,
+        "help": "Nearest neighbour, so it magnifies without inventing anything. Applied to the written file too, which is what makes a 128px sprite viewable outside a pixel-art editor.",
+        "key": "upscale",
+        "kind": "int",
+        "label": "Zoom",
+        "max": 16,
+        "min": 1,
+        "options": [],
+        "step": 1,
+        "when": {}
+      }
+    ],
+    "key": "scale",
+    "label": "Scale",
+    "order": 90,
+    "repeatable": false,
+    "summary": "Nearest-neighbour, so nothing is invented"
+  }
+]
