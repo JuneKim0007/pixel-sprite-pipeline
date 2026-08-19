@@ -1,9 +1,4 @@
-"""The checker that keeps user-reachable failures named.
-
-Exercised through its public functions on fixture trees, never by reading its
-own source: a checker that only works on this repo's current shape is not a
-checker, it is a snapshot.
-"""
+"""The checker that keeps user-reachable failures named."""
 
 from __future__ import annotations
 
@@ -93,7 +88,6 @@ class Looks(BaseRouter):
 
 
 def test_a_marker_with_no_reason_is_itself_the_failure(tmp_path):
-    # The whole point of the hatch is that using it says something out loud.
     # A bare marker says nothing and would let the count creep back silently.
     _tree(tmp_path, {"api.py": """
 class Looks(BaseRouter):
@@ -142,10 +136,6 @@ class Looks(BaseRouter):
 
 
 def test_a_raise_inside_a_nested_function_is_counted_once(tmp_path):
-    # ast.walk(listing) would also visit helper's body, and Index registers
-    # helper under its own name too - the same physical raise must not turn
-    # into two Violations (one per attribution) that `sorted(set(...))` then
-    # fails to dedupe because their `.function` differs.
     _tree(tmp_path, {"api.py": """
 class Looks(BaseRouter):
     @get("/looks", "list them")
@@ -161,9 +151,6 @@ class Looks(BaseRouter):
 
 
 def test_a_marker_shaped_string_inside_the_message_does_not_suppress(tmp_path):
-    # _marker used to regex raw source text, so a raise whose own message
-    # happens to contain marker-shaped text would read as carrying a real
-    # marker and get suppressed - the worst failure mode this tool has.
     _tree(tmp_path, {"api.py": '''
 class Looks(BaseRouter):
     @get("/looks", "list them")
@@ -176,11 +163,6 @@ class Looks(BaseRouter):
 
 
 def test_a_raise_inside_a_callback_closure_is_still_reported(tmp_path):
-    # helper is never called by name anywhere - only handed to Thread as
-    # `target=helper`, an argument value, not a Call whose func is "helper".
-    # A checker that only marks a nested def live when its name appears in a
-    # Call would miss this: the def is enqueued because reachable() now
-    # treats any def lexically nested inside a live function as live too.
     _tree(tmp_path, {"api.py": """
 import threading
 

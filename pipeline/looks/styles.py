@@ -30,8 +30,8 @@ class StyleError(Invalid):
 class Style:
     name: str
     label: str
-    path: Path                                    # the YAML document itself
-    home: Path                                    # what relative paths mean
+    path: Path
+    home: Path
     data: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -48,13 +48,6 @@ class Style:
 
     @property
     def exemplars(self) -> list[Path]:
-        """Listed exemplars, then whatever was dropped into context/exemplars.
-
-        Auto-discovery is the point of the directory form. Adding a reference
-        image should be a file copy, not a file copy plus a YAML edit, because
-        the YAML edit is the step people skip and then wonder why the look did
-        not change.
-        """
         out: list[Path] = []
         for rel in (self.data.get("references") or {}).get("exemplars") or []:
             out.append(self.resolve(str(rel)))
@@ -117,12 +110,7 @@ def styles_dir(root: Path) -> Path:
 
 
 def _read(path: Path, home: Path) -> tuple[str, Style]:
-    """One sheet. A YAML error names the file now instead of hiding it.
-
-    A sheet that will not parse used to be skipped silently, which presents as
-    the style disappearing from the list - the same failure a malformed palette
-    had, and the same fix.
-    """
+    """A sheet that will not parse used to be skipped silently, which presents as the style disappearing from the list - the same failure a malformed palette had, and the same fix."""
     try:
         data = yaml.safe_load(path.read_text()) or {}
     except yaml.YAMLError as e:
@@ -130,8 +118,6 @@ def _read(path: Path, home: Path) -> tuple[str, Style]:
     if not isinstance(data, dict):
         raise Invalid("a style sheet should be a mapping")
 
-    # A foldered sheet is named by its folder unless it says otherwise, so
-    # renaming the directory renames the style.
     default = home.name if path.name == SHEET else path.stem
     name = data.get("name", default)
     return name, Style(name=name, label=data.get("label", name),
@@ -162,12 +148,6 @@ def broken(root: Path) -> list:
 
 
 def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[Style]:
-    """Flatten `extends` into an application order, bases first.
-
-    Depth-first so a sheet's own values land after everything it inherits, and
-    cycle-guarded because a style importing itself should be an error message
-    rather than a hang.
-    """
     seen = seen if seen is not None else set()
     available = discover(root)
     out: list[Style] = []
@@ -183,11 +163,6 @@ def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[S
 
 
 def resolve_vocabulary(styles: list[Style], picks: dict[str, Any] | None = None) -> dict[str, str]:
-    """Collapse each vocabulary group into one comma-joined phrase.
-
-    `picks` narrows a group to a chosen subset, which is what the wizard's
-    style chips toggle for a single run without editing the sheet.
-    """
     merged: dict[str, list[str]] = {}
     for style in styles:
         for group, fragments in style.vocabulary.items():
@@ -209,11 +184,7 @@ def resolve_vocabulary(styles: list[Style], picks: dict[str, Any] | None = None)
 
 
 def expand(text: Any, vocabulary: dict[str, str]) -> Any:
-    """Substitute {group} placeholders, dropping ones with nothing to say.
-
-    An unresolved placeholder is left alone rather than erased, so a typo shows
-    up in the prompt preview instead of silently vanishing.
-    """
+    """An unresolved placeholder is left alone rather than erased, so a typo shows up in the prompt preview instead of silently vanishing."""
     if isinstance(text, dict):
         return {k: expand(v, vocabulary) for k, v in text.items()}
     if isinstance(text, list):
@@ -225,7 +196,6 @@ def expand(text: Any, vocabulary: dict[str, str]) -> Any:
         return vocabulary.get(match.group(1), match.group(0))
 
     filled = PLACEHOLDER.sub(swap, text)
-    # Collapse the gaps an empty group leaves behind.
     filled = re.sub(r",\s*,", ",", filled)
     return filled.strip().strip(",").strip()
 
@@ -236,12 +206,6 @@ def layer(
     *,
     picks: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Apply the config's `styles:` list beneath it.
-
-    Returns (config_with_styles_applied, record). The record is what the UI
-    shows: which sheets were used, the resolved vocabulary, and the exemplars
-    now in play.
-    """
     names = list(config.get("styles") or [])
     if not names:
         return config, {"styles": [], "vocabulary": {}, "exemplars": []}
@@ -262,8 +226,6 @@ def layer(
         if style.token:
             tokens.append(style.token)
 
-    # A trained token is just another prompt fragment, so a style that has
-    # graduated from words to an embedding needs no different handling.
     if tokens:
         vocabulary["token"] = " ".join(tokens)
         for key in ("style", "subject"):
@@ -272,8 +234,6 @@ def layer(
 
     merged = deep_merge(base, config)
 
-    # Style exemplars ride alongside the character references rather than
-    # replacing them: one anchors the look, the other the identity.
     if exemplars:
         refs = dict(merged.get("references") or {})
         refs["style_exemplars"] = exemplars

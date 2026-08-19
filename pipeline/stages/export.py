@@ -19,9 +19,6 @@ class ExportStage(Stage):
     requires = frozenset({"pixel_frames"})
     produces = frozenset({"sheet"})
 
-    # Extra stage folders worth joining into their own sheets. A character
-    # sheet is only half useful without the rigs and depth maps that produced
-    # it, and joining costs a paste loop.
     ALSO_JOIN = ("pose", "depth", "frames")
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
@@ -39,7 +36,6 @@ class ExportStage(Stage):
         sheet = Image.new("RGBA", (cell_w * columns, cell_h * rows), (0, 0, 0, 0))
         for i, im in enumerate(images):
             col, row = i % columns, i // columns
-            # Centre within the cell so frames of differing crop still line up.
             sheet.paste(
                 im,
                 (col * cell_w + (cell_w - im.width) // 2,
@@ -55,8 +51,6 @@ class ExportStage(Stage):
         dst = outdir / "sheet.png"
         sheet.save(dst)
 
-        # Per-view files already exist in each stage folder; these are the
-        # joined companions, so both forms are always available.
         for name in self.ALSO_JOIN:
             found = sorted(ctx.outdir.glob(f"*_{name}"))
             if not found:
@@ -72,7 +66,6 @@ class ExportStage(Stage):
                 joined.paste(im, (i * cw + (cw - im.width) // 2, (ch - im.height) // 2))
             joined.save(outdir / f"sheet_{name}.png")
 
-        # A sheet is useless to an engine without its cell geometry.
         (outdir / "sheet.json").write_text(
             json.dumps(
                 {

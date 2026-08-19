@@ -15,19 +15,14 @@ from typing import Any
 from ..shared.errors import Unavailable
 from ..shared.settings import DEFAULT_GLOBAL
 
-Link = list  # [node_id, slot]
+Link = list
 
 def model_name(models: dict, key: str) -> str:
     return str(models.get(key) or DEFAULT_GLOBAL["models"][key])
 
 
 class ComfyError(Unavailable):
-    """ComfyUI is unreachable, or refused a graph.
-
-    Unavailable rather than Internal: the service being down is not a defect
-    in this code, which is the same judgement the queue already makes when it
-    pauses instead of failing every job.
-    """
+    """ComfyUI is unreachable, or refused a graph."""
 
 
 class Client:
@@ -35,7 +30,6 @@ class Client:
         self.host = host.rstrip("/")
         self.client_id = str(uuid.uuid4())
 
-    # ------------------------------------------------------------- plumbing
 
     def _get(self, path: str, timeout: float = 30) -> Any:
         with urllib.request.urlopen(f"{self.host}{path}", timeout=timeout) as r:
@@ -49,12 +43,6 @@ class Client:
             return False
 
     def object_info(self, node: str) -> dict:
-        """Introspect a node's real input signature.
-
-        Custom node packs change their parameter names between versions, so the
-        pipeline asks the running server what a node actually accepts instead
-        of trusting a signature hardcoded here.
-        """
         return self._get(f"/object_info/{node}")
 
     def has_node(self, node: str) -> bool:
@@ -146,9 +134,6 @@ class Client:
         return [self.fetch(m) for m in self.wait(self.queue(graph), timeout)]
 
 
-# ------------------------------------------------------------ graph building
-
-
 class Graph:
     """Incrementally assembled API-format graph with auto-numbered nodes."""
 
@@ -192,7 +177,6 @@ def base_graph(
     )
     model, clip = g.out(lora, 0), g.out(lora, 1)
 
-    # the weakness in and cannot be undone.
     for key, default_strength in (("style_lora", 0.6), ("character_lora", 0.7)):
         name = models.get(key)
         if not name:
@@ -217,7 +201,6 @@ def base_graph(
 
     pos = g.add("CLIPTextEncode", text=prompt, clip=clip)
     neg = g.add("CLIPTextEncode", text=negative, clip=clip)
-    # SDXL's baked VAE overflows in fp16 and can decode to black on MPS.
     vae = g.add("VAELoader", vae_name=model_name(models, "vae"))
 
     return model, g.out(pos, 0), g.out(neg, 0), g.out(vae, 0)
@@ -291,8 +274,6 @@ def sample_and_save(
     sampler = g.add(
         "KSampler",
         seed=seed, steps=steps, cfg=cfg,
-        # LCM needs its own sampler and schedule; otherwise dpmpp_2m/karras is
-        # the SDXL workhorse. Both are overridable for quality experiments.
         sampler_name=sampler or ("lcm" if lcm else "dpmpp_2m"),
         scheduler=scheduler or ("sgm_uniform" if lcm else "karras"),
         denoise=denoise,

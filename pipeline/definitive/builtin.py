@@ -21,9 +21,6 @@ MATCHERS = [
 ]
 
 
-# --------------------------------------------------------------------- curves
-
-
 @layer(
     "curves", label="Curves", order=10,
     summary="Tone, before anything is quantised",
@@ -55,9 +52,6 @@ def _curves(img, cfg, facts, prep):
                      contrast=float(cfg.get("contrast", 1.0)),
                      brightness=float(cfg.get("brightness", 0.0)),
                      saturation=float(cfg.get("saturation", 1.0)))
-
-
-# ----------------------------------------------------------------------- grid
 
 
 def _grid_prepare(img, cfg) -> dict:
@@ -117,21 +111,7 @@ def _grid(img, cfg, facts, prep):
     return px.reduce_blocks(img, prep["factor"], ox, oy, cfg.get("reduce", "median"))
 
 
-# -------------------------------------------------------------------- palette
-
-
 def _palette_prepare(img, cfg) -> dict:
-    """The colours this layer will impose, worked out before it runs.
-
-    Generating a palette is k-means over every pixel - the single most
-    expensive thing in the stack, and a pure function of the image arriving
-    here plus two settings. Loading one from a file is cheap but is the same
-    kind of thing: deciding *what* the colours are, as opposed to applying
-    them.
-
-    Both live here so the runner can cache the answer and so that editing an
-    unrelated layer cannot trigger a re-cluster.
-    """
     source = cfg.get("source", "generate")
     if source == "none":
         return {"palette": None}
@@ -193,9 +173,6 @@ def _palette_prepare(img, cfg) -> dict:
 def _palette(img, cfg, facts, prep):
     palette = prep.get("palette")
 
-    # A file is resolved here rather than in prepare, because a palette name
-    # means nothing without the root - and the root belongs to the run, not to
-    # the layer's own settings. prepare stays a pure function of image and cfg.
     if prep.get("file"):
         from pathlib import Path
 
@@ -212,15 +189,10 @@ def _palette(img, cfg, facts, prep):
 
     method = cfg.get("match", "weighted")
     if cfg.get("fit"):
-        # The backdrop is excluded from the measurement, or a flat key colour
-        # would define one end of the range the stretch is computed against.
         alpha = img[..., 3] if img.shape[2] == 4 else None
         return px.fit_to_palette(img[..., :3], palette, method=method, alpha=alpha,
                                  strength=float(cfg.get("fit_strength", 1.0)))
     return px.apply_fixed_palette(img[..., :3], palette, method=method)
-
-
-# ----------------------------------------------------------------- background
 
 
 @layer(
@@ -259,9 +231,6 @@ def _background(img, cfg, facts, prep):
     return out
 
 
-# --------------------------------------------------------------------- scale
-
-
 @layer(
     "scale", label="Scale", order=90,
     summary="Nearest-neighbour, so nothing is invented",
@@ -271,26 +240,15 @@ def _background(img, cfg, facts, prep):
                    "anything. Applied to the written file too, which is what "
                    "makes a 128px sprite viewable outside a pixel-art editor."),
     ],
-    # Zoom squared, because it repeats along both axes. The only layer in the
-    # set that grows, and the reason admission control exists: at the declared
-    # maximum it is 256x the pixels, which on a full-resolution source is 16 GB
-    # and a panicked kernel.
+    # [...] set that grows, and the reason admission control exists: at the declared maximum it is 256x the pixels, which on a full-resolution source is 16 GB and a panicked kernel
     magnify=lambda cfg: max(1, int(cfg.get("upscale", 1))) ** 2,
-    # The viewer already does this. Every surface that shows a result carries
-    # `image-rendering: pixelated`, which IS nearest-neighbour magnification,
-    # so computing it server-side and shipping the pixels produces a picture
-    # the browser then scales back down to fit the panel. Deferring it is not
-    # an approximation - it is the identical image, arrived at without the
-    # array.
     deferrable=True,
 )
 def _scale(img, cfg, facts, prep):
     n = max(1, int(cfg.get("upscale", 1)))
     if n == 1:
         return img
-    # Counted here, on the small image, because repetition cannot add a colour
-    # and counting after the magnification measured 17x slower for the same
-    # answer.
+    # Counted here, on the small image, because repetition cannot add a colour and counting after the magnification measured 17x slower for the same answer.
     from .cache import count_colours
 
     facts["_colours"] = count_colours(img)

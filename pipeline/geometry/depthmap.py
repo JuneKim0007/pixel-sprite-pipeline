@@ -9,8 +9,6 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from .bodyspace import frame_fit, frame_scale, project, view_depth
 
-# Rough limb thickness as a fraction of canvas, per bone. A torso reads as a
-# much thicker volume than a forearm, and uniform limbs look like a wire model.
 THICKNESS: dict[tuple[str, str], float] = {
     ("neck", "r_hip"): 0.115,
     ("neck", "l_hip"): 0.115,
@@ -69,37 +67,14 @@ def render_depth(
     rig=None,
     props=None,
 ) -> Image.Image:
-    """Grayscale depth map: black background, brighter = closer to the viewer.
-
-    Works for any rig. This is the channel that makes non-humanoid creatures
-    possible at all: it is computed from body-space coordinates rather than
-    predicted by a model, so a centipede or a slime produces a valid control
-    image where OpenPose could not.
-    """
     from . import rigs as _rigs
 
     rig = rig if rig is not None else _rigs.HUMANOID
-    # Fit once, then use the fitted pose for everything downstream.
-    #
-    # This used to project with `fill=` and then hand the RAW pose to the prop
-    # renderer, so the body was drawn at 1.3x and its weapons were computed
-    # from unscaled body space: a bow anchored to a hand that was no longer
-    # where the prop thought it was, at a length that had not grown with the
-    # figure. It ran off the canvas.
+    # [...] with `fill=` and then hand the RAW pose to the prop renderer, so the body was drawn at 1.3x and its weapons were computed from unscaled body space: a bow anchored to a hand that [...]
     fitted = frame_fit(pose, fill=fill) if fill else pose
     grow = frame_scale(pose, fill)
 
-    # How heavy the creature is, as distinct from how tall.
-    #
-    # The capsules hang off the bones, so their radius is the only thing that
-    # says "this character is broad" — and the depth map is the channel the
-    # model reads volume from. Lengthening a bone makes a figure taller;
-    # widening its capsule makes the same skeleton read as heavyset.
-    #
-    # A scalar thickens everything. A dict does it per proportion group, which
-    # is what a pot-bellied character with thin arms needs:
-    # {torso: 1.6, arms: 0.9}. It reuses the group names `proportions` uses, so
-    # "torso" means the same thing in both places.
+    # A dict does it per proportion group, which is what a pot-bellied character with thin arms needs: {torso: 1.6, arms: 0.9}.
     def bulk(parent: str, child: str) -> float:
         if build is None:
             return 1.0
@@ -140,7 +115,6 @@ def render_depth(
     draw = ImageDraw.Draw(canvas)
     scale = min(width, height)
 
-    # Painter's algorithm: farthest bone first, so nearer limbs overwrite.
     widths = rig.thickness
     bones = [
         (a, b) for a, b, _ in rig.bones if a in screen and b in screen
@@ -154,7 +128,6 @@ def render_depth(
             shade(parent, child),
         )
 
-    # Head last: it is nearly always the nearest large volume.
     head = screen.get(rig.head_joint) or screen.get(rig.root)
     if head:
         r = rig.head_radius * scale * grow * bulk(rig.head_joint, rig.head_joint)
@@ -163,9 +136,6 @@ def render_depth(
             fill=shade(rig.head_joint, rig.root),
         )
 
-    # Held objects last, over the body: a sword is in front of the hand that
-    # holds it. Giving the blade a definite volume here is what stops the model
-    # deciding for itself where a weapon goes.
     if props:
         from . import props as props_mod
 
@@ -174,6 +144,4 @@ def render_depth(
             depth_scale=depth_scale, lateral_scale=lateral_scale, floor=far,
         )
 
-    # Depth maps from real estimators are smooth; hard polygon edges read as
-    # geometry rather than depth and the ControlNet responds less well.
     return canvas.filter(ImageFilter.GaussianBlur(blur)) if blur > 0 else canvas

@@ -57,12 +57,6 @@ def download_dir() -> Path:
 
 
 def allowed_roots() -> list[Path]:
-    """Directories the browser is permitted to read or write.
-
-    The configured input/output/download directories may sit outside the
-    project, so they are listed explicitly rather than assuming everything
-    lives under ROOT.
-    """
     return [ROOT, input_dir(), runs_dir(), download_dir(), Path.home()]
 
 

@@ -41,11 +41,7 @@ MODULES: dict[str, dict[str, Any]] = {
 }
 
 
-# type: text | textarea | int | float | bool | select | stages
-# `modules` restricts a field to certain pipeline kinds; absent means all.
-# `help_for` reworks the explanation per module where the meaning shifts.
 FIELDS: list[ConfigField] = [
-    # ------------------------------------------------------------- identity
     ConfigField(key="rig", label="Creature", kind="select",
      options_from="rigs_with_auto", group="Asset",
      help="Body plan. Decides joint layout and which ControlNet channel the "
@@ -83,7 +79,6 @@ FIELDS: list[ConfigField] = [
      help="Appended to the subject. 'plain flat background' makes the "
              "background keying in the palette stage much cleaner."),
 
-    # --------------------------------------------------------------- order
     ConfigField(key="pipeline.stop_after", label="Pause after stage", kind="select",
      options_from="stage_names", group="Pipeline",
      help="Stop the run after this stage so its output can be reviewed or "
@@ -96,7 +91,6 @@ FIELDS: list[ConfigField] = [
              "produced earlier is rejected with an explanation. Consecutive "
              "independent CPU stages run in parallel; GPU stages never do."),
 
-    # ---------------------------------------------------------------- pose
     ConfigField(key="pose.source", label="Pose source", kind="select",
      options=["library", "llm", "tpose", "annotation"], group="Pose",
      help="'library' uses hand-authored poses (best quality). 'llm' drafts "
@@ -173,7 +167,6 @@ FIELDS: list[ConfigField] = [
      help="Gaussian radius over the rendered limbs. Some blur is wanted: a "
              "hard-edged depth map reads as geometry and the model draws tubes."),
 
-    # ----------------------------------------------------------------- llm
     ConfigField(modules=["animation"], key="pose.llm.model", label="Model", kind="select",
      options_from="ollama", group="LLM", when={"pose.source": "llm"},
      help="Must be pulled in Ollama. Bigger models write better motion."),
@@ -194,7 +187,6 @@ FIELDS: list[ConfigField] = [
      group="LLM", when={"pose.source": "llm"},
      help="Writes to poses/generated/ so a good sequence is reusable."),
 
-    # ----------------------------------------------------------- canonical
     ConfigField(key="canonical.seed", label="Seed", kind="int",
      min=0, max=2147483647, group="Canonical",
      help="PIN THIS. Every frame reuses it; changing it changes the "
@@ -219,7 +211,6 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="canonical.height", label="Height", kind="int",
      min=512, max=2048, step=64, group="Canonical", help="TODO"),
 
-    # -------------------------------------------------------------- frames
     ConfigField(key="frames.lcm", label="Fast LCM mode", kind="bool",
      group="Frames",
      help="On for drafts, off for the final render."),
@@ -273,7 +264,6 @@ FIELDS: list[ConfigField] = [
                  "composition", "style and composition"],
      help="How the reference is blended into conditioning."),
 
-    # ------------------------------------------------------------- palette
     ConfigField(modules=["animation"], key="softbody.fps", label="Playback fps",
      kind="float", min=1, max=60, step=1, group="Softbody",
      help="The rate the spring simulation assumes when it computes lag."),
@@ -358,13 +348,11 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="export.scale", label="Sheet upscale", kind="int",
      min=1, max=16, group="Export", help="TODO"),
 
-    # --------------------------------------------------------------- infra
     ConfigField(key="comfy.host", label="ComfyUI host", kind="text",
      group="Services", help="TODO"),
     ConfigField(modules=["animation"], key="pose.llm.host", label="Ollama host", kind="text",
      group="Services", help="TODO"),
 
-    # ---------------------------------------------------------- references
     ConfigField(key="references.from_run", label="Inherit from run", kind="text",
      group="References",
      help="A previous run whose output becomes this run's identity and "
@@ -412,9 +400,6 @@ FIELDS: list[ConfigField] = [
              "fixed Identity weight is used for every frame."),
 
 
-    # ------------------------------------------------------------- quality
-    # Compute-heavy knobs. Ceilings are generous on purpose: the same config
-    # runs on a laptop and on a lab machine, and only the numbers change.
     ConfigField(key="canonical.sampler", label="Sampler", kind="select",
      options=['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], group="Quality",
      help="dpmpp_2m is the SDXL workhorse. dpmpp_3m_sde and uni_pc cost "
@@ -459,10 +444,6 @@ FIELDS: list[ConfigField] = [
              "all, so you can pick the best identity anchor instead of "
              "re-rolling. Batching amortises the ~35s fixed cost per prompt."),
 
-    # --------------------------------------------------------- proportions
-    # Bone-group multipliers on top of the body plan, so a long-necked variant
-    # is a config change rather than a new rig. Everything below a lengthened
-    # bone moves with it, keeping the skeleton connected.
     ConfigField(key="proportions.head", label="Head size", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="Also grows the skull in the depth map, which is where head volume actually reads."),
@@ -491,15 +472,6 @@ FIELDS: list[ConfigField] = [
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="Serpent and centipede rigs only."),
 
-    # --------------------------------------------------------------- props
-    # Props live in a list editor (see fields.js); this entry documents the
-    # group so the settings sidebar has somewhere to put it.
-    # `props_enabled`, NOT `props.enabled`. Every config writes `props:` as a
-    # LIST, and the list editor saves an array back to that same path — so the
-    # dict branch in props.py::enabled was never reachable and any value set
-    # here was destroyed by the next save. props.py already reads this
-    # top-level key as its fallback, and a scalar beside the list cannot be
-    # clobbered by it.
     ConfigField(key="props_enabled", label="Draw held objects", kind="bool",
      group="Props",
      help="Off by default for a character sheet, on for an animation, and "
@@ -508,15 +480,7 @@ FIELDS: list[ConfigField] = [
              "rigid volume the model will trace instead of the limb behind it. "
              "An attack animation is the opposite: without the weapon the arm "
              "swings at nothing."),
-    # The prop LIST itself is edited by fields.js's list editor at path
-    # `props`. It deliberately has no scalar field here: one existed as
-    # `props._doc` purely to give the sidebar a heading, and because
-    # renderGroup draws every schema entry it appeared as a writable text box
-    # that persisted a meaningless `props._doc` key into the config.
 
-    # -------------------------------------------------------------- models
-    # Per-pipeline weight selection: a lighter pipeline can point at a smaller
-    # LLM or a different LoRA without touching the others.
     ConfigField(key="models.checkpoint", label="Checkpoint", kind="select",
      options_from="checkpoints", group="Models",
      help="Base diffusion weights. SDXL is what the pixel LoRA was trained "
@@ -591,11 +555,6 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="models.ipadapter", label="IP-Adapter", kind="select",
      options_from="ipadapters", group="Models", help="TODO"),
 
-    # ------------------------------------------------------------- compute
-    # NOTE: there is deliberately no "GPU cores" control. Metal exposes no way
-    # to partition the GPU between processes — no equivalent of
-    # CUDA_VISIBLE_DEVICES or MIG. The honest levers are memory ceiling, VRAM
-    # policy, CPU threads, and how much work you ask for.
     ConfigField(key="cooling.enabled", label="Rest between GPU tasks", kind="bool",
      group="Compute",
      help="Pause after each GPU task so a long queue does not hold the "
@@ -633,10 +592,6 @@ FIELDS: list[ConfigField] = [
              "overhead regardless of steps, so batching amortises it: batch 4 "
              "measured 49s/image versus 71s one at a time."),
 
-    # --------------------------------------------------- previously unreachable
-    # Settings the stages already read but nothing declared, so the form could
-    # not show them and they could only be set by hand-editing YAML. Found by
-    # diffing every opt(cfg, "...") call against this list.
     ConfigField(key="canonical.per_view", label="One anchor per view", kind="bool",
      group="Canonical",
      help="Generate a canonical for every view in pose.set instead of one "
@@ -713,10 +668,6 @@ FIELDS: list[ConfigField] = [
      min=256, max=2048, step=64, group="Depth",
      help="Blank follows pose.size. Both are control images, so they should "
              "match the canvas they steer."),
-    # softbody.nodes is intentionally absent: it holds a LIST and fields.js
-    # already registers a list editor for that path. Declaring it as an int
-    # here drew a SECOND control on the same key, and typing in it replaced
-    # the list with a number.
     ConfigField(key="softbody.preroll_cycles", label="Preroll cycles", kind="int",
      min=0, max=16, group="Softbody",
      help="Cycles simulated before the first kept frame, so the wobble "

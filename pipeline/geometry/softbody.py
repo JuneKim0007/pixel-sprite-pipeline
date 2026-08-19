@@ -18,15 +18,15 @@ class SoftNode:
     """A lump of loose mass attached to a skeleton joint."""
 
     name: str
-    anchor: str = "neck"                      # skeleton joint it hangs from
-    offset: tuple[float, float, float] = (0.0, 0.0, 0.0)  # body-space, from anchor
-    radius: float = 0.12                      # warp falloff radius, canvas fraction
-    stiffness: float = 90.0                   # spring constant; higher = tighter
-    damping: float = 6.0                      # energy loss; higher = settles sooner
+    anchor: str = "neck"
+    offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    radius: float = 0.12
+    stiffness: float = 90.0
+    damping: float = 6.0
     mass: float = 1.0
-    max_displacement: float = 0.03            # clamp, canvas fraction
-    influence: float = 1.0                    # 0 disables without deleting
-    axis: tuple[float, float] = (1.0, 1.0)    # per-axis scale, e.g. (0,1) = vertical only
+    max_displacement: float = 0.03
+    influence: float = 1.0
+    axis: tuple[float, float] = (1.0, 1.0)
 
     @classmethod
     def from_config(cls, entry: dict) -> "SoftNode":
@@ -84,13 +84,6 @@ def simulate(
     preroll: int = 2,
     substeps: int = 8,
 ) -> list[tuple[float, float]]:
-    """Integrate a damped spring trailing the anchor; return per-frame offsets.
-
-    Pre-rolls the animation before recording. Starting the mass at rest makes
-    frame 0 the only frame with no secondary motion, which reads as a hitch
-    every time a loop restarts — so for looping motion the simulation is run
-    for a few cycles first and only the final pass is kept.
-    """
     if not anchors:
         return []
 
@@ -105,8 +98,7 @@ def simulate(
     for p in range(passes):
         frame_offsets: list[tuple[float, float]] = []
         for i, (ax, ay) in enumerate(anchors):
-            # Substep the integration: a stiff spring at 12fps is unstable with
-            # one Euler step per frame and will oscillate out of control.
+            # Substep the integration: a stiff spring at 12fps is unstable with one Euler step per frame and will oscillate out of control.
             for _ in range(substeps):
                 fx = k * (ax - px) - c * vx
                 fy = k * (ay - py) - c * vy
@@ -151,11 +143,6 @@ def build_tracks(
 
 
 def _falloff(dist: np.ndarray, radius: float) -> np.ndarray:
-    """Smoothstep from 1 at the centre to 0 at the radius.
-
-    A linear falloff leaves a visible crease at the boundary; smoothstep has
-    zero derivative at both ends so the warp blends into untouched pixels.
-    """
     t = np.clip(1.0 - dist / max(radius, 1e-6), 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)
 
@@ -183,7 +170,6 @@ def warp_frame(
         weight = _falloff(dist, radius)
         if not weight.any():
             continue
-        # Backward mapping: to move content by +d, sample from -d.
         src_x -= weight * dx * w
         src_y -= weight * dy * h
         touched = True

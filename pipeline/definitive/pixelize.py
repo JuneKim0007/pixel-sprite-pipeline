@@ -14,8 +14,6 @@ from ..shared.errors import Invalid, NotFound
 
 REDUCE_MODES = ("mean", "median", "mode", "clipped", "salient")
 
-# ---------------------------------------------------------------- grid phase
-
 
 def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
     """Crop to the phase (ox, oy) and reshape into (bh, bw, factor, factor, C)."""
@@ -35,14 +33,10 @@ def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
     for oy in range(factor):
         for ox in range(factor):
             blocks = _blocks(arr.astype(np.float32), factor, ox, oy)
-            # variance within each block, summed over all blocks and channels
             cost = float(blocks.var(axis=(2, 3)).sum())
             if cost < best_cost:
                 best, best_cost = (ox, oy), cost
     return best
-
-
-# ------------------------------------------------------------ block reduce
 
 
 SALIENT_THRESHOLD = 34.0
@@ -64,8 +58,6 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return np.median(flat, axis=2).round().astype(np.uint8)
 
     if how == "mode":
-        # Most frequently occurring exact colour in the block. Best when the
-        # input is already strongly posterised; degenerates to noise otherwise.
         out = np.empty((bh, bw, c), dtype=np.uint8)
         packed = (
             flat[..., 0].astype(np.uint32) << 16
@@ -84,26 +76,7 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return out
 
     if how == "clipped":
-        # Two-pass clipped mean: take the block's mean, discard the pixels that
-        # sit further than `tolerance` from it, then re-mean what survives.
-        #
-        # The point is which pixels get a vote. A plain mean lets one bright
-        # specular pixel drag the whole block; median ignores magnitude
-        # entirely. Clipping throws out the outliers and then lets the
-        # remaining pixels average properly, so a block that is 90% one colour
-        # returns that colour cleanly rather than a colour pulled toward the
-        # 10%.
-        #
-        # Distance is in RGB, and the tolerance is that distance rather than a
-        # multiple of the block's own spread: a fixed number means the same
-        # setting behaves the same on a flat block and a busy one, which is
-        # what makes it tunable by eye.
-        #
-        # The known limit, and it is real: a thin line that legitimately
-        # separates two regions is a minority inside its block, so it is
-        # exactly what gets clipped away. Blocks whose survivors fall below
-        # `_CLIP_FLOOR` of the block are therefore left to the median, which
-        # keeps thin dark outlines that this pass would otherwise eat.
+        # [...] out the outliers and then lets the remaining pixels average properly, so a block that is 90% one colour returns that colour cleanly rather than a colour pulled toward the 10%
         rgb = flat[..., :3].astype(np.float32)
         mean = rgb.mean(axis=2, keepdims=True)
         dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))
@@ -118,8 +91,6 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         out = np.empty((bh, bw, c), dtype=np.uint8)
         out[..., :3] = out_rgb[:, :, 0, :].round().clip(0, 255).astype(np.uint8)
         if c == 4:
-            # Alpha is a mask, not a colour: averaging it feathers the edge the
-            # keyer is about to cut. Median keeps it binary.
             out[..., 3] = np.median(flat[..., 3], axis=2).round().astype(np.uint8)
         return out
 
@@ -134,9 +105,6 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return np.where(contrasty[..., None], extreme, med).round().astype(np.uint8)
 
     raise NotFound("reduce mode", how, available=list(REDUCE_MODES))
-
-
-# -------------------------------------------------------------- palette
 
 
 def load_palette(path: Path) -> list[tuple[int, int, int]]:
@@ -181,7 +149,6 @@ def save_palette(palette: list[tuple[int, int, int]], path: Path, note: str = ""
     lines = [f"// {note}"] if note else []
     lines += [f"{r:02X}{g:02X}{b:02X}" for r, g, b in palette]
     path.write_text("\n".join(lines) + "\n")
-
 
 
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -230,7 +197,6 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
         raise ValueError("no opaque pixels to build a palette from")
     colours = max(1, min(int(colours), len(np.unique(pixels, axis=0))))
 
-    # Cluster in the metric's space, but keep the RGB originals to average.
     space = {
         "lab": lambda p: _to_lab(p.astype(np.float32)),
         "weighted": lambda p: p.astype(np.float32) * LUMA,
@@ -240,9 +206,8 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
     }[method if method in MATCH_METHODS else "weighted"]
 
     feats = space(pixels)
-    rng = np.random.default_rng(0)            # deterministic: same image, same palette
+    rng = np.random.default_rng(0)
 
-    # k-means++ seeding.
     centres = [int(rng.integers(len(feats)))]
     d2 = ((feats - feats[centres[0]]) ** 2).sum(axis=1)
     for _ in range(colours - 1):
@@ -360,9 +325,6 @@ def quantize_median_cut(rgb: np.ndarray, colours: int, dither: bool) -> np.ndarr
     return np.asarray(q.convert("RGB"))
 
 
-# ----------------------------------------------------------- background
-
-
 def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
                         keep_min: float = 0.04,
                         key: tuple[int, int, int] | None = None) -> np.ndarray:
@@ -409,15 +371,12 @@ def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
 
         remaining = (trial > 0).mean()
         if remaining < keep_min:
-            break            # this pass would have eaten the subject
+            break
         if (trial > 0).sum() == (alpha > 0).sum():
-            break            # nothing more to remove
+            break
         alpha = trial
 
     return np.dstack([rgb, alpha])
-
-
-# ---------------------------------------------------------------- driver
 
 
 def pixelize(

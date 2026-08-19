@@ -22,22 +22,12 @@ class Rig:
     name: str
     label: str
     joints: tuple[str, ...]
-    # parent -> children, rooted at `root`. Used for bone-length snapping and
-    # for painting depth capsules far-to-near.
     tree: dict[str, tuple[str, ...]]
     root: str
-    # (lateral, depth, height) per joint. lateral +ve is the creature's LEFT,
-    # depth +ve is in front of it, height 0 is the top and 1 the ground.
     neutral: dict[str, tuple[float, float, float]]
-    # Bones to draw, as joint-name pairs, plus their depth-map thickness as a
-    # fraction of the canvas.
     bones: tuple[tuple[str, str, float], ...]
-    # Conditioning. `skeleton_control` is the ControlNet union type for the
-    # rendered stick figure; None means do not send one at all.
     skeleton_control: str | None
     depth_control: str = "depth"
-    # Joints that vanish once the creature faces away. Their presence or
-    # absence is how the control image communicates facing.
     face_joints: tuple[str, ...] = ()
     head_joint: str = ""
     head_radius: float = 0.062
@@ -63,10 +53,7 @@ class Rig:
         return f"{self.label}: {len(self.joints)} joints, control via {' + '.join(channels)}"
 
 
-# --------------------------------------------------------------- humanoid
-
-# Unchanged from the original layout — the index order IS the OpenPose
-# protocol and must not be reordered.
+# Index order IS the OpenPose protocol - must not be reordered.
 _HUMANOID_JOINTS = (
     "nose", "neck",
     "r_shoulder", "r_elbow", "r_wrist",
@@ -125,10 +112,7 @@ HUMANOID = Rig(
     note="The only rig with a matching ControlNet. Uses openpose + depth.",
 )
 
-# --------------------------------------------------------------- quadruped
 
-# Body runs along the depth axis rather than standing upright, so height stays
-# roughly constant across the spine and the legs drop from it.
 QUADRUPED = Rig(
     name="quadruped",
     label="Quadruped",
@@ -188,8 +172,6 @@ QUADRUPED = Rig(
         ("l_back_hip", "l_back_knee", 0.048), ("r_back_hip", "r_back_knee", 0.048),
         ("l_back_knee", "l_back_paw", 0.036), ("r_back_knee", "r_back_paw", 0.036),
     ),
-    # No ControlNet understands a quadruped skeleton, but scribble does not
-    # need to: it treats the drawing as a rough sketch to follow.
     skeleton_control="hed/pidi/scribble/ted",
     face_joints=("head",),
     head_joint="head",
@@ -198,16 +180,9 @@ QUADRUPED = Rig(
     note="No quadruped OpenPose model, so the skeleton is sent as a scribble.",
 )
 
-# ----------------------------------------------------------------- serpent
 
 def _serpent(segments: int = 12, *, name: str = "serpent",
              label: str = "Serpent / segmented") -> Rig:
-    """A chain body: snakes, centipedes, worms, dragons in flight.
-
-    Generated rather than written out because the only thing that varies is
-    how many segments there are, and hand-listing twelve near-identical joints
-    invites typos.
-    """
     joints = ["head"] + [f"seg_{i:02d}" for i in range(segments)]
     tree: dict[str, tuple[str, ...]] = {"head": ("seg_00",)}
     for i in range(segments - 1):
@@ -221,14 +196,13 @@ def _serpent(segments: int = 12, *, name: str = "serpent",
 
     for i in range(segments):
         t = i / max(segments - 1, 1)
-        # A gentle S so the neutral pose does not read as a straight stick.
         neutral[f"seg_{i:02d}"] = (
             0.055 * math.sin(t * math.pi * 1.6),
             0.30 - t * 0.62,
             0.44 + 0.05 * math.sin(t * math.pi * 1.2),
         )
         if i:
-            width = 0.062 * (1.0 - 0.55 * t)   # tapers toward the tail
+            width = 0.062 * (1.0 - 0.55 * t)
             bones.append((f"seg_{i - 1:02d}", f"seg_{i:02d}", width))
 
     return Rig(
@@ -250,10 +224,7 @@ def _serpent(segments: int = 12, *, name: str = "serpent",
 
 SERPENT = _serpent()
 
-# -------------------------------------------------------------------- blob
 
-# Almost no skeleton on purpose: a slime deforms rather than articulates, so
-# the interesting motion belongs to soft-body nodes, not joints.
 BLOB = Rig(
     name="blob",
     label="Blob / amorphous",
@@ -271,8 +242,6 @@ BLOB = Rig(
         ("core", "top", 0.240), ("core", "base", 0.290),
         ("core", "l_side", 0.230), ("core", "r_side", 0.230),
     ),
-    # A stick figure would actively mislead here; the silhouette is the whole
-    # subject, so only the depth blob is sent.
     skeleton_control=None,
     face_joints=(),
     head_joint="top",
@@ -280,14 +249,6 @@ BLOB = Rig(
     prompt_hint="gelatinous, soft rounded silhouette",
     note="Depth only. Add soft-body nodes for wobble — that is where the life is.",
 )
-
-
-# ------------------------------------------------------- parametric plans
-
-# Body plans vary along a few axes — how many legs, how many arms, tail, wings,
-# segment count — so the library is generated from those axes rather than
-# hand-written per creature. Fifty bespoke rigs would be fifty places for a
-# typo; six generators cover the same ground and stay consistent.
 
 
 def _limb_chain(
@@ -313,13 +274,7 @@ def _limb_chain(
 
 
 def humanoid(arms: int = 2, *, name: str = "", label: str = "", tail: bool = False) -> Rig:
-    """The COCO humanoid, optionally with extra arm pairs or a tail.
-
-    Two arms returns HUMANOID untouched, because that exact joint list and
-    order is the OpenPose protocol. Any variation drops to scribble control —
-    a four-armed figure sent to an OpenPose ControlNet reads as a mangled
-    two-armed one.
-    """
+    """2 arms/no tail returns HUMANOID untouched (exact OpenPose joint order); any variation drops to scribble control."""
     if arms == 2 and not tail:
         return HUMANOID
 
@@ -330,7 +285,7 @@ def humanoid(arms: int = 2, *, name: str = "", label: str = "", tail: bool = Fal
 
     pairs = (arms - 2) // 2
     for p in range(pairs):
-        drop = 0.055 * (p + 1)          # lower pairs sit further down the torso
+        drop = 0.055 * (p + 1)
         for side, sign in (("l", 1), ("r", -1)):
             sh = f"{side}_shoulder_{p + 2}"
             el = f"{side}_elbow_{p + 2}"
@@ -372,11 +327,6 @@ def multileg(
     legs: int = 6, *, name: str = "", label: str = "", body_len: float = 0.30,
     label_hint: str = "", tail: bool = False, wings: int = 0,
 ) -> Rig:
-    """Insects, spiders, and anything else whose legs come in ranks.
-
-    Legs are distributed along the body axis so a hexapod reads as an insect
-    and an octopod as a spider, rather than as a centipede with a few legs.
-    """
     import math
 
     ranks = max(legs // 2, 1)
@@ -396,8 +346,6 @@ def multileg(
             hip = f"{side}_leg{rank}_hip"
             knee = f"{side}_leg{rank}_knee"
             foot = f"{side}_leg{rank}_foot"
-            # Legs bow outward then down, which is what makes an arthropod
-            # silhouette recognisable at sprite size.
             neutral[hip] = (sign * 0.045, anchor_depth, 0.505)
             neutral[knee] = (sign * 0.135, anchor_depth + 0.02, 0.590)
             neutral[foot] = (sign * 0.150, anchor_depth + 0.03, 0.840)
@@ -473,12 +421,6 @@ def winged_quadruped(*, name: str = "dragon", label: str = "Dragon", wings: bool
 
 
 def wyvern(*, name: str = "wyvern", label: str = "Wyvern (wings, no forelegs)") -> Rig:
-    """A dragon whose forelimbs ARE the wings — no separate front legs.
-
-    Worth its own generator rather than a flag: dropping the forelegs changes
-    the silhouette enough that reusing the quadruped rig would produce a
-    six-limbed dragon by accident.
-    """
     base = winged_quadruped(name=name, label=label)
     drop = {j for j in base.joints if "front" in j}
     joints = tuple(j for j in base.joints if j not in drop)
@@ -581,8 +523,6 @@ def avian(*, name: str = "avian", label: str = "Bird / harpy") -> Rig:
     )
 
 
-# The shipped library. Every entry is one call into a generator above, so
-# adding a creature is a line, not a file.
 _GENERATED: tuple[Rig, ...] = (
     humanoid(4, name="humanoid_4arm", label="Humanoid, 4 arms"),
     humanoid(6, name="humanoid_6arm", label="Humanoid, 6 arms"),
@@ -601,14 +541,8 @@ _GENERATED: tuple[Rig, ...] = (
     _serpent(20, name="centipede", label="Centipede / long segmented"),
 )
 
-# ------------------------------------------------------------ proportions
 
-# Which bones a named proportion controls. Matched against joint names, so one
-# table serves every rig: a dragon's neck and a humanoid's neck are both "neck"
-# because both connect a head to a torso.
-# How much of a length change carries into limb thickness. 1.0 would make a
-# tall character a wide one; 0.0 makes an elongated limb spindly. 0.35 turns a
-# 1.75x lengthening into a 1.21x widening.
+# 1.0 would make a tall character a wide one; 0.0 makes an elongated limb spindly.
 THICKNESS_EXPONENT = 0.35
 
 PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
@@ -624,24 +558,11 @@ PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 
-# Joints that belong to the head, for telling a neck bone from a torso bone.
 _HEADWARD = ("nose", "head", "eye", "ear", "skull", "jaw", "horn")
 
 
 def _group_of(parent: str, child: str) -> str | None:
-    """Classify a bone, not just its far end.
-
-    Direction matters at the neck, and getting it wrong silently disabled a
-    knob. A humanoid's only true neck bone runs neck->nose; the bone running
-    neck->hip is the TORSO. The first version returned "neck" whenever either
-    end was named neck, so neck->hip was filed as neck — and since no rig has
-    a separate torso bone, `proportions.torso` scaled nothing at all on the
-    humanoid. It was set in a shipped style sheet and measured as a no-op:
-    5.21 heads with it, 5.21 heads without.
-
-    So the neck case is direction-aware. Everything else classifies by the
-    child, which is the end that names the limb.
-    """
+    """Direction matters at the neck, and getting it wrong silently disabled a knob."""
     if "neck" in parent:
         return "neck" if any(n in child for n in _HEADWARD) else _by_name(child)
     if "neck" in child:
@@ -657,19 +578,7 @@ def _by_name(joint: str) -> str | None:
 
 
 def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
-    """A copy of `rig` with named bone groups lengthened or shortened.
-
-    Rigs ship with one set of proportions, which is the right default and the
-    wrong answer for a long-necked horror or a stubby-legged brawler. Rather
-    than adding a rig per silhouette, a factor per group stretches the bones
-    that group names and carries everything below them along, so the skeleton
-    stays connected:
-
-        proportions: {neck: 1.8, arms: 1.3, legs: 0.85}
-
-    Applied to the neutral pose, so every pose derived from it inherits the
-    proportions and the character stays consistent across frames.
-    """
+    """[...] and carries everything below them along, so the skeleton stays connected: proportions: {neck: 1.8, arms: 1.3, legs: 0.85} Applied to the neutral pose, so every pose derived from it inherits the [...]"""
     factors = {k: float(v) for k, v in (proportions or {}).items() if v}
     if not factors:
         return rig
@@ -686,8 +595,6 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
 
     neutral = {k: list(v) for k, v in rig.neutral.items()}
 
-    # Outward from the root, so a parent is already in its final place before
-    # its children are moved relative to it.
     queue = [rig.root]
     while queue:
         parent = queue.pop(0)
@@ -702,7 +609,6 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
                 dx, dy, dz = cx - px, cy - py, cz - pz
                 nx, ny, nz = px + dx * factor, py + dy * factor, pz + dz * factor
                 shift = (nx - cx, ny - cy, nz - cz)
-                # Everything below the child moves with it, or the limb detaches.
                 stack = [child]
                 while stack:
                     node = stack.pop()
@@ -716,20 +622,9 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
             queue.append(child)
 
     described = ", ".join(f"{k} x{v:g}" for k, v in sorted(factors.items()))
-    # Head "size" is mostly the depth-map skull, not the tiny nose-to-ear bones.
     head_radius = rig.head_radius * factors.get("head", 1.0)
 
-    # Bones get a little thicker when they get longer, and only a little.
-    #
-    # Leaving thickness alone was wrong in a visible way: legs lengthened 1.75x
-    # kept their 0.055 capsule width and came out proportionally 1.75x thinner
-    # than the rig they were derived from, so the depth map read as a stick
-    # insect and the step between thigh and shin widths became a seam.
-    #
-    # Scaling thickness by the full factor is wrong in the other direction - a
-    # taller character is not a wider one, and "lanky" is the point. The 0.35
-    # exponent is the compromise: a 1.75x limb gets 1.21x width, which keeps
-    # the slenderness while stopping the capsule from disappearing.
+    # Leaving thickness alone was wrong in a visible way: legs lengthened 1.75x kept their 0.055 capsule width and came out proportionally 1.75x thinner than the rig [...]
     bones = tuple(
         (a, b, thickness * (factors.get(_group_of(a, b) or "", 1.0) ** THICKNESS_EXPONENT))
         for a, b, thickness in rig.bones
@@ -744,12 +639,6 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
     )
 
 
-# ------------------------------------------------------------------- none
-
-# A pipeline that only needs "the same subject, seen from four sides" does not
-# need a skeleton at all — and forcing one on a treasure chest, a tree or a
-# creature whose anatomy you have not decided yet is friction with no payoff.
-# Views become prompt terms instead of control images.
 NONE = Rig(
     name="none",
     label="No rig (views by prompt)",
@@ -771,11 +660,10 @@ _SOURCE: Decorated[Rig] = Decorated()
 for _r in (NONE, HUMANOID, QUADRUPED, SERPENT, BLOB):
     _SOURCE.add(_r.name, _r, what="rig")
 for _r in _GENERATED:
-    # A generated rig yields to a hand-written one of the same name.
     _SOURCE.entries.setdefault(_r.name, _r)
 
 _RIGS: Registry[Rig] = Registry("rig", _SOURCE)
-REGISTRY: dict[str, Rig] = _SOURCE.entries      # kept: read directly in places
+REGISTRY: dict[str, Rig] = _SOURCE.entries
 
 DEFAULT = HUMANOID.name
 
@@ -801,13 +689,7 @@ def summaries() -> list[dict]:
 
 def _swing(pose: dict[str, list[float]], root_joint: str,
            chain: tuple[str, ...], degrees: float, side: int) -> None:
-    """Rotate a limb chain rigidly about its root, in the lateral/height plane.
-
-    Rigid is the whole point. Placing each joint along a ray from the root
-    preserves root-to-joint distances and silently rescales everything past
-    the first bone, and assigning a coordinate outright preserves nothing.
-    Both were shipped here before this existed.
-    """
+    """Placing each joint along a ray from the root preserves root-to-joint distances and silently rescales everything past the first bone, and assigning a coordinate outright preserves nothing."""
     import math
 
     if not chain or root_joint not in pose:
@@ -828,47 +710,15 @@ def _swing(pose: dict[str, list[float]], root_joint: str,
         ]
 
 
-# How far apart the feet stand in a symmetric reference pose, from vertical.
 STANCE_DEGREES = 6.0
 
-# Degrees from vertical for the limbs of a reference pose. 40 is the A-pose
-# every character pipeline settles on, and it is a compromise between two
-# measured failures rather than a convention borrowed on faith.
+# 40 is the A-pose every character pipeline settles on, and it is a compromise between two measured failures rather than a convention borrowed on faith.
 A_POSE_DEGREES = 40.0
 
 
 def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
           ) -> dict[str, list[float]]:
-    """The reference pose a character sheet is drawn in.
-
-    Synthesised from the rig rather than stored as one file per creature.
-
-    The arm angle is the whole design, and both extremes were tried:
-
-      88 degrees (a true T)   Two horizontal limbs at shoulder height. A prompt
-                              mentioning a sword or a staff comes back with the
-                              blade drawn along an arm — the model reads a long
-                              horizontal element as the thing you named.
-
-       4 degrees (arms down)  Natural, and what references usually show. But
-                              the arms lie against the torso: measured on the
-                              humanoid rig this produced seven joint pairs
-                              landing within 4% of the canvas of each other at
-                              front view, so the silhouette has no gap between
-                              limb and body and neither a person nor a model
-                              can tell where the arm ends.
-
-      40 degrees (an A-pose)  Limbs clear of the torso, so the silhouette
-                              reads, without a horizontal to mistake for a
-                              weapon. This is why every game-art pipeline
-                              authors its rest pose this way.
-
-    `symmetric` mirrors the two sides. It is off by default because a
-    reference photograph is rarely symmetric, and forcing a rigid A-frame asks
-    the model to reconcile the pose with evidence that contradicts it. The
-    spread applies either way — an asymmetric pose still needs its limbs clear
-    of the body.
-    """
+    """40 degrees (A-pose) chosen over 88 (true T, reads as a weapon) and 4/arms-down (joint pairs land within 4% of the canvas, silhouette has no gap)."""
     import math
 
     pose = {k: list(v) for k, v in rig.neutral.items()}
@@ -887,10 +737,7 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
     if not symmetric:
         return pose
 
-    # A wider stance, by rotating the leg rather than dragging the foot
-    # sideways. Assigning the ankle's x directly is what this used to do, and
-    # it stretched the shin: measured, knee-to-ankle grew from 0.1600 to
-    # 0.1607 every time a symmetric sheet was generated.
+    # Assigning the ankle's x directly is what this used to do, and it stretched the shin: measured, knee-to-ankle grew from 0.1600 to 0.1607 every time a symmetric sheet was generated.
     for hip, knee, ankle in (("l_hip", "l_knee", "l_ankle"),
                              ("r_hip", "r_knee", "r_ankle")):
         if hip in pose and ankle in pose:
@@ -901,11 +748,6 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
 
 
 def infer_from_pose(pose: dict) -> Rig:
-    """Best-effort: which rig do these joint names belong to?
-
-    Pose files written before rigs existed have no rig field, so the joint
-    names are the only evidence available.
-    """
     keys = set(pose or {})
     best, best_score = REGISTRY[DEFAULT], -1.0
     for rig in REGISTRY.values():

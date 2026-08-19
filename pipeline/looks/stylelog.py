@@ -15,7 +15,6 @@ from ..shared.errors import NotFound, TooLarge
 FILENAME = "history.jsonl"
 KINDS = ("context", "tune", "train", "note")
 
-# A line longer than this is a bug or an attempt to store an image inline.
 MAX_LINE = 256 * 1024
 
 
@@ -61,13 +60,6 @@ def path_for(home: Path) -> Path:
 
 
 def append(home: Path, event: Event) -> Path:
-    """Add one event. Never rewrites, so a corrupt line cannot lose the rest.
-
-    Opened in append mode with a single write call: on a local filesystem a
-    write below the pipe buffer is atomic enough that a crashed autopilot
-    leaves a truncated last line rather than an interleaved one, and the
-    reader below tolerates exactly that.
-    """
     if event.kind not in KINDS:
         raise NotFound("history event kind", event.kind, available=list(KINDS))
 
@@ -88,11 +80,7 @@ def append(home: Path, event: Event) -> Path:
 
 
 def read(home: Path) -> list[dict[str, Any]]:
-    """Newest first. A malformed line is reported, not fatal.
-
-    A history that refuses to load because one line is broken is worse than
-    one with a gap in it, and the gap is visible either way.
-    """
+    """A history that refuses to load because one line is broken is worse than one with a gap in it, and the gap is visible either way."""
     target = path_for(home)
     if not target.exists():
         return []
@@ -118,7 +106,6 @@ def stream(home: Path) -> Iterator[dict[str, Any]]:
     yield from read(home)
 
 
-
 def context_event(added: list[Path], removed: list[Path] | None = None,
                   *, home: Path, note: str = "") -> Event:
     removed = removed or []
@@ -142,12 +129,6 @@ def tune_event(axis: str, before: Any, after: Any, *,
                subjects: list[str] | None = None,
                seeds: list[int] | None = None,
                trials: int = 0, note: str = "") -> Event:
-    """A setting moved, and the evidence for it.
-
-    Seeds are recorded because a comparison across different seeds measures
-    seed luck rather than the setting, so a tune event without them is not
-    evidence and should be readable as such.
-    """
     return Event(
         kind="tune",
         summary=note or f"{axis}: {before} → {after}",
@@ -175,9 +156,6 @@ def train_event(*, lora: Path | None, images: list[Path],
                 "count": len(files),
                 "bytes": total,
                 "files": files,
-                # One hash over the sorted per-file hashes: identifies the set
-                # as a whole, so two trainings on the same images are visibly
-                # the same training even if the folder was rebuilt.
                 "sha256": hashlib.sha256(
                     "".join(sorted(f["sha256"] for f in files)).encode()
                 ).hexdigest(),
@@ -200,17 +178,7 @@ def _relative(path: Path, home: Path) -> str:
         return str(path)
 
 
-# ---------------------------------------------------------------- archiving
-
-
 def archive_training(home: Path, *, keep_thumbnails: int = 8) -> dict[str, Any]:
-    """Move the training images aside once they have been used.
-
-    Returns the manifest the caller should put in the train event. The images
-    go to `training/archive/<date>/` rather than being deleted, because "I can
-    always regenerate them" is true right up until the run that made them has
-    been pruned.
-    """
     source = home / "training" / "images"
     if not source.is_dir():
         return {"moved": 0, "to": ""}

@@ -1,5 +1,4 @@
-"""Style sheets and palettes: the reusable half of a look.
-"""
+"""Style sheets and palettes: the reusable half of a look."""
 
 from __future__ import annotations
 
@@ -55,8 +54,6 @@ def style_detail(name: str) -> dict:
         "home": str(sheet.home),
         "summary": sheet.summary(ROOT),
         "context": {
-            # Two kinds, because they are edited differently: one is a folder
-            # of files, the other is text in a document.
             "images": images,
             "prompts": {
                 "vocabulary": sheet.vocabulary,
@@ -108,7 +105,7 @@ def style_exemplar(name: str, paths: list[str], remove: bool = False) -> dict:
                 touched.append(target)
             continue
         if source.parent.resolve() == folder.resolve():
-            continue                      # already here
+            continue
         target = files_mod.unique_name(folder, files_mod.safe_filename(source.name))
         shutil.copy2(source, target)
         touched.append(target)

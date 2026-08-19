@@ -19,15 +19,12 @@ SHARED = sorted((pathlib.Path(pipeline.__path__[0]) / "shared").rglob("*.py"))
 
 @pytest.mark.parametrize("name", MODULES)
 def test_every_module_imports(name):
-    # A broken import is invisible until something imports that module, which
-    # for half of them is only when a particular route is called.
+    # A broken import is invisible until something imports that module, which for half of them is only when a particular route is called.
     importlib.import_module(name)
 
 
 @pytest.mark.parametrize("path", SHARED, ids=lambda p: p.name)
 def test_shared_depends_on_no_module(path):
-    # "Put general things in shared" is a rule nobody can apply, because
-    # everything looks general from the inside. "Depends on nothing" is checkable.
     leaks = []
     for node in ast.walk(ast.parse(path.read_text())):
         if not isinstance(node, ast.ImportFrom):

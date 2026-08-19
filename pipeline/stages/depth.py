@@ -1,16 +1,4 @@
-"""Optional stage — depth maps to accompany the skeletons.
-
-A 2D skeleton cannot express viewing angle: three-quarter-rear and full-rear
-project to almost the same keypoints, because horizontal spread barely changes
-between them. Depth is the missing channel, and because poses are authored in
-body space it is computed rather than estimated.
-
-Stacks with the pose ControlNet — the Union model handles both `openpose` and
-`depth`, so this costs no extra model, only a second conditioning pass.
-
-Drop `depth` from `pipeline.stages` to disable it; `frames` treats the depth
-maps as optional and simply won't use them.
-"""
+"""Optional stage — depth maps to accompany the skeletons."""
 
 from __future__ import annotations
 
@@ -25,15 +13,9 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]:
-    """Draw one depth map per pose entry; the only renderer for depth images.
-
-    Shared with the rig editor, whose copy dropped fill, build, rig and props.
-    """
     cfg = ctx.stage_config("depth")
     pose_cfg = ctx.stage_config("pose")
 
-    # Each entry carries its own yaw, so a pose set whose entries use
-    # different viewing angles gets depth maps that match each one.
     override = cfg.get("view")
     size = opt(cfg, "size", pose_cfg["size"])
     rig = ctx.rig()
@@ -51,7 +33,6 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
     for i, entry in enumerate(frames):
         body_pose = entry["pose"]
         if props:
-            # A two-handed weapon needs the off hand brought to the shaft.
             body_pose = props_mod.pull_second_hand(props, body_pose, rig)
         yaw = resolve_view(override) if override else entry["yaw"]
         img = render_depth(

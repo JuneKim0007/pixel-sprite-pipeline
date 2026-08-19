@@ -1,10 +1,4 @@
-"""One declaration carrying its own bounds.
-
-The same shape as errors.py, one axis over: an exception carries the status it
-means, and a field carries the bounds it declares. Before this, min and max were
-declared on 137 config fields and enforced on none of them - the settings form
-read them and the server took whatever arrived.
-"""
+"""One declaration carrying its own bounds."""
 
 from __future__ import annotations
 
@@ -22,14 +16,14 @@ def _field(**kw):
 
 
 @pytest.mark.parametrize("sent,want", [
-    (30, 30),          # in range
-    (150, 150),        # exactly the maximum
-    (1, 1),            # exactly the minimum
-    (400, 150),        # over
-    (0, 1),            # under
-    ("42", 42),        # JSON strings coerce
-    (None, 30),        # absent falls back to the default
-    ("abc", 30),       # unparseable falls back to the default
+    (30, 30),
+    (150, 150),
+    (1, 1),
+    (400, 150),
+    (0, 1),
+    ("42", 42),
+    (None, 30),
+    ("abc", 30),
 ])
 def test_clamp_corrects_silently(sent, want):
     assert _field().clamp(sent) == want
@@ -37,15 +31,11 @@ def test_clamp_corrects_silently(sent, want):
 
 @pytest.mark.parametrize("sent", [400, 0, -1])
 def test_check_refuses_instead_of_correcting(sent):
-    # A config file is a person's own text. Rewriting `steps: 400` to 150 on
-    # save means the file no longer says what they typed, which is a different
-    # act from clamping a slider that has no error surface.
+    # Rewriting `steps: 400` to 150 on save means the file no longer says what they typed, which is a different act from clamping a slider that has no error surface.
     with pytest.raises(Invalid) as caught:
         _field().check(sent)
     assert caught.value.status == 400
     assert caught.value.detail.get("field") == "steps"
-    # The range belongs in the message: "out of range" without it sends the
-    # reader back to the form to find out what the range was.
     assert "150" in caught.value.message
 
 
@@ -63,9 +53,7 @@ def test_a_select_only_accepts_its_options():
 
 
 def test_a_field_cannot_exist_without_an_explanation():
-    # definitive.Field has enforced this from the start and a test asserts it;
-    # 20 config fields reached the settings form with an empty (?) because
-    # nothing enforced the same rule on their side.
+    # definitive.Field has enforced this from the start and a test asserts it; 20 config fields reached the settings form with an empty (?) because nothing enforced the [...]
     with pytest.raises(ValueError, match="help"):
         _field(help="")
 
@@ -78,8 +66,6 @@ def test_as_dict_carries_everything_a_form_needs():
 
 
 def test_the_layer_catalogue_is_unchanged_by_the_migration():
-    """The editor's form is built from this. A migration that changes its shape
-    changes the UI, which is not what a migration is for."""
     import json
     import pathlib
 
@@ -99,9 +85,6 @@ def test_a_layer_field_is_a_field():
 
 
 def test_a_config_field_speaks_the_form_s_dialect():
-    """path and key are the same concept under two names, and so are type and
-    kind. The base picks one; ConfigField emits the other, because the frontend
-    reads `path` and `type` and this migration must not reach it."""
     from pipeline.shared.contracts import ConfigField
 
     spec = ConfigField(key="frames.steps", label="Steps", kind="int",
@@ -123,23 +106,13 @@ def test_every_config_field_is_a_config_field():
 
 
 def test_the_settings_form_is_unchanged_by_the_migration():
-    """137 dicts become 137 declarations. The frontend must not be able to tell.
-
-    Captured before the migration and asserted after it, so this is proof rather
-    than hope - the settings form is generated from exactly this shape, and a
-    silently dropped key is a control that stops rendering.
-    """
+    """137 dicts become 137 declarations."""
     import json
     import pathlib
 
     from pipeline.generation import schema
 
     want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
-    # None is not a valid JSON object key. json.dumps would normally convert it
-    # to "null" during encoding, but sort_keys=True sorts the raw dict items
-    # first - comparing None against the str keys of the other modules raises
-    # TypeError before encoding gets the chance. Converting it ourselves keeps
-    # capture (see the golden file's generation) and comparison identical.
     got = json.loads(json.dumps(
         {("null" if m is None else m): schema.fields_for(m)
          for m in [None, *schema.MODULES]},
@@ -148,11 +121,6 @@ def test_the_settings_form_is_unchanged_by_the_migration():
 
 
 def test_contracts_depends_on_nothing_but_errors():
-    """shared/ is defined by having no dependencies, not by being useful.
-
-    An import of another pipeline group here is the thing that turns a shared
-    module into a cycle, and the import graph is the only place it shows.
-    """
     import ast
     import pathlib
 

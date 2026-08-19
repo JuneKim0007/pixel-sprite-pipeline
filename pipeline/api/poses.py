@@ -49,14 +49,9 @@ def poses(run_id: str) -> dict:
 
 
 def _run_context(run: Path, pose_json: dict) -> Context:
-    """A Context equivalent to the one that produced this run.
-
-    The snapshot is the raw config, so styles and globals are re-layered here.
-    """
     raw = yaml.safe_load((run / "config.yaml").read_text()) or {}
     styled, _record = styles.layer(ROOT, raw, picks=raw.get("style_picks"))
     cfg = settings.effective(ROOT, styled)
-    # Pinned from what the run recorded, so `rig: auto` needs no vision model.
     recorded = pose_json.get("rig")
     if recorded:
         cfg = {**cfg, "rig": recorded}
@@ -64,10 +59,6 @@ def _run_context(run: Path, pose_json: dict) -> Context:
 
 
 def save_poses(body: dict) -> dict:
-    """Write edited skeletons back and re-render their control images.
-
-    The redraw goes through the stages' own renderers, not a copy of them.
-    """
     run_id = body.get("run_id", "")
     entries = body.get("entries")
     if not run_id or not isinstance(entries, list):
@@ -92,10 +83,7 @@ def save_poses(body: dict) -> dict:
         if depth_dirs else None
     )
 
-    # The manifest must match the new frame count, or a resume would hand
-    # stale skeleton paths to the frames stage. A run written before the
-    # typed manifest existed cannot be repaired, so say so rather than
-    # leaving a resume to fail later with a confusing error.
+    # Manifest must match the new frame count, or a resume hands stale skeleton paths to the frames stage.
     manifest_state = "updated"
     try:
         arts, completed = artifacts_io.load(run)
@@ -105,17 +93,7 @@ def save_poses(body: dict) -> dict:
             arts["depthmaps"] = depthmaps
         artifacts_io.save(run, arts, completed)
     except (NotFound, Invalid, ValueError, OSError):
-        # No usable manifest: write one from what we just rendered, so the
-        # run becomes resumable rather than staying stuck.
-        #
-        # NotFound and Invalid are artifacts_io.load's own raises, but they
-        # are not the only way this can fail: it calls json.loads() after its
-        # NotFound guard, and a manifest left truncated by a crash mid-write
-        # raises json.JSONDecodeError, a ValueError subclass. path.read_text()
-        # can also lose a TOCTOU race against path.exists() and raise
-        # OSError/FileNotFoundError. Both are ours to catch here too, or the
-        # exact "no usable manifest" case this block exists for reaches the
-        # caller as a raw 400/500 instead of getting repaired.
+        # Both are ours to catch here too, or the exact "no usable manifest" case this block exists for reaches the caller as a raw 400/500 instead of getting repaired.
         arts = {"skeletons": skeletons, "pose_frames": entries}
         if depthmaps:
             arts["depthmaps"] = depthmaps
@@ -176,8 +154,6 @@ class Poses(BaseRouter):
 
     @get("/rigpose", "a rig's whole topology, not only its pose")
     def rigpose(self, req):
-        # The editor draws bones, colours them by chain and knows which joints
-        # are a face, so it needs the topology rather than a list of points.
         rig = rig_lib.get(req.query("rig") or None)
         return {
             "rig": rig.name, "label": rig.label,

@@ -1,17 +1,4 @@
-"""One registry, two ways of filling it.
-
-Six existed in three implementations, and they disagreed on the things that
-matter: styles raised on a duplicate name, palettes and props let the later
-file win silently, and all three swallowed a malformed file. A typo made a
-palette vanish, so the symptom was "the file I wrote is not in the list" with
-nothing anywhere saying why.
-
-    Decorated   entries added by a decorator at import time
-    Scanned     a glob plus a parse function, cached against file mtimes
-
-Entries need only a key. Rigs, palettes, styles and layers are four different
-dataclasses, and a common base would buy nothing a key does not.
-"""
+"""One registry, two ways of filling it."""
 
 from __future__ import annotations
 
@@ -26,11 +13,7 @@ T = TypeVar("T")
 
 @dataclass
 class Broken:
-    """A file that should have been an entry and was not.
-
-    Kept rather than discarded: "your palette has a typo on line 3" is the
-    message the person needs, and silence is the failure this exists to end.
-    """
+    """A file that should have been an entry and was not."""
 
     path: Path
     why: str
@@ -40,25 +23,14 @@ class Source(Generic[T]):
     """Where a registry's entries come from."""
 
     def load(self) -> tuple[dict[str, T], list[Broken]]:
-        # Source is never instantiated directly, only through Decorated,
-        # Scanned or a route's own subclass, all of which override this.
         raise NotImplementedError  # not-a-message: reaching it means one was built without doing that
 
     def signature(self) -> Any:
-        """Cheap value that changes when the entries might have.
-
-        `None` means "never changes", which is right for a decorated registry:
-        its contents are fixed once imports finish.
-        """
         return None
 
 
 class Decorated(Source[T]):
-    """Filled by a decorator at import time.
-
-    A duplicate key is a programming error rather than a typo, so it is refused
-    at import.
-    """
+    """Filled by a decorator at import time."""
 
     def __init__(self) -> None:
         self.entries: dict[str, T] = {}
@@ -70,12 +42,6 @@ class Decorated(Source[T]):
         return value
 
     def signature(self) -> Any:
-        """The entry count, because a decorated registry DOES change.
-
-        "Fixed once imports finish" is not a moment any caller can observe: a
-        registry read before its modules import would otherwise cache the
-        emptiness for the life of the process.
-        """
         return len(self.entries)
 
     def load(self) -> tuple[dict[str, T], list[Broken]]:
@@ -83,14 +49,7 @@ class Decorated(Source[T]):
 
 
 class Scanned(Source[T]):
-    """Filled from disk, and honest about what would not parse.
-
-    `parse` returns one (key, value), a dict of many, or None to skip the file.
-    Many because a palette file is one palette and a props file is a list, and
-    forcing the second into the first would mean a file per sword.
-
-    Raising rejects a file, and the message is what the user is told.
-    """
+    """Filled from disk, and honest about what would not parse."""
 
     def __init__(self, base: Path, patterns: Iterable[str],
                  parse: Callable[[Path], tuple[str, T] | dict[str, T] | None],
@@ -106,7 +65,6 @@ class Scanned(Source[T]):
         out: list[Path] = []
         for pattern in self.patterns:
             out += sorted(self.base.glob(pattern))
-        # A file matched by two patterns is one file.
         return sorted(set(out))
 
     def signature(self) -> Any:
@@ -128,9 +86,7 @@ class Scanned(Source[T]):
             produced = result if isinstance(result, dict) else dict([result])
             for key, value in produced.items():
                 if key in found:
-                    # Two files claiming one name is a real ambiguity, and
-                    # picking one silently means the other's edits appear to do
-                    # nothing at all.
+                    # Two files claiming one name is a real ambiguity, and picking one silently means the other's edits appear to do nothing at all.
                     broken.append(Broken(
                         path, f"'{key}' is already defined by {origin[key]}"))
                     continue
@@ -147,7 +103,7 @@ class Registry(Generic[T]):
         self.source = source
         self._entries: dict[str, T] | None = None
         self._broken: list[Broken] = []
-        self._signature: Any = object()          # never equal to a real one
+        self._signature: Any = object()
 
     def _ensure(self) -> None:
         signature = self.source.signature()
@@ -177,8 +133,6 @@ class Registry(Generic[T]):
     def get(self, key: str) -> T:
         entries = self.all()
         if key not in entries:
-            # A file that failed to parse is a better answer than "not found",
-            # because the person almost certainly just edited it.
             for bad in self.broken():
                 if bad.path.stem == key or key in str(bad.path):
                     raise Invalid(f"{self.what} '{key}' could not be read: {bad.why}",

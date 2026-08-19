@@ -1,5 +1,4 @@
-"""The queue, and the autopilot that drains it.
-"""
+"""The queue, and the autopilot that drains it."""
 
 from __future__ import annotations
 
@@ -84,8 +83,6 @@ def queue_act(job_id: str, action: str) -> dict:
                     f"{job_id} is running. Stop the autopilot first — moving a "
                     f"job out from under it would leave two writers on one run.")
             if action == "retry":
-                # Attempts reset because a human looked at it; the breaker
-                # counts machine failures, not deliberate re-runs.
                 queue.move(job, q.PENDING, attempts=0, error=None)
             elif action == "hold":
                 queue.move(job, q.HELD, retry_after=time.time() + 3600)
@@ -121,8 +118,7 @@ def autopilot(action: str, args: dict | None = None) -> dict:
     if action == "stop":
         if not alive:
             return {"running": False, "note": "not running"}
-        # SIGTERM, which autopilot traps to finish the job it is on rather
-        # than abandoning a half-written run directory.
+        # SIGTERM, which autopilot traps to finish the job it is on rather than abandoning a half-written run directory.
         proc.terminate()
         return {"running": False, "note": "asked to stop after the current job"}
 

@@ -70,17 +70,8 @@ def save(annotation: Annotation) -> Path:
     return path
 
 
-# ----------------------------------------------------------- control image
-
-
 def render(annotation: Annotation, width: int = 1024, height: int = 1024,
            thickness: float | None = None):
-    """Draw the annotation as an OpenPose-style control image.
-
-    Only bones with both ends placed are drawn. A partially annotated figure
-    produces a partial skeleton, which is the honest signal: it tells the model
-    what is known and leaves the rest for it to invent.
-    """
     from PIL import Image, ImageDraw
 
     rig = rigs.get(annotation.rig)
@@ -107,17 +98,7 @@ def render(annotation: Annotation, width: int = 1024, height: int = 1024,
     return canvas
 
 
-# ------------------------------------------------------------- derivations
-
-
 def infer_view(annotation: Annotation) -> tuple[float, float]:
-    """Guess the viewing angle from shoulder spread. Returns (yaw, confidence).
-
-    Shoulders separate fully at a front view and collapse toward a point in
-    profile, so their apparent width against hip width is a usable proxy. The
-    front/back ambiguity that leaves is settled by whether a face was placed —
-    the same cue the projection uses in the other direction.
-    """
     rig = rigs.get(annotation.rig)
     pts = annotation.points
 
@@ -135,30 +116,21 @@ def infer_view(annotation: Annotation) -> tuple[float, float]:
         return 0.0, 0.0
 
     ratio = max(0.0, min(1.0, spread / reference))
-    yaw = math.degrees(math.acos(ratio))          # 0 = front-on, 90 = profile
+    yaw = math.degrees(math.acos(ratio))  # 0 = front-on, 90 = profile.
 
     facing_away = not any(j in pts for j in rig.face_joints)
     if facing_away:
         yaw = 180.0 - yaw
-    # Sparse annotations make the ratio noisy, so confidence tracks coverage.
     confidence = min(1.0, len(pts) / max(len(rig.joints) * 0.4, 1))
     return round(yaw, 1), round(confidence, 2)
 
 
 def infer_proportions(annotation: Annotation) -> dict[str, float]:
-    """Limb-length ratios against the rig's defaults.
-
-    Only bones roughly in the picture plane are meaningful — a limb pointing at
-    the camera is foreshortened and would read as short. Measuring several
-    bones per group and taking the median discards the worst of that.
-    """
     rig = rigs.get(annotation.rig)
     pts = annotation.points
     if len(pts) < 4:
         return {}
 
-    # Torso height is the scale reference: it is the least foreshortened
-    # measurement available in most poses.
     anchor = None
     for top, bottom in (("neck", "l_hip"), ("neck", "r_hip"), ("chest", "hips")):
         if top in pts and bottom in pts and top in rig.neutral and bottom in rig.neutral:
@@ -233,11 +205,6 @@ def describe(annotation: Annotation) -> dict:
 
 
 def gather(root: Path, ref_cfg: dict) -> list[Annotation]:
-    """Annotations for whichever references have one. Absent is fine.
-
-    Only identity and pose references can carry one — a palette swatch or a
-    style exemplar has no anatomy to mark up.
-    """
     from ..refs.references import load as load_refs
 
     lib = load_refs(root, ref_cfg or {})

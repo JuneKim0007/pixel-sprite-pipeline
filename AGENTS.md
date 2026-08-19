@@ -29,10 +29,14 @@ queued; do not override it with `FORCE=1` unless you know the queue is stale.
 names first, because that defect class compiles cleanly, passes review, and
 then raises at runtime six GPU-minutes into a stage. It has happened twice.
 
-**Measure before you assert.** This project has a habit, and it is the habit
-worth keeping: every non-obvious claim in the code comments is followed by the
-measurement that produced it. If you are about to write "this is better",
+**Measure before you assert.** If you are about to write "this is better",
 generate both and look. If you cannot measure it, say that instead.
+
+**Put the reasoning in the commit message, not the source.** The measurement
+goes in the commit and in `docs/`; a comment gets one line, if any. This rule
+used to say the opposite and the source grew to 16% prose — 2,551 lines of
+comment and docstring — before it was cut back to 2%. Code with an essay
+attached is harder to read, not easier. Delete a comment sooner than shorten it.
 
 **A/B with a fixed seed.** Two images that differ in seed *and* in the thing
 you are testing tell you nothing. Every comparison holds the seed.

@@ -1,10 +1,4 @@
-"""Stage 2 — the canonical sprite: one image that defines who the character is.
-
-Everything downstream refers back to this. It is generated once, at the highest
-quality settings in the config, because every animation frame inherits its
-identity through IP-Adapter and its colours through the extracted palette. A
-weak canonical propagates into every frame.
-"""
+"""Stage 2 — the canonical sprite: one image that defines who the character is."""
 
 from __future__ import annotations
 
@@ -22,12 +16,7 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def _label_for(yaw: float) -> str:
-    """Filename-safe name for a view, so a canonical can be found by name.
-
-    Named views only span 0-180, so the character's right side has no name and
-    becomes its angle. That is deliberate: `side` already means 90, and giving
-    270 a name that reads like a mirror of it is how the two get swapped.
-    """
+    """Named views only span 0-180, so the character's right side has no name and becomes its angle."""
     from ..geometry.bodyspace import VIEWS
     for name, deg in VIEWS.items():
         if abs(deg - (round(yaw) % 360)) < 0.5:
@@ -36,20 +25,7 @@ def _label_for(yaw: float) -> str:
 
 
 def _anchor_view(ctx, cfg) -> str | float:
-    """Which way the anchor faces.
-
-    Three sources, most specific first, and the last one is the fix for a real
-    failure. A character sheet lists its views in `pose.set` and never sets
-    `pose.view`, so this used to fall through to the literal default "side" —
-    the anchor was rendered in profile for a sheet whose first view is front,
-    and a reference labelled `front` was then measured as 90 degrees away and
-    down-weighted by the falloff for being a poor match. It was a poor match
-    only because the target had been chosen wrongly.
-
-    The anchor should face the same way as the first frame that will inherit
-    from it. That is the frame it has the best chance of matching, and every
-    other frame turns away from it symmetrically.
-    """
+    """[...] for a sheet whose first view is front, and a reference labelled `front` was then measured as 90 degrees away and down-weighted by the falloff for being a poor match"""
     explicit = cfg.get("view")
     if explicit is not None:
         return explicit
@@ -94,20 +70,11 @@ class CanonicalStage(Stage):
                         vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
         lcm = bool(cfg["lcm"])
 
-        # A reference may shape the anchor itself, not just the frames derived
-        # from it. Without this the canonical is generated from the prompt
-        # alone, so "here is my character, build a sheet of it" cannot work.
         lib = ctx.references()
         from_ref = cfg["from_reference"] or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
         def _prepare(view: float) -> None:
-            """Point the closure state at `view`, so build() renders that angle.
-
-            build() reads want_view / chosen / control_names at CALL time, so
-            rebinding them here is what makes one graph builder serve every
-            view without duplicating it.
-            """
             nonlocal want_view, chosen, guide, depth, control_names
             want_view = view
             chosen = None
@@ -134,22 +101,10 @@ class CanonicalStage(Stage):
             chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
             print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
 
-        # The anchor gets the same structural conditioning a frame gets.
-        #
-        # Without it the canonical came from prompt and IP-Adapter alone - no
-        # ControlNet, no depth, no prop geometry - while the pose and depth
-        # stages' output sat unused. Three symptoms came from that one gap:
-        # duplicate props (told only "holding a bow", the model decides where
-        # it goes and sometimes decides twice), broken anatomy, and degradation
-        # proportional to how dynamic the reference pose was.
+        # Three symptoms came from that one gap: duplicate props (told only "holding a bow", the model decides where it goes and sometimes decides twice), broken anatomy, and degradation [...]
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
 
-        # Condition on the geometry for the view being rendered, not index 0.
-        # `canonical.view` already chose the REFERENCE by angle, but the guide
-        # and depth map were pinned to the first pose frame - so asking for a
-        # side anchor gave a side reference conditioned on front geometry, and
-        # the two pulled against each other with nothing in the log to say so.
         _entries = ctx.artifacts.get("pose_frames") or []
         _idx = 0
         if _entries:
@@ -170,10 +125,6 @@ class CanonicalStage(Stage):
                 control_names["pose"] = (client.upload_image(guide), channel)
             if depth:
                 control_names["depth"] = (client.upload_image(depth), "depth")
-            # Say WHERE the geometry came from, not just that there was some.
-            # A skeleton synthesised from the rig and a skeleton traced off an
-            # annotated drawing are different claims about the output, and the
-            # log is the only place that distinction survives the run.
             entries = ctx.artifacts.get("pose_frames") or []
             origin = (entries[0] or {}).get("from_annotation") if entries else None
             source = ctx.stage_config("pose").get("source", "library")
@@ -182,10 +133,7 @@ class CanonicalStage(Stage):
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
                   f"  <- {where}")
 
-        # Candidates go out as one batch by default. Measured: batch 1806 s and
-        # 1.28M swap-ins against sequential 2096 s and 2.8M, and candidate 0 is
-        # byte-identical either way - a diffusion UNet uses GroupNorm, so
-        # nothing crosses the batch dimension.
+        # Measured: batch 1806 s and 1.28M swap-ins against sequential 2096 s and 2.8M, and candidate 0 is byte-identical [...]
         uploads: dict = {}
 
         def build():
@@ -201,15 +149,6 @@ class CanonicalStage(Stage):
                 models=ctx.config.get("models") or {},
             )
 
-            # No img2img from an identity reference, deliberately. Those are
-            # usually illustrations, and denoising from one traces its
-            # rendering — gradients, soft edges, anti-aliasing — which is the
-            # opposite of a sprite. Identity goes through IP-Adapter only and
-            # the pixelation comes from generation.
-            #
-            # comfy.encode_image is kept for the illustrate → pixelise pass,
-            # which is a different thing: there the source is already in the
-            # target style and tracing it is the point.
             if chosen is not None:
                 if chosen.path not in uploads:
                     uploads[chosen.path] = client.upload_image(chosen.path)
@@ -222,8 +161,6 @@ class CanonicalStage(Stage):
                     ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
                 )
 
-            # Style exemplars ride on top at a much lower weight: they say how
-            # the art should look, not who the character is.
             for exemplar in lib.style[:2]:
                 if exemplar.path not in uploads:
                     uploads[exemplar.path] = client.upload_image(exemplar.path)
@@ -240,14 +177,8 @@ class CanonicalStage(Stage):
                 strong = kind == "pose"
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-        # Weaker than the frames stage: the anchor has no anchor of its own, so
-        # strong control here fights the identity reference instead of guiding
-        # it.
                     strength=opt(cn, "strength", 0.55 if strong else 0.30),
                     start_percent=opt(cn, "start_percent", 0.0),
-                    # Released earlier too. The anchor's job is to be a clean
-                    # readable character, not to reproduce a specific pose to
-                    # the pixel; the frames are where pose fidelity is paid for.
                     end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
                     union_type=channel,
                     controlnet=(ctx.config.get("models") or {}).get("controlnet"),
@@ -260,9 +191,6 @@ class CanonicalStage(Stage):
         base_seed = cfg["seed"]
         timeout = cfg["timeout"]
 
-    # One anchor per view, or the single front anchor as a fallback. A rear
-    # frame conditioned on a front anchor inherits the front's silhouette,
-    # which is what makes a back view come out with a face on it.
         _entries_all = ctx.artifacts.get("pose_frames") or []
         if bool(cfg["per_view"]) and _entries_all:
             views = [float((e or {}).get("yaw", 0.0)) for e in _entries_all]
@@ -297,7 +225,7 @@ class CanonicalStage(Stage):
                 )
                 print(f"   {wanted} candidates as one batch")
                 images = client.generate(g.build(), timeout=timeout)
-                wanted = 0                       # the loop below has nothing to do
+                wanted = 0
 
             for n in range(wanted):
                 g, model, pos, neg, vae = build()

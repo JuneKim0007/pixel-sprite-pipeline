@@ -19,20 +19,17 @@ class Prop:
     """An object held at, or hanging from, a joint."""
 
     name: str
-    socket: str                                     # joint it attaches to
+    socket: str
     offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    # Direction the prop extends, in body space. Normalised on use.
     aim: tuple[float, float, float] = (0.0, 0.35, -1.0)
     length: float = 0.30
     width: float = 0.022
-    # A second socket the prop is also held by. Two-handed weapons and bows
-    # read wrong unless the off hand is pulled toward the grip.
     second_socket: str = ""
     prompt: str = ""
-    flex: float = 0.0                               # 0 rigid, >0 soft chain
-    segments: int = 4                               # only used when flex > 0
+    flex: float = 0.0
+    segments: int = 4
     influence: float = 1.0
-    shade: float = 1.0                              # depth brightness multiplier
+    shade: float = 1.0
 
     @classmethod
     def from_config(cls, entry: dict) -> "Prop":
@@ -56,26 +53,6 @@ _REGISTRIES: dict[Path, Registry] = {}
 
 
 def wanted(ctx) -> bool:
-    """Whether this module should draw the configured props at all.
-
-    A character sheet and an animation want opposite things from the same
-    prop list, and the list is written once per character.
-
-    A sheet is a reference document. Its job is to show the body clearly from
-    four sides so everything downstream can match it, and a weapon works
-    against that on both channels: it occludes the torso and arm it crosses,
-    and it is a long rigid volume in the depth map that the model will happily
-    trace instead of the limb behind it. The sheet is also where a wrongly
-    placed prop does the most damage, because every animation inherits from it.
-
-    An attack animation is the opposite case: the weapon is the subject of the
-    motion, and without it the arm swings at nothing.
-
-    So the default is per module rather than global, and `props.enabled` (or
-    `props_enabled`) overrides it either way. Splitting weapons into their own
-    layer and compositing them is the other half of this, and belongs to the
-    editor rather than to generation.
-    """
     from ..shared.config import opt
 
     cfg = ctx.config.get("props")
@@ -90,13 +67,6 @@ def wanted(ctx) -> bool:
 
 
 def registry(root) -> Registry[dict]:
-    """Reusable prop definitions from props/*.yaml, keyed by name.
-
-    poses and palettes have had libraries since the beginning and props did
-    not, so every weapon had to be dimensioned by hand in the config that used
-    it - six numbers describing where a sword points, retyped per character.
-    A prop is exactly as reusable as a palette: a longsword is a longsword.
-    """
     root = Path(root).resolve()
     found = _REGISTRIES.get(root)
     if found is None:
@@ -138,22 +108,6 @@ def broken(root) -> list[Broken]:
 
 
 def load(specs, root=None) -> list[Prop]:
-    """Build props from a config block.
-
-    An entry may be a bare name from the library, or a dict. A dict carrying a
-    `from` key starts from the library entry and overrides it, so "a longsword
-    but shorter" costs one line instead of seven.
-
-    The block itself may also be a mapping with a switch, which is the shape a
-    character sheet wants:
-
-        props: [longsword]
-        props: {enabled: false, items: [longsword]}
-
-    Without this the mapping form was read as a list of prop names and failed
-    with "no prop 'enabled' in the library", which is a confusing way to learn
-    that a reasonable-looking config is not the accepted one.
-    """
     if isinstance(specs, dict):
         specs = specs.get("items") or specs.get("props") or []
     library = discover(root) if root is not None else {}
@@ -194,12 +148,6 @@ def anchor(prop: Prop, pose: dict, rig) -> tuple[float, float, float] | None:
 
 
 def tip(prop: Prop, pose: dict, rig) -> tuple[float, float, float] | None:
-    """The far end of a rigid prop.
-
-    Aim follows the limb it is held by where that can be worked out: a sword
-    points the way the forearm points, so a swing carries the blade with it
-    instead of leaving it stuck at a fixed angle.
-    """
     grip = anchor(prop, pose, rig)
     if grip is None:
         return None
@@ -213,8 +161,6 @@ def tip(prop: Prop, pose: dict, rig) -> tuple[float, float, float] | None:
     if parent and parent in pose and prop.socket in pose:
         limb = [pose[prop.socket][i] - pose[parent][i] for i in range(3)]
         if any(abs(v) > 1e-6 for v in limb):
-            # Blend the limb direction with the authored aim, so a prop keeps
-            # some of its intended angle while still following the arm.
             unit = _normalise(limb)
             aim = _normalise(prop.aim)
             direction = tuple(unit[i] * 0.65 + aim[i] * 0.35 for i in range(3))
@@ -235,7 +181,6 @@ def chain(prop: Prop, pose: dict, rig) -> list[tuple[float, float, float]]:
     points = []
     for i in range(prop.segments + 1):
         t = i / prop.segments
-        # A flexible prop sags toward the ground, more so further along.
         sag = prop.flex * prop.length * (t ** 2)
         points.append((
             grip[0] + (end[0] - grip[0]) * t,
@@ -248,12 +193,6 @@ def chain(prop: Prop, pose: dict, rig) -> list[tuple[float, float, float]]:
 def draw_depth(draw, props: Sequence[Prop], pose: dict, rig, yaw: float,
                width: int, height: int, shade_of, depth_scale: float = 1.0,
                lateral_scale: float = 1.0, floor: int = 60) -> int:
-    """Add props to a depth map. Returns how many were drawn.
-
-    `floor` is the darkest value the body itself uses. A prop must not go
-    below it: black means background, so a dim cape would read as a hole
-    punched through the sprite rather than cloth hanging behind it.
-    """
     drawn = 0
     for prop in props:
         if prop.influence <= 0:
@@ -264,19 +203,13 @@ def draw_depth(draw, props: Sequence[Prop], pose: dict, rig, yaw: float,
 
         span = min(width, height)
         for index, (a, b) in enumerate(zip(points, points[1:])):
-            # Taper along the chain. A rigid blade keeps its width; a cape or
-            # whip narrows toward the end, which is what stops a flexible prop
-            # reading as a rectangle bolted to the figure.
             t = index / max(len(points) - 2, 1)
             taper = 1.0 if prop.flex <= 0 else (1.0 - 0.45 * t)
             thickness = max(2.0, prop.width * span * taper)
             pa = project_point(a, yaw, depth_scale=depth_scale, lateral_scale=lateral_scale)
             pb = project_point(b, yaw, depth_scale=depth_scale, lateral_scale=lateral_scale)
-            # Depth from the midpoint, so a prop pointing at the camera reads
-            # as nearer than one pointing away.
             mid_depth = (a[1] + b[1]) / 2 * math.cos(math.radians(yaw)) \
                 + (a[0] + b[0]) / 2 * math.sin(math.radians(yaw))
-            # Dim within the occupied range rather than toward black.
             base = shade_of(mid_depth)
             value = int(max(floor, min(255, floor + (base - floor) * prop.shade)))
             draw.line(
@@ -288,11 +221,6 @@ def draw_depth(draw, props: Sequence[Prop], pose: dict, rig, yaw: float,
 
 
 def pull_second_hand(props: Sequence[Prop], pose: dict, rig) -> dict:
-    """Move an off hand onto a two-handed prop's grip.
-
-    Without this a greatsword or a bow is held in one hand while the other
-    stays wherever the pose left it, which reads as wrong immediately.
-    """
     out = {k: list(v) for k, v in pose.items()}
     for prop in props:
         if not prop.second_socket or prop.second_socket not in out:
@@ -301,7 +229,6 @@ def pull_second_hand(props: Sequence[Prop], pose: dict, rig) -> dict:
         end = tip(prop, out, rig)
         if grip is None or end is None:
             continue
-        # A shade along the shaft, not on top of the primary hand.
         hold = tuple(grip[i] + (end[i] - grip[i]) * 0.22 for i in range(3))
         out[prop.second_socket] = list(hold)
     return out

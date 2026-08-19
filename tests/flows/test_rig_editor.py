@@ -52,8 +52,6 @@ def test_an_editor_save_renders_exactly_as_the_stage_would(root, editor_run):
                               {"size": 256, "fill": 0.8, "thickness": 0.02,
                                "depth_scale": 1.3})
 
-    # The pipeline's own derivation, reproduced independently. run.py copies
-    # the raw config into the run dir, so styles and globals re-layer here.
     raw = yaml.safe_load((run / "config.yaml").read_text())
     styled, _ = styles.layer(root, raw, picks=raw.get("style_picks"))
     ctx = Context(root=root, outdir=run, config=settings.effective(root, styled),
@@ -71,11 +69,6 @@ def test_an_editor_save_renders_exactly_as_the_stage_would(root, editor_run):
 
 
 def test_a_corrupt_manifest_is_rebuilt_not_left_failing(editor_run):
-    # artifacts.json truncated mid-write (a crash) is valid JSON up to a
-    # point, so json.loads() raises JSONDecodeError - a ValueError subclass,
-    # not NotFound/Invalid. save_poses must still recover from it: this is
-    # the "no usable manifest" case the except block exists for, and the
-    # most likely real one, more likely than the file being absent outright.
     run, entries = editor_run("corrupt_manifest",
                               {"size": 256, "fill": 0.8, "thickness": 0.02})
     (run / "artifacts.json").write_text('{"completed": ["pose"], "artif')

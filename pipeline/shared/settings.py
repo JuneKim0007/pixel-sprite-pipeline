@@ -1,23 +1,4 @@
-"""Global defaults, per-pipeline overrides, and the merge between them.
-
-A pipeline config now answers two different questions, and they change at
-different rates:
-
-  "how does this machine behave"   compute, model paths, service hosts,
-                                   working directories — set once, true for
-                                   every pipeline
-  "what am I making"               subject, poses, strengths — per asset
-
-Keeping both in every config means re-setting the machine answers in each new
-pipeline, and changing one means editing every file. So machine-level values
-live in configs/_global.yaml and a pipeline config only carries what it
-deliberately differs on.
-
-The merge is deep and the pipeline always wins. A value present in the pipeline
-config is an override even if it happens to equal the global — the UI needs to
-distinguish "inherited" from "set to the same thing", or a Reset button cannot
-know what to remove.
-"""
+"""Global defaults, per-pipeline overrides, and the merge between them."""
 
 from __future__ import annotations
 
@@ -30,15 +11,10 @@ from . import paths
 
 GLOBAL_NAME = "_global"
 
-# Shipped defaults for the machine-level half. Written on first run so the file
-# exists to be edited rather than appearing by magic later.
 DEFAULT_GLOBAL: dict[str, Any] = {
     "paths": {
-        # Where reference images and other inputs are read from and uploaded to.
         "input_dir": "library/refs",
-        # Where runs are written. Blank means out/runs under the project.
         "output_dir": "out/runs",
-        # Default target for Download in the UI.
         "download_dir": "out/exports",
     },
     "comfy": {"host": "http://127.0.0.1:8188"},
@@ -58,7 +34,6 @@ DEFAULT_GLOBAL: dict[str, Any] = {
         "clip_vision": "CLIP-ViT-H-14.safetensors",
     },
     "ui": {
-        # Remembered "don't show me this again" acknowledgements.
         "suppress_gate_confirm": False,
         "suppress_overwrite_confirm": False,
     },
@@ -83,11 +58,7 @@ def load_global(root: Path) -> dict[str, Any]:
 
 
 def deep_merge(base: dict, over: dict) -> dict:
-    """Recursive merge; `over` wins. Lists replace rather than concatenate.
-
-    Concatenating would make it impossible to shorten a list in an override —
-    you could add a reference image but never remove one.
-    """
+    """Concatenating would make it impossible to shorten a list in an override — you could add a reference image but never remove one."""
     out = dict(base)
     for key, value in (over or {}).items():
         if isinstance(value, dict) and isinstance(out.get(key), dict):
@@ -103,12 +74,7 @@ def effective(root: Path, pipeline_cfg: dict) -> dict:
 
 
 def overridden_paths(pipeline_cfg: dict, prefix: str = "") -> set[str]:
-    """Dotted paths the pipeline config sets, whatever their value.
-
-    Presence is the override, not difference. A pipeline that sets cfg 7.0 when
-    the global is also 7.0 is still pinned to 7.0 — so Reset must remove the
-    key, and the UI must be able to show it as pinned.
-    """
+    """A pipeline that sets cfg 7.0 when the global is also 7.0 is still pinned to 7.0 — so Reset must remove the key, and the UI must be able to show it as pinned."""
     out: set[str] = set()
     for key, value in (pipeline_cfg or {}).items():
         here = f"{prefix}.{key}" if prefix else key

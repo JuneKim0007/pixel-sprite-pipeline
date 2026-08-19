@@ -32,16 +32,10 @@ class Fit:
 
 
 def subject_mask(image: Path, tolerance: int = 18) -> np.ndarray:
-    """Boolean mask of the sprite, background keyed out from the edges.
-
-    Reuses the same flood fill the palette stage uses, so what counts as
-    background here is what counts as background there.
-    """
     rgb = np.asarray(Image.open(image).convert("RGB"))
     keyed = background_to_alpha(rgb, tolerance)
     mask = keyed[..., 3] > 0
 
-    # Drop specks so a stray pixel does not widen the profile.
     labels, count = ndimage.label(mask)
     if count > 1:
         sizes = ndimage.sum(mask, labels, range(1, count + 1))
@@ -96,9 +90,6 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
         value = centres[max(top, min(bottom, y))]
         return float(value) if not math.isnan(value) else w / 2
 
-    # Shoulders: the first sharp WIDENING below the head, not simply the widest
-    # row up top. A character in a skirt or a cloak is wider at the hem than at
-    # the shoulders, and picking the maximum lands the joint on the belt.
     smooth = np.convolve(band, np.ones(max(3, height // 40)) / max(3, height // 40),
                          mode="same")
     search_lo, search_hi = int(height * 0.08), int(height * 0.40)
@@ -114,19 +105,16 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     shoulder_y = top + shoulder_rel
     shoulder_span = _extent(mask, shoulder_y)
 
-    # Head: the narrow region above the shoulders.
     head_band = band[: max(1, shoulder_y - top)]
     head_y = top + int(np.argmin(head_band)) if len(head_band) > 2 else at(0.08)
     nose_y = top + int(height * 0.11)
 
-    # Hips: widest row in the middle band, below the waist pinch.
     lower_start = int(height * 0.42)
     lower_end = int(height * 0.72)
     mid = band[lower_start:lower_end]
     hip_y = top + lower_start + (int(np.argmax(mid)) if len(mid) else int(height * 0.15))
     hip_span = _extent(mask, hip_y)
 
-    # Legs: where the silhouette splits in two, the gap gives each leg's centre.
     ankle_y = bottom - max(1, int(height * 0.03))
     knee_y = int((hip_y + ankle_y) / 2)
 
@@ -177,8 +165,6 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
         "r_ankle": px(ankle_y, ankle_l),
     }
 
-    # Confidence from how clearly the profile actually showed the landmarks a
-    # humanoid should have. A featureless blob scores low and says so.
     signals = []
     signals.append(min(1.0, height / (h * 0.45)))
     signals.append(0.35 if any("head-to-shoulder" in n for n in fit.notes) else 1.0)
@@ -247,9 +233,6 @@ def propose(image: Path, rig_name: str = "humanoid", tolerance: int = 18) -> Fit
     if rig_name == "humanoid":
         return fit_humanoid(mask, rig)
 
-    # Other body plans have no reliable profile signature — a spider's width
-    # profile says nothing about which lobe is which leg. Report the bounding
-    # geometry so the editor can at least scale the template sensibly.
     rows = np.nonzero(mask.any(axis=1))[0]
     cols = np.nonzero(mask.any(axis=0))[0]
     fit = Fit(confidence=0.25)

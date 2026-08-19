@@ -1,40 +1,4 @@
-"""How much of the machine the editor may take, as a share of what it has.
-
-These bound the EDITOR, not the pipeline. A generation run is a separate
-process (subprocess.Popen from the run and queue routes) and is deliberately
-left alone. What shares a process with the editor is the web server, whose only
-CPU-heavy work is the editor - so capping this process costs nothing else.
-
-Importing this module does nothing; only server.py calls apply().
-
-Configuration is ratios and the absolutes are derived, because "half the cores"
-means something different on four cores and on sixty-four:
-
-    cpu_share      0.4   of the cores this process can see
-    memory_share   0.05  of physical RAM, for one preview's working set
-    preview_ms     150   budget for one interactive preview
-    output_share   0.05  of physical RAM, for one result and its copies
-    rss_share      0.35  of physical RAM, before a process is killed outright
-
-memory_share sizes one array and nothing else. That is worth saying plainly,
-because the name reads like a cap on the process and it never was one: a
-14.9 GB python3.12 on this 16 GB machine obeyed it exactly. Bounding the input
-does not bound the output, and the output is what does the damage - the two
-shares above were added for that, and shared/guard.py enforces the second from
-outside the process.
-
-preview_ms is a budget rather than a size. A one-time benchmark measures cost
-per megapixel and solves for the largest edge that fits, so a faster machine
-gets a bigger preview from the same setting.
-
-GPU share is NOT capped. There is no portable mechanism and none at all on
-Metal - no equivalent of CUDA_MPS_ACTIVE_THREAD_PERCENTAGE exists. The only
-lever is how much work gets submitted, which is what preview_edge controls.
-
-CPU capping is by environment variable: every BLAS respects it and it works
-everywhere, but it bounds thread count rather than scheduling priority. cgroups
-and QoS classes would be finer and neither is portable.
-"""
+"""How much of the machine the EDITOR (not the pipeline subprocess) may take, as shares of what it has. memory_share sizes one array, not the process - 14.9 GB python3.12 on 16 GB still obeyed it."""
 
 from __future__ import annotations
 
@@ -44,29 +8,18 @@ import time
 from pathlib import Path
 
 SHARES: dict[str, float] = {
-    "cpu_share": 0.4,        # of visible cores
-    "memory_share": 0.05,    # of physical RAM, per preview working set
-    "preview_ms": 150.0,     # budget for one interactive preview
-    "concurrent": 1.0,       # previews in flight; two is always waste
-    "output_share": 0.05,    # of physical RAM, for one result and its copies
-    "rss_share": 0.35,       # of physical RAM, before a process is killed
+    "cpu_share": 0.4,
+    "memory_share": 0.05,
+    "preview_ms": 150.0,
+    "concurrent": 1.0,
+    "output_share": 0.05,
+    "rss_share": 0.35,
 }
 
-# What one output pixel costs between being computed and being sent, counted
-# rather than guessed: the RGBA array itself, the PIL image fromarray copies,
-# the encoder's buffer, the base64 expansion at 4/3, its str decode, and the
-# JSON serialisation. Six live copies at 4 bytes, so a result is budgeted at
-# 24 bytes per pixel and not at 4.
-#
-# This number is why bounding the *input* was never enough. A 384 px preview
-# obeying every existing limit still produces 38 megapixels at the default
-# zoom of 16, and 38 megapixels through this path is 0.9 GB.
+# Six live copies at 4 bytes, so a result is budgeted at 24 bytes per pixel and not at 4.
 BYTES_PER_OUTPUT_PIXEL = 24
 
 _STATE = dict(SHARES)
-# Whether numpy was already loaded when apply() ran. Recorded then, not asked
-# later: by the time anyone reads this, numpy is always loaded, and the first
-# version of the check therefore always said "too late".
 _APPLIED: bool | None = None
 _BENCH: dict | None = None
 
@@ -75,21 +28,13 @@ _THREAD_VARS = (
     "OPENBLAS_NUM_THREADS",
     "MKL_NUM_THREADS",
     "NUMEXPR_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",     # Accelerate, which is what MPS builds use
+    "VECLIB_MAXIMUM_THREADS",
 )
 
 
-# ------------------------------------------------------------------ the machine
-
-
 def cores() -> int:
-    """Cores this process may actually use.
-
-    sched_getaffinity where it exists: a container can give a process fewer
-    cores than the machine has, and cpu_count will not notice.
-    """
     try:
-        return len(os.sched_getaffinity(0))          # Linux, and containers
+        return len(os.sched_getaffinity(0))
     except AttributeError:
         pass
     try:
@@ -114,49 +59,23 @@ def threads() -> int:
 
 
 def colour_chunk() -> int:
-    """Colours matched against the palette at once.
-
-    The distance matrix is chunk x entries x 3 float32. Floored so the loop
-    does not become the cost, ceilinged because past this the allocation stops
-    being the bottleneck.
-    """
     budget = memory_bytes() * float(_STATE["memory_share"])
-    # 256 palette entries is the maximum the editor allows; size for the worst
-    # case rather than the current palette, so the bound holds when it changes.
+    # 256 palette entries is the maximum the editor allows; size for the worst case rather than the current palette, so the bound holds when it changes.
     per_colour = 256 * 3 * 4
     return int(max(1024, min(65536, budget / per_colour / 8)))
 
 
 def output_pixels() -> int:
-    """Most pixels any single layer result may contain.
-
-    A backstop, not the mechanism. The editor's interactive path defers
-    magnification to the display and its write path streams, so nothing that
-    obeys the design comes near this. What it catches is a layer that enlarges
-    without declaring it - see `magnify` in definitive/layers.py - which is the
-    one way a future layer could reintroduce the failure this exists for.
-    """
     budget = memory_bytes() * float(_STATE["output_share"])
     return int(max(1 << 20, budget / BYTES_PER_OUTPUT_PIXEL))
 
 
 def rss_bytes() -> int:
-    """Resident memory one pipeline process may hold before it is killed.
-
-    Deliberately generous. This is not a tuning knob for performance; it is the
-    line past which a process is judged to be taking the machine down with it,
-    and the only correct response is to kill the process instead. See
-    shared/guard.py for why this cannot be a limit the process sets on itself.
-    """
     return int(memory_bytes() * float(_STATE["rss_share"]))
 
 
 def preview_edge() -> int:
-    """Longest side an interactive preview is computed at.
-
-    Below 256 a preview stops showing what it is for; above 1024 there is
-    nothing to gain because the source is rarely larger.
-    """
+    """Below 256 a preview stops showing what it is for; above 1024 there is nothing to gain because the source is rarely larger."""
     bench = benchmark()
     budget_s = float(_STATE["preview_ms"]) / 1000.0
     megapixels = budget_s / max(bench["seconds_per_megapixel"], 1e-6)
@@ -164,20 +83,11 @@ def preview_edge() -> int:
     return max(256, min(1024, edge - edge % 32))
 
 
-# -------------------------------------------------------------------- benchmark
-
-
 def _cache_file() -> Path:
     return Path(__file__).resolve().parent.parent.parent / ".run" / "benchmark.json"
 
 
 def benchmark(force: bool = False) -> dict:
-    """Cost per megapixel on this machine, measured once and remembered.
-
-    Cached on disk, keyed by the machine's shape so a different machine or a
-    changed core count re-measures instead of inheriting a number that was
-    never about it.
-    """
     global _BENCH
     if _BENCH is not None and not force:
         return _BENCH
@@ -195,9 +105,7 @@ def benchmark(force: bool = False) -> dict:
 
     import numpy as np
 
-    # Render-shaped data, not uniform noise. Under noise every pixel is its
-    # own colour - a worst case that never occurs, and benchmarking it
-    # under-reported this machine badly enough to produce a 320 px preview.
+    # Under noise every pixel is its own colour - a worst case that never occurs, and benchmarking it under-reported this machine badly enough to produce a 320 px preview.
     edge = 384
     rng = np.random.default_rng(0)
     ramp = np.linspace(0, 255, edge, dtype=np.float32)
@@ -222,18 +130,11 @@ def benchmark(force: bool = False) -> dict:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(_BENCH, indent=2))
     except OSError:
-        pass                          # a read-only checkout is not a failure
+        pass
     return _BENCH
 
 
-# ---------------------------------------------------------------------- applying
-
-
 def apply(**overrides) -> None:
-    """Cap this process. Call before numpy is imported.
-
-    Anything already exported wins: someone who set OMP_NUM_THREADS meant it.
-    """
     global _APPLIED
     for key, value in overrides.items():
         if key in SHARES and value is not None:
@@ -267,10 +168,6 @@ def describe() -> dict:
                     "rss_bytes": rss_bytes(),
                     "concurrent": get("concurrent")},
         "seconds_per_megapixel": round(benchmark()["seconds_per_megapixel"], 4),
-        # None means apply() was never called - which is the correct state for
-        # a pipeline process. False means it ran after numpy had already loaded
-        # and therefore had no effect.
         "in_time": _APPLIED,
-        # There is no portable GPU equivalent, and none at all on Metal.
         "gpu": "not capped; bounded only by how much work is submitted",
     }

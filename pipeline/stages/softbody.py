@@ -1,16 +1,4 @@
-"""Optional stage — apply spring-driven secondary motion to the frames.
-
-Sits between `frames` and `palette` so the warp happens at generation
-resolution: displacing pixels at 1024 and then downscaling to 128 is much
-cleaner than nudging pixels that have already been quantized to a grid.
-
-Deterministic by construction — same poses in, same displacement out — so it
-cannot introduce the frame-to-frame disagreement that generating the motion
-would.
-
-Drop `softbody` from `pipeline.stages`, or set every node's influence to 0, and
-`palette` falls back to the unwarped frames.
-"""
+"""Optional stage — apply spring-driven secondary motion to the frames."""
 
 from __future__ import annotations
 

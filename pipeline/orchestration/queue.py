@@ -54,8 +54,6 @@ class Job:
             "config": self.config,
             "attempts": self.attempts,
             "overrides": self.data.get("overrides", {}),
-            # Which matrix combination this job is, when it came from one. The
-            # overrides carry it too, but mixed in with the job's own.
             "matrix_cell": self.data.get("matrix_cell"),
             "needs": self.data.get("needs", []),
             "retry_after": self.data.get("retry_after"),
@@ -70,7 +68,6 @@ class Queue:
         for state in STATES:
             (self.root / state).mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------- reading
 
     def dir(self, state: str) -> Path:
         return self.root / state
@@ -81,7 +78,6 @@ class Queue:
             try:
                 out.append(Job(f, json.loads(f.read_text())))
             except json.JSONDecodeError:
-                # A half-written file is not a reason to stop; quarantine it.
                 self._quarantine(f, "not valid JSON")
         return out
 
@@ -93,15 +89,8 @@ class Queue:
         shutil.move(str(path), dest)
         dest.with_suffix(".error.txt").write_text(f"{why}\n")
 
-    # ------------------------------------------------------------- writing
 
     def submit(self, spec: dict, priority: int = 50) -> list[Job]:
-        """Write a job, expanding `matrix` into one file per combination.
-
-        The matrix is what makes a queue writable by hand: three views crossed
-        with two seeds is six jobs from one file, and a night's work fits on a
-        page instead of in fifty near-identical documents.
-        """
         matrix = spec.pop("matrix", None) or {}
         base_name = spec.get("name") or spec.get("config") or "job"
 
@@ -116,7 +105,7 @@ class Queue:
         created = []
         stamp = time.strftime("%Y%m%d_%H%M%S")
         for i, combo in enumerate(combos):
-            data = json.loads(json.dumps(spec))  # deep copy
+            data = json.loads(json.dumps(spec))
             overrides = dict(data.get("overrides") or {})
             overrides.update(combo)
             data["overrides"] = overrides
@@ -149,9 +138,6 @@ class Queue:
         return pending[0] if pending else None
 
 
-# ---------------------------------------------------------------- pre-flight
-
-
 @dataclass
 class Preflight:
     ok: bool
@@ -164,12 +150,6 @@ class Preflight:
 
 
 def preflight(root: Path, job: Job) -> Preflight:
-    """Check a job without running it.
-
-    Separates two failures that look identical to a naive handler: a config
-    that can never work, and a dependency that has not been produced yet. The
-    first should fail immediately, the second should wait.
-    """
     problems: list[str] = []
     waiting: list[str] = []
 
@@ -182,10 +162,7 @@ def preflight(root: Path, job: Job) -> Preflight:
     if not problems:
         import yaml
 
-        # `stages` must be imported for its side effect: stage classes register
-        # themselves on import, and without it the registry is empty and every
-        # job fails validation — turning the guard into the cascade it exists
-        # to prevent.
+        # `stages` must be imported for its side effect: stage classes register themselves on import, and without it the registry is empty and every job fails validation — turning the guard [...]
         from .. import stages  # noqa: F401  (importing registers them)
         from ..generation import runner, schema  # noqa: F401
         from ..looks import styles  # noqa: F401
@@ -198,9 +175,6 @@ def preflight(root: Path, job: Job) -> Preflight:
 
         for path, value in (job.data.get("overrides") or {}).items():
             schema.set_path(raw, path, value)
-        # A style sheet can set anything, so it has to be applied before the
-        # config is validated — and a job naming a missing sheet should fail
-        # here, in milliseconds, not after the GPU has warmed up.
         try:
             styled, _record = styles.layer(root, raw)
         except styles.StyleError as e:
@@ -244,8 +218,6 @@ def preflight(root: Path, job: Job) -> Preflight:
             if not (runs / from_run).is_dir():
                 waiting.append(f"run '{from_run}' does not exist yet")
 
-        # `annotate: require` is a deliberate hold, not a failure: the job is
-        # waiting for a person to mark up its references.
         if merged.get("annotate") == "require":
             from ..geometry import annotate as ann
 

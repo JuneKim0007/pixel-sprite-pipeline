@@ -12,7 +12,7 @@ from ..shared.registry import Broken, Registry, Scanned
 
 @dataclass
 class Palette:
-    key: str                        # "retro/pico8"
+    key: str
     group: str
     name: str
     path: Path
@@ -78,11 +78,6 @@ def _parse(path: Path, root: Path) -> Palette:
 
 
 def registry(root: Path) -> Registry[Palette]:
-    """The palettes under `root`, cached until one of the files changes.
-
-    One registry per root, kept because the scan used to run on every call and
-    a palette list is asked for on nearly every page load.
-    """
     root = Path(root).resolve()
     found = _REGISTRIES.get(root)
     if found is None:
@@ -94,12 +89,7 @@ def registry(root: Path) -> Registry[Palette]:
 
 
 def _entry(path: Path, root: Path) -> tuple[str, Palette]:
-    """Parse one file, and refuse it out loud rather than by omission.
-
-    A palette with no colours in it used to be dropped silently, so a typo
-    presented as "the file I just wrote is not in the list" with nothing
-    anywhere saying why.
-    """
+    """A palette with no colours in it used to be dropped silently, so a typo presented as "the file I just wrote is not in the list" with nothing anywhere saying why."""
     palette = _parse(path, root)
     if not palette.colours:
         raise Invalid("no colours found in this file",
@@ -143,9 +133,7 @@ def choose(
     """Ask the LLM to pick a palette; verify the pick exists."""
     available = discover(root)
     if not available:
-        # Nothing the caller sent is at fault here - subject/style/client are
-        # all fine. An empty palettes/ is a broken install, so this is ours
-        # to fix, not theirs.
+        # An empty palettes/ is a broken install, so this is ours to fix, not theirs.
         raise Internal("no palettes found under palettes/",
                        hint="add a .hex file under palettes/")
 

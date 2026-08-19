@@ -9,7 +9,6 @@ from pipeline.geometry import autorig
 
 @pytest.fixture
 def figure():
-    # A crude standing figure: head, torso, two legs.
     mask = np.zeros((200, 120), dtype=bool)
     mask[20:50, 50:70] = True
     mask[50:110, 35:85] = True
@@ -38,25 +37,24 @@ def test_left_and_right_are_not_swapped(figure):
                           "inner panel is never peeled (pixelize.py:376)",
                    strict=True)
 def test_multi_pass_keying_removes_a_layered_background():
-    img = np.full((80, 80, 3), 40, dtype=np.uint8)   # border colour
-    img[10:70, 10:70] = 200                          # panel, not touching the edge
-    img[30:50, 35:45] = 120                          # subject inside the panel
+    img = np.full((80, 80, 3), 40, dtype=np.uint8)
+    img[10:70, 10:70] = 200
+    img[30:50, 35:45] = 120
     kept = (background_to_alpha(img, 12)[..., 3] > 0).mean()
     assert kept < 0.15, f"{kept:.0%} survived keying; the panel was not removed"
 
 
 def test_keying_removes_a_single_flat_background():
     img = np.full((80, 80, 3), 40, dtype=np.uint8)
-    img[25:55, 25:55] = 120                          # 14% of the frame
+    img[25:55, 25:55] = 120  # 14% of the frame.
     kept = (background_to_alpha(img, 12)[..., 3] > 0).mean()
     assert abs(kept - 0.1406) < 0.01, f"{kept:.0%} survived; the subject is 14%"
 
 
 def test_keying_refuses_a_pass_that_would_eat_the_subject():
-    # keep_min: a subject under 4% of the frame means the flood has escaped
-    # into it, so the pass is discarded rather than committed.
+    # keep_min: a subject under 4% of the frame means the flood has escaped into it, so the pass is discarded rather than committed.
     img = np.full((80, 80, 3), 40, dtype=np.uint8)
-    img[30:50, 35:45] = 120                          # 3% of the frame
+    img[30:50, 35:45] = 120  # 3% of the frame.
     assert (background_to_alpha(img, 12)[..., 3] > 0).mean() == 1.0
 
 

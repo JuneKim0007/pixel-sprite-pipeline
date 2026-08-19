@@ -1,35 +1,5 @@
 #!/usr/bin/env python3
-"""Curate a weighted training corpus for LoRA fine-tuning.
-
-The three things you asked for map onto one mechanism plus one convention:
-
-  "only train on images I liked"      -> you add files explicitly; nothing is
-                                         swept in automatically
-  "different weights per image"       -> kohya reads a folder named `5_hero` as
-                                         "repeat every image in here 5 times per
-                                         epoch". Repeats ARE the weight, so
-                                         weighting is a matter of which folder
-                                         an image lands in. No custom training
-                                         code, works with stock kohya.
-  "weight recent data more"           -> `--boost` adds repeats on top of the
-                                         tier, so a late batch can outweigh an
-                                         earlier one without discarding it.
-
-For a stronger version of recency, train a separate LoRA on the new data and
-merge with explicit ratios instead:
-
-    python sdxl_merge_lora.py --models old.safetensors new.safetensors \\
-                              --ratios 0.7 0.4 --save_to merged.safetensors
-
-That keeps each training run as an independent artifact you can re-weight or
-roll back, rather than one adapter that silently drifts.
-
-Usage
-    tools/train_prep.py add out/runs/*/03_palette/*_px.png --tier hero
-    tools/train_prep.py add new/*.png --tier good --boost 2 --caption "knight"
-    tools/train_prep.py status
-    tools/train_prep.py config > training/sprite/dataset_config.toml
-"""
+"""Curate a weighted training corpus for LoRA fine-tuning."""
 
 from __future__ import annotations
 
@@ -42,12 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Tier -> base repeats. Higher repeats = the trainer sees those images more
-# often per epoch = stronger influence on the adapter.
 TIERS: dict[str, int] = {
-    "hero": 5,     # the handful that define the look
+    "hero": 5,
     "good": 3,
-    "okay": 1,     # filler for variety; keep influence low
+    "okay": 1,
 }
 
 
@@ -74,7 +42,6 @@ def cmd_add(a: argparse.Namespace) -> int:
             print(f"  skip (exists): {dst.name}")
             continue
         shutil.copy2(src, dst)
-        # kohya pairs each image with a same-named .txt caption.
         if a.caption:
             dst.with_suffix(".txt").write_text(a.caption.strip() + "\n")
         added += 1
@@ -229,10 +196,7 @@ def main() -> int:
     p_cfg = sub.add_parser("config", help="emit a kohya dataset_config.toml")
     p_cfg.add_argument("--resolution", default="1024,1024")
     p_cfg.add_argument("--batch-size", type=int, default=1)
-    # Written into the emitted file as a comment block so a run on a rented GPU
-    # is reproducible FROM THE REPO rather than from whatever was typed into a
-    # web form and forgotten. Rank is capacity, NOT dataset size: 8 on twenty
-    # images learns a style, 32 memorises those twenty images and their poses.
+    # Rank is capacity, NOT dataset size: 8 on twenty images learns a style, 32 memorises those twenty images and their poses.
     p_cfg.add_argument("--rank", type=int, default=8,
                        help="LoRA network_dim. 8 is the cautious default (default 8)")
     p_cfg.add_argument("--alpha", type=int, default=None,

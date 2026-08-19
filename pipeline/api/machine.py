@@ -78,7 +78,6 @@ def system_info() -> dict:
             "disk_free": human_size(free),
             "models_size": human_size(dir_size(model_root)) if model_root.exists() else "0",
         },
-        # Stated plainly so the UI can explain why there is no GPU-core slider.
         "compute_note": (
             "Metal exposes no way to partition the GPU between processes — "
             "there is no equivalent of CUDA_VISIBLE_DEVICES or MIG. GPU load is "

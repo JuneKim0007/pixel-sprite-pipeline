@@ -48,8 +48,6 @@ def http(host):
                 return e.code
 
         def failure(self, path, payload=None, method="GET"):
-            """The code AND the body. status() discards the body, which is
-            most of what a good failure is."""
             try:
                 if payload is None:
                     urllib.request.urlopen(host + path, timeout=20)

@@ -125,9 +125,6 @@ def target(key: str) -> Target:
     raise KeyError(key)
 
 
-# ------------------------------------------------------------- measurement
-
-
 def _band(block: float) -> tuple[str, str]:
     for low, high, name, why in BLOCK_BANDS:
         if low <= block < high:
@@ -136,18 +133,7 @@ def _band(block: float) -> tuple[str, str]:
 
 
 def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16)) -> float:
-    """The pixel grid's period, by asking which factor reduces losslessly.
-
-    Same principle as find_phase, one level up: find_phase asks where the grid
-    starts given its size, this asks what its size is. A sprite drawn in
-    eight-pixel blocks loses nothing when averaged in eight-pixel blocks, so
-    its reconstruction error at factor 8 is near zero and rises sharply at 12.
-    A one-pixel-detail image loses something at every factor above 1.
-
-    The largest factor that still reconstructs cleanly is the answer, since
-    every divisor of the true block size also reconstructs cleanly and taking
-    the smallest would call every image 1px.
-    """
+    """A sprite drawn in eight-pixel blocks loses nothing when averaged in eight-pixel blocks, so its reconstruction error at factor 8 is near zero and rises sharply at 12."""
     import numpy as np
 
     a = arr.astype(np.float32)
@@ -158,14 +144,12 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
     for factor in candidates:
         if factor == 1 or h < factor * 8 or w < factor * 8:
             continue
-        # Average into blocks, expand back, and measure what was lost.
         bh, bw = h // factor, w // factor
         cropped = a[:bh * factor, :bw * factor]
         blocks = cropped.reshape(bh, factor, bw, factor, -1).mean(axis=(1, 3))
         restored = np.repeat(np.repeat(blocks, factor, axis=0), factor, axis=1)
         error = float(((cropped - restored) ** 2).mean())
-        # 2% of the image's own variance: comfortably above float noise,
-        # comfortably below the error of straddling a real block boundary.
+        # 2% of the image's own variance: comfortably above float noise, comfortably below the error of straddling a real block boundary.
         if error < baseline * 0.02:
             best = float(factor)
     return best
@@ -210,8 +194,6 @@ def inspect(paths: list[Path]) -> list[dict[str, Any]]:
         notes: list[str] = []
         unique_ratio = colours / max(1, w * h)
 
-        # Colour is a note, never a blocker: palette snapping runs after
-        # generation and is deterministic, so a drifted palette comes back.
         if unique_ratio > 0.15:
             notes.append(
                 f"{unique_ratio:.0%} of pixels are a unique colour — lossy "
@@ -226,8 +208,6 @@ def inspect(paths: list[Path]) -> list[dict[str, Any]]:
                 f"aspect {w}x{h} is far from square; it is probably a crop "
                 f"with empty space or UI around the figure.")
 
-        # Edge rows and columns carry watermarks, borders and UI chrome. A
-        # busy edge on an otherwise flat background is the signature.
         edges = np.concatenate([arr[:6].reshape(-1, 3), arr[-6:].reshape(-1, 3),
                                 arr[:, :6].reshape(-1, 3), arr[:, -6:].reshape(-1, 3)])
         edge_colours = int(len(np.unique(edges, axis=0)))
@@ -309,17 +289,7 @@ def assess(images: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-# ------------------------------------------------------------ normalisation
-
-
 def figure_height(arr, tolerance: int = 16) -> int:
-    """Height of the subject in pixels, background keyed out.
-
-    Two images can agree on block size and still disagree on how much of the
-    frame the character fills, and that is the second thing a style LoRA
-    absorbs. Measuring it needs the same background keying the palette stage
-    uses, so it is the same answer both places.
-    """
     import numpy as np
 
     from ..definitive.pixelize import background_to_alpha
@@ -330,14 +300,6 @@ def figure_height(arr, tolerance: int = 16) -> int:
 
 
 def plan(images: list[dict[str, Any]]) -> dict[str, Any]:
-    """What to do to each image so the set shares one feature scale.
-
-    Normalising to one logical pixel per image pixel — rather than to the
-    coarsest or the finest member — is the choice that needs justifying. It is
-    the only target that is defined without reference to the rest of the set,
-    so adding an image later does not invalidate the images already converted.
-    Everything else would make the plan depend on its own inputs.
-    """
     usable = [i for i in images if "error" not in i and i.get("block")]
     if not usable:
         return {"target_block": 1, "target_height": 0, "steps": []}

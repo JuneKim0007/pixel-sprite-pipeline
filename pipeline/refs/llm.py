@@ -49,14 +49,7 @@ class Ollama:
         temperature: float = 0.2,
         timeout: float = 300,
     ) -> str:
-        """Ask a vision model about images. Requires a VLM such as qwen2.5vl.
-
-        Used for classification only — "which of these body plans is this?" —
-        never for coordinates. Benchmarks put VLM spatial localization at about
-        35% against 26% for random guessing, so asking one to place joints
-        would be worse than useless. Choosing among a fixed list is a different
-        task, and one they do well.
-        """
+        """Requires a VLM such as qwen2.5vl."""
         encoded = [
             base64.b64encode(Path(p).read_bytes()).decode() for p in images[:4]
         ]
@@ -120,7 +113,6 @@ class Ollama:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 body = json.loads(r.read())
-            # Some builds ignore think=false; recover the answer either way.
             return body.get("response") or body.get("thinking") or ""
         except urllib.error.HTTPError as e:
             raise LLMError(
@@ -132,8 +124,6 @@ class Ollama:
                 f"`ollama serve`."
             ) from e
 
-
-# ------------------------------------------------------------- pose authoring
 
 POSE_SYSTEM = """You are a 2D character animator. You output ONLY JSON.
 
@@ -166,8 +156,7 @@ Return exactly {frames} frame object(s), in temporal order. Make the motion
 large and readable — timid movement produces a lifeless animation. Move the
 legs and torso too, not only the arms.{feedback}"""
 
-# Joints worth showing in a few-shot example. The full 18 would bury the
-# signal in head keypoints that rarely move.
+# The full 18 would bury the signal in head keypoints that rarely move.
 EXAMPLE_JOINTS = (
     "neck", "l_elbow", "l_wrist", "r_elbow", "r_wrist",
     "l_knee", "l_ankle", "r_knee", "r_ankle",
@@ -175,13 +164,6 @@ EXAMPLE_JOINTS = (
 
 
 def load_example(path, take: int = 3) -> str:
-    """Format a hand-authored pose file as an in-context example.
-
-    A 4B model asked to invent coordinates in an unfamiliar space produces
-    timid, barely-moving poses. Showing it one real sequence in the same
-    coordinates communicates the expected magnitude of motion far more
-    effectively than describing it.
-    """
     try:
         data = json.loads(path.read_text())
         frames = data.get("frames", [])
@@ -227,11 +209,6 @@ def generate_pose(
     example_path: Any = None,
     verbose: bool = True,
 ) -> list[dict[str, list[float]]]:
-    """Ask the LLM for a pose sequence, retrying until it passes anatomy checks.
-
-    Failed attempts are fed back as explicit criticism, which is far more
-    effective than resampling blind: the model is told which bone it stretched.
-    """
     neutral = json.dumps({k: list(v) for k, v in NEUTRAL.items()}, indent=1)
     example = load_example(example_path) if example_path else ""
     feedback = ""
@@ -271,10 +248,6 @@ def generate_pose(
                 for k, v in frame.items()
                 if k in JOINTS and isinstance(v, (list, tuple)) and len(v) == 3
             }
-            # Take the directions the model chose, then enforce exact bone
-            # lengths. Validation afterwards is therefore checking what the
-            # model is actually responsible for — plausible joint placement —
-            # rather than its arithmetic.
             pose = snap_to_anatomy({**{k: list(v) for k, v in NEUTRAL.items()}, **clean})
             issues = validate_pose(pose, tolerance)
             if issues:

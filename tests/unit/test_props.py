@@ -50,7 +50,6 @@ def test_prop_reaches_the_depth_map_and_the_prompt(sword):
 
 
 def test_prop_never_draws_below_the_body_floor():
-    # Black is background, so a prop reaching it reads as a hole in the sprite.
     cape = props.load([{"name": "cape", "socket": "neck", "width": 0.15,
                         "length": 0.35, "flex": 0.3, "shade": 0.2}])
     raw = np.asarray(depthmap.render_depth(RIG.neutral, 40, 256, 256, rig=RIG,
@@ -70,8 +69,6 @@ def test_module_decides_whether_props_are_drawn(config, wanted):
 
 
 def test_both_config_shapes_load(root):
-    # The mapping form carries the enabled switch and used to fail with
-    # "no prop 'enabled' in the library".
     flat = props.load(["bow"], root=root)
     mapped = props.load({"enabled": False, "items": ["bow"]}, root=root)
     assert [p.name for p in flat] == [p.name for p in mapped] == ["bow"]

@@ -4,8 +4,7 @@ from pathlib import Path
 
 from pipeline.refs.references import Reference, pick
 
-# Keywords, not positions: `role` was inserted second and positional
-# construction silently made yaw="front".
+# Keywords, not positions: `role` was inserted second and positional construction silently made yaw="front".
 REFS = [Reference(path=Path("front.png"), yaw=0, label="front"),
         Reference(path=Path("rear.png"), yaw=180, label="rear")]
 
@@ -31,6 +30,5 @@ def test_a_per_image_weight_scales_the_result():
 
 
 def test_the_manual_branch_applies_the_scale_too():
-    # As frames.py computes it.
     scaled = Reference(path=Path("a.png"), yaw=0, label="front", weight_scale=0.5)
     assert abs(0.85 * scaled.weight_scale - 0.425) < 1e-9

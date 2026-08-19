@@ -21,7 +21,7 @@ def save_config(name: str, body: dict) -> dict:
     target = CONFIGS / f"{name}.yaml"
 
     if "raw" in body:
-        parsed = yaml.safe_load(body["raw"])  # reject invalid YAML first
+        parsed = yaml.safe_load(body["raw"])
         problem = validate_order(parsed)
         if problem and not body.get("force"):
             raise Invalid(problem, field="stages",
@@ -37,7 +37,6 @@ def save_config(name: str, body: dict) -> dict:
 
     if target.exists():
         doc = load_roundtrip(target)
-        # Explicit resets remove the key so the value falls back to global.
         for dotted in body.get("unset", []) or []:
             settings.unset(doc, dotted)
         changed = _apply_changes(doc, incoming)
@@ -62,12 +61,6 @@ def _save_global(body: dict) -> dict:
 
 
 def _apply_changes(doc, incoming, path: str = "") -> int:
-    """Copy differing leaves from `incoming` into the round-tripped `doc`.
-
-    Writing the whole parsed document back would reformat everything and lose
-    the comments; touching only what actually changed leaves the rest of the
-    file byte-identical.
-    """
     changed = 0
     for key, value in (incoming or {}).items():
         here = f"{path}.{key}" if path else key
@@ -109,7 +102,7 @@ class Configs(BaseRouter):
             "name": name,
             "module": own.get("module", "animation"),
             "raw": path.read_text(),
-            "config": own,                       # what this file pins
+            "config": own,
             "effective": settings.effective(ROOT, merged),
             "style_record": record,
             "overrides": sorted(settings.overridden_paths(own)),

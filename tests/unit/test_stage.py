@@ -15,7 +15,6 @@ def test_no_stage_requires_what_nothing_produces():
 
 
 def test_gpu_stages_are_marked():
-    # Parallelism assumptions depend on this set.
     gpu = {n for n, s in REGISTRY.items() if s.resource == "gpu"}
     assert gpu == {"canonical", "frames"}
 

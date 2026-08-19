@@ -21,7 +21,6 @@ def test_scratch_keys_stay_out_of_the_manifest(tmp_path):
 
 
 def test_an_unpersistable_artifact_is_refused_not_repr_d(tmp_path):
-    # repr() here would hand a resumed run a string where a stage wants an object.
     with pytest.raises(TypeError, match="resumable"):
         io.save(tmp_path, {"thing": Opaque()}, [])
 

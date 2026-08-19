@@ -4,8 +4,6 @@ import pytest
 
 from pipeline import api, definitive
 
-# Path -> (query string, keys the front-end destructures). A key that stops
-# being used should leave this in the same commit that stops using it.
 SHAPES = {
     "/api/config": ("?name=char_1", ["name", "module", "raw", "config",
                                      "effective", "style_record", "overrides"]),
@@ -41,8 +39,7 @@ def test_every_declared_get_route_answers(http, path):
 
 @pytest.mark.parametrize("path", sorted(p for p in SHAPES if SHAPES[p][1]))
 def test_a_response_carries_the_fields_the_ui_reads(http, path):
-    # /api/config returned four of seven keys once and every route still
-    # answered 200; the only symptom was the whole UI failing to start.
+    # /api/config returned four of seven keys once and every route still answered 200; the only symptom was the whole UI failing to start.
     query, keys = SHAPES[path]
     body = http.get(path + query)
     assert not [k for k in keys if k not in body], \
@@ -62,7 +59,6 @@ def test_the_rig_list_is_not_truncated(http):
 
 
 def test_the_palette_picker_is_filled_from_disk(http):
-    # definitive.catalogue() ships it empty on purpose; editor_layers fills it.
     fields = {f["key"]: f for s in http.get("/api/editor/layers")["layers"]
               if s["key"] == "palette" for f in s["fields"]}
     assert fields["file"]["options"], "a select the UI cannot use"
@@ -81,8 +77,7 @@ def test_every_layer_field_carries_an_explanation(http, spec):
 
 
 def test_a_missing_run_is_a_404_that_names_it(http):
-    # GET /api/run?id=... — the detail route, which read runs_dir() and raised
-    # a bare FileNotFoundError that reached the client as a 500.
+    # — the detail route, which read runs_dir() and raised a bare FileNotFoundError that reached the client as a 500.
     code, body = http.failure("/api/run?id=does_not_exist")
     assert code == 404
     assert body["kind"] == "not_found"

@@ -1,9 +1,4 @@
-"""Code with no dependency on any module.
-
-That is the whole membership rule, and it is checkable rather than a matter of
-taste: anything here that grows an import of a sibling module is a mistake the
-import graph will show. A test asserts it.
-"""
+"""Code with no dependency on any module."""
 
 from .config import opt
 from .errors import (BUILTIN_STATUS, Conflict, Denied, Internal, Invalid,

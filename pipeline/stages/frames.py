@@ -1,25 +1,4 @@
-"""Stage 3 — one sprite per skeleton, all the same character.
-
-The consistency recipe is that only ONE input varies across frames:
-
-    same seed          -- same point in latent space
-    same prompt        -- same semantic target
-    same anchor        -- the canonical sprite, on every frame at equal weight
-    DIFFERENT skeleton -- the only thing that changes
-
-Vary anything else and the character drifts. This is why the canonical sprite
-has to exist before this stage runs: without a fixed visual reference, each
-frame is an independent sample and identity wanders between them.
-
-A supplied identity reference — an illustration of the character — stacks on
-top of the anchor rather than replacing it. The two carry different things.
-The canonical is already pixel art in the target style and is byte-identical
-across frames, so it is what the frames have in common. The illustration holds
-a face and a costume at a fidelity the canonical cannot at sprite resolution,
-but it is one drawing from one angle, so its weight falls off as the camera
-turns away from it. Using only the illustration leaves a rear view steered by
-a front drawing at a weak weight and anchored to nothing at all.
-"""
+"""Stage 3 — one sprite per skeleton, all the same character."""
 
 from __future__ import annotations
 
@@ -36,8 +15,6 @@ from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
 from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
-# One definition of which way the anchor faces, shared with the stage that
-# rendered it. Two copies drifted once already.
 from .canonical import _anchor_view
 
 
@@ -65,7 +42,6 @@ class FramesStage(Stage):
         cfg = ctx.stage_config("frames")
         skeletons: list[Path] = ctx.require("skeletons")
         entries_for_count: list[dict] = ctx.require("pose_frames")
-        # Rig-free runs have no control images, so the loop iterates views.
         if not skeletons:
             skeletons = [None] * len(entries_for_count)
         canonical: Path = ctx.require("canonical")
@@ -87,39 +63,22 @@ class FramesStage(Stage):
         missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
                    if not client.has_node(n)]
         if missing:
-            # The nodes are on disk but not loaded into the running server, so
-            # this is the same "dependency not ready" shape as ComfyUI being
-            # down entirely — the fix is a restart, not a different request.
             raise ComfyError(
                 f"ComfyUI is missing node(s) {missing}. The IPAdapter_plus custom "
                 f"nodes are installed but the server needs a restart to load them."
             )
 
-    # Two anchors doing different jobs: the canonical fixes identity, and the
-    # previous frame fixes continuity. Without the second, consecutive frames
-    # of one action drift in ways a sheet shows immediately.
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
         ip = cfg["ip_adapter"]
         lib = ctx.references()
-    # Ask canonical which way it rendered, rather than assuming front: with
-    # per-view anchors the answer differs per frame.
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
         anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
 
-        # Per-view anchors, when the canonical stage made them. Each frame gets
-        # the anchor at ITS angle instead of every frame inheriting the front.
         per_view: dict = ctx.artifacts.get("canonicals") or {}
         if len(per_view) > 1:
             print(f"   {len(per_view)} per-view anchors")
 
         def anchor_for(yaw: float) -> Reference:
-            """The anchor nearest this frame's angle.
-
-            Deliberately NOT falling back to the front canonical on a miss: a
-            silent fallback is exactly how every view came back front-facing in
-            the first place, and it hides in the output rather than the log.
-            With one anchor this returns it and the falloff handles the rest.
-            """
             if not per_view:
                 return anchor
             best = min(per_view, key=lambda k: refs_mod.angular_distance(float(k), yaw))
@@ -140,8 +99,6 @@ class FramesStage(Stage):
         subject = ctx.config.get("subject", "a knight in armor")
         style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
         hint = ctx.rig().prompt_hint
-        # Props are drawn into the depth map AND named here: the geometry says
-        # where, the words say what.
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props_mod.wanted(ctx) else [])
@@ -151,17 +108,11 @@ class FramesStage(Stage):
         base_prompt = cfg.get("prompt") or ", ".join(
             p for p in (subject, hint, held, style,
                         vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
-        # Pose control needs steps to act in. Measured: at 8 LCM steps the
-        # skeleton is only partially obeyed even at end_percent 0.85, because
-        # LCM's trajectory settles composition in the first couple of steps and
-        # ControlNet cannot redirect it afterwards. At 20 steps the pose lands.
+        # Measured: at 8 LCM steps the skeleton is only partially obeyed even at end_percent 0.85, because LCM's trajectory settles composition in the first couple of steps and [...]
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.stage_config("canonical").get("seed", 1234))
 
         rig = ctx.rig()
-        # The adapter and ControlNet files are settings for the same reason the
-        # checkpoint is: they have to match the checkpoint's family, and a
-        # mismatched pair produces plausible nonsense rather than an error.
         models = ctx.config.get("models") or {}
         cn = cfg["controlnet"]
         outdir = ctx.stage_dir("frames")
@@ -170,15 +121,11 @@ class FramesStage(Stage):
         for i, skeleton in enumerate(skeletons):
             pose_name = client.upload_image(skeleton) if skeleton else None
 
-            # Without a skeleton the only thing telling the model which way the
-            # subject faces is the words, so the view is spelled out.
             frame_yaw_for_prompt = entries[i]["yaw"] if i < len(entries) else 0.0
             prompt = base_prompt
             if not pose_name:
                 prompt = f"{base_prompt}, {vocabulary.view_words(frame_yaw_for_prompt)}"
             facing_neg = vocabulary.facing_negative(frame_yaw_for_prompt)
-            # An annotated reference knows it was cropped; saying so beats
-            # letting the model default to a full-body composition.
             framing = ((entries[i].get("crop") or {}) if i < len(entries) else {}).get("framing")
             if framing:
                 prompt = f"{prompt}, {framing}"
@@ -200,8 +147,6 @@ class FramesStage(Stage):
                 models=ctx.config.get("models") or {},
             )
 
-            # Match this frame's viewing angle to the closest labelled
-            # reference, and let the weight fall off with angular distance.
             frame_yaw = entries[i]["yaw"] if i < len(entries) else 0.0
             chosen, auto_weight, dist = pick(
                 refs, frame_yaw,
@@ -210,16 +155,10 @@ class FramesStage(Stage):
                                        chosen_default(refs))),
                 far_weight=float(opt(match_cfg, "far_weight", 0.45)),
             )
-        # Falloff off pins every frame to the front reference, which is right
-        # for a turnaround of one pose and wrong for an action.
             auto = bool(opt(match_cfg, "auto", True))
             weight = (auto_weight if auto
                       else float(opt(ip, "weight", 0.85)) * chosen.weight_scale)
 
-            # The anchor goes on first and identically every frame: it is what
-            # makes them one character rather than several of the same
-            # description. Identity references stack after it and fall off with
-            # angle, so a front reference stops dominating a rear frame.
             if anchor_name:
                 _a = anchor_for(frame_yaw)
                 if _a.path != anchor.path:
@@ -227,13 +166,7 @@ class FramesStage(Stage):
                         anchor_cache[_a.path] = client.upload_image(_a.path)
                     anchor_name = anchor_cache[_a.path]
                     anchor_yaw = _a.yaw
-                # Reference weight falls off with angular distance; the anchor's
-                # did not. On a rear frame the rear reference was down-weighted
-                # for being far from that view while the FRONT canonical stayed
-                # at 0.9, so the anchor outvoted the one image that actually
-                # shows the back of the costume. anchor_falloff scales the
-                # anchor by the same logic: 0.0 keeps the old fixed behaviour,
-                # 1.0 drops it to anchor_far_weight at 180 degrees away.
+                # [...] was down-weighted for being far from that view while the FRONT canonical stayed at 0.9, so the anchor outvoted the one image that actually shows the back of the costume
                 a_weight = float(opt(ip, "anchor_weight", 0.9))
                 falloff = float(opt(ip, "anchor_falloff", 0.0))
                 if falloff > 0.0:
@@ -259,9 +192,6 @@ class FramesStage(Stage):
                 ipadapter=models.get("ipadapter"),
             )
 
-    # Only the humanoid rig has a matching OpenPose model. Other rigs go through
-    # depth instead: a skeleton drawn in COCO joints for a spider tells the
-    # ControlNet about a human, which is worse than telling it nothing.
             for exemplar, name in style_uploads:
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=name), 0),
@@ -278,10 +208,7 @@ class FramesStage(Stage):
                 control = g.out(g.add("LoadImage", image=pose_name), 0)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-                    # Measured: 1.0 held to 0.8 makes the model trace the
-                    # control image and return a stick figure. 0.75 to 0.55
-                    # still lands the pose while leaving the LoRA room to
-                    # render an actual character over it.
+                    # Measured: 1.0 held to 0.8 makes the model trace the control image and return a stick figure.
                     strength=opt(cn, "strength", 0.75),
                     start_percent=opt(cn, "start_percent", 0.0),
                     end_percent=opt(cn, "end_percent", 0.55),
@@ -289,10 +216,6 @@ class FramesStage(Stage):
                     controlnet=models.get("controlnet"),
                 )
 
-            # Depth stacks on top of pose when the depth stage ran. Both use
-            # the same Union model, so this is a second conditioning pass
-            # rather than a second set of weights. Depth carries the viewing
-            # angle, which a skeleton alone cannot express.
             if depthmaps and i < len(depthmaps):
                 dcn = cfg["depth_controlnet"]
                 depth_name = client.upload_image(depthmaps[i])
@@ -310,7 +233,7 @@ class FramesStage(Stage):
                 g, model, pos, neg, vae,
                 width=cfg["width"], height=cfg["height"],
                 batch=1,
-                seed=seed,                      # identical for every frame
+                seed=seed,
                 steps=opt(cfg, "steps", 8 if lcm else 25),
                 cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
                 lcm=lcm,

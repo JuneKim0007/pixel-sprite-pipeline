@@ -1,10 +1,4 @@
-"""Stage 1 — produce skeleton control images.
-
-Skeletons are authored or generated in body space, then projected to the
-requested viewing angle. Nothing here is estimated from an image: pose
-estimators are trained on photographs and fail on sprites, which is why the
-skeleton is an input to generation rather than something recovered from it.
-"""
+"""Stage 1 — produce skeleton control images."""
 
 from __future__ import annotations
 
@@ -26,15 +20,10 @@ def _slug(text: str) -> str:
 
 
 def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path]:
-    """Draw one skeleton PNG per entry; the only renderer for pose images.
-
-    Shared with the rig editor, whose own copy of this loop had drifted.
-    """
     cfg = ctx.stage_config("pose")
     size = cfg["size"]
     rig = ctx.rig()
 
-    # Hoisted: this used to reload every prop file once per entry.
     props = props_mod.load(ctx.config.get("props"), root=ctx.root)
     if props and not props_mod.wanted(ctx):
         props = []
@@ -47,7 +36,6 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
         dst = outdir / f"skeleton_{i:03d}.png"
         annotation = entry.get("annotation")
         if annotation is not None:
-            # Already in screen space — projecting would be meaningless.
             from ..geometry import annotate as ann
 
             ann.render(annotation, size, size).save(dst)
@@ -66,8 +54,6 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
             fill=fill,
             rig=rig,
         )
-        # Sticks thicken with the figure, or a larger skeleton is drawn out
-        # of the same thin lines and reads as a wiry character.
         grow = frame_scale(entry["pose"], fill)
         render(keypoints, size, size, rig=rig,
                thickness=(thickness * grow) if thickness else None).save(dst)
@@ -85,34 +71,15 @@ class PoseStage(Stage):
         "views": "", "view": "side", "source": "library", "symmetric": False,
         "name": "idle", "llm": {},
     }
-    # `pose_frames` is the body-space data behind the images, published so the
-    # optional depth stage can render a second view of the same pose without
-    # re-deriving it from pixels.
     produces = frozenset({"skeletons", "pose_frames"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("pose")
         size = cfg["size"]
         outdir = ctx.stage_dir("pose")
-        # The rig decides joint layout, bone hierarchy and which ControlNet
-        # channel the skeleton can legitimately be sent to.
         rig = ctx.rig()
 
-        # Two ways to produce skeletons, one code path.
-        #
-        #   animation  one spec, N temporally related frames of a single action
-        #   pose set   N independent specs, one frame each, optionally each at
-        #              its own viewing angle (a turnaround is the same pose
-        #              rendered at several yaws)
-        #
-        # Nothing downstream distinguishes them: `frames` generates one sprite
-        # per skeleton against a shared reference either way. Which is why this
-        # is a different input rather than a different mode — a mode toggle
-        # would duplicate the pipeline to no purpose.
         specs = cfg.get("set")
-        # Views can follow the references instead of a fixed list. With art
-        # shot from arbitrary angles, generating the four textbook views means
-        # three of them have no evidence behind them.
         if specs == "from_references" or cfg["views"] == "from_references":
             specs = self._views_from_references(ctx)
         entries: list[dict[str, Any]] = []
@@ -124,9 +91,6 @@ class PoseStage(Stage):
                 merged = {**cfg, **spec}
                 merged.pop("set", None)
                 pick = spec.get("frame")
-                # When picking frame N, load the whole sequence first —
-                # truncating to one frame before indexing would make any
-                # index above 0 unreachable.
                 got = self._resolve(
                     ctx, merged, wanted=None if pick is not None else spec.get("frames", 1)
                 )
@@ -150,9 +114,6 @@ class PoseStage(Stage):
 
         written: list[Path] = []
         if not rig.joints:
-            # Rig-free: nothing to draw. The views still exist as angles, and
-            # the frames stage turns them into prompt terms instead of control
-            # images.
             (outdir / "pose.json").write_text(
                 json.dumps({"source": "none", "rig": rig.name, "mode": "rig_free",
                             "entries": entries}, indent=1))
@@ -175,9 +136,6 @@ class PoseStage(Stage):
                 indent=1,
             )
         )
-        # A symmetric T-pose puts two horizontal sticks at shoulder height, and
-        # a model told the subject is holding a sword will happily read those
-        # sticks AS swords. Measured: arms came back replaced by blades.
         if cfg["symmetric"]:
             words = f"{ctx.config.get('subject', '')} {ctx.config.get('style', '')}".lower()
             elongated = [w for w in ("sword", "staff", "spear", "bow", "axe", "wand", "rifle")
@@ -200,14 +158,6 @@ class PoseStage(Stage):
 
     @staticmethod
     def _from_annotations(ctx: Context, cfg: dict) -> list[dict]:
-        """Poses taken from annotated references.
-
-        This is what makes annotation more than a note to yourself: the marked
-        composition becomes the control image, so a generation reproduces that
-        pose and framing with your character in it. Screen-space points cannot
-        be projected to other angles, so each annotation yields exactly one
-        entry, at the view it was measured at.
-        """
         from ..geometry import annotate as ann
 
         found = ann.gather(ctx.root, ctx.config.get("references") or {})
@@ -247,13 +197,10 @@ class PoseStage(Stage):
     def _resolve(self, ctx: Context, cfg: dict, wanted: int | None) -> list[dict]:
         source = cfg["source"]
         if not ctx.rig().joints:
-            # One placeholder per requested view; there is no pose to resolve.
             return [{}]
         if source == "annotation":
             return self._from_annotations(ctx, cfg)
         if source == "tpose":
-            # One reference pose; the character sheet varies the view, not the
-            # pose, so a single frame is repeated across the requested views.
             return [rig_lib.tpose(
                 ctx.rig(),
                 symmetric=bool(cfg["symmetric"]),
@@ -265,7 +212,6 @@ class PoseStage(Stage):
         raise NotFound("pose source", source,
                        available=["annotation", "tpose", "library", "llm"])
 
-    # ------------------------------------------------------------- backends
 
     def _from_library(self, ctx: Context, cfg: dict, limit: int | None) -> list[dict]:
         from ..looks import poses as pose_lib
@@ -289,9 +235,6 @@ class PoseStage(Stage):
         llm_cfg = cfg["llm"]
         action = cfg.get("action") or cfg.get("name") or "idle standing"
 
-        # Generated poses are cached as ordinary library files, so a sequence
-        # you like becomes reusable, editable, and reviewable in a diff rather
-        # than being re-rolled on every run.
         cache_dir = ctx.root / "poses" / "generated"
         cached = cache_dir / f"{_slug(action)}_{n_frames}f.json"
         if opt(llm_cfg, "cache", True) and cached.exists():

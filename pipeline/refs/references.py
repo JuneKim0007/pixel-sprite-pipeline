@@ -12,8 +12,6 @@ from ..shared.errors import Invalid, NotFound
 
 ROLES = ("identity", "style", "pose", "palette")
 
-# Sensible strengths per role. Identity has to hold a character together;
-# style only has to tint it.
 DEFAULT_WEIGHT = {
     "identity": 0.80,
     "style": 0.35,
@@ -29,7 +27,7 @@ class Reference:
     yaw: float = 0.0
     label: str = "front"
     weight_scale: float = 1.0
-    annotation: str = ""          # pose role: "auto" to use a saved annotation
+    annotation: str = ""
 
     @property
     def base_weight(self) -> float:
@@ -110,7 +108,6 @@ def load(root: Path, cfg: dict | None) -> Library:
     return lib
 
 
-
 VIEW_ALIASES: dict[str, float] = {
     "front": 0.0,
     "back": 180.0, "rear": 180.0,
@@ -152,22 +149,13 @@ def _mirrored(src: Reference, yaw: float) -> Reference | None:
         if not dst.exists() or dst.stat().st_mtime < src.path.stat().st_mtime:
             Image.open(src.path).transpose(Image.FLIP_LEFT_RIGHT).save(dst)
     except Exception:
-        return None                      # unreadable source: add nothing
+        return None
     return Reference(path=dst, role="identity", yaw=yaw,
                      label=f"{src.label}-mirrored", weight_scale=src.weight_scale)
 
 
 def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
-    """Cover a side that has no reference, per `match.side_fallback`.
-
-    Without this a 270 frame with only a 90 reference takes it at far_weight
-    (0.45) - deliberately weak, because pick() gives latitude where there is no
-    evidence. That is right when nothing is known about the far side and wrong
-    when the OTHER side is known and the costume is symmetric.
-
-    Nothing is invented: this only re-points an existing reference, and it
-    never overrides a side that was actually supplied.
-    """
+    """Without this a 270 frame with only a 90 reference takes it at far_weight (0.45) - deliberately weak, because pick() gives latitude where there is no evidence."""
     match = cfg.get("match") or {}
     mode = str(match.get("side_fallback") or "none").lower()
     if mode == "none":
@@ -184,11 +172,7 @@ def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
         if mode == "mirror":
             src = by_yaw.get(other)
             if src is not None:
-                # Actually flip it. Re-pointing the left image at 270 without
-                # mirroring would hand the model a left-facing figure labelled
-                # as the right side, which is the mislabelling docs/CONFIGURING.md
-                # calls worse than having no reference at all: the frame takes
-                # it at FULL weight and comes back facing the wrong way.
+                # Re-pointing the left image at 270 without mirroring would hand the model a left-facing figure labelled as the right side [...]
                 src = _mirrored(src, yaw)
         elif mode in ("back", "rear"):
             src = by_yaw.get(180)
@@ -203,12 +187,6 @@ def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
 
 
 def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:
-    """Adopt a previous run's output as identity and palette references.
-
-    This is what joins the two generators: a character sheet already records
-    the angle it rendered each view at, so an animation can inherit those views
-    without anyone retyping paths or re-labelling front from rear.
-    """
     run_id = cfg.get("from_run")
     if not run_id:
         return lib
@@ -239,7 +217,7 @@ def _merge_from_run(root: Path, cfg: dict, lib: Library) -> Library:
                       field="from_run")
 
     if yaws and len(yaws) != len(images):
-        yaws = []          # edited after the fact; better unlabelled than wrong
+        yaws = []
 
     for i, path in enumerate(images):
         yaw = yaws[i] if yaws else 0.0
@@ -262,14 +240,6 @@ def pick(
     exact_weight: float = 0.85,
     far_weight: float = 0.45,
 ) -> tuple[Reference, float, float]:
-    """Closest reference to `yaw`, and the weight to use with it.
-
-    Weight falls off with angular distance, which is the opposite of the
-    instinct. A front reference forced at full strength onto a rear generation
-    produces a front-facing sprite that fights the pose; a weak hint leaves the
-    model free to invent the side it has never seen. Constraint where there is
-    evidence, latitude where there is not.
-    """
     if not refs:
         raise Invalid("no references to choose from", field="references")
 

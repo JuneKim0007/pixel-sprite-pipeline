@@ -35,7 +35,6 @@ BESTIARY: list[tuple[str, str, str]] = [
 ]
 
 ANIMATIONS: list[tuple[str, dict]] = [
-    # The payoff of the swing, not the wind-up — frame 4 is full extension.
     ("attack", {"pose.set": [{"name": "attack", "frame": 4,
                               "view": "three_quarter_front"}]}),
     ("idle",   {"pose.name": "idle_breathe", "pose.frames": 2,
@@ -73,8 +72,8 @@ def estimate() -> tuple[int, float]:
         for _n, o in ANIMATIONS
     )
     per_monster = (
-        SECONDS_CANONICAL + sheet_frames * SECONDS_PER_FRAME     # the sheet
-        + len(ANIMATIONS) * SECONDS_CANONICAL                     # per-anim canonical
+        SECONDS_CANONICAL + sheet_frames * SECONDS_PER_FRAME
+        + len(ANIMATIONS) * SECONDS_CANONICAL
         + anim_frames * SECONDS_PER_FRAME
     )
     jobs = len(BESTIARY) * (1 + len(ANIMATIONS))
@@ -105,8 +104,6 @@ def main() -> int:
     queue = q.Queue(ROOT)
     made = 0
     for i, (name, rig, subject) in enumerate(wanted):
-        # Priority orders the queue: sheets first so their animations are not
-        # left holding for a parent that has not run.
         made += len(queue.submit(build(name, rig, subject), priority=10 + i))
     print(f"\nqueued {made} sheet job(s); animations follow as each one finishes")
     print("start with:  make autopilot\n")

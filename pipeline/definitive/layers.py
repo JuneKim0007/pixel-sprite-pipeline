@@ -11,9 +11,7 @@ from ..shared.contracts import LayerField as Field
 from ..shared.errors import Invalid, TooLarge
 from ..shared.registry import Decorated, Registry
 
-# The pixel count of the image entering the stack. A layer may never be handed
-# more than this: upscaling invents no detail, so analysing an enlarged image is
-# analysing invented pixels, and it is what makes a reordered Scale cost 16x.
+# [...] enlarged image is analysing invented pixels, and it is what makes a reordered Scale cost 16x
 _BUDGET: ContextVar[int] = ContextVar("layer_budget", default=0)
 
 
@@ -40,7 +38,6 @@ def _within(key: str, image) -> None:
 _SOURCE: Decorated["LayerSpec"] = Decorated()
 _LAYERS: Registry["LayerSpec"] = Registry("layer", _SOURCE)
 
-# Kept as a name because callers read it directly; it is the same dict.
 REGISTRY: dict[str, "LayerSpec"] = _SOURCE.entries
 
 
@@ -59,15 +56,6 @@ def _guard_prepare(key: str, fn):
 
 
 def _produced(key: str, image) -> None:
-    """Refuse a result too big to carry, after the layer has built it.
-
-    The backstop to admission control rather than the mechanism: by the time
-    this can see the array, the array exists. It is here because admission
-    control depends on every enlarging layer declaring `magnify`, and a
-    guarantee that depends on an author remembering something is not one. A
-    layer that grows without saying so gets caught here on its first run
-    instead of on the day it meets a big enough image.
-    """
     ceiling = limits.get("output_pixels")
     got = int(image.shape[0]) * int(image.shape[1])
     if got > ceiling:
@@ -104,26 +92,12 @@ class LayerSpec:
     fields: list[Field]
     apply: Callable
     prepare: Callable | None = None
-    # Where this layer sits when the stack is built from scratch. Not a
-    # constraint - just a sensible reading order for someone who has not
-    # arranged one yet.
     order: int = 50
     repeatable: bool = False
-    # How this layer multiplies the pixel count, from its settings alone. The
-    # default says "produces what it was given", which is true of every layer
-    # that maps colours. A layer that resizes MUST declare this or admission
-    # control cannot see it coming - and the output guard in _guard_apply is
-    # what catches one that forgets.
     magnify: Callable[[dict], float] | None = None
-    # Whether this layer's effect can be handed to the display instead of
-    # computed. True only for a transform that invents nothing and that the
-    # viewer reproduces exactly: integer nearest-neighbour magnification is
-    # the case, because `image-rendering: pixelated` already does it.
     deferrable: bool = False
 
     def __post_init__(self) -> None:
-        # Guarding here rather than in the runner is the guarantee: a LayerSpec
-        # cannot exist unguarded, however it is built or whoever calls it.
         self.prepare = _guard_prepare(self.key, self.prepare)
         self.apply = _guard_apply(self.key, self.apply)
 
@@ -131,19 +105,11 @@ class LayerSpec:
         return {f.key: f.default for f in self.fields}
 
     def settings(self, cfg: dict | None) -> dict:
-        """Defaults, overlaid with whatever the caller sent, clamped.
-
-        The single place a request's numbers become a layer's settings. Every
-        caller goes through it, so a field's declared bounds hold for the API
-        exactly as they hold for the form.
-        """
         by_key = {f.key: f for f in self.fields}
         out = self.defaults()
         for key, value in (cfg or {}).items():
             field = by_key.get(key)
-            # An unknown key is passed through rather than dropped: layers read
-            # cfg with .get and a stale one is harmless, while silently eating
-            # it would hide a rename behind a working preview.
+            # An unknown key is passed through rather than dropped: layers read cfg with .get and a stale one is harmless, while silently eating it would hide a rename behind a working preview.
             out[key] = field.clamp(value) if field else value
         return out
 
@@ -154,8 +120,6 @@ class LayerSpec:
         try:
             return max(0.0, float(self.magnify(self.settings(cfg))))
         except Exception:                        # noqa: BLE001
-            # A layer that cannot say is assumed to grow, because the safe
-            # reading of "I do not know" is not "it is fine".
             return float("inf")
 
     def as_dict(self) -> dict:
@@ -199,22 +163,8 @@ def default_stack() -> list[dict]:
             for s in sorted(REGISTRY.values(), key=lambda s: s.order)]
 
 
-# -------------------------------------------------------- admission control
-
-
 def projected_pixels(stack: list[dict], pixels: int,
                      defer: set[str] | None = None) -> int:
-    """Pixels the largest intermediate will hold, worked out before running.
-
-    Arithmetic on the settings, touching no image. That is the whole point:
-    the answer costs nothing and arrives while refusing is still free, whereas
-    the same fact discovered by allocating is a machine that has to be
-    rebooted. Growth compounds along the stack, so a two-layer stack that each
-    doubles an edge is checked as the sixteen-fold it actually is.
-
-    The peak rather than the final size, because a stack that enlarges and then
-    reduces still had to hold the enlarged image on the way through.
-    """
     defer = defer or set()
     peak = current = float(pixels)
     for entry in stack:
@@ -250,9 +200,6 @@ def admit(stack: list[dict], pixels: int, defer: set[str] | None = None) -> None
               f"let the viewer magnify instead." if name else
               "Use a smaller source image."),
         projected=want, ceiling=ceiling)
-
-
-# ----------------------------------------------------------------- ordering
 
 
 def check_order(stack: list[dict]) -> list[str]:

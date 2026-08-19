@@ -25,7 +25,6 @@ def test_a_sheet_contributes_a_resolved_prompt(root, sheet):
 
 
 def test_a_pipeline_value_beats_a_style_sheet(root, sheet):
-    # The layering order is the contract.
     merged, _ = styles.layer(root, {"module": "animation", "subject": "a knight",
                                     "styles": [sheet],
                                     "palette": {"source": "extract"}})
@@ -33,16 +32,12 @@ def test_a_pipeline_value_beats_a_style_sheet(root, sheet):
 
 
 def test_a_missing_sheet_raises_not_found_with_alternatives(root):
-    # NotFound, not StyleError: it carries what someone who mistyped needs.
     with pytest.raises(NotFound) as caught:
         styles.layer(root, {"styles": ["definitely_not_a_style"]})
     assert "base_pixel" in caught.value.hint
 
 
 def test_naming_an_unknown_history_kind_lists_the_ones_that_do(tmp_path):
-    # stylelog.append() is a real converted site (there is no styles.load()):
-    # the checker names it directly, and it hand-wrote the same "expected one
-    # of" alternatives NotFound now builds.
     from pipeline.looks import stylelog
 
     with pytest.raises(NotFound) as caught:

@@ -46,8 +46,6 @@ def test_a_file_that_will_not_parse_is_reported_not_omitted(root):
 
 
 def test_a_registry_read_before_its_modules_import_does_not_cache_the_emptiness():
-    # This shipped: something read the stage list first, the registry cached {},
-    # and the schema served a select with no options for the life of the process.
     late = Decorated()
     growing = Registry("late", late)
     assert len(growing) == 0

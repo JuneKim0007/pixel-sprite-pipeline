@@ -70,8 +70,7 @@ def _arm_degrees(p):
 
 
 def test_reference_pose_clears_the_torso_without_going_horizontal():
-    # Both extremes were measured and failed: arms-down leaves no silhouette
-    # gap, a true T draws swords along the arm. ~40 degrees is the settled answer.
+    # ~40 degrees is the settled answer.
     rig = rigs.HUMANOID
     neutral = {k: list(v) for k, v in rig.neutral.items()}
     pose = rigs.tpose(rig)
@@ -88,8 +87,7 @@ def test_reference_pose_clears_the_torso_without_going_horizontal():
 @pytest.mark.parametrize("name", HUMANOIDS)
 @pytest.mark.parametrize("symmetric", [False, True])
 def test_tpose_rotation_is_rigid(name, symmetric):
-    # Placing joints along a ray from the shoulder preserves the shoulder
-    # distance and silently rescales the forearm. That is how this first shipped.
+    # Placing joints along a ray from the shoulder preserves the shoulder distance and silently rescales the forearm.
     rig = rigs.get(name)
     posed = rigs.tpose(rig, symmetric=symmetric)
     for a, b, _w in rig.bones:
@@ -168,6 +166,4 @@ def test_an_unknown_view_names_the_ones_that_exist():
     with pytest.raises(NotFound) as caught:
         bs.resolve_view("sideways")
     assert caught.value.status == 404
-    # The alternatives are the answer usually wanted, and NotFound builds them
-    # rather than each call site writing its own sentence.
     assert "front" in caught.value.hint

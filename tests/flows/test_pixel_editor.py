@@ -27,9 +27,7 @@ def test_limits_are_shares_of_the_machine_not_this_laptops_numbers():
 
 
 def test_the_default_stack_runs_without_a_layer_failing(root, img, stack):
-    # A raising layer does not kill the run, which hides a broken import
-    # perfectly: regrouping the package moved `training`, _grid_prepare kept
-    # the old path, and the only symptom was one fact missing from a dict.
+    # A raising layer does not kill the run, which hides a broken import perfectly: regrouping the package moved `training`, _grid_prepare kept the old path, and the only symptom was [...]
     out, facts = definitive.apply_stack(img, stack, root=root)
     assert out.ndim == 3, "the stack did not return an image"
     broke = [f"{la['layer']}: {la['error']}" for la in facts["layers"]
@@ -60,8 +58,7 @@ def test_a_failing_layer_reports_against_itself(root, img):
 def test_a_bad_hex_colour_is_a_message_not_a_defect():
     stack = [{"layer": "background", "id": "b0", "enabled": True,
               "config": {"enabled": True, "tolerance": 14, "colour": "#zzzzzz"}}]
-    # A half-typed hex is something the user is in the middle of doing, so it
-    # must arrive as a message against that layer rather than a 500.
+    # A half-typed hex is something the user is in the middle of doing, so it must arrive as a message against that layer rather than a 500.
     _, facts = definitive.apply_stack(np.zeros((8, 8, 3), np.uint8), stack)
     errors = [layer.get("error", "") for layer in facts["layers"]]
     assert any("Invalid" in e for e in errors)
@@ -101,8 +98,7 @@ def test_resuming_produces_the_same_image_as_not_resuming(root, img, stack):
 
 @pytest.mark.slow
 def test_the_caches_are_bounded(root, img, stack):
-    # Without this they become the problem they solve: one preview measured
-    # 6.96 s and 363 MB of peak RSS, one per parameter change, none serialised.
+    # Without this they become the problem they solve: one preview measured 6.96 s and 363 MB of peak RSS, one per parameter change, none serialised.
     for i in range(60):
         definitive.apply_stack((img + i).astype(np.uint8), stack, root=root,
                                source=f"t{i}")
@@ -123,8 +119,6 @@ def test_every_registered_layer_is_budget_guarded():
 
 
 def test_a_layer_built_without_the_decorator_is_guarded_too():
-    # The guard is in __post_init__, not in @layer, so constructing a spec by
-    # hand cannot route around it.
     spec = layers.LayerSpec(key="handmade", label="Handmade", summary="",
                             fields=[], apply=lambda img, cfg, facts, prep: img)
     assert getattr(spec.apply, "_budgeted", False)

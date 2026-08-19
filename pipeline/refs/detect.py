@@ -75,11 +75,7 @@ def detect(
 
 
 def resolve(ctx, verbose: bool = True) -> tuple[rigs.Rig, dict]:
-    """Config-driven entry point. `rig: auto` inspects the references.
-
-    Returns the rig plus a record of how it was chosen, so a run can show its
-    reasoning rather than silently posing a snake as a person.
-    """
+    """Returns the rig plus a record of how it was chosen, so a run can show its reasoning rather than silently posing a snake as a person."""
     requested = ctx.config.get("rig")
     if requested != "auto":
         return rigs.get(requested), {"source": "config", "rig": rigs.get(requested).name}

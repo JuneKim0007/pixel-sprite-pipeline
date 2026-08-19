@@ -23,8 +23,6 @@ def p(**overrides) -> dict:
     return pose_from(NEUTRAL, **overrides)
 
 
-# --------------------------------------------------------------------- poses
-
 IDLE = [p()]
 
 IDLE_BREATHE = [
@@ -41,7 +39,6 @@ IDLE_BREATHE = [
 
 
 ATTACK = [
-    # 0 — wind up: weight back, weapon arm drawing behind
     p(
         neck=(0.0, -0.020, 0.228), nose=(0.0, 0.012, 0.150),
         l_elbow=(0.060, -0.050, 0.330), l_wrist=(0.050, -0.100, 0.245),
@@ -49,7 +46,6 @@ ATTACK = [
         r_ankle=(-0.040, -0.050, 0.815), l_ankle=(0.040, 0.040, 0.815),
         r_knee=(-0.038, -0.020, 0.655), l_knee=(0.038, 0.020, 0.655),
     ),
-    # 1 — cocked: fully loaded
     p(
         neck=(0.0, -0.030, 0.230), nose=(0.0, 0.004, 0.152),
         l_elbow=(0.060, -0.075, 0.315), l_wrist=(0.050, -0.135, 0.205),
@@ -57,7 +53,6 @@ ATTACK = [
         r_ankle=(-0.040, -0.060, 0.818), l_ankle=(0.040, 0.048, 0.818),
         r_knee=(-0.038, -0.026, 0.658), l_knee=(0.038, 0.026, 0.658),
     ),
-    # 2 — release: arm whips forward
     p(
         neck=(0.0, 0.010, 0.224), nose=(0.0, 0.042, 0.146),
         l_elbow=(0.065, 0.055, 0.300), l_wrist=(0.060, 0.115, 0.225),
@@ -65,7 +60,6 @@ ATTACK = [
         r_ankle=(-0.040, -0.040, 0.816), l_ankle=(0.040, 0.062, 0.816),
         r_knee=(-0.038, -0.016, 0.656), l_knee=(0.038, 0.034, 0.656),
     ),
-    # 3 — mid swing: driving through
     p(
         neck=(0.0, 0.020, 0.228), nose=(0.0, 0.054, 0.150),
         l_elbow=(0.068, 0.095, 0.325), l_wrist=(0.060, 0.175, 0.335),
@@ -73,7 +67,6 @@ ATTACK = [
         r_ankle=(-0.040, -0.038, 0.818), l_ankle=(0.040, 0.076, 0.818),
         r_knee=(-0.038, -0.014, 0.658), l_knee=(0.038, 0.042, 0.658),
     ),
-    # 4 — full extension: the strike has landed
     p(
         neck=(0.0, 0.028, 0.234), nose=(0.0, 0.062, 0.156),
         l_elbow=(0.070, 0.115, 0.350), l_wrist=(0.062, 0.205, 0.415),
@@ -81,7 +74,6 @@ ATTACK = [
         r_ankle=(-0.040, -0.042, 0.820), l_ankle=(0.040, 0.088, 0.820),
         r_knee=(-0.038, -0.016, 0.660), l_knee=(0.038, 0.048, 0.660),
     ),
-    # 5 — follow-through: blade swept low, weight forward
     p(
         neck=(0.0, 0.022, 0.244), nose=(0.0, 0.056, 0.166),
         l_elbow=(0.068, 0.090, 0.380), l_wrist=(0.060, 0.145, 0.485),
@@ -91,11 +83,8 @@ ATTACK = [
     ),
 ]
 
-# Single-frame reaction poses. A hit and a death read from one frame each in
-# retro RPGs — the recoil is the whole pose, not a sequence.
 HIT = [
     p(
-        # Struck: head snapped back, torso recoiling, arms thrown outward.
         neck=(0.0, -0.055, 0.238), nose=(0.0, -0.030, 0.162),
         l_shoulder=(0.058, -0.040, 0.252), r_shoulder=(-0.058, -0.040, 0.252),
         l_elbow=(0.105, -0.020, 0.330), r_elbow=(-0.105, -0.020, 0.330),
@@ -110,8 +99,6 @@ HIT = [
 
 FALL = [
     p(
-        # Collapsing: knees buckled, body dropped and folded forward. Not lying
-        # flat — a sprite reads as defeated better while still upright-ish.
         neck=(0.0, 0.075, 0.395), nose=(0.0, 0.115, 0.330),
         l_shoulder=(0.052, 0.062, 0.408), r_shoulder=(-0.052, 0.062, 0.408),
         l_elbow=(0.072, 0.095, 0.510), r_elbow=(-0.072, 0.095, 0.510),
@@ -140,7 +127,7 @@ def write_pose(name: str, desc: str, frames: list[dict]) -> Path:
             {
                 "name": name,
                 "description": desc,
-                "space": "body",  # (lateral, depth, height); project to view
+                "space": "body",
                 "joints": list(JOINTS),
                 "frames": [{k: list(v) for k, v in f.items()} for f in frames],
             },

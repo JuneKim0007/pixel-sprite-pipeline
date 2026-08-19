@@ -1,8 +1,4 @@
-"""Runs: what was produced, and starting another.
-
-Moved out of server.py, where every backend feature landed in the middle of a
-125-line if-chain.
-"""
+"""Runs: what was produced, and starting another."""
 
 from __future__ import annotations
 
@@ -25,7 +21,6 @@ from datetime import datetime
 import yaml
 import re
 
-# run_id -> Popen, so a run can be polled and stopped.
 _ACTIVE: dict[str, subprocess.Popen] = {}
 _LOCK = threading.Lock()
 
@@ -91,8 +86,6 @@ def list_runs() -> list[dict]:
                     }
                     for s in stage_dirs
                 ],
-                # Enough for a banner card without a round trip per run: what
-                # kind of thing this was, and one picture of it.
                 "audit": run_audit(d),
             }
         )
@@ -118,7 +111,6 @@ def run_audit(run_dir: Path) -> dict:
     canonical = cfg.get("canonical") or {}
     palette = cfg.get("palette") or {}
 
-    # Where the pose geometry came from, read back from what the run recorded.
     pose_cfg = cfg.get("pose") or {}
     rig_source = pose_cfg.get("source", "library")
     annotated = None
@@ -188,16 +180,12 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
         out = runs_dir() / run_id
         out.mkdir(parents=True, exist_ok=True)
 
-        # Unsaved edits from the UI are materialised into the run directory so
-        # a run always records the config it actually used.
         effective = cfg_path
         if overrides or style_picks:
             merged = yaml.safe_load(cfg_path.read_text()) or {}
             for path, value in (overrides or {}).items():
                 schema.set_path(merged, path, value)
             if style_picks:
-                # A one-off narrowing of the style vocabulary, recorded in the
-                # run's own config so the result stays reproducible.
                 merged["style_picks"] = style_picks
             effective = out / "config.effective.yaml"
             effective.write_text(yaml.safe_dump(merged, sort_keys=False))

@@ -20,8 +20,6 @@ def _encode(value: Any) -> dict:
         json.dumps(value)
         return {"type": "json", "value": value}
     except TypeError as e:
-        # Storing repr() here would hand a resumed run a string where a stage
-        # expects an object. Scratch keys are already filtered, so this is a bug.
         raise TypeError(
             # not-a-message: save() only ever calls _encode() on artifacts
             # already stripped of scratch (`_`-prefixed) keys, so an
@@ -64,7 +62,6 @@ def load(outdir: Path) -> tuple[dict[str, Any], list[str]]:
         raise NotFound("manifest", str(path), hint="nothing to resume")
     data = json.loads(path.read_text())
 
-    # Tolerate manifests written before this format existed.
     raw = data.get("artifacts", data)
     if raw and not isinstance(next(iter(raw.values()), None), dict):
         raise Invalid(

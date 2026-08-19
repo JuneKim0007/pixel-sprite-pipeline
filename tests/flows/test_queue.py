@@ -43,9 +43,7 @@ def test_preflight_tells_broken_from_not_ready_yet(queue, tmp_path, label, spec,
 
 
 def test_a_dead_service_returns_a_verdict_instead_of_raising(root):
-    # Every stage rejects a missing ComfyUI in about a millisecond, so a worker
-    # that treated that as a job error would empty a 200-job queue into failed/
-    # faster than a person could read one line of the log.
+    # [...] in about a millisecond, so a worker that treated that as a job error would empty a 200-job queue into failed/ faster than a person could read one line of the log
     ok, why = q.services_up(root)
     assert isinstance(ok, bool)
     if not ok:

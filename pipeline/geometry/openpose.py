@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw
 
 from ..shared.errors import Invalid
 
-# Index -> joint. Order is fixed by the ControlNet convention; don't reorder.
 JOINTS = (
     "nose", "neck",
     "r_shoulder", "r_elbow", "r_wrist",
@@ -20,15 +19,13 @@ JOINTS = (
     "r_eye", "l_eye", "r_ear", "l_ear",
 )
 
-# Bone connections, as index pairs into JOINTS.
 LIMBS = (
     (1, 2), (1, 5), (2, 3), (3, 4), (5, 6), (6, 7),
     (1, 8), (8, 9), (9, 10), (1, 11), (11, 12), (12, 13),
     (1, 0), (0, 14), (14, 16), (0, 15), (15, 17),
 )
 
-# The canonical OpenPose colour wheel. ControlNet was trained against these
-# exact hues, so they carry meaning — treat them as protocol, not decoration.
+# ControlNet was trained against these exact hues - treat as protocol, not decoration.
 COLORS = (
     (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0),
     (85, 255, 0), (0, 255, 0), (0, 255, 85), (0, 255, 170), (0, 255, 255),
@@ -40,11 +37,6 @@ COLORS = (
 def _limb_polygon(
     x1: float, y1: float, x2: float, y2: float, width: float
 ) -> list[tuple[float, float]]:
-    """A tapered ellipse spanning two joints, as a polygon.
-
-    OpenPose draws limbs as ellipses rather than plain lines; matching that
-    shape matters because it is what the ControlNet saw during training.
-    """
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     length = math.hypot(x2 - x1, y2 - y1)
     angle = math.atan2(y2 - y1, x2 - x1)
@@ -70,13 +62,7 @@ def render(
     thickness: float | None = None,
     rig=None,
 ) -> Image.Image:
-    """Draw one skeleton on black, in whatever topology the rig describes.
-
-    For the humanoid rig this is a literal OpenPose control image: 18 joints in
-    COCO order with the exact hues the ControlNet was trained on. For every
-    other rig it is a coloured stick figure sent as a scribble instead, because
-    an OpenPose model would read the extra limbs as broken human ones.
-    """
+    """For the humanoid rig this is a literal OpenPose control image: 18 joints in COCO order with the exact hues the ControlNet was trained on."""
     from . import rigs as _rigs
 
     rig = rig if rig is not None else _rigs.HUMANOID
@@ -87,8 +73,7 @@ def render(
             field="keypoints",
         )
 
-    # OpenPose's reference stick width is 4px on a 368px canvas; scale it so
-    # skeletons look identical whatever resolution we render at.
+    # OpenPose's reference stick width is 4px on a 368px canvas; scale it so skeletons look identical whatever resolution we render at.
     stick = thickness if thickness is not None else max(2.0, 4.0 * min(width, height) / 368)
 
     canvas = Image.new("RGB", (width, height), (0, 0, 0))

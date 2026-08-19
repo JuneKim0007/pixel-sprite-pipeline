@@ -1,10 +1,4 @@
-"""Filesystem operations the UI needs: browsing, uploading, downloading.
-
-Every path from the browser is untrusted, so all of it funnels through
-`safe_path`. The allowed roots are explicit — the project directory plus
-whatever the user configured as input/output/download directories, which may
-legitimately sit outside the project.
-"""
+"""Filesystem operations the UI needs: browsing, uploading, downloading."""
 
 from __future__ import annotations
 
@@ -23,11 +17,6 @@ class PathDenied(Denied):
 
 
 def safe_path(raw: str, allowed: list[Path]) -> Path:
-    """Resolve `raw` and require it to sit under one of `allowed`.
-
-    Resolution happens before the check so that `..` segments and symlinks are
-    collapsed first — testing the string would let `inputs/../../etc` through.
-    """
     if not raw:
         raise PathDenied("empty path")
     candidate = Path(raw).expanduser()
@@ -108,13 +97,7 @@ def unique_name(directory: Path, filename: str) -> Path:
 
 
 def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, bytes]]:
-    """Minimal multipart/form-data parser: [(field, filename, data), ...].
-
-    The stdlib `cgi` module did this, but it is deprecated and removed in
-    Python 3.13, and `email.parser` mangles binary payloads unless carefully
-    coaxed. Uploads here are a handful of small images, so splitting on the
-    boundary directly is simpler than either and has no deprecation horizon.
-    """
+    """The stdlib `cgi` module did this, but it is deprecated and removed in Python 3.13, and `email.parser` mangles binary payloads unless carefully coaxed."""
     marker = "boundary="
     if marker not in content_type:
         raise Invalid("multipart request has no boundary", field="content_type")
@@ -138,7 +121,6 @@ def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, byte
             m = re.search(rf'{key}="([^"]*)"', disposition)
             return m.group(1) if m else ""
 
-        # Trailing CRLF belongs to the boundary, not the payload.
         if data.endswith(b"\r\n"):
             data = data[:-2]
         parts.append((field("name"), field("filename"), data))
@@ -146,11 +128,6 @@ def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, byte
 
 
 def plan_copy(sources: list[Path], target: Path) -> dict:
-    """What a download would do, without doing it.
-
-    The UI asks for this first so it can warn about overwrites *before* the
-    user commits, rather than reporting damage afterwards.
-    """
     conflicts, fresh = [], []
     for src in sources:
         dst = target / src.name

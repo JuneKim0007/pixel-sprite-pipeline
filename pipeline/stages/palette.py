@@ -1,13 +1,4 @@
-"""Stage 4 — pixelize every frame against ONE shared palette.
-
-This is where colour consistency is actually won, and it is deliberately not
-an AI step. The palette is extracted once from the canonical sprite and then
-imposed on every frame, so the animation cannot drift in colour: the frames
-are quantised to an identical, fixed set.
-
-Genuinely parallel work, so it runs in a process pool — each frame is
-independent, and the phase search plus flood fill are CPU-bound Python.
-"""
+"""Stage 4 — pixelize every frame against ONE shared palette."""
 
 from __future__ import annotations
 
@@ -50,18 +41,11 @@ class PaletteStage(Stage):
     produces = frozenset({"palette", "pixel_frames"})
 
     def prepare(self, ctx: Context) -> dict[str, Any]:
-        """Decide the colours and the lattice, once, for every frame.
-
-        Both are a function of the canonical sprite and this stage's settings,
-        so neither belongs inside the per-frame loop.
-        """
         cfg = ctx.stage_config("palette")
         canonical: Path = ctx.require("canonical")
         key_colour = self._key_colour(ctx)
 
-        # One lattice for the whole run, found before anything that needs it.
-        # Frames of a run share a grid — same model, same size — so searching
-        # per frame paid N times for one answer: measured 6/6 frames identical.
+        # Frames of a run share a grid — same model, same size — so searching per frame paid N times for one answer: measured 6/6 frames identical.
         arr = np.asarray(Image.open(canonical).convert("RGB"))
         phase = find_phase(arr, cfg["factor"])
         print(f"   grid phase {phase}, shared by every frame")
@@ -90,8 +74,6 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
-        # If the prompt named the backdrop, the keyer knows what to remove
-        # instead of sampling a corner and hoping the corner was background.
         bg = ctx.config.get("background") or {}
         if opt(bg, "enabled", True) is False:
             return None
@@ -102,8 +84,6 @@ class PaletteStage(Stage):
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("palette")
-        # Prefer warped frames when the softbody stage ran, so secondary motion
-        # survives into the pixelized output.
         frames: list[Path] = ctx.artifacts.get("soft_frames") or ctx.require("frames")
         outdir = ctx.stage_dir("palette")
 
@@ -111,9 +91,7 @@ class PaletteStage(Stage):
         palette = prep["palette"]
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
-        # Defaults chosen by measurement, not by taste: median beat mode 100%
-        # to 70% on structural accuracy, because anti-aliased input makes
-        # almost every pixel unique and the most frequent one arbitrary.
+        # Defaults chosen by measurement, not by taste: median beat mode 100% to 70% on structural accuracy, because anti-aliased input makes almost every pixel [...]
         jobs = [
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
@@ -141,18 +119,7 @@ class PaletteStage(Stage):
         alpha_tol: int, key_colour: tuple[int, int, int] | None = None,
         tolerance: float = 32.0,
     ) -> list[tuple[int, int, int]]:
-        """Derive the palette from the character, ignoring the backdrop.
-
-        Median cut allocates colours in proportion to how many pixels want
-        them. A sprite occupies roughly 15% of the canvas, so extracting from
-        the whole image spends almost the entire budget subdividing one flat
-        background grey and returns a palette of near-identical greys — the
-        character's actual colours never make it in.
-
-        So the background is keyed out first and only opaque pixels are
-        sampled. The palette then describes the subject, which is the only
-        part that gets drawn.
-        """
+        """A sprite occupies roughly 15% of the canvas, so extracting from the whole image spends almost the entire budget subdividing one [...]"""
         ox, oy = phase
         small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
         keyed = background_to_alpha(small, alpha_tol, key=key_colour)
@@ -160,9 +127,6 @@ class PaletteStage(Stage):
 
         opaque = int((alpha > 0).sum())
         if opaque < size * 4:
-            # Almost everything was treated as background — the sprite may run
-            # to the canvas edge. Fall back to the whole image rather than
-            # extracting from a handful of pixels.
             return extract_palette(arr, size)
         return extract_palette(rgb, size, ignore_alpha=alpha)
 
@@ -181,12 +145,6 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _choose(ctx: Context, cfg: dict):
-        """Let the LLM pick from the registry, then verify the pick exists.
-
-        Selection only — application below stays deterministic. That split is
-        the point: an LLM is a reasonable judge of which palette suits a
-        subject, and a terrible mechanism for applying one consistently.
-        """
         from ..refs.llm import LLMError, Ollama
         from ..looks.palettes import choose
 

@@ -72,7 +72,6 @@ def plan(stages: list[Stage]) -> list[Batch]:
             batches.append(Batch([stage]))
             continue
 
-        # Only join the open batch if it neither feeds nor is fed by it.
         conflict = any(
             stage.requires & other.produces or other.requires & stage.produces
             for other in current
@@ -102,13 +101,6 @@ def run(
     stop_after: str | None = None,
     skip: set[str] | None = None,
 ) -> Context:
-    """Execute the plan, optionally stopping after a named stage.
-
-    `stop_after` is the gate: it exists so a human can inspect or edit what a
-    stage produced — the skeletons, in the rig editor — before the expensive
-    GPU stages consume them. `skip` is its other half, letting a resumed run
-    step over stages whose output already exists.
-    """
     skip = skip or set()
     if stop_after and stop_after not in {s.name for s in stages}:
         raise PipelineError(
@@ -144,8 +136,6 @@ def run(
                 results: list[tuple[Stage, dict[str, Any]]] = []
                 for fut in futures:
                     results.append((futures[fut], fut.result()))
-            # Merge after the batch so concurrent stages never observe each
-            # other's partial writes.
             for stage, produced in results:
                 ctx.artifacts.update(produced)
                 ctx.completed.append(stage.name)

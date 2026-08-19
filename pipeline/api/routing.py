@@ -24,11 +24,7 @@ class Request:
         return values[0] if values and values[0] else default
 
     def required(self, name: str) -> str:
-        """A missing parameter as a 400 rather than an empty string.
-
-        The old idiom turned every absent parameter into "", which then failed
-        somewhere further in as a confusing not-found.
-        """
+        """A missing parameter as a 400 rather than an empty string."""
         value = self.query(name)
         if not value:
             raise Invalid(f"'{name}' is required", field=name)
@@ -86,11 +82,7 @@ def put(path: str, summary: str = ""):
 
 
 class BaseRouter:
-    """A group of routes. Subclassing registers it.
-
-    `prefix` is prepended to every path the subclass declares, so a domain
-    owns its namespace in one place instead of repeating "/api" per route.
-    """
+    """A group of routes."""
 
     prefix: ClassVar[str] = ""
     REGISTRY: ClassVar[list[type["BaseRouter"]]] = []
@@ -117,7 +109,6 @@ class BaseRouter:
 class _Declared(Source[Route]):
 
     def signature(self) -> Any:
-        # Which subclasses, not how many: a count cannot see one swapped out.
         return tuple(f"{c.__module__}.{c.__qualname__}"
                      for c in BaseRouter.REGISTRY)
 
@@ -141,8 +132,6 @@ class Table:
         route = self._routes.find(f"{method} {path}")
         if route is not None:
             return route
-        # A path that exists under another method is a different mistake from a
-        # path that does not exist, and saying so saves the guess.
         others = sorted({r.method for r in self._routes.all().values()
                          if r.path == path})
         if others:

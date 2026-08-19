@@ -38,15 +38,11 @@ def test_a_gated_run_does_not_count_work_it_will_not_do(batches):
 
 @pytest.mark.parametrize("stop_after,rests", [("canonical", False), (None, True)])
 def test_rests_fall_only_between_gpu_work_that_will_run(batches, stop_after, rests):
-    # Counting the whole plan made `stop_after: canonical` sleep three minutes
-    # and then return. A wrong sleep here presents as the machine being slow.
     estimate = cooling.estimate({}, _gpu_batches(batches, stop_after))
     assert (estimate > 0) is rests
 
 
 def test_softbody_runs_as_a_stage_not_just_as_physics(root, tmp_path):
-    # A stage can pass every test of its maths and still fail the contract:
-    # wrong artifact names, a context field that does not exist, no outdir.
     frames = []
     for i in range(3):
         arr = np.zeros((64, 64, 3), dtype=np.uint8)

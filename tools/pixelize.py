@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""CLI wrapper. The implementation lives in pipeline/definitive/pixelize.py so that
-pipeline stages can import it directly instead of shelling out."""
+"""CLI wrapper."""
 import sys
 from pathlib import Path
 
