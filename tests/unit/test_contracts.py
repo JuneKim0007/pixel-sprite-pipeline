@@ -58,8 +58,8 @@ def test_a_field_cannot_exist_without_an_explanation():
         _field(help="")
 
 
-def test_as_dict_carries_everything_a_form_needs():
-    got = _field().as_dict()
+def test_declared_carries_everything_a_form_needs():
+    got = _field().declared()
     assert got["key"] == "steps"
     assert got["kind"] == "int"
     assert got["min"] == 1 and got["max"] == 150
@@ -85,12 +85,13 @@ def test_a_layer_field_is_a_field():
 
 
 def test_a_config_field_speaks_the_form_s_dialect():
+    from pipeline.generation.schema import ConfigSchema
     from pipeline.shared.contracts import ConfigField
 
     spec = ConfigField(key="frames.steps", label="Steps", kind="int",
                        help="How many denoising steps.", group="Frames",
                        min=1, max=150)
-    got = spec.as_dict()
+    got = ConfigSchema(fields=[spec], modules={}).fields_for(None)[0]
     assert got["path"] == "frames.steps"
     assert got["type"] == "int"
     assert got["group"] == "Frames"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass, field as dc_field, fields as dc_fields
 from typing import Any
 
 from .errors import Invalid
@@ -26,6 +26,9 @@ class Field:
     def __post_init__(self) -> None:
         if not self.help:
             raise ValueError(f"field '{self.key}' has no help text")
+
+    def declared(self) -> dict:
+        return {f.name: getattr(self, f.name) for f in dc_fields(self)}
 
     def as_dict(self) -> dict:
         return {

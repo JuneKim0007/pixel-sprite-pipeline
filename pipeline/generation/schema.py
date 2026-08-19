@@ -1,7 +1,8 @@
-
+"""The pipeline settings form: what it holds, and how it is rendered."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -754,25 +755,6 @@ def _stage_names() -> list[str]:
     return list(available())
 
 
-def fields_for(module: str | None) -> list[dict[str, Any]]:
-    """Fields relevant to a pipeline kind, with any per-module rewording applied."""
-    out = []
-    for field in FIELDS:
-        scope = field.modules
-        if scope and module and module not in scope:
-            continue
-        entry = field.as_dict()
-        override = (entry.pop("help_for", None) or {}).get(module or "")
-        if override:
-            entry["help"] = override
-        if "default" not in entry:
-            found = _declared_default(entry["path"])
-            if found is not _MISSING:
-                entry["default"] = found
-        out.append(entry)
-    return out
-
-
 _MISSING = object()
 
 
@@ -786,21 +768,93 @@ def _declared_default(path: str) -> Any:
     return defaults_for(stage).get(key, _MISSING)
 
 
-def describe(root: Path, module: str | None = None) -> dict[str, Any]:
-    from .stage import available
+def _render(field: ConfigField) -> dict:
+    base = field.declared()
+    modules = base.pop("modules")
+    options_from = base.pop("options_from")
+    free_numeric = base.pop("free_numeric")
+    base["path"] = base.pop("key")
+    base["type"] = base.pop("kind")
+    base["group"] = base.pop("group")
+    base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
+                        for o in field.options]
+    del base["default"]
+    for key, empty in (("min", None), ("max", None), ("step", None),
+                        ("options", []), ("when", {})):
+        if base[key] == empty:
+            del base[key]
+    if modules:
+        base["modules"] = modules
+    if options_from:
+        base["options_from"] = options_from
+    if free_numeric:
+        base["free_numeric"] = free_numeric
+    return base
 
-    return {
-        "module": module,
-        "modules": MODULES,
-        "fields": fields_for(module),
-        "options": dynamic_options(root),
-        "stages": [
-            {
-                "name": name,
-                "resource": cls.resource,
-                "requires": sorted(cls.requires),
-                "produces": sorted(cls.produces),
-            }
-            for name, cls in sorted(available().items())
-        ],
-    }
+
+@dataclass
+class ConfigSchema:
+    """The pipeline settings surface: its fields, and every operation on them."""
+
+    fields: list[ConfigField]
+    modules: dict[str, dict[str, Any]]
+
+    def fields_for(self, module: str | None) -> list[dict[str, Any]]:
+        out = []
+        for field in self.fields:
+            scope = field.modules
+            if scope and module and module not in scope:
+                continue
+            entry = _render(field)
+            override = (entry.pop("help_for", None) or {}).get(module or "")
+            if override:
+                entry["help"] = override
+            if "default" not in entry:
+                found = _declared_default(entry["path"])
+                if found is not _MISSING:
+                    entry["default"] = found
+            out.append(entry)
+        return out
+
+    def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
+        from .stage import available
+
+        return {
+            "module": module,
+            "modules": self.modules,
+            "fields": self.fields_for(module),
+            "options": dynamic_options(root),
+            "stages": [
+                {
+                    "name": name,
+                    "resource": cls.resource,
+                    "requires": sorted(cls.requires),
+                    "produces": sorted(cls.produces),
+                }
+                for name, cls in sorted(available().items())
+            ],
+        }
+
+    def get(self, cfg: dict, path: str) -> Any:
+        return get_path(cfg, path)
+
+    def set(self, cfg: dict, path: str, value: Any) -> None:
+        set_path(cfg, path, value)
+
+    def field(self, path: str) -> ConfigField | None:
+        for f in self.fields:
+            if f.key == path:
+                return f
+        return None
+
+
+SCHEMA = ConfigSchema(fields=FIELDS, modules=MODULES)
+
+
+def fields_for(module: str | None) -> list[dict[str, Any]]:
+    """Fields relevant to a pipeline kind, with any per-module rewording applied."""
+    return SCHEMA.fields_for(module)
+
+
+def describe(root: Path, module: str | None = None) -> dict[str, Any]:
+    return SCHEMA.describe(root, module)
