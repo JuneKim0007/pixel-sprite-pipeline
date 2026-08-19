@@ -83,6 +83,12 @@ def _guard_apply(key: str, fn):
     return wrapped
 
 
+def _field_as_dict(f: Field) -> dict:
+    d = f.declared()
+    d["options"] = [list(o) for o in d["options"]]
+    return d
+
+
 @dataclass
 class LayerSpec:
 
@@ -126,7 +132,7 @@ class LayerSpec:
         return {
             "key": self.key, "label": self.label, "summary": self.summary,
             "order": self.order, "repeatable": self.repeatable,
-            "fields": [f.as_dict() for f in self.fields],
+            "fields": [_field_as_dict(f) for f in self.fields],
         }
 
 

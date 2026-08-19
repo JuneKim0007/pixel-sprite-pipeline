@@ -65,6 +65,10 @@ def test_declared_carries_everything_a_form_needs():
     assert got["min"] == 1 and got["max"] == 150
 
 
+def test_field_has_no_wire_format_opinion():
+    assert not hasattr(Field, "as_dict")
+
+
 def test_the_layer_catalogue_is_unchanged_by_the_migration():
     import json
     import pathlib
@@ -96,6 +100,12 @@ def test_a_config_field_speaks_the_form_s_dialect():
     assert got["type"] == "int"
     assert got["group"] == "Frames"
     assert "key" not in got and "kind" not in got
+
+
+def test_config_field_has_no_wire_format_opinion_either():
+    from pipeline.shared.contracts import ConfigField
+
+    assert not hasattr(ConfigField, "as_dict")
 
 
 def test_every_config_field_is_a_config_field():

@@ -30,14 +30,6 @@ class Field:
     def declared(self) -> dict:
         return {f.name: getattr(self, f.name) for f in dc_fields(self)}
 
-    def as_dict(self) -> dict:
-        return {
-            "key": self.key, "label": self.label, "kind": self.kind,
-            "help": self.help, "min": self.min, "max": self.max,
-            "step": self.step, "options": [list(o) for o in self.options],
-            "default": self.default, "when": self.when,
-        }
-
     def _coerce(self, value):
         if value is None:
             return None, False
@@ -109,26 +101,6 @@ class ConfigField(Field):
     modules: list[str] = dc_field(default_factory=list)
     options_from: str = ""
     free_numeric: bool = False
-
-    def as_dict(self) -> dict:
-        base = super().as_dict()
-        base["path"] = base.pop("key")
-        base["type"] = base.pop("kind")
-        base["group"] = self.group
-        base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
-                            for o in self.options]
-        del base["default"]
-        for key, empty in (("min", None), ("max", None), ("step", None),
-                            ("options", []), ("when", {})):
-            if base[key] == empty:
-                del base[key]
-        if self.modules:
-            base["modules"] = self.modules
-        if self.options_from:
-            base["options_from"] = self.options_from
-        if self.free_numeric:
-            base["free_numeric"] = self.free_numeric
-        return base
 
     def _in_range(self, value) -> bool:
         if self.kind == "select" and self.options and not isinstance(
