@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -855,6 +856,24 @@ class ConfigSchema:
                 f.check(value)
             elif isinstance(value, dict):
                 self.check(value, here)
+
+    def clamp(self, cfg: dict) -> tuple[dict, list[str]]:
+        out = copy.deepcopy(cfg or {})
+        notes: list[str] = []
+        self._clamp_into(out, notes)
+        return out, notes
+
+    def _clamp_into(self, node: dict, notes: list[str], _path: str = "") -> None:
+        for key, value in node.items():
+            here = f"{_path}.{key}" if _path else key
+            f = self.field(here)
+            if f is not None:
+                fixed = f.clamp(value)
+                if fixed != value:
+                    notes.append(f"'{here}' was {value!r}, clamped to {fixed!r}")
+                node[key] = fixed
+            elif isinstance(value, dict):
+                self._clamp_into(value, notes, here)
 
 
 SCHEMA = ConfigSchema(fields=FIELDS, modules=MODULES)

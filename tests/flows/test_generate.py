@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -108,3 +110,27 @@ def test_the_lattice_is_found_once_per_run_not_once_per_frame(tmp_path, monkeypa
 
     assert len(produced["pixel_frames"]) == 4
     assert len(calls) == 1, f"the lattice was searched {len(calls)} times for 4 frames"
+
+
+def test_an_out_of_range_config_is_clamped_with_a_note(root, tmp_path, caplog):
+    with caplog.at_level("WARNING"):
+        ctx = Context(root=root, outdir=tmp_path,
+                      config={"canonical": {"steps": 999999}})
+    assert ctx.config["canonical"]["steps"] == 150
+    assert "canonical.steps" in caplog.text
+    assert "999999" in caplog.text
+
+
+def test_an_in_range_config_is_returned_untouched(root, tmp_path, caplog):
+    cfg = {"canonical": {"steps": 30}}
+    with caplog.at_level("WARNING"):
+        ctx = Context(root=root, outdir=tmp_path, config=cfg)
+    assert ctx.config == cfg
+    assert not caplog.records
+
+
+def test_clamping_does_not_mutate_the_callers_config(root, tmp_path):
+    cfg = {"canonical": {"steps": 999999}}
+    original = copy.deepcopy(cfg)
+    Context(root=root, outdir=tmp_path, config=cfg)
+    assert cfg == original

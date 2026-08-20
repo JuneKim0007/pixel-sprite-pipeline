@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,8 @@ from ..shared.registry import Decorated, Registry
 
 __all__ = ["opt", "Resource", "Context", "Stage", "register", "get",
            "available", "defaults_for"]
+
+log = logging.getLogger("pixel.config")
 
 
 class Resource:
@@ -38,6 +41,13 @@ class Context:
     completed: list[str] = field(default_factory=list)
     stopped_at: str | None = None
     _order: dict[str, int] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        from .schema import SCHEMA
+
+        self.config, notes = SCHEMA.clamp(self.config)
+        for note in notes:
+            log.warning(note)
 
     def stage_config(self, name: str) -> dict[str, Any]:
         """The stage's settings, its declared defaults already underneath."""
