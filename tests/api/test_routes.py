@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pipeline import api, definitive
+from pipeline.shared import paths
 
 SHAPES = {
     "/api/config": ("?name=char_1", ["name", "module", "raw", "config",
@@ -90,3 +91,34 @@ def test_a_bad_config_name_is_a_400_naming_the_field(http):
     assert code == 400
     assert body["kind"] == "invalid"
     assert body["detail"]["field"] == "name"
+
+
+@pytest.fixture
+def config_file(root):
+    path = paths.resolve(root, "configs") / "knight_attack.yaml"
+    before = path.read_text()
+    yield path
+    path.write_text(before)
+
+
+def test_an_out_of_range_save_is_refused(http, config_file):
+    code, body = http.failure(
+        "/api/config?name=knight_attack",
+        {"config": {"canonical": {"steps": 100000}}}, "PUT")
+    assert code == 400
+    assert body["kind"] == "invalid"
+    assert "canonical.steps" in body["error"]
+
+
+def test_an_in_range_save_still_succeeds(http, config_file):
+    code = http.status(
+        "/api/config?name=knight_attack",
+        {"config": {"canonical": {"steps": 30}}}, "PUT")
+    assert code == 200
+
+
+def test_a_key_the_schema_does_not_declare_passes_through(http, config_file):
+    code = http.status(
+        "/api/config?name=knight_attack",
+        {"config": {"canonical": {"totally_unknown_key": 5}}}, "PUT")
+    assert code == 200

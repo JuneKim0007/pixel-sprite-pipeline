@@ -847,6 +847,15 @@ class ConfigSchema:
                 return f
         return None
 
+    def check(self, cfg: dict, _path: str = "") -> None:
+        for key, value in (cfg or {}).items():
+            here = f"{_path}.{key}" if _path else key
+            f = self.field(here)
+            if f is not None:
+                f.check(value)
+            elif isinstance(value, dict):
+                self.check(value, here)
+
 
 SCHEMA = ConfigSchema(fields=FIELDS, modules=MODULES)
 

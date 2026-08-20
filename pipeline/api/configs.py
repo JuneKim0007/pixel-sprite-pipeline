@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 
+from ..generation.schema import SCHEMA
 from ..looks import styles
 from ..shared import settings
 from ..shared.errors import Invalid, NotFound
@@ -26,6 +27,7 @@ def save_config(name: str, body: dict) -> dict:
         if problem and not body.get("force"):
             raise Invalid(problem, field="stages",
                           hint="pass force to save it anyway")
+        SCHEMA.check(parsed or {})
         target.write_text(body["raw"])
         return {"saved": name}
 
@@ -34,6 +36,7 @@ def save_config(name: str, body: dict) -> dict:
     if problem and not body.get("force"):
         raise Invalid(problem, field="stages",
                       hint="pass force to save it anyway")
+    SCHEMA.check(incoming)
 
     if target.exists():
         doc = load_roundtrip(target)
@@ -50,6 +53,7 @@ def save_config(name: str, body: dict) -> dict:
 def _save_global(body: dict) -> dict:
     path = settings.global_path(ROOT)
     incoming = body.get("config", {}) or {}
+    SCHEMA.check(incoming)
     if path.exists():
         doc = load_roundtrip(path)
         changed = _apply_changes(doc, incoming)
