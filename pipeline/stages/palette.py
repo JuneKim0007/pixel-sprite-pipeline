@@ -36,7 +36,7 @@ class PaletteStage(Stage):
     gives = frozenset({"palette", "pixel_frames"})
 
     def prepare(self, ctx: Context) -> dict[str, Any]:
-        cfg = ctx.stage_config("palette")
+        cfg = ctx.settings("palette")
         canonical: Path = ctx.require("canonical")
         key_colour = self._key_colour(ctx)
 
@@ -78,7 +78,7 @@ class PaletteStage(Stage):
         return tuple(int(raw[i:i + 2], 16) for i in (0, 2, 4))
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("palette")
+        cfg = ctx.settings("palette")
         frames: list[Path] = ctx.artifacts.get("soft_frames") or ctx.require("frames")
         outdir = ctx.stage_dir("palette")
 
@@ -143,7 +143,7 @@ class PaletteStage(Stage):
         from ..refs.llm import LLMError, Ollama
         from ..looks.palettes import choose
 
-        llm_cfg = {**(ctx.stage_config("pose").get("llm") or {}), **(cfg.get("llm") or {})}
+        llm_cfg = {**(ctx.settings("pose").get("llm") or {}), **(cfg.get("llm") or {})}
         client = Ollama(
             host=opt(llm_cfg, "host", "http://127.0.0.1:11434"),
             model=opt(llm_cfg, "model", "qwen3:4b"),

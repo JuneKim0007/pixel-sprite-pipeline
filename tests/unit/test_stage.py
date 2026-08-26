@@ -28,27 +28,27 @@ def test_blank_yaml_key_falls_back_to_the_default():
 
 
 @pytest.mark.parametrize("key,want", [("size", 1024), ("fill", 0.8), ("view", "side")])
-def test_stage_config_layers_defaults_under_the_config(root, key, want):
+def test_settings_layer_defaults_under_the_config(root, key, want):
     ctx = Context(root=root, outdir=root,
                   config={"pose": {"size": None, "fill": 0.8}})
-    assert ctx.stage_config("pose")[key] == want
+    assert ctx.settings("pose")[key] == want
 
 
 def test_an_unregistered_stage_has_no_defaults(root):
     ctx = Context(root=root, outdir=root, config={})
-    assert ctx.stage_config("nosuchstage") == {}
+    assert ctx.settings("nosuchstage") == {}
 
 
 def test_a_mutable_default_is_not_shared_between_reads(root):
     ctx = Context(root=root, outdir=root, config={})
-    ctx.stage_config("pose")["llm"]["host"] = "poisoned"
-    assert ctx.stage_config("pose")["llm"]["host"] != "poisoned"
+    ctx.settings("pose")["llm"]["host"] = "poisoned"
+    assert ctx.settings("pose")["llm"]["host"] != "poisoned"
 
 
 def test_a_nested_block_keeps_the_siblings_the_config_left_alone(root):
     ctx = Context(root=root, outdir=root,
                   config={"frames": {"controlnet": {"strength": 0.1}}})
-    cn = ctx.stage_config("frames")["controlnet"]
+    cn = ctx.settings("frames")["controlnet"]
     assert cn["strength"] == 0.1
     assert cn["enabled"] is True and cn["end_percent"] == 0.55
 

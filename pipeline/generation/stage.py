@@ -60,9 +60,11 @@ class Context:
         for note in notes:
             log.warning(note)
 
-    def stage_config(self, name: str) -> dict[str, Any]:
-        """The stage's settings, its declared defaults already underneath."""
-        return _under(_set(self.config.get(name) or {}), defaults_for(name))
+    def settings(self, path: str) -> dict[str, Any]:
+        """One config block, its declared defaults already underneath."""
+        from .schema import get_path
+
+        return _under(_set(get_path(self.config, path) or {}), defaults_for(path))
 
     def stage_dir(self, name: str) -> Path:
         idx = self._order.setdefault(name, len(self._order))
@@ -138,12 +140,12 @@ def available() -> dict[str, type[Stage]]:
     return _REGISTRY.all()
 
 
-def defaults_for(name: str) -> dict[str, Any]:
-    """A stage's settings before any config touches them."""
+def defaults_for(path: str) -> dict[str, Any]:
+    """One block's settings before any config touches them."""
     from .schema import SCHEMA
 
-    out = SCHEMA.defaults_under(name)
-    cls = _REGISTRY.find(name)
+    out = SCHEMA.defaults_under(path)
+    cls = _REGISTRY.find(path)
     return _under(copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {},
                   out)
 

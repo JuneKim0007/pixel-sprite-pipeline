@@ -21,7 +21,7 @@ class ExportStage(Stage):
     ALSO_JOIN = ("pose", "depth", "frames")
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("export")
+        cfg = ctx.settings("export")
         frames: list[Path] = ctx.require("pixel_frames")
         outdir = ctx.stage_dir("export")
 

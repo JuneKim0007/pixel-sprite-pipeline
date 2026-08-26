@@ -21,8 +21,8 @@ class SoftBodyStage(Stage):
     gives = frozenset({"soft_frames"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("softbody")
-        pose_cfg = ctx.stage_config("pose")
+        cfg = ctx.settings("softbody")
+        pose_cfg = ctx.settings("pose")
         frames: list[Path] = ctx.require("frames")
         entries: list[dict] = ctx.require("pose_frames")
         outdir = ctx.stage_dir("softbody")

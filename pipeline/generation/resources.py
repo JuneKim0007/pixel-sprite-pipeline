@@ -19,7 +19,7 @@ from ..shared import settings as settings_mod
 
 def _references(ctx) -> Any:
     """The typed reference library for this run."""
-    cfg = dict(ctx.config.get("references") or {})
+    cfg = ctx.settings("references")
     cfg.setdefault("_name", ctx.config.get("name") or "")
     cfg.setdefault("_runs_dir", str(settings_mod.resolve_dir(
         ctx.root, (ctx.config.get("paths") or {}).get("output_dir"),

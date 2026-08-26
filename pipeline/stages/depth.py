@@ -13,8 +13,8 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 
 
 def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]:
-    cfg = ctx.stage_config("depth")
-    pose_cfg = ctx.stage_config("pose")
+    cfg = ctx.settings("depth")
+    pose_cfg = ctx.settings("pose")
 
     override = cfg.get("view")
     size = opt(cfg, "size", pose_cfg["size"])

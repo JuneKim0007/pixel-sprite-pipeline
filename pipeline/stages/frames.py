@@ -32,7 +32,7 @@ class FramesStage(Stage):
     needs = frozenset({"canonical", "pose_frames", "references", "rig", "skeletons"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("frames")
+        cfg = ctx.settings("frames")
         skeletons: list[Path] = ctx.require("skeletons")
         entries_for_count: list[dict] = ctx.require("pose_frames")
         if not skeletons:
@@ -61,10 +61,10 @@ class FramesStage(Stage):
                 f"nodes are installed but the server needs a restart to load them."
             )
 
-        match_cfg = (ctx.config.get("references") or {}).get("match") or {}
+        match_cfg = ctx.settings("references.match")
         ip = cfg["ip_adapter"]
         lib = ctx.need("references")
-        anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
+        anchor_yaw = resolve_view(_anchor_view(ctx, ctx.settings("canonical")))
         anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
 
         per_view: dict = ctx.artifacts.get("canonicals") or {}
@@ -86,7 +86,7 @@ class FramesStage(Stage):
         style_uploads = [(r, client.upload_image(r.path)) for r in lib.style[:2]]
         if style_uploads:
             print(f"   style from {len(style_uploads)} exemplar(s)")
-        tolerance = float(opt(match_cfg, "tolerance_degrees", 40.0))
+        tolerance = float(match_cfg["tolerance_degrees"])
 
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject", "a knight in armor")
@@ -103,7 +103,7 @@ class FramesStage(Stage):
                         vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
         # Measured: at 8 LCM steps the skeleton is only partially obeyed even at end_percent 0.85, because LCM's trajectory settles composition in the first couple of steps and [...]
         lcm = bool(cfg["lcm"])
-        seed = opt(cfg, "seed", ctx.stage_config("canonical").get("seed", 1234))
+        seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
 
         rig = ctx.need("rig")
         models = ctx.config.get("models") or {}
@@ -146,9 +146,9 @@ class FramesStage(Stage):
                 tolerance=tolerance,
                 exact_weight=float(opt(match_cfg, "exact_weight",
                                        chosen_default(refs))),
-                far_weight=float(opt(match_cfg, "far_weight", 0.45)),
+                far_weight=float(match_cfg["far_weight"]),
             )
-            auto = bool(opt(match_cfg, "auto", True))
+            auto = bool(match_cfg["auto"])
             weight = (auto_weight if auto
                       else float(ip["weight"]) * chosen.weight_scale)
 

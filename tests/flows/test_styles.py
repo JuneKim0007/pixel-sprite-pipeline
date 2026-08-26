@@ -54,7 +54,7 @@ def test_source_annotation_refuses_when_no_annotation_was_made(root):
                   config={"rig": "humanoid", "annotate": "skip",
                           "pose": {"source": "annotation"}})
     with pytest.raises(Invalid, match="(?i)annotat"):
-        PoseStage()._resolve(ctx, ctx.stage_config("pose"), wanted=1)
+        PoseStage()._resolve(ctx, ctx.settings("pose"), wanted=1)
 
 
 def test_annotate_skip_measures_nothing(root):

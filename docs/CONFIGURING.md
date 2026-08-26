@@ -317,10 +317,12 @@ Three keys still live on a stage rather than on a field, because a field cannot
 express them: `canonical.from_reference` and `pose.views` and `softbody.nodes`
 have no controls in the form.
 
-**Settings outside a stage block** — `references.*`, `compute.*`, `cooling.*` —
-declare defaults that fill the form but are not merged into what the pipeline
-reads; those paths still resolve their own fallbacks at the call site. It is the
-same gap the stage blocks had, one level out.
+`Context.settings(path)` takes any dotted block, not only a stage, so
+`references.match` resolves the same way `frames.controlnet` does. Only one
+setting is deliberately outside this: `compute.vram_mode` is read by
+`scripts/ctl.sh` straight out of `_global.yaml` and spliced into ComfyUI's argv,
+so it never passes through Python at all. A test keeps that honest — a field
+with a declared default has to reach either the pipeline or `ctl.sh`.
 
 ## Telling an AI to change this
 

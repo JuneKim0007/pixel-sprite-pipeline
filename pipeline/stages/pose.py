@@ -20,7 +20,7 @@ def _slug(text: str) -> str:
 
 
 def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path]:
-    cfg = ctx.stage_config("pose")
+    cfg = ctx.settings("pose")
     size = cfg["size"]
     rig = ctx.need("rig")
 
@@ -71,7 +71,7 @@ class PoseStage(Stage):
     needs = frozenset({"references", "rig", "rig_record"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("pose")
+        cfg = ctx.settings("pose")
         size = cfg["size"]
         outdir = ctx.stage_dir("pose")
         rig = ctx.need("rig")

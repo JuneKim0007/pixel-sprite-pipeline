@@ -157,7 +157,7 @@ def _mirrored(src: Reference, yaw: float) -> Reference | None:
 def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
     """Without this a 270 frame with only a 90 reference takes it at far_weight (0.45) - deliberately weak, because pick() gives latitude where there is no evidence."""
     match = cfg.get("match") or {}
-    mode = str(match.get("side_fallback") or "none").lower()
+    mode = str(match.get("side_fallback", "none")).lower()
     if mode == "none":
         return []
 

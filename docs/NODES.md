@@ -242,8 +242,14 @@ Each step is independently useful and independently verifiable.
    `stage_config` for every stage across all 15 configs before and after: 290
    keys appeared, **0 values changed, 0 keys vanished**.
 
+   Config blocks that are not stages resolve the same way: `stage_config`
+   generalised into `settings(path)`, which takes any dotted prefix, so
+   `references.match` gets its declared defaults exactly as `frames.controlnet`
+   does. `compute.vram_mode` is the one field left out on purpose — `ctl.sh`
+   reads it out of the YAML directly.
+
    *Left:* making `schema.FIELDS` a projection of the nodes rather than a
-   parallel list, and the same merge for config blocks that are not stages.
+   parallel list.
 2. **`LayerSpec` gains `needs`/`gives`.** **Done 2026-08-26.** `grid` gives
    `reduced`; `palette` and `background` need it. `validate_order` refuses an
    order that satisfies a need too late, with the same shape `runner.validate`

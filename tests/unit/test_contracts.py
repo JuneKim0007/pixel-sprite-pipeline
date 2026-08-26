@@ -149,26 +149,39 @@ def test_contracts_depends_on_nothing_but_errors():
     assert outside == set(), f"contracts.py reaches outside shared/: {outside}"
 
 
-def _declared_under_a_stage():
+FORM_ONLY = {"compute.vram_mode"}
+
+
+def _declared():
     import pipeline.stages  # noqa: F401
     from pipeline.generation.schema import FIELDS
-    from pipeline.generation.stage import available
 
-    stages = set(available())
     return sorted(f.key for f in FIELDS
-                  if f.default is not None and f.key.split(".")[0] in stages)
+                  if f.default is not None and f.key not in FORM_ONLY
+                  and "." in f.key)
 
 
-@pytest.mark.parametrize("path", _declared_under_a_stage())
-def test_the_form_s_default_is_what_the_stage_actually_reads(path, tmp_path):
+@pytest.mark.parametrize("path", _declared())
+def test_the_form_s_default_is_what_the_pipeline_reads(path, tmp_path):
     from pipeline.generation.schema import SCHEMA
     from pipeline.generation.stage import Context
 
-    stage, *rest = path.split(".")
-    block = Context(root=tmp_path, outdir=tmp_path,
-                    config={}).stage_config(stage)
+    head, *rest = path.split(".")
+    block = Context(root=tmp_path, outdir=tmp_path, config={}).settings(head)
     for step in rest:
         assert isinstance(block, dict) and step in block, \
-            f"{path} never reaches the stage"
+            f"{path} is offered by the form and never reaches the pipeline"
         block = block[step]
     assert block == SCHEMA.field(path).default
+
+
+def test_the_form_only_settings_are_read_somewhere_other_than_python():
+    import pathlib
+
+    from pipeline.generation.schema import SCHEMA
+
+    ctl = pathlib.Path("scripts/ctl.sh").read_text()
+    for path in sorted(FORM_ONLY):
+        assert SCHEMA.field(path) is not None, f"{path} is not a field"
+        assert path.split(".")[-1] in ctl, \
+            f"{path} reaches neither the pipeline nor ctl.sh"

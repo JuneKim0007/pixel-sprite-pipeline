@@ -30,7 +30,7 @@ def _anchor_view(ctx, cfg) -> str | float:
     if explicit is not None:
         return explicit
 
-    pose_cfg = ctx.stage_config("pose")
+    pose_cfg = ctx.settings("pose")
     named = opt(pose_cfg, "view", None)
     if named is not None:
         return named
@@ -49,7 +49,7 @@ class CanonicalStage(Stage):
     needs = frozenset({"references", "rig"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        cfg = ctx.stage_config("canonical")
+        cfg = ctx.settings("canonical")
         subject = ctx.config.get("subject", "a knight in armor")
         client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))
         if not client.alive():
@@ -123,7 +123,7 @@ class CanonicalStage(Stage):
                 control_names["depth"] = (client.upload_image(depth), "depth")
             entries = ctx.artifacts.get("pose_frames") or []
             origin = (entries[0] or {}).get("from_annotation") if entries else None
-            source = ctx.stage_config("pose").get("source", "library")
+            source = ctx.settings("pose").get("source", "library")
             where = (f"annotation of {Path(origin).name}" if origin
                      else f"{source} pose, {ctx.need("rig").label}")
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
