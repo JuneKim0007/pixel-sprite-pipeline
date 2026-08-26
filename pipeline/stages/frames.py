@@ -37,6 +37,7 @@ class FramesStage(Stage):
     requires = frozenset({"skeletons", "canonical", "pose_frames"})
     optional = frozenset({"depthmaps", "canonicals"})
     produces = frozenset({"frames"})
+    needs = frozenset({'references', 'rig'})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("frames")
@@ -70,7 +71,7 @@ class FramesStage(Stage):
 
         match_cfg = (ctx.config.get("references") or {}).get("match") or {}
         ip = cfg["ip_adapter"]
-        lib = ctx.references()
+        lib = ctx.need("references")
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.stage_config("canonical")))
         anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
 
@@ -98,7 +99,7 @@ class FramesStage(Stage):
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject", "a knight in armor")
         style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
-        hint = ctx.rig().prompt_hint
+        hint = ctx.need("rig").prompt_hint
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props_mod.wanted(ctx) else [])
@@ -112,7 +113,7 @@ class FramesStage(Stage):
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.stage_config("canonical").get("seed", 1234))
 
-        rig = ctx.rig()
+        rig = ctx.need("rig")
         models = ctx.config.get("models") or {}
         cn = cfg["controlnet"]
         outdir = ctx.stage_dir("frames")

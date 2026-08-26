@@ -22,7 +22,7 @@ def _slug(text: str) -> str:
 def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path]:
     cfg = ctx.stage_config("pose")
     size = cfg["size"]
-    rig = ctx.rig()
+    rig = ctx.need("rig")
 
     props = props_mod.load(ctx.config.get("props"), root=ctx.root)
     if props and not props_mod.wanted(ctx):
@@ -72,12 +72,13 @@ class PoseStage(Stage):
         "name": "idle", "llm": {},
     }
     produces = frozenset({"skeletons", "pose_frames"})
+    needs = frozenset({'references', 'rig', 'rig_record'})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("pose")
         size = cfg["size"]
         outdir = ctx.stage_dir("pose")
-        rig = ctx.rig()
+        rig = ctx.need("rig")
 
         specs = cfg.get("set")
         if specs == "from_references" or cfg["views"] == "from_references":
@@ -129,7 +130,7 @@ class PoseStage(Stage):
             json.dumps(
                 {"source": cfg["source"],
                  "rig": rig.name,
-                 "rig_choice": ctx.artifacts.get("_rig_record", {}),
+                 "rig_choice": ctx.need("rig_record"),
                  "skeleton_control": rig.skeleton_control,
                  "mode": "set" if specs else "sequence",
                  "entries": serialisable},
@@ -160,7 +161,7 @@ class PoseStage(Stage):
     def _from_annotations(ctx: Context, cfg: dict) -> list[dict]:
         from ..geometry import annotate as ann
 
-        found = ann.gather(ctx.references())
+        found = ann.gather(ctx.need("references"))
         if not found:
             raise Invalid(
                 "pose.source is 'annotation' but no reference has one. "
@@ -177,7 +178,7 @@ class PoseStage(Stage):
     @staticmethod
     def _views_from_references(ctx: Context) -> list[dict]:
         """One view per supplied reference, at the angle that reference shows."""
-        lib = ctx.references()
+        lib = ctx.need("references")
         refs = lib.identity or lib.pose
         if not refs:
             raise Invalid(
@@ -196,13 +197,13 @@ class PoseStage(Stage):
 
     def _resolve(self, ctx: Context, cfg: dict, wanted: int | None) -> list[dict]:
         source = cfg["source"]
-        if not ctx.rig().joints:
+        if not ctx.need("rig").joints:
             return [{}]
         if source == "annotation":
             return self._from_annotations(ctx, cfg)
         if source == "tpose":
             return [rig_lib.tpose(
-                ctx.rig(),
+                ctx.need("rig"),
                 symmetric=bool(cfg["symmetric"]),
             )]
         if source == "library":
@@ -224,7 +225,7 @@ class PoseStage(Stage):
                 field="name",
                 hint="re-run tools/make_poses.py",
             )
-        rig = ctx.rig()
+        rig = ctx.need("rig")
         base = {k: list(v) for k, v in rig.neutral.items()}
         frames = [{**base, **{k: list(v) for k, v in f.items()}} for f in data["frames"]]
         return frames[:limit] if limit else frames
@@ -240,7 +241,7 @@ class PoseStage(Stage):
         if opt(llm_cfg, "cache", True) and cached.exists():
             data = json.loads(cached.read_text())
             print(f"   reusing cached pose {cached.relative_to(ctx.root)}")
-            base = {k: list(v) for k, v in ctx.rig().neutral.items()}
+            base = {k: list(v) for k, v in ctx.need("rig").neutral.items()}
             return [{**base, **f} for f in data["frames"]]
 
         client = Ollama(

@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, ClassVar, Mapping
 
 from ..shared.config import opt
-from ..shared import paths
 from ..shared.errors import Invalid, NotFound
 from ..shared.registry import Decorated, Registry
 
@@ -31,13 +30,14 @@ class Resource:
 
 @dataclass
 class Context:
-    """Everything a stage needs. `artifacts` is the only channel between stages, so what a stage passes on is checkable against requires/produces - but `references()` and `rig()` still resolve on demand rather than being declared and supplied, which is the service locator `docs/NODES.md` §4 exists to remove."""
+    """Everything a stage is given. Two channels, deliberately separate: `artifacts` is what stages pass to each other and what a resume reads back, checkable against requires/produces; `resources` is what the run itself supplies against a stage's `needs`, derived from config and never persisted."""
 
     root: Path
     outdir: Path
     config: dict[str, Any]
     run_id: str = "run"
     artifacts: dict[str, Any] = field(default_factory=dict)
+    resources: dict[str, Any] = field(default_factory=dict)
     completed: list[str] = field(default_factory=list)
     stopped_at: str | None = None
     _order: dict[str, int] = field(default_factory=dict)
@@ -61,71 +61,18 @@ class Context:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    def references(self):
-        """The typed reference library, resolved once per run."""
-        cached = self.artifacts.get("_refs")
-        if cached is not None:
-            return cached
-        from ..refs import references as refs_mod
-        from ..shared import settings as settings_mod
+    def need(self, name: str) -> Any:
+        """One declared resource. Resolved on first ask and memoised, because a rig under `rig: auto` costs an LLM call."""
+        if name not in self.resources:
+            from . import resources as _resources
 
-        cfg = dict(self.config.get("references") or {})
-        cfg.setdefault("_name", self.config.get("name") or "")
-        cfg.setdefault("_runs_dir", str(settings_mod.resolve_dir(
-            self.root, (self.config.get("paths") or {}).get("output_dir"),
-            "out/runs")))
-        lib = refs_mod.load(self.root, cfg)
-
-        for path in self.config.get("references", {}).get("style_exemplars") or []:
-            lib.style.append(refs_mod.Reference(
-                path=Path(path), role="style", label="exemplar"))
-
-        self.artifacts["_refs"] = lib
-        return lib
-
-    def rig(self):
-        cached = self.artifacts.get("_rig")
-        if cached is not None:
-            return cached
-        from ..geometry import rigs as _rigs
-        from ..refs import detect
-
-        rig, record = detect.resolve(self)
-
-        measured = self._measured_proportions()
-        proportions = {**measured, **(self.config.get("proportions") or {})}
-        if measured:
-            record["measured_proportions"] = measured
-        rig = _rigs.scale(rig, proportions)
-        self.artifacts["_rig"] = rig
-        self.artifacts["_rig_record"] = record
-        return rig
-
-    def _measured_proportions(self) -> dict[str, float]:
-        """Limb ratios inferred from annotated references, if any and enabled."""
-        if self.config.get("annotate", "skip") == "skip":
-            return {}
-        try:
-            from ..geometry import annotate as ann
-        except ImportError:  # pragma: no cover
-            return {}
-
-        merged: dict[str, list[float]] = {}
-        for a in ann.gather(self.references()):
-            for group, factor in ann.infer_proportions(a).items():
-                merged.setdefault(group, []).append(factor)
-        out = {}
-        for group, values in merged.items():
-            values.sort()
-            out[group] = round(values[len(values) // 2], 2)
-        return out
-
-    def training_dir(self, kind: str, tier: str = "") -> Path:
-        path = paths.resolve(self.root, "training") / kind
-        if tier:
-            path = path / tier
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+            if name not in _resources.RESOLVERS:
+                raise Invalid(f"no resolver for '{name}'",
+                              field="needs",
+                              hint="declare it in generation/resources.py, or "
+                                   "correct the stage's `needs`")
+            self.resources[name] = _resources.RESOLVERS[name](self)
+        return self.resources[name]
 
     def require(self, key: str) -> Any:
         if key not in self.artifacts:
@@ -146,6 +93,8 @@ class Stage(ABC):
     produces: ClassVar[frozenset[str]] = frozenset()
     DEFAULTS: ClassVar[dict[str, Any]] = {}
     optional: ClassVar[frozenset[str]] = frozenset()
+    # Artifacts come from other stages; needs come from the run. Both are declared so both can be checked before anything expensive starts.
+    needs: ClassVar[frozenset[str]] = frozenset()
 
     def prepare(self, ctx: Context) -> dict[str, Any]:
         return {}
@@ -158,6 +107,8 @@ class Stage(ABC):
         req = ", ".join(sorted(self.requires)) or "-"
         if self.optional:
             req += f" (+{', '.join(sorted(self.optional))}?)"
+        if self.needs:
+            req += f" [{', '.join(sorted(self.needs))}]"
         pro = ", ".join(sorted(self.produces)) or "-"
         return f"{self.name:<12} [{self.resource}]  needs: {req:<34} gives: {pro}"
 

@@ -51,6 +51,7 @@ class CanonicalStage(Stage):
     }
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     produces = frozenset({"canonical", "canonicals"})
+    needs = frozenset({'references', 'rig'})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("canonical")
@@ -61,7 +62,7 @@ class CanonicalStage(Stage):
 
         default_style = vocabulary.DEFAULT_STYLE
         style = ctx.config.get("style", default_style)
-        hint = ctx.rig().prompt_hint
+        hint = ctx.need("rig").prompt_hint
         bg = ctx.config.get("background") or {}
         backdrop = None if opt(bg, "enabled", True) is False else opt(
             bg, "colour", vocabulary.BACKDROP)
@@ -70,7 +71,7 @@ class CanonicalStage(Stage):
                         vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
         lcm = bool(cfg["lcm"])
 
-        lib = ctx.references()
+        lib = ctx.need("references")
         from_ref = cfg["from_reference"] or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
@@ -90,7 +91,7 @@ class CanonicalStage(Stage):
             depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
             control_names = {}
             if bool(opt(cn, "enabled", True)) and (guide or depth):
-                ch = opt(cn, "union_type", None) or ctx.rig().skeleton_control
+                ch = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
                 if guide and ch:
                     control_names["pose"] = (client.upload_image(guide), ch)
                 if depth:
@@ -120,7 +121,7 @@ class CanonicalStage(Stage):
 
         control_names: dict = {}
         if use_control:
-            channel = opt(cn, "union_type", None) or ctx.rig().skeleton_control
+            channel = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
             if guide and channel:
                 control_names["pose"] = (client.upload_image(guide), channel)
             if depth:
@@ -129,7 +130,7 @@ class CanonicalStage(Stage):
             origin = (entries[0] or {}).get("from_annotation") if entries else None
             source = ctx.stage_config("pose").get("source", "library")
             where = (f"annotation of {Path(origin).name}" if origin
-                     else f"{source} pose, {ctx.rig().label}")
+                     else f"{source} pose, {ctx.need("rig").label}")
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
                   f"  <- {where}")
 

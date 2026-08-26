@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from pipeline.generation import resources
 from pipeline.generation.stage import Context
 from pipeline.looks import styles
 from pipeline.shared import NotFound
@@ -58,4 +59,4 @@ def test_source_annotation_refuses_when_no_annotation_was_made(root):
 
 def test_annotate_skip_measures_nothing(root):
     ctx = Context(root=root, outdir=root, config={"annotate": "skip"})
-    assert ctx._measured_proportions() == {}
+    assert resources.measured_proportions(ctx) == {}

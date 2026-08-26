@@ -18,7 +18,7 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
 
     override = cfg.get("view")
     size = opt(cfg, "size", pose_cfg["size"])
-    rig = ctx.rig()
+    rig = ctx.need("rig")
     props = props_mod.load(ctx.config.get("props"), root=ctx.root)
     if props and not props_mod.wanted(ctx):
         props = []
@@ -61,6 +61,7 @@ class DepthStage(Stage):
     DEFAULTS = {"near": 255, "far": 60, "blur": 6.0}
     requires = frozenset({"pose_frames"})
     produces = frozenset({"depthmaps"})
+    needs = frozenset({'rig'})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         frames: list[dict] = ctx.require("pose_frames")

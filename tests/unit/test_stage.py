@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 
 from pipeline.generation.schema import fields_for
-from pipeline.generation.stage import Context, available, opt
+from pipeline.shared.errors import Invalid
+from pipeline.generation.stage import Context, Stage, available, opt
 
 REGISTRY = available()
 
@@ -56,8 +57,30 @@ def test_pose_size_survives_into_the_schema():
     assert by_path["pose.size"]["default"] == 1024
 
 
-def test_the_rig_resolves_once_and_is_cached(root):
+def test_a_declared_need_resolves_once_and_is_cached(root):
     ctx = Context(root=root, outdir=root, config={"rig": "spider"})
-    first, second = ctx.rig(), ctx.rig()
+    first, second = ctx.need("rig"), ctx.need("rig")
     assert first is second, "rig resolved twice"
     assert first.name == "spider"
+    assert "rig" not in ctx.artifacts, "a resource leaked into the resume channel"
+
+
+def test_a_need_nothing_can_resolve_is_refused_by_name(root):
+    ctx = Context(root=root, outdir=root, config={})
+    with pytest.raises(Invalid, match="no resolver for 'weather'"):
+        ctx.need("weather")
+
+
+def test_a_stage_declaring_an_unresolvable_need_never_starts():
+    # requires is checked before the run; needs was not checked at all, so a rig that could not be resolved surfaced minutes in rather than at the plan.
+    from pipeline.generation import runner
+
+    class Impossible(Stage):
+        name = "impossible"
+        needs = frozenset({"a_pony"})
+
+        def run(self, ctx, prep):
+            return {}
+
+    with pytest.raises(runner.PipelineError, match="a_pony"):
+        runner.validate([Impossible()], seeded=set())

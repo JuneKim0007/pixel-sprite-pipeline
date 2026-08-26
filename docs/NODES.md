@@ -201,11 +201,26 @@ Each step is independently useful and independently verifiable.
    6/6 frames of one run recover an identical phase, so `per_frame` was paying
    N times for one answer.
 4. **`Context` inverted into `flow/`.** Nodes declare `needs={"rig"}`; the
-   connection layer resolves. Verify: `stage.py` has no deferred imports and
-   `Context` is under 40 lines. *2026-08-26:* the cheapest third of this is
-   done — `annotate.gather` takes the library instead of loading a second,
-   worse-configured one, which removed the `geometry ↔ refs` cycle. `rig()`
-   and `references()` still resolve on demand, so the locator itself stands.
+   connection layer resolves. **Done 2026-08-26**, short of the full `Node`
+   rewrite. A stage declares `needs = frozenset({"rig"})` and reads
+   `ctx.need("rig")`; `generation/resources.py` is the only place a resource is
+   resolved, and `runner.validate` refuses a need no resolver can answer before
+   any GPU work. `stage.py` has **no cross-group deferred imports** left — the
+   two remaining are `.schema` and `.resources`, both same-group, and `.schema`
+   is a real intra-group cycle that step 1 has to break. `Context` is 53 lines,
+   not under 40: `stage_config`, `stage_dir`, `require` and the config clamp
+   all stay, and none of them is a locator.
+
+   The transient/persisted split is now structural instead of typographic.
+   `artifacts` is what stages pass each other and what a resume reads back;
+   `resources` is what the run supplies against `needs` and is never persisted.
+   They were one dict distinguished by a leading underscore, enforced in a
+   single line of `orchestration/artifacts.py` and documented nowhere.
+
+   **Left for the `Node` rewrite:** because a stage still receives `ctx` and
+   reads from it, `ctx.need("rig")` cannot verify that *this* stage declared
+   it. Only passing resources as arguments makes undeclared use impossible
+   rather than merely checkable.
 5. **Middleware.** Cooling and retry become decorators around `apply`.
 6. **Contracts**, last, once routes and nodes both have shapes to attach.
 

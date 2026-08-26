@@ -34,10 +34,19 @@ def build(order: list[str]) -> list[Stage]:
 
 def validate(stages: list[Stage], seeded: set[str]) -> None:
     """Check the configured order can actually satisfy every dependency."""
+    from . import resources
+
     available = set(seeded)
     producers = {p: s.name for s in stages for p in s.produces}
 
     for stage in stages:
+        unknown = resources.unresolvable(stage.needs)
+        if unknown:
+            raise PipelineError(
+                f"stage '{stage.name}' needs {unknown}, which nothing can "
+                f"resolve.\n\nDeclare a resolver in "
+                f"generation/resources.py, or correct the stage's `needs`."
+            )
         missing = stage.requires - available
         if missing:
             details = []

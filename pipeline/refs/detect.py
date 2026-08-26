@@ -74,14 +74,13 @@ def detect(
     return rigs.get(rigs.DEFAULT), 0.0, f"detection failed: {last}"
 
 
-def resolve(ctx, verbose: bool = True) -> tuple[rigs.Rig, dict]:
+def resolve(config: dict, library, verbose: bool = True) -> tuple[rigs.Rig, dict]:
     """Returns the rig plus a record of how it was chosen, so a run can show its reasoning rather than silently posing a snake as a person."""
-    requested = ctx.config.get("rig")
+    requested = config.get("rig")
     if requested != "auto":
         return rigs.get(requested), {"source": "config", "rig": rigs.get(requested).name}
 
-    lib = ctx.references()
-    refs = lib.identity or lib.pose
+    refs = library.identity or library.pose
     if not refs:
         raise Invalid(
             "rig is 'auto' but there are no reference images to look at. "
@@ -91,7 +90,7 @@ def resolve(ctx, verbose: bool = True) -> tuple[rigs.Rig, dict]:
 
     from .llm import LLMError, Ollama
 
-    llm_cfg = (ctx.config.get("detect") or {})
+    llm_cfg = config.get("detect") or {}
     client = Ollama(
         host=llm_cfg.get("host", "http://127.0.0.1:11434"),
         model=llm_cfg.get("model", "qwen2.5vl:3b"),
