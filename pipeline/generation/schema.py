@@ -211,13 +211,20 @@ FIELDS: list[ConfigField] = [
      help="SDXL is trained at 1024; smaller degrades quality and saves less "
              "time than you'd expect."),
     ConfigField(key="canonical.height", label="Height", kind="int",
-     min=512, max=2048, step=64, group="Canonical", help="TODO"),
+     min=512, max=2048, step=64, group="Canonical",
+     help="Pairs with Width. SDXL is trained at 1024x1024 and the further "
+             "the canvas is from square, the more the composition "
+             "drifts from what the prompt asked for."),
 
     ConfigField(key="frames.lcm", label="Fast LCM mode", kind="bool",
      group="Frames",
      help="On for drafts, off for the final render."),
     ConfigField(key="frames.steps", label="Steps", kind="int",
-     min=1, max=150, group="Frames", help="TODO"),
+     min=1, max=150, group="Frames",
+     help="Frames are conditioned on the anchor, so they need fewer steps "
+             "than it does. With Fast LCM mode on this wants single "
+             "digits — LCM is distilled to converge in a handful and "
+             "the rest buy nothing. With it off, match canonical.steps."),
     ConfigField(key="frames.cfg", label="CFG", kind="float",
      min=1.0, max=14.0, step=0.1, group="Frames",
      help="1.5 with LCM. Using 7 with LCM burns the image."),
@@ -282,7 +289,11 @@ FIELDS: list[ConfigField] = [
              "frames drifting in colour."),
     ConfigField(key="palette.file", label="Palette file", kind="select",
      options_from="palettes", group="Palette",
-     when={"palette.source": "file"}, help="TODO"),
+     when={"palette.source": "file"},
+     help="One of the .hex files under palettes/. Committing one is what "
+             "makes colour exact rather than probabilistic: snapping is "
+             "deterministic, so two runs of the same character land on "
+             "the same entries."),
     ConfigField(key="palette.size", label="Palette size", kind="int",
      min=2, max=64, group="Palette",
      help="Number of colours the whole animation is quantised to."),
@@ -348,12 +359,23 @@ FIELDS: list[ConfigField] = [
      min=1, max=32, group="Export",
      help="Blank puts every frame in one row."),
     ConfigField(key="export.scale", label="Sheet upscale", kind="int",
-     min=1, max=16, group="Export", help="TODO"),
+     min=1, max=16, group="Export",
+     help="Nearest-neighbour magnification baked into the written sheet, so "
+             "4x is sixteen times the pixels on disk. Leave it at 1 "
+             "unless the file has to arrive somewhere that will not "
+             "magnify it itself — the editor scales in the browser and "
+             "stays sharp at any zoom."),
 
     ConfigField(key="comfy.host", label="ComfyUI host", kind="text",
-     group="Services", help="TODO"),
+     group="Services",
+     help="Where ComfyUI is listening, normally http://127.0.0.1:8188. Set "
+             "it here only to point one config at a different instance "
+             "than the machine default in _global.yaml."),
     ConfigField(modules=["animation"], key="pose.llm.host", label="Ollama host", kind="text",
-     group="Services", help="TODO"),
+     group="Services",
+     help="Where Ollama is listening, normally http://127.0.0.1:11434. Only "
+             "reached by the settings set to 'llm'; every other path is "
+             "deterministic and runs with it down."),
 
     ConfigField(key="references.from_run", label="Inherit from run", kind="text",
      group="References",
@@ -412,9 +434,15 @@ FIELDS: list[ConfigField] = [
      help="karras concentrates steps where they matter most. sgm_uniform is "
              "required by LCM."),
     ConfigField(key="frames.sampler", label="Sampler (frames)", kind="select",
-     options=['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], group="Quality", help="TODO"),
+     options=['dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_3m_sde', 'euler', 'euler_ancestral', 'heun', 'dpm_2', 'ddim', 'uni_pc', 'lcm'], group="Quality",
+     help="Must be 'lcm' when Fast LCM mode is on — LCM is a distilled model "
+             "and an ordinary sampler will not converge inside its step "
+             "budget. Off LCM, dpmpp_2m as on the anchor."),
     ConfigField(key="frames.scheduler", label="Scheduler (frames)", kind="select",
-     options=['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], group="Quality", help="TODO"),
+     options=['karras', 'normal', 'simple', 'sgm_uniform', 'exponential', 'beta'], group="Quality",
+     help="sgm_uniform under LCM, karras otherwise, matching the anchor. The "
+             "scheduler decides where the steps are spent, and LCM's "
+             "distillation assumes the uniform spacing."),
     ConfigField(key="canonical.controlnet.enabled", label="Condition the anchor",
      kind="bool", group="Canonical",
      help="Send the pose guide and depth map to the anchor as well as to "
@@ -488,7 +516,11 @@ FIELDS: list[ConfigField] = [
      help="Base diffusion weights. SDXL is what the pixel LoRA was trained "
              "against; swapping the base usually means swapping the LoRA too."),
     ConfigField(key="models.pixel_lora", label="Style LoRA", kind="select",
-     options_from="loras", group="Models", help="TODO"),
+     options_from="loras", group="Models",
+     help="The LoRA that makes the output read as pixel art rather than a "
+             "downscaled painting. Every other default here is tuned "
+             "around it, so swapping it means re-tuning both "
+             "lora_strength dials."),
     ConfigField(key="frames.ip_adapter.anchor", label="Anchor to canonical",
      kind="bool", group="Identity",
      help="Apply the canonical sprite to every frame at equal weight, "
@@ -533,7 +565,10 @@ FIELDS: list[ConfigField] = [
              "thing to train. Watch the total: pixel-art-xl already runs at "
              "1.2, so two style signals compete unless one comes down."),
     ConfigField(key="models.style_lora_strength", label="Style LoRA strength",
-     kind="float", min=0.0, max=1.5, step=0.05, group="Models", help="TODO"),
+     kind="float", min=0.0, max=1.5, step=0.05, group="Models",
+     help="How hard the second style signal pulls. pixel-art-xl already runs "
+             "at 1.2, so this competes with it: if the look goes muddy, "
+             "bring one of the two down rather than pushing this up."),
     ConfigField(key="models.character_lora", label="Character LoRA", kind="select",
      options_from="loras", group="Models",
      help="One character, trained across ALL its views. A LoRA cancels what "
@@ -555,7 +590,11 @@ FIELDS: list[ConfigField] = [
      help="The Union ProMax model covers openpose, depth, scribble and more "
              "in one file, which keeps memory down versus one model per type."),
     ConfigField(key="models.ipadapter", label="IP-Adapter", kind="select",
-     options_from="ipadapters", group="Models", help="TODO"),
+     options_from="ipadapters", group="Models",
+     help="The IP-Adapter weights that carry identity from the reference "
+             "into each frame. It has to match the checkpoint's "
+             "architecture; an SD1.5 adapter cannot condition an SDXL "
+             "base."),
 
     ConfigField(key="cooling.enabled", label="Rest between GPU tasks", kind="bool",
      group="Compute",
@@ -630,26 +669,49 @@ FIELDS: list[ConfigField] = [
              "guessing. Naming the input is the difference between the pose "
              "being applied and quietly ignored."),
     ConfigField(key="canonical.controlnet.start_percent", label="Anchor control start",
-     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical", help="TODO"),
+     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
+     help="Fraction of sampling before the control begins. At 0 the "
+             "composition is fixed from the first step; starting late "
+             "lets the model choose a layout and only then corrects it "
+             "toward the guide."),
 
     ConfigField(key="frames.width", label="Width", kind="int",
      min=512, max=2048, step=64, group="Frames",
      help="Keep equal to canonical.width — the anchor and the frames should "
              "be drawn at one scale."),
     ConfigField(key="frames.height", label="Height", kind="int",
-     min=512, max=2048, step=64, group="Frames", help="TODO"),
+     min=512, max=2048, step=64, group="Frames",
+     help="Keep equal to canonical.height, for the reason Width is kept "
+             "equal — the anchor and the frames should be drawn at one "
+             "scale, or the identity match is comparing different "
+             "sizes."),
     ConfigField(key="frames.seed", label="Seed", kind="int",
      min=0, max=2147483647, group="Frames",
      help="Identical for every frame on purpose: same seed, same prompt, "
              "same anchor, DIFFERENT skeleton is the consistency recipe."),
     ConfigField(key="frames.lora_strength", label="Pixel LoRA strength",
-     kind="float", min=0.0, max=2.0, step=0.05, group="Frames", help="TODO"),
+     kind="float", min=0.0, max=2.0, step=0.05, group="Frames",
+     help="The pixel LoRA's weight on the frames. Keep it equal to "
+             "canonical.lora_strength: the frames are matched against "
+             "the anchor, and a different style weight is one more "
+             "difference that match has to absorb."),
     ConfigField(key="frames.negative", label="Negative prompt", kind="textarea",
-     group="Frames", help="TODO"),
+     group="Frames",
+     help="The base negative every frame starts from. The pose, backdrop and "
+             "facing guards append to it rather than replace it, so "
+             "what you add here survives all of them."),
     ConfigField(key="frames.controlnet.union_type", label="Pose control type",
-     kind="text", group="Pose control", help="TODO"),
+     kind="text", group="Pose control",
+     help="Blank follows the rig's own control channel, which is almost "
+             "always what you want. Name one only to override, and know "
+             "that naming the wrong one means the skeleton is quietly "
+             "ignored rather than refused."),
     ConfigField(key="frames.controlnet.start_percent", label="ControlNet start %",
-     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control", help="TODO"),
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
+     help="Fraction of sampling before the pose control begins. The pose is "
+             "the whole reason a frame differs from the anchor, so this "
+             "normally starts at 0 — a late start gives the model time "
+             "to commit to a pose of its own first."),
     ConfigField(key="frames.depth_controlnet.strength", label="Depth strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
      help="Depth is the ONLY channel that carries the viewing angle — a 2D "
@@ -657,14 +719,24 @@ FIELDS: list[ConfigField] = [
              "so pushing this hard makes a costumed character collapse toward "
              "the naked silhouette: at 0.75 a veiled figure came back columnar."),
     ConfigField(key="frames.depth_controlnet.start_percent", label="Depth start %",
-     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control", help="TODO"),
+     kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
+     help="When the depth channel joins. Depth is what carries the viewing "
+             "angle, which a 2D skeleton cannot express, so a late "
+             "start means the early steps commit to the wrong yaw."),
     ConfigField(key="frames.depth_controlnet.end_percent", label="Depth end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Hold it long enough to survive the anchor, which runs to 100%."),
     ConfigField(key="frames.ip_adapter.start_at", label="Identity start %",
-     kind="float", min=0.0, max=1.0, step=0.05, group="Identity", help="TODO"),
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
+     help="When identity conditioning joins. Late means the frame's layout "
+             "is settled before the reference is consulted, which "
+             "protects the pose at the cost of likeness."),
     ConfigField(key="frames.ip_adapter.end_at", label="Identity end %",
-     kind="float", min=0.0, max=1.0, step=0.05, group="Identity", help="TODO"),
+     kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
+     help="When identity conditioning stops. Releasing early lets the last "
+             "steps sharpen without the reference pulling detail back "
+             "toward itself; holding to 1.0 keeps the likeness "
+             "tightest."),
 
     ConfigField(key="depth.size", label="Depth map size", kind="int",
      min=256, max=2048, step=64, group="Depth",

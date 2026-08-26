@@ -3,7 +3,9 @@ from __future__ import annotations
 import pytest
 
 from pipeline import api, definitive
+from pipeline.generation.schema import FIELDS
 from pipeline.shared import paths
+from pipeline.shared.contracts import Field
 
 SHAPES = {
     "/api/config": ("?name=char_1", ["name", "module", "raw", "config",
@@ -75,6 +77,18 @@ def test_every_layer_field_carries_an_explanation(http, spec):
         assert f["help"].strip(), f"{spec}.{f['key']} has no help"
         if f["kind"] == "select":
             assert f["options"], f"{spec}.{f['key']} is a select with no options"
+
+
+@pytest.mark.parametrize("group", sorted({f.group or "-" for f in FIELDS}))
+def test_every_config_field_carries_an_explanation(http, group):
+    # The layer fields have had this since they were written; the 137 config fields never did, and twenty of them shipped a (?) that opened onto the word TODO.
+    served = [f for f in http.get("/api/schema")["fields"]
+              if (f.get("group") or "-") == group]
+    assert served, f"group '{group}' serves no field"
+    for f in served:
+        assert f["help"].strip(), f"{f['path']} has no help"
+        assert f["help"].strip().rstrip(".").lower() not in Field.PLACEHOLDERS, \
+            f"{f['path']} says {f['help']!r}"
 
 
 def test_a_missing_run_is_a_404_that_names_it(http):

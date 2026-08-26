@@ -355,7 +355,7 @@
     {
       "default": 1024,
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Pairs with Width. SDXL is trained at 1024x1024 and the further the canvas is from square, the more the composition drifts from what the prompt asked for.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -373,7 +373,7 @@
     },
     {
       "group": "Frames",
-      "help": "TODO",
+      "help": "Frames are conditioned on the anchor, so they need fewer steps than it does. With Fast LCM mode on this wants single digits \u2014 LCM is distilled to converge in a handful and the rest buy nothing. With it off, match canonical.steps.",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -509,7 +509,7 @@
     {
       "default": "",
       "group": "Palette",
-      "help": "TODO",
+      "help": "One of the .hex files under palettes/. Committing one is what makes colour exact rather than probabilistic: snapping is deterministic, so two runs of the same character land on the same entries.",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -644,7 +644,7 @@
     {
       "default": 1,
       "group": "Export",
-      "help": "TODO",
+      "help": "Nearest-neighbour magnification baked into the written sheet, so 4x is sixteen times the pixels on disk. Leave it at 1 unless the file has to arrive somewhere that will not magnify it itself \u2014 the editor scales in the browser and stays sharp at any zoom.",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -653,14 +653,14 @@
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where Ollama is listening, normally http://127.0.0.1:11434. Only reached by the settings set to 'llm'; every other path is deterministic and runs with it down.",
       "label": "Ollama host",
       "modules": [
         "animation"
@@ -778,7 +778,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "Must be 'lcm' when Fast LCM mode is on \u2014 LCM is a distilled model and an ordinary sampler will not converge inside its step budget. Off LCM, dpmpp_2m as on the anchor.",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -797,7 +797,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "sgm_uniform under LCM, karras otherwise, matching the anchor. The scheduler decides where the steps are spent, and LCM's distillation assumes the uniform spacing.",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -976,7 +976,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The LoRA that makes the output read as pixel art rather than a downscaled painting. Every other default here is tuned around it, so swapping it means re-tuning both lora_strength dials.",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -1052,7 +1052,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "How hard the second style signal pulls. pixel-art-xl already runs at 1.2, so this competes with it: if the look goes muddy, bring one of the two down rather than pushing this up.",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -1096,7 +1096,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The IP-Adapter weights that carry identity from the reference into each frame. It has to match the checkpoint's architecture; an SD1.5 adapter cannot condition an SDXL base.",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -1220,7 +1220,7 @@
     },
     {
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -1242,7 +1242,7 @@
     {
       "default": 1024,
       "group": "Frames",
-      "help": "TODO",
+      "help": "Keep equal to canonical.height, for the reason Width is kept equal \u2014 the anchor and the frames should be drawn at one scale, or the identity match is comparing different sizes.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -1262,7 +1262,7 @@
     {
       "default": 1.2,
       "group": "Frames",
-      "help": "TODO",
+      "help": "The pixel LoRA's weight on the frames. Keep it equal to canonical.lora_strength: the frames are matched against the anchor, and a different style weight is one more difference that match has to absorb.",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -1273,21 +1273,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
-      "help": "TODO",
+      "help": "The base negative every frame starts from. The pose, backdrop and facing guards append to it rather than replace it, so what you add here survives all of them.",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Blank follows the rig's own control channel, which is almost always what you want. Name one only to override, and know that naming the wrong one means the skeleton is quietly ignored rather than refused.",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -1307,7 +1307,7 @@
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -1327,7 +1327,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -1337,7 +1337,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -1654,7 +1654,7 @@
     {
       "default": 1024,
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Pairs with Width. SDXL is trained at 1024x1024 and the further the canvas is from square, the more the composition drifts from what the prompt asked for.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -1672,7 +1672,7 @@
     },
     {
       "group": "Frames",
-      "help": "TODO",
+      "help": "Frames are conditioned on the anchor, so they need fewer steps than it does. With Fast LCM mode on this wants single digits \u2014 LCM is distilled to converge in a handful and the rest buy nothing. With it off, match canonical.steps.",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -1783,7 +1783,7 @@
     {
       "default": "",
       "group": "Palette",
-      "help": "TODO",
+      "help": "One of the .hex files under palettes/. Committing one is what makes colour exact rather than probabilistic: snapping is deterministic, so two runs of the same character land on the same entries.",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -1918,7 +1918,7 @@
     {
       "default": 1,
       "group": "Export",
-      "help": "TODO",
+      "help": "Nearest-neighbour magnification baked into the written sheet, so 4x is sixteen times the pixels on disk. Leave it at 1 unless the file has to arrive somewhere that will not magnify it itself \u2014 the editor scales in the browser and stays sharp at any zoom.",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -1927,7 +1927,7 @@
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -2042,7 +2042,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "Must be 'lcm' when Fast LCM mode is on \u2014 LCM is a distilled model and an ordinary sampler will not converge inside its step budget. Off LCM, dpmpp_2m as on the anchor.",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -2061,7 +2061,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "sgm_uniform under LCM, karras otherwise, matching the anchor. The scheduler decides where the steps are spent, and LCM's distillation assumes the uniform spacing.",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -2240,7 +2240,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The LoRA that makes the output read as pixel art rather than a downscaled painting. Every other default here is tuned around it, so swapping it means re-tuning both lora_strength dials.",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -2316,7 +2316,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "How hard the second style signal pulls. pixel-art-xl already runs at 1.2, so this competes with it: if the look goes muddy, bring one of the two down rather than pushing this up.",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -2360,7 +2360,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The IP-Adapter weights that carry identity from the reference into each frame. It has to match the checkpoint's architecture; an SD1.5 adapter cannot condition an SDXL base.",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -2484,7 +2484,7 @@
     },
     {
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -2506,7 +2506,7 @@
     {
       "default": 1024,
       "group": "Frames",
-      "help": "TODO",
+      "help": "Keep equal to canonical.height, for the reason Width is kept equal \u2014 the anchor and the frames should be drawn at one scale, or the identity match is comparing different sizes.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -2526,7 +2526,7 @@
     {
       "default": 1.2,
       "group": "Frames",
-      "help": "TODO",
+      "help": "The pixel LoRA's weight on the frames. Keep it equal to canonical.lora_strength: the frames are matched against the anchor, and a different style weight is one more difference that match has to absorb.",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -2537,21 +2537,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
-      "help": "TODO",
+      "help": "The base negative every frame starts from. The pose, backdrop and facing guards append to it rather than replace it, so what you add here survives all of them.",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Blank follows the rig's own control channel, which is almost always what you want. Name one only to override, and know that naming the wrong one means the skeleton is quietly ignored rather than refused.",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -2571,7 +2571,7 @@
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -2591,7 +2591,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -2601,7 +2601,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -3020,7 +3020,7 @@
     {
       "default": 1024,
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Pairs with Width. SDXL is trained at 1024x1024 and the further the canvas is from square, the more the composition drifts from what the prompt asked for.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -3038,7 +3038,7 @@
     },
     {
       "group": "Frames",
-      "help": "TODO",
+      "help": "Frames are conditioned on the anchor, so they need fewer steps than it does. With Fast LCM mode on this wants single digits \u2014 LCM is distilled to converge in a handful and the rest buy nothing. With it off, match canonical.steps.",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -3174,7 +3174,7 @@
     {
       "default": "",
       "group": "Palette",
-      "help": "TODO",
+      "help": "One of the .hex files under palettes/. Committing one is what makes colour exact rather than probabilistic: snapping is deterministic, so two runs of the same character land on the same entries.",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -3309,7 +3309,7 @@
     {
       "default": 1,
       "group": "Export",
-      "help": "TODO",
+      "help": "Nearest-neighbour magnification baked into the written sheet, so 4x is sixteen times the pixels on disk. Leave it at 1 unless the file has to arrive somewhere that will not magnify it itself \u2014 the editor scales in the browser and stays sharp at any zoom.",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -3318,14 +3318,14 @@
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where Ollama is listening, normally http://127.0.0.1:11434. Only reached by the settings set to 'llm'; every other path is deterministic and runs with it down.",
       "label": "Ollama host",
       "modules": [
         "animation"
@@ -3443,7 +3443,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "Must be 'lcm' when Fast LCM mode is on \u2014 LCM is a distilled model and an ordinary sampler will not converge inside its step budget. Off LCM, dpmpp_2m as on the anchor.",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -3462,7 +3462,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "sgm_uniform under LCM, karras otherwise, matching the anchor. The scheduler decides where the steps are spent, and LCM's distillation assumes the uniform spacing.",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -3641,7 +3641,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The LoRA that makes the output read as pixel art rather than a downscaled painting. Every other default here is tuned around it, so swapping it means re-tuning both lora_strength dials.",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -3717,7 +3717,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "How hard the second style signal pulls. pixel-art-xl already runs at 1.2, so this competes with it: if the look goes muddy, bring one of the two down rather than pushing this up.",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -3761,7 +3761,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The IP-Adapter weights that carry identity from the reference into each frame. It has to match the checkpoint's architecture; an SD1.5 adapter cannot condition an SDXL base.",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -3885,7 +3885,7 @@
     },
     {
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -3907,7 +3907,7 @@
     {
       "default": 1024,
       "group": "Frames",
-      "help": "TODO",
+      "help": "Keep equal to canonical.height, for the reason Width is kept equal \u2014 the anchor and the frames should be drawn at one scale, or the identity match is comparing different sizes.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -3927,7 +3927,7 @@
     {
       "default": 1.2,
       "group": "Frames",
-      "help": "TODO",
+      "help": "The pixel LoRA's weight on the frames. Keep it equal to canonical.lora_strength: the frames are matched against the anchor, and a different style weight is one more difference that match has to absorb.",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -3938,21 +3938,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
-      "help": "TODO",
+      "help": "The base negative every frame starts from. The pose, backdrop and facing guards append to it rather than replace it, so what you add here survives all of them.",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Blank follows the rig's own control channel, which is almost always what you want. Name one only to override, and know that naming the wrong one means the skeleton is quietly ignored rather than refused.",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -3972,7 +3972,7 @@
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -3992,7 +3992,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -4002,7 +4002,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -4285,7 +4285,7 @@
     {
       "default": 1024,
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Pairs with Width. SDXL is trained at 1024x1024 and the further the canvas is from square, the more the composition drifts from what the prompt asked for.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -4303,7 +4303,7 @@
     },
     {
       "group": "Frames",
-      "help": "TODO",
+      "help": "Frames are conditioned on the anchor, so they need fewer steps than it does. With Fast LCM mode on this wants single digits \u2014 LCM is distilled to converge in a handful and the rest buy nothing. With it off, match canonical.steps.",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -4414,7 +4414,7 @@
     {
       "default": "",
       "group": "Palette",
-      "help": "TODO",
+      "help": "One of the .hex files under palettes/. Committing one is what makes colour exact rather than probabilistic: snapping is deterministic, so two runs of the same character land on the same entries.",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -4549,7 +4549,7 @@
     {
       "default": 1,
       "group": "Export",
-      "help": "TODO",
+      "help": "Nearest-neighbour magnification baked into the written sheet, so 4x is sixteen times the pixels on disk. Leave it at 1 unless the file has to arrive somewhere that will not magnify it itself \u2014 the editor scales in the browser and stays sharp at any zoom.",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -4558,7 +4558,7 @@
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -4673,7 +4673,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "Must be 'lcm' when Fast LCM mode is on \u2014 LCM is a distilled model and an ordinary sampler will not converge inside its step budget. Off LCM, dpmpp_2m as on the anchor.",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -4692,7 +4692,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "sgm_uniform under LCM, karras otherwise, matching the anchor. The scheduler decides where the steps are spent, and LCM's distillation assumes the uniform spacing.",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -4871,7 +4871,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The LoRA that makes the output read as pixel art rather than a downscaled painting. Every other default here is tuned around it, so swapping it means re-tuning both lora_strength dials.",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -4947,7 +4947,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "How hard the second style signal pulls. pixel-art-xl already runs at 1.2, so this competes with it: if the look goes muddy, bring one of the two down rather than pushing this up.",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -4991,7 +4991,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The IP-Adapter weights that carry identity from the reference into each frame. It has to match the checkpoint's architecture; an SD1.5 adapter cannot condition an SDXL base.",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -5115,7 +5115,7 @@
     },
     {
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -5137,7 +5137,7 @@
     {
       "default": 1024,
       "group": "Frames",
-      "help": "TODO",
+      "help": "Keep equal to canonical.height, for the reason Width is kept equal \u2014 the anchor and the frames should be drawn at one scale, or the identity match is comparing different sizes.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -5157,7 +5157,7 @@
     {
       "default": 1.2,
       "group": "Frames",
-      "help": "TODO",
+      "help": "The pixel LoRA's weight on the frames. Keep it equal to canonical.lora_strength: the frames are matched against the anchor, and a different style weight is one more difference that match has to absorb.",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -5168,21 +5168,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
-      "help": "TODO",
+      "help": "The base negative every frame starts from. The pose, backdrop and facing guards append to it rather than replace it, so what you add here survives all of them.",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Blank follows the rig's own control channel, which is almost always what you want. Name one only to override, and know that naming the wrong one means the skeleton is quietly ignored rather than refused.",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -5202,7 +5202,7 @@
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -5222,7 +5222,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -5232,7 +5232,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,
@@ -5515,7 +5515,7 @@
     {
       "default": 1024,
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Pairs with Width. SDXL is trained at 1024x1024 and the further the canvas is from square, the more the composition drifts from what the prompt asked for.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -5533,7 +5533,7 @@
     },
     {
       "group": "Frames",
-      "help": "TODO",
+      "help": "Frames are conditioned on the anchor, so they need fewer steps than it does. With Fast LCM mode on this wants single digits \u2014 LCM is distilled to converge in a handful and the rest buy nothing. With it off, match canonical.steps.",
       "label": "Steps",
       "max": 150,
       "min": 1,
@@ -5644,7 +5644,7 @@
     {
       "default": "",
       "group": "Palette",
-      "help": "TODO",
+      "help": "One of the .hex files under palettes/. Committing one is what makes colour exact rather than probabilistic: snapping is deterministic, so two runs of the same character land on the same entries.",
       "label": "Palette file",
       "options_from": "palettes",
       "path": "palette.file",
@@ -5779,7 +5779,7 @@
     {
       "default": 1,
       "group": "Export",
-      "help": "TODO",
+      "help": "Nearest-neighbour magnification baked into the written sheet, so 4x is sixteen times the pixels on disk. Leave it at 1 unless the file has to arrive somewhere that will not magnify it itself \u2014 the editor scales in the browser and stays sharp at any zoom.",
       "label": "Sheet upscale",
       "max": 16,
       "min": 1,
@@ -5788,7 +5788,7 @@
     },
     {
       "group": "Services",
-      "help": "TODO",
+      "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
       "path": "comfy.host",
       "type": "text"
@@ -5903,7 +5903,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "Must be 'lcm' when Fast LCM mode is on \u2014 LCM is a distilled model and an ordinary sampler will not converge inside its step budget. Off LCM, dpmpp_2m as on the anchor.",
       "label": "Sampler (frames)",
       "options": [
         "dpmpp_2m",
@@ -5922,7 +5922,7 @@
     },
     {
       "group": "Quality",
-      "help": "TODO",
+      "help": "sgm_uniform under LCM, karras otherwise, matching the anchor. The scheduler decides where the steps are spent, and LCM's distillation assumes the uniform spacing.",
       "label": "Scheduler (frames)",
       "options": [
         "karras",
@@ -6101,7 +6101,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The LoRA that makes the output read as pixel art rather than a downscaled painting. Every other default here is tuned around it, so swapping it means re-tuning both lora_strength dials.",
       "label": "Style LoRA",
       "options_from": "loras",
       "path": "models.pixel_lora",
@@ -6177,7 +6177,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "How hard the second style signal pulls. pixel-art-xl already runs at 1.2, so this competes with it: if the look goes muddy, bring one of the two down rather than pushing this up.",
       "label": "Style LoRA strength",
       "max": 1.5,
       "min": 0.0,
@@ -6221,7 +6221,7 @@
     },
     {
       "group": "Models",
-      "help": "TODO",
+      "help": "The IP-Adapter weights that carry identity from the reference into each frame. It has to match the checkpoint's architecture; an SD1.5 adapter cannot condition an SDXL base.",
       "label": "IP-Adapter",
       "options_from": "ipadapters",
       "path": "models.ipadapter",
@@ -6345,7 +6345,7 @@
     },
     {
       "group": "Canonical",
-      "help": "TODO",
+      "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
       "max": 1.0,
       "min": 0.0,
@@ -6367,7 +6367,7 @@
     {
       "default": 1024,
       "group": "Frames",
-      "help": "TODO",
+      "help": "Keep equal to canonical.height, for the reason Width is kept equal \u2014 the anchor and the frames should be drawn at one scale, or the identity match is comparing different sizes.",
       "label": "Height",
       "max": 2048,
       "min": 512,
@@ -6387,7 +6387,7 @@
     {
       "default": 1.2,
       "group": "Frames",
-      "help": "TODO",
+      "help": "The pixel LoRA's weight on the frames. Keep it equal to canonical.lora_strength: the frames are matched against the anchor, and a different style weight is one more difference that match has to absorb.",
       "label": "Pixel LoRA strength",
       "max": 2.0,
       "min": 0.0,
@@ -6398,21 +6398,21 @@
     {
       "default": "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors",
       "group": "Frames",
-      "help": "TODO",
+      "help": "The base negative every frame starts from. The pose, backdrop and facing guards append to it rather than replace it, so what you add here survives all of them.",
       "label": "Negative prompt",
       "path": "frames.negative",
       "type": "textarea"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Blank follows the rig's own control channel, which is almost always what you want. Name one only to override, and know that naming the wrong one means the skeleton is quietly ignored rather than refused.",
       "label": "Pose control type",
       "path": "frames.controlnet.union_type",
       "type": "text"
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
       "max": 1.0,
       "min": 0.0,
@@ -6432,7 +6432,7 @@
     },
     {
       "group": "Pose control",
-      "help": "TODO",
+      "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
       "max": 1.0,
       "min": 0.0,
@@ -6452,7 +6452,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
       "max": 1.0,
       "min": 0.0,
@@ -6462,7 +6462,7 @@
     },
     {
       "group": "Identity",
-      "help": "TODO",
+      "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
       "max": 1.0,
       "min": 0.0,

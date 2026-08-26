@@ -23,9 +23,14 @@ class Field:
     default: Any = None
     when: dict[str, Any] = dc_field(default_factory=dict)
 
+    PLACEHOLDERS = frozenset({"todo", "tbd", "fixme", "xxx", "?", "-", "n/a",
+                              "help", "none", "description"})
+
     def __post_init__(self) -> None:
-        if not self.help:
-            raise ValueError(f"field '{self.key}' has no help text")
+        # A blank help was already refused; twenty fields answered that by saying "TODO", which reaches the settings form as a (?) opening onto nothing.
+        if not self.help or self.help.strip().rstrip(".").lower() in self.PLACEHOLDERS:
+            raise ValueError(f"field '{self.key}' has no help text: "
+                             f"{self.help!r}")
 
     def declared(self) -> dict:
         return {f.name: getattr(self, f.name) for f in dc_fields(self)}
