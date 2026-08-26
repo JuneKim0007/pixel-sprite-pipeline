@@ -290,10 +290,24 @@ reads — and both directions are verified red: a renamed key and a
 
 **Coverage is honest and uneven.** 19 of 20 GET routes are checked against a
 live response — `/api/autorig` needs a real sprite and is the one exception.
-The `http` fixture checks *every* call any test makes, so a POST is covered by
-whatever already exercises it; today that is 2 of 19. The other 17 are declared
-and validated at import, not against a live body, because calling them leaves a
-job queued, a file written or a config edited behind.
+The `http` fixture checks *every* call any test makes, so a write route is
+covered by whatever already exercises it.
+
+**7 of the 17 write routes** are now driven against a live body: `PUT /config`,
+`POST /queue/autopilot`, `/download/plan`, `/edit/preview`, `/edit/apply`,
+`/annotation` and `/poses`. Everything the last five touch lives inside the
+`a_run` fixture's directory, which is removed afterwards.
+
+The other ten are declared and import-checked only, each for a stated reason:
+
+| route | why it is not called |
+|---|---|
+| `POST /run` | starts a pipeline subprocess |
+| `POST /download` | fetches a model over the network |
+| `POST /queue/submit`, `POST /queue/job` | mutate the shared queue with no transactional undo |
+| `POST /stop` | 404s unless a pipeline is already running |
+| `POST /upload` | multipart, and writes into `input_dir()` |
+| `PUT /global`, `POST /style/note`, `/style/exemplar`, `/style/prompts` | write files the repository tracks; a read-modify-write-back that reformats on the way through leaves a dirty tree |
 
 **No escape hatch.** The first draft gave `GET /api/poses` an `Anything()`
 contract because it answered a run's `pose.json` with `?run=` and the whole

@@ -609,11 +609,13 @@ FIELDS: list[ConfigField] = [
              "last. At 180s a fifty-image night spends two and a half hours "
              "resting; that is the trade being made."),
     ConfigField(key="compute.vram_mode", label="VRAM policy", kind="select",
-     options=["gpu-only", "highvram", "normalvram", "lowvram", "cpu"],
-     group="Compute",
-     help="Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on "
-             "the GPU (~8% faster here). 'lowvram' offloads aggressively — "
-             "slower, but survives bigger models. Requires a restart."),
+     options=["--gpu-only", "--highvram", "--normalvram", "--lowvram",
+              "--novram", "--cpu"],
+     default="--lowvram", group="Compute",
+     help="Spliced straight into ComfyUI's argv at launch, so it is the flag "
+             "and not the word: '--gpu-only' keeps text encoders on the GPU "
+             "(~8% faster here), '--lowvram' offloads aggressively — slower, "
+             "but survives bigger models. Requires a restart."),
     ConfigField(key="compute.mps_high_watermark", label="MPS memory ceiling",
      kind="float", min=0.0, max=1.0, step=0.05, group="Compute",
      help="Fraction of unified memory PyTorch may allocate "

@@ -1142,15 +1142,17 @@
       "type": "int"
     },
     {
+      "default": "--lowvram",
       "group": "Compute",
-      "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on the GPU (~8% faster here). 'lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
+      "help": "Spliced straight into ComfyUI's argv at launch, so it is the flag and not the word: '--gpu-only' keeps text encoders on the GPU (~8% faster here), '--lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
       "label": "VRAM policy",
       "options": [
-        "gpu-only",
-        "highvram",
-        "normalvram",
-        "lowvram",
-        "cpu"
+        "--gpu-only",
+        "--highvram",
+        "--normalvram",
+        "--lowvram",
+        "--novram",
+        "--cpu"
       ],
       "path": "compute.vram_mode",
       "type": "select"
@@ -2429,15 +2431,17 @@
       "type": "int"
     },
     {
+      "default": "--lowvram",
       "group": "Compute",
-      "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on the GPU (~8% faster here). 'lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
+      "help": "Spliced straight into ComfyUI's argv at launch, so it is the flag and not the word: '--gpu-only' keeps text encoders on the GPU (~8% faster here), '--lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
       "label": "VRAM policy",
       "options": [
-        "gpu-only",
-        "highvram",
-        "normalvram",
-        "lowvram",
-        "cpu"
+        "--gpu-only",
+        "--highvram",
+        "--normalvram",
+        "--lowvram",
+        "--novram",
+        "--cpu"
       ],
       "path": "compute.vram_mode",
       "type": "select"
@@ -3859,15 +3863,17 @@
       "type": "int"
     },
     {
+      "default": "--lowvram",
       "group": "Compute",
-      "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on the GPU (~8% faster here). 'lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
+      "help": "Spliced straight into ComfyUI's argv at launch, so it is the flag and not the word: '--gpu-only' keeps text encoders on the GPU (~8% faster here), '--lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
       "label": "VRAM policy",
       "options": [
-        "gpu-only",
-        "highvram",
-        "normalvram",
-        "lowvram",
-        "cpu"
+        "--gpu-only",
+        "--highvram",
+        "--normalvram",
+        "--lowvram",
+        "--novram",
+        "--cpu"
       ],
       "path": "compute.vram_mode",
       "type": "select"
@@ -5112,15 +5118,17 @@
       "type": "int"
     },
     {
+      "default": "--lowvram",
       "group": "Compute",
-      "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on the GPU (~8% faster here). 'lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
+      "help": "Spliced straight into ComfyUI's argv at launch, so it is the flag and not the word: '--gpu-only' keeps text encoders on the GPU (~8% faster here), '--lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
       "label": "VRAM policy",
       "options": [
-        "gpu-only",
-        "highvram",
-        "normalvram",
-        "lowvram",
-        "cpu"
+        "--gpu-only",
+        "--highvram",
+        "--normalvram",
+        "--lowvram",
+        "--novram",
+        "--cpu"
       ],
       "path": "compute.vram_mode",
       "type": "select"
@@ -6365,15 +6373,17 @@
       "type": "int"
     },
     {
+      "default": "--lowvram",
       "group": "Compute",
-      "help": "Passed to ComfyUI at launch. 'gpu-only' keeps text encoders on the GPU (~8% faster here). 'lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
+      "help": "Spliced straight into ComfyUI's argv at launch, so it is the flag and not the word: '--gpu-only' keeps text encoders on the GPU (~8% faster here), '--lowvram' offloads aggressively \u2014 slower, but survives bigger models. Requires a restart.",
       "label": "VRAM policy",
       "options": [
-        "gpu-only",
-        "highvram",
-        "normalvram",
-        "lowvram",
-        "cpu"
+        "--gpu-only",
+        "--highvram",
+        "--normalvram",
+        "--lowvram",
+        "--novram",
+        "--cpu"
       ],
       "path": "compute.vram_mode",
       "type": "select"

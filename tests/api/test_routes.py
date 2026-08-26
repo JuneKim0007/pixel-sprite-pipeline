@@ -48,9 +48,11 @@ def test_a_side_effect_free_post_honours_its_contract_too(http):
 
 @pytest.fixture
 def a_run():
-    """A minimal run on disk. It has to live under the real runs_dir(): the server under test runs in this process's ROOT, so a tmp_path is invisible to it."""
+    """A minimal run on disk, with one stage directory and one PNG in it. It has to live under the real runs_dir(): the server under test runs in this process's ROOT, so a tmp_path is invisible to it — and runs_dir() is inside allowed_roots(), which the write routes check."""
     import json
     import shutil
+
+    from PIL import Image
 
     from pipeline.api.context import runs_dir
 
@@ -58,13 +60,35 @@ def a_run():
     pose = home / "03_pose"
     pose.mkdir(parents=True)
     (home / "run.log").write_text("ok\n")
+    (home / "config.yaml").write_text("name: test\nrig: humanoid\nannotate: skip\n")
+    Image.new("RGB", (32, 32), (120, 60, 30)).save(pose / "skeleton_000.png")
     (pose / "pose.json").write_text(json.dumps(
         {"source": "library", "rig": "humanoid", "mode": "set",
          "entries": [{"pose": {}, "yaw": 0, "spec": 0}]}))
     try:
-        yield home.name
+        yield home
     finally:
         shutil.rmtree(home, ignore_errors=True)
+
+
+def _writes(home):
+    """The write routes that can be called without leaving anything behind. Everything they touch is inside `home`, which the fixture removes."""
+    image = str(home / "03_pose" / "skeleton_000.png")
+    return [
+        ("/api/download/plan", {"run_id": home.name}),
+        ("/api/edit/preview", {"source": image, "full": False}),
+        ("/api/edit/apply", {"source": image, "dest": str(home / "px.png")}),
+        ("/api/annotation", {"image": image, "rig": "humanoid",
+                             "points": {"nose": [1.0, 2.0]}}),
+        ("/api/poses", {"run_id": home.name, "entries": []}),
+    ]
+
+
+@pytest.mark.parametrize("index", range(5))
+def test_a_write_route_honours_its_contract(http, a_run, index):
+    # Declaring a contract at import proves only that one exists. These five are every POST that can be driven without a subprocess, a network fetch, or an edit to a file the repository tracks — the other twelve are named in the spec with the reason each cannot be called.
+    path, payload = _writes(a_run)[index]
+    http.send(path, payload)          # the fixture asserts the contract
 
 
 @pytest.mark.parametrize("path,query", [
@@ -73,7 +97,7 @@ def a_run():
 ])
 def test_a_run_scoped_route_honours_its_contract(http, a_run, path, query):
     # These three could only be called bare, which 400s in the argument check and proves nothing about the body — the same blind spot that hid a TypeError in /api/annotation for as long as that route existed.
-    body = http.raw(path + query.format(run=a_run))
+    body = http.raw(path + query.format(run=a_run.name))
     faults = ROUTES[path]["returns"].check(body)
     assert not faults, "; ".join(faults)
 
