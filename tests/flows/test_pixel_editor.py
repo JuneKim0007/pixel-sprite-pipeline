@@ -64,16 +64,15 @@ def test_a_failing_layer_reports_against_itself(root, img):
     assert any(la.get("error") for la in facts["layers"])
 
 
-def test_a_committed_palette_is_resolved_by_what_the_caller_supplied(root, img):
-    # The layer used to reach through facts["root"] into the palette registry, which is the import that made `definitive` depend on `looks`.
+def test_a_committed_palette_is_resolved_by_what_the_caller_supplied(tmp_path, img):
+    # The layer used to reach through facts["root"] into the palette registry, which is the import that made `definitive` depend on `looks`. `root` is the real repo, so a test that writes a palette has to write it somewhere else.
     seen = []
+    committed = tmp_path / "two.hex"
+    committed.write_text("000000\nffffff\n")
 
     def resolve(name):
         seen.append(name)
-        path = root / "palettes" / "two.hex"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("000000\nffffff\n")
-        return path
+        return committed
 
     stack = [{"layer": "palette", "id": "p", "enabled": True,
               "config": {"source": "file", "file": "two"}}]
