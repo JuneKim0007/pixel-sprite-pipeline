@@ -12,6 +12,7 @@ from ..looks import palettes as palette_lib
 from ..looks import styles, stylelog
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, allowed_roots, dump_roundtrip, load_roundtrip
+from .contracts import Shape
 from .routing import BaseRouter, get, post
 from ..shared import errors
 
@@ -169,18 +170,24 @@ def palette_list() -> dict:
 class Looks(BaseRouter):
     prefix = "/api"
 
-    @get("/styles", "every style sheet")
+    @get("/styles", "every style sheet",
+         returns=Shape(styles=list, broken=list))
     def sheets(self, req):
         found = styles.discover(ROOT)
         return {"styles": [s.summary(ROOT) for s in found.values()],
                 "broken": [{"path": str(b.path), "why": b.why}
                            for b in styles.broken(ROOT)]}
 
-    @get("/style/detail", "one sheet, with its context and history")
+    @get("/style/detail", "one sheet, with its context and history",
+         returns=Shape(name=str, label=str, home=str, foldered=bool,
+                       summary=dict, context=dict, history=list,
+                       training=dict, tuning=dict))
     def detail(self, req):
         return style_detail(req.required("name"))
 
-    @get("/style/preview", "what a config would actually send")
+    @get("/style/preview", "what a config would actually send",
+         returns=Shape(module=str, resolved_prompt=str, conflicts=list,
+                       record=dict, palette=str))
     def preview(self, req):
         name = req.required("config")
         path = CONFIGS / f"{name}.yaml"
@@ -194,27 +201,32 @@ class Looks(BaseRouter):
             cfg = {**cfg, "styles": list(cfg.get("styles") or []) + extra}
         return styles.preview(ROOT, cfg)
 
-    @get("/style/training", "what this sheet has collected for training")
+    @get("/style/training", "what this sheet has collected for training",
+         returns=Shape(dir=str, plan=dict, staged=list, targets=list,
+                       verdict=dict))
     def training(self, req):
         from ..looks import training
 
         sheet = _sheet(req.required("name"))
         return training.preview(sheet.home)
 
-    @post("/style/note", "add a line to a sheet's history")
+    @post("/style/note", "add a line to a sheet's history",
+          returns=Shape(ok=bool, history=list))
     def note(self, req):
         return add_style_note(req.need("name"), req.get("text", ""))
 
-    @post("/style/exemplar", "add or remove reference images")
+    @post("/style/exemplar", "add or remove reference images",
+          returns=Shape(ok=bool, changed=list, detail=dict))
     def exemplar(self, req):
         return style_exemplar(req.need("name"), req.get("paths") or [],
                               bool(req.get("remove")))
 
-    @post("/style/prompts", "edit a sheet's vocabulary")
+    @post("/style/prompts", "edit a sheet's vocabulary",
+          returns=Shape(ok=bool, changed=list, detail=dict))
     def prompts(self, req):
         return style_prompts(req.need("name"), req.get("vocabulary"),
                              req.get("notes"))
 
-    @get("/palettes", "every palette, grouped")
+    @get("/palettes", "every palette, grouped", returns=Shape(palettes=list))
     def palettes(self, req):
         return palette_list()

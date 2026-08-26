@@ -15,6 +15,7 @@ from ..generation import comfy, runner
 from ..shared import settings
 from ..shared.errors import Conflict, Invalid, NotFound
 from .context import CONFIGS, ROOT, dir_size, human_size, load_roundtrip, runs_dir
+from .contracts import Shape
 from .routing import BaseRouter, get, post
 from ..generation import schema
 from datetime import datetime
@@ -202,21 +203,22 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
 class Runs(BaseRouter):
     prefix = "/api"
 
-    @get("/runs", "every run, newest first")
-    def list(self, req):
+    @get("/runs", "every run, newest first", returns=Shape(runs=list))
+    def index(self, req):
         return {"runs": list_runs()}
 
-    @get("/run", "one run in detail, with an audit of what produced it")
+    @get("/run", "one run in detail, with an audit of what produced it",
+         returns=Shape(id=str, dir=str, log=str, config=str, audit=dict))
     def detail(self, req):
         return run_detail(req.required("id"))
 
-    @post("/run", "start a pipeline")
+    @post("/run", "start a pipeline", returns=Shape(run_id=str))
     def start(self, req):
         run_id = start_run(req.get("config", ""), req.get("overrides") or {},
                            req.get("stages") or None, req.get("picks") or None)
         return {"run_id": run_id}
 
-    @post("/stop", "stop a running pipeline")
+    @post("/stop", "stop a running pipeline", returns=Shape(stopped=str))
     def stop(self, req):
         rid = req.get("run_id", "")
         with _LOCK:

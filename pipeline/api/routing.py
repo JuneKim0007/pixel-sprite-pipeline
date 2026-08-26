@@ -6,6 +6,7 @@ from typing import Any, Callable, ClassVar
 
 from ..shared.errors import Conflict, Invalid, NotFound
 from ..shared.registry import Registry, Source
+from .contracts import Shape
 
 
 @dataclass
@@ -59,26 +60,33 @@ class Route:
     path: str
     handler: Callable[..., Any]
     summary: str = ""
+    returns: Shape | None = None
 
 
-def _mark(method: str, path: str, summary: str = ""):
+def _mark(method: str, path: str, summary: str, returns: Shape | None):
     """Attach route metadata to a method; BaseRouter collects it."""
+    if not isinstance(returns, Shape):
+        raise Invalid(f"{method} {path} declares no response contract",
+                      field=path,
+                      hint="pass returns=Shape(...), or Bytes()/Anything() "
+                           "when there is genuinely no object to promise")
+
     def wrap(fn):
-        fn._route = (method, path, summary)
+        fn._route = (method, path, summary, returns)
         return fn
     return wrap
 
 
-def get(path: str, summary: str = ""):
-    return _mark("GET", path, summary)
+def get(path: str, summary: str = "", *, returns: Shape | None = None):
+    return _mark("GET", path, summary, returns)
 
 
-def post(path: str, summary: str = ""):
-    return _mark("POST", path, summary)
+def post(path: str, summary: str = "", *, returns: Shape | None = None):
+    return _mark("POST", path, summary, returns)
 
 
-def put(path: str, summary: str = ""):
-    return _mark("PUT", path, summary)
+def put(path: str, summary: str = "", *, returns: Shape | None = None):
+    return _mark("PUT", path, summary, returns)
 
 
 class BaseRouter:
@@ -100,9 +108,9 @@ class BaseRouter:
             meta = getattr(member, "_route", None)
             if meta is None:
                 continue
-            method, path, summary = meta
+            method, path, summary, returns = meta
             found.append(Route(method, cls.prefix + path,
-                               getattr(instance, name), summary))
+                               getattr(instance, name), summary, returns))
         return found
 
 
@@ -140,7 +148,8 @@ class Table:
 
     def surface(self) -> list[dict]:
         """Every route, for listing and for checking against contracts."""
-        return [{"method": r.method, "path": r.path, "summary": r.summary}
+        return [{"method": r.method, "path": r.path, "summary": r.summary,
+                 "returns": r.returns}
                 for r in sorted(self._routes.all().values(),
                                 key=lambda r: (r.path, r.method))]
 

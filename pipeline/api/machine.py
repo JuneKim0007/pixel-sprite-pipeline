@@ -15,6 +15,7 @@ from .. import stages  # noqa: F401  (importing registers the stages)
 from ..generation.stage import available
 from .context import (CONFIGS, ROOT, dir_size, download_dir, global_cfg,
                       human_size, input_dir, runs_dir)
+from .contracts import Shape
 from .routing import BaseRouter, get
 import sys
 import os
@@ -90,10 +91,14 @@ def system_info() -> dict:
 class Machine(BaseRouter):
     prefix = "/api"
 
-    @get("/system", "services, paths, disk and models")
+    @get("/system", "services, paths, disk and models",
+         returns=Shape(services=dict, paths=dict, host=dict, weights=list,
+                       compute_note=str))
     def system(self, req):
         return system_info()
 
-    @get("/schema", "every configurable field for a module")
+    @get("/schema", "every configurable field for a module",
+         returns=Shape(module=str, modules=dict, fields=list, options=dict,
+                       stages=list))
     def schema(self, req):
         return schema.describe(ROOT, req.query("module") or None)

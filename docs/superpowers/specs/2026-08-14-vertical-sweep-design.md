@@ -270,6 +270,41 @@ each contract is well-formed.
 - one test covers every route's response shape
 - adding a route without a contract fails before any request is served
 
+### Done 2026-08-26 — and two deviations
+
+All 38 routes carry a contract; `@get`/`@post`/`@put` raise `Invalid` at
+decoration time without one, so a missing contract stops the process at import
+rather than at the first request.
+
+**Deviation 1: contracts are `Shape` instances, not one dataclass per route.**
+38 near-empty class definitions buy nothing over `returns=Shape(runs=list)`
+read at the route it belongs to. `Shape` is still checked for well-formedness
+at import — a key declared as anything but a type is refused there.
+
+**Deviation 2: a `Shape` promises required top-level keys and their types, and
+permits extras.** Freezing every nested shape would make the contract a
+change-detector over free-form `facts` dicts. Required-keys-with-types catches
+the bug class that motivated this — a handler dropping or renaming a key the UI
+reads — and both directions are verified red: a renamed key and a
+`str`-turned-`list` each fail the suite.
+
+**Coverage is honest and uneven.** All 19 GET routes are checked against a live
+response. The `http` fixture checks *every* call any test makes, so a POST is
+covered by whatever already exercises it — today that is 2 of 19. The other 17
+are declared and validated at import, not against a live body, because calling
+them leaves a job queued, a file written or a config edited behind.
+
+**One escape hatch, used once.** `GET /api/poses` answers a run's `pose.json`
+with `?run=` and the whole library without it, and the two share no key. Its
+contract is `Anything()`, which is the layer reporting a design fault rather
+than papering over it: splitting the route is the fix.
+
+**It found a live bug on the way in.** `GET /api/annotation` called
+`annotate.load` with three arguments where it takes one — a `TypeError` on
+every real call, since it was written. Nothing caught it because the existing
+route test called it bare, and `req.required("image")` 400s before reaching the
+handler body. Probing routes *with* arguments is what surfaced it.
+
 ---
 
 ## 6. Order, and what each stage is worth alone

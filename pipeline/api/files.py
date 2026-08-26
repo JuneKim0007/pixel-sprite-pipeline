@@ -6,6 +6,7 @@ from pathlib import Path
 from ..shared import files as files_mod
 from ..shared.errors import Invalid, NotFound
 from .context import ROOT, allowed_roots, download_dir, human_size, input_dir
+from .contracts import Bytes, Shape
 from .routing import BaseRouter, Raw, get, post
 from .context import runs_dir
 import re
@@ -40,21 +41,24 @@ def download(body: dict, dry_run: bool) -> dict:
 class Files(BaseRouter):
     prefix = "/api"
 
-    @get("/browse", "list a directory inside the permitted roots")
+    @get("/browse", "list a directory inside the permitted roots",
+         returns=Shape(dir=str, parent=str, entries=list))
     def browse(self, req):
         target = req.query("path") or str(input_dir())
         safe = files_mod.safe_path(target, allowed_roots())
         return files_mod.browse(safe, images_only=req.flag("images"))
 
-    @post("/download/plan", "what a download would fetch, without fetching")
+    @post("/download/plan", "what a download would fetch, without fetching",
+          returns=Shape(target=str, total=int, conflicts=list, new=list))
     def plan(self, req):
         return download(req.body, dry_run=True)
 
-    @post("/download", "fetch a model")
+    @post("/download", "fetch a model",
+          returns=Shape(target=str, written=list, renamed=list))
     def fetch(self, req):
         return download(req.body, dry_run=False)
 
-    @get("/file", "stream one file")
+    @get("/file", "stream one file", returns=Bytes())
     def file(self, req):
         p = files_mod.safe_path(req.required("path"), allowed_roots())
         if not p.is_file():
@@ -62,7 +66,7 @@ class Files(BaseRouter):
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
         return Raw(p.read_bytes(), ctype)
 
-    @post("/upload", "receive files")
+    @post("/upload", "receive files", returns=Shape(saved=list, dir=str))
     def upload(self, req):
         if "multipart/form-data" not in req.content_type:
             raise Invalid("expected multipart/form-data")

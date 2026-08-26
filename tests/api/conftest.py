@@ -23,19 +23,42 @@ def host():
         srv.server_close()
 
 
+def _honours_contract(method: str, path: str, body):
+    """Every successful call any test makes is a contract check, so the POST and PUT routes are covered by whatever already exercises them rather than by a second suite that would have to fake their side effects."""
+    from pipeline import api
+
+    route = {(r["method"], r["path"]): r
+             for r in api.table.surface()}.get((method, path.split("?")[0]))
+    if route is None or route["returns"] is None:
+        return
+    faults = route["returns"].check(body)
+    assert not faults, (f"{method} {path} declares {route['returns']} but "
+                        + "; ".join(faults))
+
+
 @pytest.fixture(scope="session")
 def http(host):
     class Client:
         def get(self, path):
+            return self.raw(path)
+
+        def raw(self, path):
+            """The body as sent: bytes for a file route, parsed for the rest."""
             with urllib.request.urlopen(host + path, timeout=20) as r:
-                return json.loads(r.read())
+                body = r.read()
+                if "json" in r.headers.get("Content-Type", ""):
+                    body = json.loads(body)
+            _honours_contract("GET", path, body)
+            return body
 
         def send(self, path, payload, method="POST"):
             req = urllib.request.Request(
                 host + path, data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"}, method=method)
             with urllib.request.urlopen(req, timeout=30) as r:
-                return json.loads(r.read())
+                body = json.loads(r.read())
+            _honours_contract(method, path, body)
+            return body
 
         def status(self, path, payload=None, method="GET"):
             try:

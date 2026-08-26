@@ -9,6 +9,7 @@ from ..looks import styles
 from ..shared import settings
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, dump_roundtrip, global_cfg, load_roundtrip
+from .contracts import Shape
 from .routing import BaseRouter, get, put
 from .runs import validate_order
 import yaml
@@ -89,14 +90,17 @@ def _named(name: str):
 class Configs(BaseRouter):
     prefix = "/api"
 
-    @get("/configs", "every config, with the module each declares")
-    def list(self, req):
+    @get("/configs", "every config, with the module each declares",
+         returns=Shape(configs=list))
+    def index(self, req):
         CONFIGS.mkdir(exist_ok=True)
         found = sorted(p.stem for p in CONFIGS.glob("*.yaml")
                        if not p.stem.startswith("_"))
         return {"configs": found}
 
-    @get("/config", "one config, and what it resolves to with styles applied")
+    @get("/config", "one config, and what it resolves to with styles applied",
+         returns=Shape(name=str, module=str, raw=str, config=dict,
+                       effective=dict, style_record=dict, overrides=list))
     def detail(self, req):
         name = req.required("name")
         path = _named(name)
@@ -112,14 +116,17 @@ class Configs(BaseRouter):
             "overrides": sorted(settings.overridden_paths(own)),
         }
 
-    @put("/config", "save a config, keeping its comments")
+    @put("/config", "save a config, keeping its comments",
+         returns=Shape(saved=str, changed=int))
     def save(self, req):
         return save_config(req.required("name"), req.body)
 
-    @get("/global", "the settings every pipeline inherits")
+    @get("/global", "the settings every pipeline inherits",
+         returns=Shape(config=dict))
     def globals(self, req):
         return {"config": global_cfg()}
 
-    @put("/global", "save those settings")
+    @put("/global", "save those settings",
+         returns=Shape(saved=str, changed=int))
     def save_global(self, req):
         return _save_global(req.body)

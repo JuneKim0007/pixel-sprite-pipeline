@@ -16,6 +16,7 @@ from ..shared.errors import Invalid, NotFound
 from ..stages import depth as depth_stage
 from ..stages import pose as pose_stage
 from .context import ROOT, allowed_roots, runs_dir
+from .contracts import Anything, Shape
 from .routing import BaseRouter, get, post
 import yaml
 
@@ -128,31 +129,46 @@ def _save_annotation(body: dict) -> dict:
 class Poses(BaseRouter):
     prefix = "/api"
 
-    @get("/poses", "the pose guides a run used, or the library")
-    def list(self, req):
+    # Two shapes on one path: with ?run= this answers one run's pose.json, without it the whole library, and the two share no key. The contract can only say so; splitting the route is the fix.
+    @get("/poses", "the pose guides a run used, or the library",
+         returns=Anything())
+    def index(self, req):
         return poses(req.query("run"))
 
-    @post("/poses", "save edited pose guides")
+    @post("/poses", "save edited pose guides",
+          returns=Shape(saved=int, dir=str, manifest=str))
     def save(self, req):
         return save_poses(req.body)
 
-    @get("/annotation", "a saved annotation for one reference image")
+    @get("/annotation", "a saved annotation for one reference image",
+         returns=Shape(exists=bool, image=str, rig=str, points=dict))
     def annotation(self, req):
-        return annotate.load(ROOT, req.required("image"),
-                             req.query("rig", "humanoid"))
+        image = files_mod.safe_path(req.required("image"), allowed_roots())
+        rig = req.query("rig", "humanoid")
+        found = annotate.load(image)
+        if found is None:
+            return {"exists": False, "image": str(image), "rig": rig,
+                    "points": {}}
+        return {**annotate.describe(found), "exists": True}
 
-    @post("/annotation", "save an annotation")
+    @post("/annotation", "save an annotation",
+          returns=Shape(saved=bool, image=str, rig=str, points=dict))
     def save_annotation(self, req):
         return _save_annotation(req.body)
 
-    @get("/autorig", "fit a rig to a reference image")
+    @get("/autorig", "fit a rig to a reference image",
+         returns=Shape(points=dict, proportions=dict, confidence=(int, float),
+                       notes=list))
     def autorig(self, req):
         image = files_mod.safe_path(req.required("image"), allowed_roots())
         if not image.is_file():
             raise NotFound("image", req.query("image"))
         return autorig.propose(image, req.query("rig", "humanoid")).as_dict()
 
-    @get("/rigpose", "a rig's whole topology, not only its pose")
+    @get("/rigpose", "a rig's whole topology, not only its pose",
+         returns=Shape(rig=str, label=str, joints=list, tree=dict, root=str,
+                       limbs=list, bones=list, neutral=dict, face_joints=list,
+                       colors=list, pose=dict))
     def rigpose(self, req):
         rig = rig_lib.get(req.query("rig") or None)
         return {

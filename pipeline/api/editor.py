@@ -16,6 +16,7 @@ from ..shared import limits
 from ..shared import files as files_mod
 from ..shared.errors import TooLarge
 from .context import ROOT, allowed_roots
+from .contracts import Shape
 from .routing import BaseRouter, get, post
 
 DEFERRED = {"scale"}
@@ -135,11 +136,14 @@ def editor_layers() -> dict:
 class Editor(BaseRouter):
     prefix = "/api/edit"
 
-    @post("/preview", "run a layer stack and return the image inline")
+    @post("/preview", "run a layer stack and return the image inline",
+          returns=Shape(image=str, source=str, zoom=(int, float), facts=dict))
     def preview(self, req):
         return edit_preview(req.body)
 
-    @post("/apply", "run a layer stack and write the result")
+    @post("/apply", "run a layer stack and write the result",
+          returns=Shape(written=str, width=int, height=int, zoom=int,
+                        facts=dict))
     def apply(self, req):
         return edit_apply(req.body)
 
@@ -147,6 +151,7 @@ class Editor(BaseRouter):
 class Layers(BaseRouter):
     prefix = "/api/editor"
 
-    @get("/layers", "the layer catalogue and a starting stack")
+    @get("/layers", "the layer catalogue and a starting stack",
+         returns=Shape(layers=list, default_stack=list, limits=dict))
     def catalogue(self, req):
         return editor_layers()

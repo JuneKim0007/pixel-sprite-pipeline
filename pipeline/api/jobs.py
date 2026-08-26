@@ -12,6 +12,7 @@ from typing import Any
 from ..orchestration import queue as queue_lib
 from ..shared.errors import Conflict, Invalid, NotFound
 from .context import CONFIGS, ROOT, load_roundtrip
+from .contracts import Shape
 from .routing import BaseRouter, get, post
 from .context import runs_dir
 from ..shared import errors
@@ -137,22 +138,27 @@ def autopilot_log(tail: int = 4000) -> str:
 class Jobs(BaseRouter):
     prefix = "/api/queue"
 
-    @get("", "the queue, with preflight on every pending job")
+    @get("", "the queue, with preflight on every pending job",
+         returns=Shape(states=dict, counts=dict, autopilot=dict,
+                       services=dict, dir=str))
     def state(self, req):
         return queue_state()
 
-    @get("/log", "the autopilot's log")
+    @get("/log", "the autopilot's log", returns=Shape(log=str))
     def log(self, req):
         return {"log": autopilot_log()}
 
-    @post("/submit", "queue one job, or a matrix of them")
+    @post("/submit", "queue one job, or a matrix of them",
+          returns=Shape(created=list, count=int))
     def submit(self, req):
         return queue_submit(req.get("spec") or {}, int(req.get("priority", 50)))
 
-    @post("/job", "retry, hold or drop one job")
+    @post("/job", "retry, hold or drop one job",
+          returns=Shape(ok=bool, job=str, action=str))
     def act(self, req):
         return queue_act(req.get("id", ""), req.get("action", ""))
 
-    @post("/autopilot", "start or stop the drainer")
+    @post("/autopilot", "start or stop the drainer",
+          returns=Shape(running=bool))
     def pilot(self, req):
         return autopilot(req.get("action", ""), req.body)
