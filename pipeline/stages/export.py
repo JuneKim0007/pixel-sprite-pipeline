@@ -14,7 +14,6 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 @register
 class ExportStage(Stage):
     name = "export"
-    DEFAULTS = {"scale": 1}
     resource = Resource.CPU
     requires = frozenset({"pixel_frames"})
     produces = frozenset({"sheet"})

@@ -27,13 +27,7 @@ def chosen_default(refs) -> float:
 class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
-    DEFAULTS = {
-        "ip_adapter": {}, "lcm": False, "controlnet": {},
-        "negative": vocabulary.NEGATIVE, "guard_against_skeletons": True,
-        "guard_against_faces": True, "lora_strength": 1.2,
-        "depth_controlnet": {}, "width": 1024, "height": 1024,
-        "denoise": 1.0, "timeout": 1800,
-    }
+    DEFAULTS = {"controlnet": {}, "depth_controlnet": {}, "ip_adapter": {}}
     requires = frozenset({"skeletons", "canonical", "pose_frames"})
     optional = frozenset({"depthmaps", "canonicals"})
     produces = frozenset({"frames"})

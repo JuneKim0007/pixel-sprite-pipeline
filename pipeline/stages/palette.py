@@ -31,11 +31,6 @@ def _one_frame(args: tuple) -> str:
 class PaletteStage(Stage):
     name = "palette"
     resource = Resource.CPU
-    DEFAULTS = {
-        "size": 12, "factor": 8, "reduce": "median", "alpha_tolerance": 14,
-        "upscale": 1, "source": "extract", "file": "", "clip_tolerance": 32.0,
-        "dither": False, "match": "weighted",
-    }
     requires = frozenset({"frames", "canonical"})
     optional = frozenset({"soft_frames"})
     produces = frozenset({"palette", "pixel_frames"})

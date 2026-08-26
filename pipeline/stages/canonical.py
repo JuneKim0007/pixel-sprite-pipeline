@@ -43,12 +43,7 @@ def _anchor_view(ctx, cfg) -> str | float:
 class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
-    DEFAULTS = {
-        "lcm": False, "from_reference": {}, "controlnet": {},
-        "negative": vocabulary.NEGATIVE, "lora_strength": 1.2, "seed": 1234,
-        "timeout": 1800, "per_view": False, "candidates": 1,
-        "batch_candidates": True, "width": 1024, "height": 1024,
-    }
+    DEFAULTS = {"from_reference": {}, "controlnet": {}}
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     produces = frozenset({"canonical", "canonicals"})
     needs = frozenset({'references', 'rig'})

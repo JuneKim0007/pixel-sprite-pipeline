@@ -58,7 +58,6 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
 class DepthStage(Stage):
     name = "depth"
     resource = Resource.CPU
-    DEFAULTS = {"near": 255, "far": 60, "blur": 6.0}
     requires = frozenset({"pose_frames"})
     produces = frozenset({"depthmaps"})
     needs = frozenset({'rig'})

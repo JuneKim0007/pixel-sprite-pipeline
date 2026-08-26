@@ -15,7 +15,7 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 @register
 class SoftBodyStage(Stage):
     name = "softbody"
-    DEFAULTS = {"nodes": [], "fps": 12.0, "loop": True, "preroll_cycles": 2}
+    DEFAULTS = {"nodes": []}
     resource = Resource.CPU
     requires = frozenset({"frames", "pose_frames"})
     produces = frozenset({"soft_frames"})

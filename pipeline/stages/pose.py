@@ -66,11 +66,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
 class PoseStage(Stage):
     name = "pose"
     resource = Resource.CPU
-    DEFAULTS = {
-        "size": 1024, "fill": 0.0, "depth_scale": 1.0, "lateral_scale": 1.0,
-        "views": "", "view": "side", "source": "library", "symmetric": False,
-        "name": "idle", "llm": {},
-    }
+    DEFAULTS = {"llm": {}, "views": ""}
     produces = frozenset({"skeletons", "pose_frames"})
     needs = frozenset({'references', 'rig', 'rig_record'})
 

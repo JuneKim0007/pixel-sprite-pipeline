@@ -132,5 +132,11 @@ def available() -> dict[str, type[Stage]]:
 
 
 def defaults_for(name: str) -> dict[str, Any]:
+    """A stage's settings before any config touches them. The declared defaults come from the fields that declare the bounds too; DEFAULTS holds only what a field cannot express - the empty blocks that `opt()` needs to be dicts rather than None."""
+    from .schema import SCHEMA
+
+    out = {key.split(".", 1)[1]: field.default
+           for key, field in SCHEMA.flat_defaults(name).items()}
     cls = _REGISTRY.find(name)
-    return copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {}
+    out.update(copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {})
+    return out

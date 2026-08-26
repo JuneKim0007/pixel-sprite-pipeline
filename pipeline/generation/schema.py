@@ -93,7 +93,7 @@ FIELDS: list[ConfigField] = [
              "produced earlier is rejected with an explanation. Consecutive "
              "independent CPU stages run in parallel; GPU stages never do."),
 
-    ConfigField(key="pose.source", label="Pose source", kind="select",
+    ConfigField(key="pose.source", default='library', label="Pose source", kind="select",
      options=["library", "llm", "tpose", "annotation"], group="Pose",
      help="'library' uses hand-authored poses (best quality). 'llm' drafts "
              "a new action from text and caches it. 'tpose' synthesises the "
@@ -102,21 +102,21 @@ FIELDS: list[ConfigField] = [
              "you placed become the control image, so the generation "
              "reproduces that composition with your character in it. Mark one "
              "up in the Run tab under 'Annotate reference'."),
-    ConfigField(modules=["animation"], key="pose.name", label="Library pose", kind="select",
+    ConfigField(modules=["animation"], key="pose.name", default='idle', label="Library pose", kind="select",
      options_from="poses", group="Pose", when={"pose.source": "library"},
      help="A file in poses/. Regenerate with tools/make_poses.py."),
     ConfigField(modules=["animation"], key="pose.action", label="Action (LLM)", kind="textarea",
      group="Pose", when={"pose.source": "llm"},
      help="Plain description of the motion. Be explicit about the ending "
              "position — 'ending in follow-through' beats 'attacking'."),
-    ConfigField(key="pose.symmetric", label="Symmetric reference pose",
+    ConfigField(key="pose.symmetric", default=False, label="Symmetric reference pose",
      kind="bool", modules=["character_sheet"], group="Pose",
      help="Off by default, and worth leaving off. A mirrored T-pose puts two "
              "horizontal limbs at shoulder height, and a prompt mentioning a "
              "sword or staff often comes back with blades drawn along them "
              "instead of arms. Arms-down also matches how references are "
              "usually posed."),
-    ConfigField(key="pose.view", label="Viewing angle", kind="select",
+    ConfigField(key="pose.view", default='side', label="Viewing angle", kind="select",
      options=["front", "three_quarter_front", "side", "three_quarter_rear",
                  "rear_turned", "rear"],
      free_numeric=True, group="Pose",
@@ -127,7 +127,7 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="pose.frames", label="Frame count", kind="int",
      min=1, max=24, group="Pose",
      help="Blank uses every frame in the pose file."),
-    ConfigField(key="pose.fill", label="Frame fill", kind="float",
+    ConfigField(key="pose.fill", default=0.0, label="Frame fill", kind="float",
      min=0.0, max=0.98, step=0.02, group="Pose",
      help="Fraction of the canvas the figure occupies. 0 leaves the pose at "
              "the size the rig was authored at, which is small — the humanoid "
@@ -135,22 +135,22 @@ FIELDS: list[ConfigField] = [
              "background. 0.88 makes a 128px sprite's character 113 pixels tall "
              "instead of 87, for the same GPU time. The tightest axis decides, "
              "so a wingspan cannot run off the sides."),
-    ConfigField(key="pose.size", label="Skeleton size", kind="int",
+    ConfigField(key="pose.size", default=1024, label="Skeleton size", kind="int",
      min=256, max=2048, step=64, group="Pose",
      help="Should match the generation resolution."),
-    ConfigField(key="pose.depth_scale", label="Depth exaggeration", kind="float",
+    ConfigField(key="pose.depth_scale", default=1.0, label="Depth exaggeration", kind="float",
      min=0.0, max=2.5, step=0.05, group="Pose",
      help="Scales forward/back motion without re-authoring the pose. Above "
              "1.0 makes a swing reach further."),
-    ConfigField(key="pose.lateral_scale", label="Stance width", kind="float",
+    ConfigField(key="pose.lateral_scale", default=1.0, label="Stance width", kind="float",
      min=0.0, max=2.5, step=0.05, group="Pose",
      help="Scales the character's left/right spread."),
 
-    ConfigField(key="depth.near", label="Nearest brightness", kind="int",
+    ConfigField(key="depth.near", default=255, label="Nearest brightness", kind="int",
      min=0, max=255, step=5, group="Depth",
      help="Grey value for the part of the body closest to the camera. "
              "255 is the convention the ControlNet was trained on."),
-    ConfigField(key="depth.far", label="Farthest brightness", kind="int",
+    ConfigField(key="depth.far", default=60, label="Farthest brightness", kind="int",
      min=0, max=255, step=5, group="Depth",
      help="Grey value for the farthest part. Raising it flattens the map, "
              "which weakens the sense of rotation; lowering it past ~40 starts "
@@ -164,7 +164,7 @@ FIELDS: list[ConfigField] = [
              "mapping works too, for a pot-bellied build with thin arms: "
              "{torso: 1.6, arms: 0.9}, using the same group names as "
              "proportions."),
-    ConfigField(key="depth.blur", label="Softness", kind="float",
+    ConfigField(key="depth.blur", default=6.0, label="Softness", kind="float",
      min=0.0, max=24.0, step=0.5, group="Depth",
      help="Gaussian radius over the rendered limbs. Some blur is wanted: a "
              "hard-edged depth map reads as geometry and the model draws tubes."),
@@ -189,11 +189,11 @@ FIELDS: list[ConfigField] = [
      group="LLM", when={"pose.source": "llm"},
      help="Writes to poses/generated/ so a good sequence is reusable."),
 
-    ConfigField(key="canonical.seed", label="Seed", kind="int",
+    ConfigField(key="canonical.seed", default=1234, label="Seed", kind="int",
      min=0, max=2147483647, group="Canonical",
      help="PIN THIS. Every frame reuses it; changing it changes the "
              "character entirely."),
-    ConfigField(key="canonical.lcm", label="Fast LCM mode", kind="bool",
+    ConfigField(key="canonical.lcm", default=False, label="Fast LCM mode", kind="bool",
      group="Canonical",
      help="Off for the canonical. LCM is ~3x faster but drops prompt "
              "details — it lost 'holding a sword' in testing."),
@@ -203,20 +203,20 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="canonical.cfg", label="CFG", kind="float",
      min=1.0, max=14.0, step=0.1, group="Canonical",
      help="Prompt adherence. 7 is the SDXL sweet spot; use 1.5 with LCM."),
-    ConfigField(key="canonical.lora_strength", label="Pixel LoRA strength",
+    ConfigField(key="canonical.lora_strength", default=1.2, label="Pixel LoRA strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Canonical",
      help="1.2 is the pixel-art-xl author's recommendation."),
-    ConfigField(key="canonical.width", label="Width", kind="int",
+    ConfigField(key="canonical.width", default=1024, label="Width", kind="int",
      min=512, max=2048, step=64, group="Canonical",
      help="SDXL is trained at 1024; smaller degrades quality and saves less "
              "time than you'd expect."),
-    ConfigField(key="canonical.height", label="Height", kind="int",
+    ConfigField(key="canonical.height", default=1024, label="Height", kind="int",
      min=512, max=2048, step=64, group="Canonical",
      help="Pairs with Width. SDXL is trained at 1024x1024 and the further "
              "the canvas is from square, the more the composition "
              "drifts from what the prompt asked for."),
 
-    ConfigField(key="frames.lcm", label="Fast LCM mode", kind="bool",
+    ConfigField(key="frames.lcm", default=False, label="Fast LCM mode", kind="bool",
      group="Frames",
      help="On for drafts, off for the final render."),
     ConfigField(key="frames.steps", label="Steps", kind="int",
@@ -228,11 +228,11 @@ FIELDS: list[ConfigField] = [
     ConfigField(key="frames.cfg", label="CFG", kind="float",
      min=1.0, max=14.0, step=0.1, group="Frames",
      help="1.5 with LCM. Using 7 with LCM burns the image."),
-    ConfigField(key="frames.denoise", label="Denoise", kind="float",
+    ConfigField(key="frames.denoise", default=1.0, label="Denoise", kind="float",
      min=0.0, max=1.0, step=0.05, group="Frames",
      help="1.0 generates fresh. Below 1.0 carries over the input latent — "
              "this is the 'how much of the previous step survives' dial."),
-    ConfigField(key="frames.guard_against_faces", label="Guard against faces on rear views",
+    ConfigField(key="frames.guard_against_faces", default=True, label="Guard against faces on rear views",
      kind="bool", group="Pose control",
      help="Add face, eyes, nose to the NEGATIVE on rear and near-rear "
              "frames. Depth renders the head as a capsule - measured, a front "
@@ -240,7 +240,7 @@ FIELDS: list[ConfigField] = [
              "maps are identical under mirroring - and the skeleton channel, "
              "which does encode facing, is off for a standing sheet. So "
              "nothing geometric says 'no face' and the model draws one."),
-    ConfigField(key="frames.guard_against_skeletons", label="Guard against tracing",
+    ConfigField(key="frames.guard_against_skeletons", default=True, label="Guard against tracing",
      kind="bool", group="Pose control",
      help="Appends anti-skeleton terms to the negative prompt whenever a "
              "pose guide is used. Without it the model sometimes draws the "
@@ -273,35 +273,35 @@ FIELDS: list[ConfigField] = [
                  "composition", "style and composition"],
      help="How the reference is blended into conditioning."),
 
-    ConfigField(modules=["animation"], key="softbody.fps", label="Playback fps",
+    ConfigField(modules=["animation"], key="softbody.fps", default=12.0, label="Playback fps",
      kind="float", min=1, max=60, step=1, group="Softbody",
      help="The rate the spring simulation assumes when it computes lag."),
-    ConfigField(modules=["animation"], key="softbody.loop", label="Cyclic motion",
+    ConfigField(modules=["animation"], key="softbody.loop", default=True, label="Cyclic motion",
      kind="bool", group="Softbody",
      help="Pre-rolls the simulation so frame 0 is not sitting at rest, which "
              "otherwise reads as a hitch every time the loop restarts."),
-    ConfigField(key="palette.source", label="Palette source", kind="select",
+    ConfigField(key="palette.source", default='extract', label="Palette source", kind="select",
      options=["extract", "file", "llm"], group="Palette",
      help="'extract' derives from the canonical and always matches the art. "
              "'file' reuses a committed palette, keeping separate runs of the "
              "same character on-model. 'llm' chooses one by subject — only "
              "chooses; applying it stays deterministic, which is what stops "
              "frames drifting in colour."),
-    ConfigField(key="palette.file", label="Palette file", kind="select",
+    ConfigField(key="palette.file", default='', label="Palette file", kind="select",
      options_from="palettes", group="Palette",
      when={"palette.source": "file"},
      help="One of the .hex files under palettes/. Committing one is what "
              "makes colour exact rather than probabilistic: snapping is "
              "deterministic, so two runs of the same character land on "
              "the same entries."),
-    ConfigField(key="palette.size", label="Palette size", kind="int",
+    ConfigField(key="palette.size", default=12, label="Palette size", kind="int",
      min=2, max=64, group="Palette",
      help="Number of colours the whole animation is quantised to."),
-    ConfigField(key="palette.factor", label="Downscale factor", kind="int",
+    ConfigField(key="palette.factor", default=8, label="Downscale factor", kind="int",
      min=2, max=16, group="Palette",
      help="8 gives 128px sprites from 1024. Verified as this LoRA's true "
              "pixel grid by an intra-block variance sweep."),
-    ConfigField(key="palette.reduce", label="Block reduction", kind="select",
+    ConfigField(key="palette.reduce", default='median', label="Block reduction", kind="select",
      options=["median", "salient", "clipped", "mode", "mean"], group="Palette",
      help="median measured 100% structural accuracy against ground truth; "
              "mode only 70% (noise makes every colour unique). 'clipped' means "
@@ -309,7 +309,7 @@ FIELDS: list[ConfigField] = [
              "from its mean, then re-averaging - it rejects a specular outlier "
              "that would drag a plain mean, while still letting the survivors "
              "average rather than picking one of them."),
-    ConfigField(key="palette.clip_tolerance", label="Clip tolerance", kind="float",
+    ConfigField(key="palette.clip_tolerance", default=32.0, label="Clip tolerance", kind="float",
      min=0.0, max=255.0, step=1.0, group="Palette",
      when={"palette.reduce": "clipped"},
      help="RGB distance from the block mean beyond which a pixel is "
@@ -317,11 +317,11 @@ FIELDS: list[ConfigField] = [
              "the block's own spread, so one setting behaves the same on a "
              "flat block and a busy one. Blocks where too little survives fall "
              "back to median, which is what stops thin outlines being eaten."),
-    ConfigField(key="palette.alpha_tolerance", label="Background tolerance",
+    ConfigField(key="palette.alpha_tolerance", default=14, label="Background tolerance",
      kind="int", min=0, max=128, group="Palette",
      help="Edge-connected background within this tolerance becomes "
              "transparent. Enclosed regions are preserved."),
-    ConfigField(key="palette.upscale", label="Frame upscale", kind="int",
+    ConfigField(key="palette.upscale", default=1, label="Frame upscale", kind="int",
      min=1, max=16, group="Palette",
      help="Nearest-neighbour, for viewing."),
     ConfigField(key="palette.workers", label="Worker processes", kind="int",
@@ -340,7 +340,7 @@ FIELDS: list[ConfigField] = [
      group="Palette",
      help="Off leaves the background to the prompt, which is what you want "
              "if a scene is part of the art."),
-    ConfigField(key="palette.match", label="Colour matching", kind="select",
+    ConfigField(key="palette.match", default='weighted', label="Colour matching", kind="select",
      options=["weighted", "luma", "lab", "rgb"], group="Palette",
      help="How 'nearest colour' is decided when snapping to a fixed "
              "palette. 'weighted' applies luminance weights and costs nothing "
@@ -351,14 +351,14 @@ FIELDS: list[ConfigField] = [
              "faithful for recolouring, at roughly ten times the cost. 'rgb' "
              "is what earlier outputs used. Irrelevant when the palette is "
              "extracted, since it already came from these pixels."),
-    ConfigField(key="palette.dither", label="Dither", kind="bool", group="Palette",
+    ConfigField(key="palette.dither", default=False, label="Dither", kind="bool", group="Palette",
      help="Trades flat blocks for apparent colour depth. Leave off for the "
              "chunky RPG-Maker idiom; turn on when a small palette has to "
              "carry a gradient."),
     ConfigField(key="export.columns", label="Sheet columns", kind="int",
      min=1, max=32, group="Export",
      help="Blank puts every frame in one row."),
-    ConfigField(key="export.scale", label="Sheet upscale", kind="int",
+    ConfigField(key="export.scale", default=1, label="Sheet upscale", kind="int",
      min=1, max=16, group="Export",
      help="Nearest-neighbour magnification baked into the written sheet, so "
              "4x is sixteen times the pixels on disk. Leave it at 1 "
@@ -459,16 +459,16 @@ FIELDS: list[ConfigField] = [
      kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
      help="Fraction of sampling the control steers for. Held late, the "
              "model draws the guide rather than a character."),
-    ConfigField(key="canonical.timeout", label="Timeout (seconds)", kind="int",
+    ConfigField(key="canonical.timeout", default=1800, label="Timeout (seconds)", kind="int",
      min=60, max=21600, step=60, group="Canonical",
      help="How long one image may take before the run gives up. Per image, "
              "not per stage — candidates are generated sequentially, so four "
              "of them get four separate budgets."),
-    ConfigField(key="frames.timeout", label="Timeout (seconds)", kind="int",
+    ConfigField(key="frames.timeout", default=1800, label="Timeout (seconds)", kind="int",
      min=60, max=21600, step=60, group="Frames",
      help="Per frame. A stage that hangs holds the queue, so this is the "
              "difference between one bad job and a wasted night."),
-    ConfigField(key="canonical.candidates", label="Canonical candidates", kind="int",
+    ConfigField(key="canonical.candidates", default=1, label="Canonical candidates", kind="int",
      min=1, max=8, group="Quality",
      help="Generate this many canonical sprites in one batch and keep them "
              "all, so you can pick the best identity anchor instead of "
@@ -633,7 +633,7 @@ FIELDS: list[ConfigField] = [
              "overhead regardless of steps, so batching amortises it: batch 4 "
              "measured 49s/image versus 71s one at a time."),
 
-    ConfigField(key="canonical.per_view", label="One anchor per view", kind="bool",
+    ConfigField(key="canonical.per_view", default=False, label="One anchor per view", kind="bool",
      group="Canonical",
      help="Generate a canonical for every view in pose.set instead of one "
              "for the first. With a single front anchor the other views must "
@@ -642,7 +642,7 @@ FIELDS: list[ConfigField] = [
              "medium. Per view one input is correct on both. They do not drift "
              "apart, because each is pinned to a labelled view of the same "
              "reference sheet. Costs one generation per view."),
-    ConfigField(key="canonical.batch_candidates", label="Batch the candidates",
+    ConfigField(key="canonical.batch_candidates", default=True, label="Batch the candidates",
      kind="bool", group="Canonical",
      help="One prompt for all candidates instead of one each. Measured 14% "
              "faster and under half the swapping — but batching cannot rest "
@@ -659,7 +659,7 @@ FIELDS: list[ConfigField] = [
      help="Which way the anchor faces — a named view or degrees. Blank "
              "follows the first entry in pose.set, which is what a sheet "
              "wants: every other frame then turns away from it symmetrically."),
-    ConfigField(key="canonical.negative", label="Negative prompt", kind="textarea",
+    ConfigField(key="canonical.negative", default='blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors', label="Negative prompt", kind="textarea",
      group="Canonical",
      help="Naming a failure is what stops it. The default names the "
              "tracing failure (skeleton, bones, stick figure, wireframe)."),
@@ -675,11 +675,11 @@ FIELDS: list[ConfigField] = [
              "lets the model choose a layout and only then corrects it "
              "toward the guide."),
 
-    ConfigField(key="frames.width", label="Width", kind="int",
+    ConfigField(key="frames.width", default=1024, label="Width", kind="int",
      min=512, max=2048, step=64, group="Frames",
      help="Keep equal to canonical.width — the anchor and the frames should "
              "be drawn at one scale."),
-    ConfigField(key="frames.height", label="Height", kind="int",
+    ConfigField(key="frames.height", default=1024, label="Height", kind="int",
      min=512, max=2048, step=64, group="Frames",
      help="Keep equal to canonical.height, for the reason Width is kept "
              "equal — the anchor and the frames should be drawn at one "
@@ -689,13 +689,13 @@ FIELDS: list[ConfigField] = [
      min=0, max=2147483647, group="Frames",
      help="Identical for every frame on purpose: same seed, same prompt, "
              "same anchor, DIFFERENT skeleton is the consistency recipe."),
-    ConfigField(key="frames.lora_strength", label="Pixel LoRA strength",
+    ConfigField(key="frames.lora_strength", default=1.2, label="Pixel LoRA strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Frames",
      help="The pixel LoRA's weight on the frames. Keep it equal to "
              "canonical.lora_strength: the frames are matched against "
              "the anchor, and a different style weight is one more "
              "difference that match has to absorb."),
-    ConfigField(key="frames.negative", label="Negative prompt", kind="textarea",
+    ConfigField(key="frames.negative", default='blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, realistic, 3d render, watermark, signature, text, extra limbs, deformed, low contrast, muddy colors', label="Negative prompt", kind="textarea",
      group="Frames",
      help="The base negative every frame starts from. The pose, backdrop and "
              "facing guards append to it rather than replace it, so "
@@ -742,7 +742,7 @@ FIELDS: list[ConfigField] = [
      min=256, max=2048, step=64, group="Depth",
      help="Blank follows pose.size. Both are control images, so they should "
              "match the canvas they steer."),
-    ConfigField(key="softbody.preroll_cycles", label="Preroll cycles", kind="int",
+    ConfigField(key="softbody.preroll_cycles", default=2, label="Preroll cycles", kind="int",
      min=0, max=16, group="Softbody",
      help="Cycles simulated before the first kept frame, so the wobble "
              "starts settled instead of springing from rest."),
@@ -828,19 +828,6 @@ def _stage_names() -> list[str]:
     return list(available())
 
 
-_MISSING = object()
-
-
-def _declared_default(path: str) -> Any:
-    """The stage's own DEFAULTS entry for a dotted path, if it declares one."""
-    from .stage import defaults_for
-
-    stage, _, key = path.partition(".")
-    if not key or "." in key:
-        return _MISSING
-    return defaults_for(stage).get(key, _MISSING)
-
-
 def _render(field: ConfigField) -> dict:
     base = field.declared()
     modules = base.pop("modules")
@@ -884,12 +871,15 @@ class ConfigSchema:
             override = (entry.pop("help_for", None) or {}).get(module or "")
             if override:
                 entry["help"] = override
-            if "default" not in entry:
-                found = _declared_default(entry["path"])
-                if found is not _MISSING:
-                    entry["default"] = found
             out.append(entry)
         return out
+
+    def flat_defaults(self, stage: str) -> dict[str, ConfigField]:
+        """Fields of one stage that are a direct child of it - `frames.steps`, not `frames.controlnet.strength`, because `stage_config` merges shallowly and a nested default would be replaced wholesale by any config that sets one sibling."""
+        prefix = f"{stage}."
+        return {f.key: f for f in self.fields
+                if f.key.startswith(prefix) and "." not in f.key[len(prefix):]
+                and f.default is not None}
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
         from .stage import available
