@@ -181,9 +181,16 @@ Each step is independently useful and independently verifiable.
    `schema.FIELDS` (137) and `definitive`'s 20 are `Field` subclasses, and the
    "every field carries an explanation" test now covers all 157 — the twenty
    that answered it with the word `TODO` were written out 2026-08-26 and
-   `Field` refuses a placeholder. *Left:* `Stage.DEFAULTS`, the third shape,
-   and making `schema.FIELDS` a projection of the nodes rather than a parallel
-   list.
+   `Field` refuses a placeholder. A field can now also carry its own default:
+   `_render` used to `del base["default"]` unconditionally, so the only source
+   was `Stage.DEFAULTS` — and `_declared_default` stops at one dot, which left
+   **all 34 nested fields with no default at all**. 29 are now declared where
+   their bounds are, each verified against the `opt()` call site that reads it
+   and pinned there by a test. The other 5 have no static answer: two are
+   conditional (`0.55 if strong else 0.30`), one is computed from the
+   references, and two mean "follow the rig" when blank. *Left:*
+   `Stage.DEFAULTS`, the third shape, and making `schema.FIELDS` a projection
+   of the nodes rather than a parallel list.
 2. **`LayerSpec` gains `needs`/`gives`.** `check_order`'s three warnings become
    validation. Verify: `palette` before `grid` is refused, not warned.
 3. ~~**`Node.prepare` on stages.**~~ **Done 2026-08-13.** `Stage.prepare(ctx)`

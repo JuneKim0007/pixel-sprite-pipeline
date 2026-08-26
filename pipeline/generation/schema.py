@@ -169,23 +169,23 @@ FIELDS: list[ConfigField] = [
      help="Gaussian radius over the rendered limbs. Some blur is wanted: a "
              "hard-edged depth map reads as geometry and the model draws tubes."),
 
-    ConfigField(modules=["animation"], key="pose.llm.model", label="Model", kind="select",
+    ConfigField(modules=["animation"], key="pose.llm.model", default="qwen3:4b", label="Model", kind="select",
      options_from="ollama", group="LLM", when={"pose.source": "llm"},
      help="Must be pulled in Ollama. Bigger models write better motion."),
-    ConfigField(modules=["animation"], key="pose.llm.temperature", label="Temperature", kind="float",
+    ConfigField(modules=["animation"], key="pose.llm.temperature", default=0.7, label="Temperature", kind="float",
      min=0.0, max=2.0, step=0.05, group="LLM",
      when={"pose.source": "llm"},
      help="Creativity of the LLM only. This has nothing to do with image "
              "variation — that is CFG and seed."),
-    ConfigField(modules=["animation"], key="pose.llm.attempts", label="Retry attempts", kind="int",
+    ConfigField(modules=["animation"], key="pose.llm.attempts", default=3, label="Retry attempts", kind="int",
      min=1, max=8, group="LLM", when={"pose.source": "llm"},
      help="Rejected poses are fed back as explicit criticism and retried."),
-    ConfigField(modules=["animation"], key="pose.llm.tolerance", label="Anatomy tolerance", kind="float",
+    ConfigField(modules=["animation"], key="pose.llm.tolerance", default=0.3, label="Anatomy tolerance", kind="float",
      min=0.05, max=1.0, step=0.05, group="LLM",
      when={"pose.source": "llm"},
      help="Allowed bone-length drift after anatomy snapping. Tighter is "
              "stricter; snapping already makes bones near-exact."),
-    ConfigField(modules=["animation"], key="pose.llm.cache", label="Cache accepted poses", kind="bool",
+    ConfigField(modules=["animation"], key="pose.llm.cache", default=True, label="Cache accepted poses", kind="bool",
      group="LLM", when={"pose.source": "llm"},
      help="Writes to poses/generated/ so a good sequence is reusable."),
 
@@ -246,28 +246,28 @@ FIELDS: list[ConfigField] = [
              "pose guide is used. Without it the model sometimes draws the "
              "guide itself — measured: a T-pose produced a figure with swords "
              "where its arms should be, and an undead-looking body."),
-    ConfigField(key="frames.controlnet.enabled", label="Use the pose guide",
+    ConfigField(key="frames.controlnet.enabled", default=True, label="Use the pose guide",
      kind="bool", group="Pose control",
      help="Off is right for a standing character sheet. Measured: with it "
              "on, legs came back as white shafts with ball joints — the guide "
              "drawn as bones — while depth alone gave armoured legs and boots. "
              "Leave it on for attack, hit and fall, where the pose is the "
              "point."),
-    ConfigField(key="frames.controlnet.strength", label="ControlNet strength",
+    ConfigField(key="frames.controlnet.strength", default=0.75, label="ControlNet strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
      help="How hard the pose guide is enforced. Above ~0.85 the model starts "
              "tracing the guide instead of using it, which is what produces "
              "stick-figure or skeletal output."),
-    ConfigField(key="frames.controlnet.end_percent", label="ControlNet end %",
+    ConfigField(key="frames.controlnet.end_percent", default=0.55, label="ControlNet end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Fraction of sampling the guide steers for. 0.55 lands the pose "
              "and leaves the second half for the LoRA to render a character "
              "over it; holding it longer produces a traced stick figure."),
-    ConfigField(key="frames.ip_adapter.weight", label="IP-Adapter weight",
+    ConfigField(key="frames.ip_adapter.weight", default=0.85, label="IP-Adapter weight",
      kind="float", min=0.0, max=1.5, step=0.05, group="Identity",
      help="0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too "
              "high looks pasted on and fights the pose."),
-    ConfigField(key="frames.ip_adapter.weight_type", label="Weight type",
+    ConfigField(key="frames.ip_adapter.weight_type", default="linear", label="Weight type",
      kind="select", group="Identity",
      options=["standard", "prompt is more important", "style transfer",
                  "composition", "style and composition"],
@@ -371,7 +371,7 @@ FIELDS: list[ConfigField] = [
      help="Where ComfyUI is listening, normally http://127.0.0.1:8188. Set "
              "it here only to point one config at a different instance "
              "than the machine default in _global.yaml."),
-    ConfigField(modules=["animation"], key="pose.llm.host", label="Ollama host", kind="text",
+    ConfigField(modules=["animation"], key="pose.llm.host", default="http://127.0.0.1:11434", label="Ollama host", kind="text",
      group="Services",
      help="Where Ollama is listening, normally http://127.0.0.1:11434. Only "
              "reached by the settings set to 'llm'; every other path is "
@@ -387,7 +387,7 @@ FIELDS: list[ConfigField] = [
      help="How hard style references push. Deliberately an order of "
              "magnitude below identity — at identity strength a style exemplar "
              "replaces your character with the exemplar."),
-    ConfigField(key="references.match.tolerance_degrees", label="Match tolerance",
+    ConfigField(key="references.match.tolerance_degrees", default=40.0, label="Match tolerance",
      kind="float", min=0.0, max=180.0, step=5.0, group="References",
      help="A reference within this many degrees of the frame's viewing "
              "angle counts as a match and gets full weight."),
@@ -399,7 +399,7 @@ FIELDS: list[ConfigField] = [
              "overnight/{name}/refs/{view}.png. Views: front, back, side_left, "
              "side_right. Only files that exist are added, and a view you "
              "configured explicitly always wins."),
-    ConfigField(key="references.match.side_fallback", label="Missing side",
+    ConfigField(key="references.match.side_fallback", default="none", label="Missing side",
      kind="select", options=["none", "mirror", "back", "front"],
      group="References",
      help="What covers a side with no reference of its own. 'mirror' reuses "
@@ -412,13 +412,13 @@ FIELDS: list[ConfigField] = [
      help="IP-Adapter weight when a reference matches the view. High is "
              "correct here — you have real evidence of what that side looks "
              "like."),
-    ConfigField(key="references.match.far_weight", label="Weight when unmatched",
+    ConfigField(key="references.match.far_weight", default=0.45, label="Weight when unmatched",
      kind="float", min=0.0, max=1.5, step=0.05, group="References",
      help="Weight at a full 180-degree mismatch, interpolated in between. "
              "Keep this LOW. Forcing a front reference onto a rear generation "
              "produces a front-facing sprite that fights the pose; a weak hint "
              "leaves the model free to invent the unseen side."),
-    ConfigField(key="references.match.auto", label="Automatic falloff", kind="bool",
+    ConfigField(key="references.match.auto", default=True, label="Automatic falloff", kind="bool",
      group="References",
      help="On: weight is chosen per frame from angular distance. Off: the "
              "fixed Identity weight is used for every frame."),
@@ -443,7 +443,7 @@ FIELDS: list[ConfigField] = [
      help="sgm_uniform under LCM, karras otherwise, matching the anchor. The "
              "scheduler decides where the steps are spent, and LCM's "
              "distillation assumes the uniform spacing."),
-    ConfigField(key="canonical.controlnet.enabled", label="Condition the anchor",
+    ConfigField(key="canonical.controlnet.enabled", default=True, label="Condition the anchor",
      kind="bool", group="Canonical",
      help="Send the pose guide and depth map to the anchor as well as to "
              "the frames. Without it the anchor is generated from prompt and "
@@ -521,18 +521,18 @@ FIELDS: list[ConfigField] = [
              "downscaled painting. Every other default here is tuned "
              "around it, so swapping it means re-tuning both "
              "lora_strength dials."),
-    ConfigField(key="frames.ip_adapter.anchor", label="Anchor to canonical",
+    ConfigField(key="frames.ip_adapter.anchor", default=True, label="Anchor to canonical",
      kind="bool", group="Identity",
      help="Apply the canonical sprite to every frame at equal weight, "
              "underneath the matched identity reference. It is the only input "
              "that does not vary, so it is what keeps frames on-model with "
              "each other. Turning it off reverts to steering from the "
              "reference alone, which leaves rear views with no anchor."),
-    ConfigField(key="frames.ip_adapter.anchor_weight", label="Anchor weight",
+    ConfigField(key="frames.ip_adapter.anchor_weight", default=0.9, label="Anchor weight",
      kind="float", min=0.0, max=1.2, step=0.05, group="Identity",
      help="How hard the canonical pulls. Too high and every frame becomes "
              "the canonical's pose; too low and the frames drift apart."),
-    ConfigField(key="frames.ip_adapter.anchor_weight_type", label="Anchor transfer",
+    ConfigField(key="frames.ip_adapter.anchor_weight_type", default="linear", label="Anchor transfer",
      kind="select",
      options=["linear", "style transfer", "style and composition", "strong style transfer"],
      group="Identity",
@@ -541,7 +541,7 @@ FIELDS: list[ConfigField] = [
              "front-facing — at anchor weight 0.9 it outvoted the depth map "
              "that carries yaw and every side and rear frame came back facing "
              "front, with the canonical's backdrop over the keyed one."),
-    ConfigField(key="frames.ip_adapter.anchor_falloff", label="Anchor falloff",
+    ConfigField(key="frames.ip_adapter.anchor_falloff", default=0.0, label="Anchor falloff",
      kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
      help="How much the anchor weakens as a frame turns away from it. "
              "Reference weight already falls off with angle; the anchor's did "
@@ -550,10 +550,10 @@ FIELDS: list[ConfigField] = [
              "away — the anchor outvoted the only image showing the back. "
              "0 keeps the old fixed behaviour. Needs a reference at the far "
              "views, or nothing holds them together."),
-    ConfigField(key="frames.ip_adapter.anchor_far_weight", label="Anchor weight when opposite",
+    ConfigField(key="frames.ip_adapter.anchor_far_weight", default=0.5, label="Anchor weight when opposite",
      kind="float", min=0.0, max=1.2, step=0.05, group="Identity",
      help="What the anchor decays to 180 degrees away, at falloff 1.0."),
-    ConfigField(key="frames.ip_adapter.anchor_end_at", label="Anchor end %",
+    ConfigField(key="frames.ip_adapter.anchor_end_at", default=1.0, label="Anchor end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
      help="Fraction of sampling the anchor steers for. 1.0 holds identity "
              "throughout. Lower it if frames still inherit the anchor's pose "
@@ -668,7 +668,7 @@ FIELDS: list[ConfigField] = [
      help="The Union model handles ten conditioning types and defaults to "
              "guessing. Naming the input is the difference between the pose "
              "being applied and quietly ignored."),
-    ConfigField(key="canonical.controlnet.start_percent", label="Anchor control start",
+    ConfigField(key="canonical.controlnet.start_percent", default=0.0, label="Anchor control start",
      kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
      help="Fraction of sampling before the control begins. At 0 the "
              "composition is fixed from the first step; starting late "
@@ -706,32 +706,32 @@ FIELDS: list[ConfigField] = [
              "always what you want. Name one only to override, and know "
              "that naming the wrong one means the skeleton is quietly "
              "ignored rather than refused."),
-    ConfigField(key="frames.controlnet.start_percent", label="ControlNet start %",
+    ConfigField(key="frames.controlnet.start_percent", default=0.0, label="ControlNet start %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Fraction of sampling before the pose control begins. The pose is "
              "the whole reason a frame differs from the anchor, so this "
              "normally starts at 0 — a late start gives the model time "
              "to commit to a pose of its own first."),
-    ConfigField(key="frames.depth_controlnet.strength", label="Depth strength",
+    ConfigField(key="frames.depth_controlnet.strength", default=0.45, label="Depth strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
      help="Depth is the ONLY channel that carries the viewing angle — a 2D "
              "skeleton cannot express yaw. But the capsules are a bare body, "
              "so pushing this hard makes a costumed character collapse toward "
              "the naked silhouette: at 0.75 a veiled figure came back columnar."),
-    ConfigField(key="frames.depth_controlnet.start_percent", label="Depth start %",
+    ConfigField(key="frames.depth_controlnet.start_percent", default=0.0, label="Depth start %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="When the depth channel joins. Depth is what carries the viewing "
              "angle, which a 2D skeleton cannot express, so a late "
              "start means the early steps commit to the wrong yaw."),
-    ConfigField(key="frames.depth_controlnet.end_percent", label="Depth end %",
+    ConfigField(key="frames.depth_controlnet.end_percent", default=0.6, label="Depth end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Hold it long enough to survive the anchor, which runs to 100%."),
-    ConfigField(key="frames.ip_adapter.start_at", label="Identity start %",
+    ConfigField(key="frames.ip_adapter.start_at", default=0.0, label="Identity start %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
      help="When identity conditioning joins. Late means the frame's layout "
              "is settled before the reference is consulted, which "
              "protects the pose at the cost of likeness."),
-    ConfigField(key="frames.ip_adapter.end_at", label="Identity end %",
+    ConfigField(key="frames.ip_adapter.end_at", default=1.0, label="Identity end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Identity",
      help="When identity conditioning stops. Releasing early lets the last "
              "steps sharpen without the reference pulling detail back "
@@ -851,7 +851,9 @@ def _render(field: ConfigField) -> dict:
     base["group"] = base.pop("group")
     base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
                         for o in field.options]
-    del base["default"]
+    # `del` unconditionally is why no field could carry its own default: a value declared beside the bounds it obeys was dropped before the form ever saw it, and only Stage.DEFAULTS could supply one — which reaches nothing nested, since _declared_default stops at one dot.
+    if base["default"] is None:
+        del base["default"]
     for key, empty in (("min", None), ("max", None), ("step", None),
                         ("options", []), ("when", {})):
         if base[key] == empty:

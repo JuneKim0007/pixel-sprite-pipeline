@@ -220,6 +220,7 @@
       "type": "float"
     },
     {
+      "default": "qwen3:4b",
       "group": "LLM",
       "help": "Must be pulled in Ollama. Bigger models write better motion.",
       "label": "Model",
@@ -234,6 +235,7 @@
       }
     },
     {
+      "default": 0.7,
       "group": "LLM",
       "help": "Creativity of the LLM only. This has nothing to do with image variation \u2014 that is CFG and seed.",
       "label": "Temperature",
@@ -250,6 +252,7 @@
       }
     },
     {
+      "default": 3,
       "group": "LLM",
       "help": "Rejected poses are fed back as explicit criticism and retried.",
       "label": "Retry attempts",
@@ -265,6 +268,7 @@
       }
     },
     {
+      "default": 0.3,
       "group": "LLM",
       "help": "Allowed bone-length drift after anatomy snapping. Tighter is stricter; snapping already makes bones near-exact.",
       "label": "Anatomy tolerance",
@@ -281,6 +285,7 @@
       }
     },
     {
+      "default": true,
       "group": "LLM",
       "help": "Writes to poses/generated/ so a good sequence is reusable.",
       "label": "Cache accepted poses",
@@ -418,6 +423,7 @@
       "type": "bool"
     },
     {
+      "default": true,
       "group": "Pose control",
       "help": "Off is right for a standing character sheet. Measured: with it on, legs came back as white shafts with ball joints \u2014 the guide drawn as bones \u2014 while depth alone gave armoured legs and boots. Leave it on for attack, hit and fall, where the pose is the point.",
       "label": "Use the pose guide",
@@ -425,6 +431,7 @@
       "type": "bool"
     },
     {
+      "default": 0.75,
       "group": "Pose control",
       "help": "How hard the pose guide is enforced. Above ~0.85 the model starts tracing the guide instead of using it, which is what produces stick-figure or skeletal output.",
       "label": "ControlNet strength",
@@ -435,6 +442,7 @@
       "type": "float"
     },
     {
+      "default": 0.55,
       "group": "Pose control",
       "help": "Fraction of sampling the guide steers for. 0.55 lands the pose and leaves the second half for the LoRA to render a character over it; holding it longer produces a traced stick figure.",
       "label": "ControlNet end %",
@@ -445,6 +453,7 @@
       "type": "float"
     },
     {
+      "default": 0.85,
       "group": "Identity",
       "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too high looks pasted on and fights the pose.",
       "label": "IP-Adapter weight",
@@ -455,6 +464,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "How the reference is blended into conditioning.",
       "label": "Weight type",
@@ -659,6 +669,7 @@
       "type": "text"
     },
     {
+      "default": "http://127.0.0.1:11434",
       "group": "Services",
       "help": "Where Ollama is listening, normally http://127.0.0.1:11434. Only reached by the settings set to 'llm'; every other path is deterministic and runs with it down.",
       "label": "Ollama host",
@@ -686,6 +697,7 @@
       "type": "float"
     },
     {
+      "default": 40.0,
       "group": "References",
       "help": "A reference within this many degrees of the frame's viewing angle counts as a match and gets full weight.",
       "label": "Match tolerance",
@@ -703,6 +715,7 @@
       "type": "text"
     },
     {
+      "default": "none",
       "group": "References",
       "help": "What covers a side with no reference of its own. 'mirror' reuses the other side flipped - right for a symmetric outfit, wrong for a cape or an asymmetric skirt. 'back' shares most silhouette with a profile. 'none' leaves pick() to weaken the nearest reference, which is the honest default when nothing is known.",
       "label": "Missing side",
@@ -726,6 +739,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "References",
       "help": "Weight at a full 180-degree mismatch, interpolated in between. Keep this LOW. Forcing a front reference onto a rear generation produces a front-facing sprite that fights the pose; a weak hint leaves the model free to invent the unseen side.",
       "label": "Weight when unmatched",
@@ -736,6 +750,7 @@
       "type": "float"
     },
     {
+      "default": true,
       "group": "References",
       "help": "On: weight is chosen per frame from angular distance. Off: the fixed Identity weight is used for every frame.",
       "label": "Automatic falloff",
@@ -811,6 +826,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Canonical",
       "help": "Send the pose guide and depth map to the anchor as well as to the frames. Without it the anchor is generated from prompt and reference alone, which is how a bow ended up drawn twice: the words said 'holding a bow' and nothing said where. With it too strong the anchor traces the depth silhouette instead. The strengths below default lower than the frames stage's because the anchor has no anchor of its own to pull against.",
       "label": "Condition the anchor",
@@ -983,6 +999,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Identity",
       "help": "Apply the canonical sprite to every frame at equal weight, underneath the matched identity reference. It is the only input that does not vary, so it is what keeps frames on-model with each other. Turning it off reverts to steering from the reference alone, which leaves rear views with no anchor.",
       "label": "Anchor to canonical",
@@ -990,6 +1007,7 @@
       "type": "bool"
     },
     {
+      "default": 0.9,
       "group": "Identity",
       "help": "How hard the canonical pulls. Too high and every frame becomes the canonical's pose; too low and the frames drift apart.",
       "label": "Anchor weight",
@@ -1000,6 +1018,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "What the anchor carries. Keep 'linear'. 'style and composition' also copies the canonical's LAYOUT, and the canonical is front-facing \u2014 at anchor weight 0.9 it outvoted the depth map that carries yaw and every side and rear frame came back facing front, with the canonical's backdrop over the keyed one.",
       "label": "Anchor transfer",
@@ -1013,6 +1032,7 @@
       "type": "select"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "How much the anchor weakens as a frame turns away from it. Reference weight already falls off with angle; the anchor's did not, so on a rear frame the FRONT canonical stayed at full weight while the rear reference was discounted for being far away \u2014 the anchor outvoted the only image showing the back. 0 keeps the old fixed behaviour. Needs a reference at the far views, or nothing holds them together.",
       "label": "Anchor falloff",
@@ -1023,6 +1043,7 @@
       "type": "float"
     },
     {
+      "default": 0.5,
       "group": "Identity",
       "help": "What the anchor decays to 180 degrees away, at falloff 1.0.",
       "label": "Anchor weight when opposite",
@@ -1033,6 +1054,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "Fraction of sampling the anchor steers for. 1.0 holds identity throughout. Lower it if frames still inherit the anchor's pose after switching transfer to linear.",
       "label": "Anchor end %",
@@ -1219,6 +1241,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Canonical",
       "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
@@ -1286,6 +1309,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
@@ -1296,6 +1320,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "Pose control",
       "help": "Depth is the ONLY channel that carries the viewing angle \u2014 a 2D skeleton cannot express yaw. But the capsules are a bare body, so pushing this hard makes a costumed character collapse toward the naked silhouette: at 0.75 a veiled figure came back columnar.",
       "label": "Depth strength",
@@ -1306,6 +1331,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
@@ -1316,6 +1342,7 @@
       "type": "float"
     },
     {
+      "default": 0.6,
       "group": "Pose control",
       "help": "Hold it long enough to survive the anchor, which runs to 100%.",
       "label": "Depth end %",
@@ -1326,6 +1353,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
@@ -1336,6 +1364,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
@@ -1717,6 +1746,7 @@
       "type": "bool"
     },
     {
+      "default": true,
       "group": "Pose control",
       "help": "Off is right for a standing character sheet. Measured: with it on, legs came back as white shafts with ball joints \u2014 the guide drawn as bones \u2014 while depth alone gave armoured legs and boots. Leave it on for attack, hit and fall, where the pose is the point.",
       "label": "Use the pose guide",
@@ -1724,6 +1754,7 @@
       "type": "bool"
     },
     {
+      "default": 0.75,
       "group": "Pose control",
       "help": "How hard the pose guide is enforced. Above ~0.85 the model starts tracing the guide instead of using it, which is what produces stick-figure or skeletal output.",
       "label": "ControlNet strength",
@@ -1734,6 +1765,7 @@
       "type": "float"
     },
     {
+      "default": 0.55,
       "group": "Pose control",
       "help": "Fraction of sampling the guide steers for. 0.55 lands the pose and leaves the second half for the LoRA to render a character over it; holding it longer produces a traced stick figure.",
       "label": "ControlNet end %",
@@ -1744,6 +1776,7 @@
       "type": "float"
     },
     {
+      "default": 0.85,
       "group": "Identity",
       "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too high looks pasted on and fights the pose.",
       "label": "IP-Adapter weight",
@@ -1754,6 +1787,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "How the reference is blended into conditioning.",
       "label": "Weight type",
@@ -1950,6 +1984,7 @@
       "type": "float"
     },
     {
+      "default": 40.0,
       "group": "References",
       "help": "A reference within this many degrees of the frame's viewing angle counts as a match and gets full weight.",
       "label": "Match tolerance",
@@ -1967,6 +2002,7 @@
       "type": "text"
     },
     {
+      "default": "none",
       "group": "References",
       "help": "What covers a side with no reference of its own. 'mirror' reuses the other side flipped - right for a symmetric outfit, wrong for a cape or an asymmetric skirt. 'back' shares most silhouette with a profile. 'none' leaves pick() to weaken the nearest reference, which is the honest default when nothing is known.",
       "label": "Missing side",
@@ -1990,6 +2026,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "References",
       "help": "Weight at a full 180-degree mismatch, interpolated in between. Keep this LOW. Forcing a front reference onto a rear generation produces a front-facing sprite that fights the pose; a weak hint leaves the model free to invent the unseen side.",
       "label": "Weight when unmatched",
@@ -2000,6 +2037,7 @@
       "type": "float"
     },
     {
+      "default": true,
       "group": "References",
       "help": "On: weight is chosen per frame from angular distance. Off: the fixed Identity weight is used for every frame.",
       "label": "Automatic falloff",
@@ -2075,6 +2113,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Canonical",
       "help": "Send the pose guide and depth map to the anchor as well as to the frames. Without it the anchor is generated from prompt and reference alone, which is how a bow ended up drawn twice: the words said 'holding a bow' and nothing said where. With it too strong the anchor traces the depth silhouette instead. The strengths below default lower than the frames stage's because the anchor has no anchor of its own to pull against.",
       "label": "Condition the anchor",
@@ -2247,6 +2286,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Identity",
       "help": "Apply the canonical sprite to every frame at equal weight, underneath the matched identity reference. It is the only input that does not vary, so it is what keeps frames on-model with each other. Turning it off reverts to steering from the reference alone, which leaves rear views with no anchor.",
       "label": "Anchor to canonical",
@@ -2254,6 +2294,7 @@
       "type": "bool"
     },
     {
+      "default": 0.9,
       "group": "Identity",
       "help": "How hard the canonical pulls. Too high and every frame becomes the canonical's pose; too low and the frames drift apart.",
       "label": "Anchor weight",
@@ -2264,6 +2305,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "What the anchor carries. Keep 'linear'. 'style and composition' also copies the canonical's LAYOUT, and the canonical is front-facing \u2014 at anchor weight 0.9 it outvoted the depth map that carries yaw and every side and rear frame came back facing front, with the canonical's backdrop over the keyed one.",
       "label": "Anchor transfer",
@@ -2277,6 +2319,7 @@
       "type": "select"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "How much the anchor weakens as a frame turns away from it. Reference weight already falls off with angle; the anchor's did not, so on a rear frame the FRONT canonical stayed at full weight while the rear reference was discounted for being far away \u2014 the anchor outvoted the only image showing the back. 0 keeps the old fixed behaviour. Needs a reference at the far views, or nothing holds them together.",
       "label": "Anchor falloff",
@@ -2287,6 +2330,7 @@
       "type": "float"
     },
     {
+      "default": 0.5,
       "group": "Identity",
       "help": "What the anchor decays to 180 degrees away, at falloff 1.0.",
       "label": "Anchor weight when opposite",
@@ -2297,6 +2341,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "Fraction of sampling the anchor steers for. 1.0 holds identity throughout. Lower it if frames still inherit the anchor's pose after switching transfer to linear.",
       "label": "Anchor end %",
@@ -2483,6 +2528,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Canonical",
       "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
@@ -2550,6 +2596,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
@@ -2560,6 +2607,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "Pose control",
       "help": "Depth is the ONLY channel that carries the viewing angle \u2014 a 2D skeleton cannot express yaw. But the capsules are a bare body, so pushing this hard makes a costumed character collapse toward the naked silhouette: at 0.75 a veiled figure came back columnar.",
       "label": "Depth strength",
@@ -2570,6 +2618,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
@@ -2580,6 +2629,7 @@
       "type": "float"
     },
     {
+      "default": 0.6,
       "group": "Pose control",
       "help": "Hold it long enough to survive the anchor, which runs to 100%.",
       "label": "Depth end %",
@@ -2590,6 +2640,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
@@ -2600,6 +2651,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
@@ -2885,6 +2937,7 @@
       "type": "float"
     },
     {
+      "default": "qwen3:4b",
       "group": "LLM",
       "help": "Must be pulled in Ollama. Bigger models write better motion.",
       "label": "Model",
@@ -2899,6 +2952,7 @@
       }
     },
     {
+      "default": 0.7,
       "group": "LLM",
       "help": "Creativity of the LLM only. This has nothing to do with image variation \u2014 that is CFG and seed.",
       "label": "Temperature",
@@ -2915,6 +2969,7 @@
       }
     },
     {
+      "default": 3,
       "group": "LLM",
       "help": "Rejected poses are fed back as explicit criticism and retried.",
       "label": "Retry attempts",
@@ -2930,6 +2985,7 @@
       }
     },
     {
+      "default": 0.3,
       "group": "LLM",
       "help": "Allowed bone-length drift after anatomy snapping. Tighter is stricter; snapping already makes bones near-exact.",
       "label": "Anatomy tolerance",
@@ -2946,6 +3002,7 @@
       }
     },
     {
+      "default": true,
       "group": "LLM",
       "help": "Writes to poses/generated/ so a good sequence is reusable.",
       "label": "Cache accepted poses",
@@ -3083,6 +3140,7 @@
       "type": "bool"
     },
     {
+      "default": true,
       "group": "Pose control",
       "help": "Off is right for a standing character sheet. Measured: with it on, legs came back as white shafts with ball joints \u2014 the guide drawn as bones \u2014 while depth alone gave armoured legs and boots. Leave it on for attack, hit and fall, where the pose is the point.",
       "label": "Use the pose guide",
@@ -3090,6 +3148,7 @@
       "type": "bool"
     },
     {
+      "default": 0.75,
       "group": "Pose control",
       "help": "How hard the pose guide is enforced. Above ~0.85 the model starts tracing the guide instead of using it, which is what produces stick-figure or skeletal output.",
       "label": "ControlNet strength",
@@ -3100,6 +3159,7 @@
       "type": "float"
     },
     {
+      "default": 0.55,
       "group": "Pose control",
       "help": "Fraction of sampling the guide steers for. 0.55 lands the pose and leaves the second half for the LoRA to render a character over it; holding it longer produces a traced stick figure.",
       "label": "ControlNet end %",
@@ -3110,6 +3170,7 @@
       "type": "float"
     },
     {
+      "default": 0.85,
       "group": "Identity",
       "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too high looks pasted on and fights the pose.",
       "label": "IP-Adapter weight",
@@ -3120,6 +3181,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "How the reference is blended into conditioning.",
       "label": "Weight type",
@@ -3324,6 +3386,7 @@
       "type": "text"
     },
     {
+      "default": "http://127.0.0.1:11434",
       "group": "Services",
       "help": "Where Ollama is listening, normally http://127.0.0.1:11434. Only reached by the settings set to 'llm'; every other path is deterministic and runs with it down.",
       "label": "Ollama host",
@@ -3351,6 +3414,7 @@
       "type": "float"
     },
     {
+      "default": 40.0,
       "group": "References",
       "help": "A reference within this many degrees of the frame's viewing angle counts as a match and gets full weight.",
       "label": "Match tolerance",
@@ -3368,6 +3432,7 @@
       "type": "text"
     },
     {
+      "default": "none",
       "group": "References",
       "help": "What covers a side with no reference of its own. 'mirror' reuses the other side flipped - right for a symmetric outfit, wrong for a cape or an asymmetric skirt. 'back' shares most silhouette with a profile. 'none' leaves pick() to weaken the nearest reference, which is the honest default when nothing is known.",
       "label": "Missing side",
@@ -3391,6 +3456,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "References",
       "help": "Weight at a full 180-degree mismatch, interpolated in between. Keep this LOW. Forcing a front reference onto a rear generation produces a front-facing sprite that fights the pose; a weak hint leaves the model free to invent the unseen side.",
       "label": "Weight when unmatched",
@@ -3401,6 +3467,7 @@
       "type": "float"
     },
     {
+      "default": true,
       "group": "References",
       "help": "On: weight is chosen per frame from angular distance. Off: the fixed Identity weight is used for every frame.",
       "label": "Automatic falloff",
@@ -3476,6 +3543,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Canonical",
       "help": "Send the pose guide and depth map to the anchor as well as to the frames. Without it the anchor is generated from prompt and reference alone, which is how a bow ended up drawn twice: the words said 'holding a bow' and nothing said where. With it too strong the anchor traces the depth silhouette instead. The strengths below default lower than the frames stage's because the anchor has no anchor of its own to pull against.",
       "label": "Condition the anchor",
@@ -3648,6 +3716,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Identity",
       "help": "Apply the canonical sprite to every frame at equal weight, underneath the matched identity reference. It is the only input that does not vary, so it is what keeps frames on-model with each other. Turning it off reverts to steering from the reference alone, which leaves rear views with no anchor.",
       "label": "Anchor to canonical",
@@ -3655,6 +3724,7 @@
       "type": "bool"
     },
     {
+      "default": 0.9,
       "group": "Identity",
       "help": "How hard the canonical pulls. Too high and every frame becomes the canonical's pose; too low and the frames drift apart.",
       "label": "Anchor weight",
@@ -3665,6 +3735,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "What the anchor carries. Keep 'linear'. 'style and composition' also copies the canonical's LAYOUT, and the canonical is front-facing \u2014 at anchor weight 0.9 it outvoted the depth map that carries yaw and every side and rear frame came back facing front, with the canonical's backdrop over the keyed one.",
       "label": "Anchor transfer",
@@ -3678,6 +3749,7 @@
       "type": "select"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "How much the anchor weakens as a frame turns away from it. Reference weight already falls off with angle; the anchor's did not, so on a rear frame the FRONT canonical stayed at full weight while the rear reference was discounted for being far away \u2014 the anchor outvoted the only image showing the back. 0 keeps the old fixed behaviour. Needs a reference at the far views, or nothing holds them together.",
       "label": "Anchor falloff",
@@ -3688,6 +3760,7 @@
       "type": "float"
     },
     {
+      "default": 0.5,
       "group": "Identity",
       "help": "What the anchor decays to 180 degrees away, at falloff 1.0.",
       "label": "Anchor weight when opposite",
@@ -3698,6 +3771,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "Fraction of sampling the anchor steers for. 1.0 holds identity throughout. Lower it if frames still inherit the anchor's pose after switching transfer to linear.",
       "label": "Anchor end %",
@@ -3884,6 +3958,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Canonical",
       "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
@@ -3951,6 +4026,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
@@ -3961,6 +4037,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "Pose control",
       "help": "Depth is the ONLY channel that carries the viewing angle \u2014 a 2D skeleton cannot express yaw. But the capsules are a bare body, so pushing this hard makes a costumed character collapse toward the naked silhouette: at 0.75 a veiled figure came back columnar.",
       "label": "Depth strength",
@@ -3971,6 +4048,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
@@ -3981,6 +4059,7 @@
       "type": "float"
     },
     {
+      "default": 0.6,
       "group": "Pose control",
       "help": "Hold it long enough to survive the anchor, which runs to 100%.",
       "label": "Depth end %",
@@ -3991,6 +4070,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
@@ -4001,6 +4081,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
@@ -4348,6 +4429,7 @@
       "type": "bool"
     },
     {
+      "default": true,
       "group": "Pose control",
       "help": "Off is right for a standing character sheet. Measured: with it on, legs came back as white shafts with ball joints \u2014 the guide drawn as bones \u2014 while depth alone gave armoured legs and boots. Leave it on for attack, hit and fall, where the pose is the point.",
       "label": "Use the pose guide",
@@ -4355,6 +4437,7 @@
       "type": "bool"
     },
     {
+      "default": 0.75,
       "group": "Pose control",
       "help": "How hard the pose guide is enforced. Above ~0.85 the model starts tracing the guide instead of using it, which is what produces stick-figure or skeletal output.",
       "label": "ControlNet strength",
@@ -4365,6 +4448,7 @@
       "type": "float"
     },
     {
+      "default": 0.55,
       "group": "Pose control",
       "help": "Fraction of sampling the guide steers for. 0.55 lands the pose and leaves the second half for the LoRA to render a character over it; holding it longer produces a traced stick figure.",
       "label": "ControlNet end %",
@@ -4375,6 +4459,7 @@
       "type": "float"
     },
     {
+      "default": 0.85,
       "group": "Identity",
       "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too high looks pasted on and fights the pose.",
       "label": "IP-Adapter weight",
@@ -4385,6 +4470,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "How the reference is blended into conditioning.",
       "label": "Weight type",
@@ -4581,6 +4667,7 @@
       "type": "float"
     },
     {
+      "default": 40.0,
       "group": "References",
       "help": "A reference within this many degrees of the frame's viewing angle counts as a match and gets full weight.",
       "label": "Match tolerance",
@@ -4598,6 +4685,7 @@
       "type": "text"
     },
     {
+      "default": "none",
       "group": "References",
       "help": "What covers a side with no reference of its own. 'mirror' reuses the other side flipped - right for a symmetric outfit, wrong for a cape or an asymmetric skirt. 'back' shares most silhouette with a profile. 'none' leaves pick() to weaken the nearest reference, which is the honest default when nothing is known.",
       "label": "Missing side",
@@ -4621,6 +4709,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "References",
       "help": "Weight at a full 180-degree mismatch, interpolated in between. Keep this LOW. Forcing a front reference onto a rear generation produces a front-facing sprite that fights the pose; a weak hint leaves the model free to invent the unseen side.",
       "label": "Weight when unmatched",
@@ -4631,6 +4720,7 @@
       "type": "float"
     },
     {
+      "default": true,
       "group": "References",
       "help": "On: weight is chosen per frame from angular distance. Off: the fixed Identity weight is used for every frame.",
       "label": "Automatic falloff",
@@ -4706,6 +4796,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Canonical",
       "help": "Send the pose guide and depth map to the anchor as well as to the frames. Without it the anchor is generated from prompt and reference alone, which is how a bow ended up drawn twice: the words said 'holding a bow' and nothing said where. With it too strong the anchor traces the depth silhouette instead. The strengths below default lower than the frames stage's because the anchor has no anchor of its own to pull against.",
       "label": "Condition the anchor",
@@ -4878,6 +4969,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Identity",
       "help": "Apply the canonical sprite to every frame at equal weight, underneath the matched identity reference. It is the only input that does not vary, so it is what keeps frames on-model with each other. Turning it off reverts to steering from the reference alone, which leaves rear views with no anchor.",
       "label": "Anchor to canonical",
@@ -4885,6 +4977,7 @@
       "type": "bool"
     },
     {
+      "default": 0.9,
       "group": "Identity",
       "help": "How hard the canonical pulls. Too high and every frame becomes the canonical's pose; too low and the frames drift apart.",
       "label": "Anchor weight",
@@ -4895,6 +4988,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "What the anchor carries. Keep 'linear'. 'style and composition' also copies the canonical's LAYOUT, and the canonical is front-facing \u2014 at anchor weight 0.9 it outvoted the depth map that carries yaw and every side and rear frame came back facing front, with the canonical's backdrop over the keyed one.",
       "label": "Anchor transfer",
@@ -4908,6 +5002,7 @@
       "type": "select"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "How much the anchor weakens as a frame turns away from it. Reference weight already falls off with angle; the anchor's did not, so on a rear frame the FRONT canonical stayed at full weight while the rear reference was discounted for being far away \u2014 the anchor outvoted the only image showing the back. 0 keeps the old fixed behaviour. Needs a reference at the far views, or nothing holds them together.",
       "label": "Anchor falloff",
@@ -4918,6 +5013,7 @@
       "type": "float"
     },
     {
+      "default": 0.5,
       "group": "Identity",
       "help": "What the anchor decays to 180 degrees away, at falloff 1.0.",
       "label": "Anchor weight when opposite",
@@ -4928,6 +5024,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "Fraction of sampling the anchor steers for. 1.0 holds identity throughout. Lower it if frames still inherit the anchor's pose after switching transfer to linear.",
       "label": "Anchor end %",
@@ -5114,6 +5211,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Canonical",
       "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
@@ -5181,6 +5279,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
@@ -5191,6 +5290,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "Pose control",
       "help": "Depth is the ONLY channel that carries the viewing angle \u2014 a 2D skeleton cannot express yaw. But the capsules are a bare body, so pushing this hard makes a costumed character collapse toward the naked silhouette: at 0.75 a veiled figure came back columnar.",
       "label": "Depth strength",
@@ -5201,6 +5301,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
@@ -5211,6 +5312,7 @@
       "type": "float"
     },
     {
+      "default": 0.6,
       "group": "Pose control",
       "help": "Hold it long enough to survive the anchor, which runs to 100%.",
       "label": "Depth end %",
@@ -5221,6 +5323,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
@@ -5231,6 +5334,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
@@ -5578,6 +5682,7 @@
       "type": "bool"
     },
     {
+      "default": true,
       "group": "Pose control",
       "help": "Off is right for a standing character sheet. Measured: with it on, legs came back as white shafts with ball joints \u2014 the guide drawn as bones \u2014 while depth alone gave armoured legs and boots. Leave it on for attack, hit and fall, where the pose is the point.",
       "label": "Use the pose guide",
@@ -5585,6 +5690,7 @@
       "type": "bool"
     },
     {
+      "default": 0.75,
       "group": "Pose control",
       "help": "How hard the pose guide is enforced. Above ~0.85 the model starts tracing the guide instead of using it, which is what produces stick-figure or skeletal output.",
       "label": "ControlNet strength",
@@ -5595,6 +5701,7 @@
       "type": "float"
     },
     {
+      "default": 0.55,
       "group": "Pose control",
       "help": "Fraction of sampling the guide steers for. 0.55 lands the pose and leaves the second half for the LoRA to render a character over it; holding it longer produces a traced stick figure.",
       "label": "ControlNet end %",
@@ -5605,6 +5712,7 @@
       "type": "float"
     },
     {
+      "default": 0.85,
       "group": "Identity",
       "help": "0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too high looks pasted on and fights the pose.",
       "label": "IP-Adapter weight",
@@ -5615,6 +5723,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "How the reference is blended into conditioning.",
       "label": "Weight type",
@@ -5811,6 +5920,7 @@
       "type": "float"
     },
     {
+      "default": 40.0,
       "group": "References",
       "help": "A reference within this many degrees of the frame's viewing angle counts as a match and gets full weight.",
       "label": "Match tolerance",
@@ -5828,6 +5938,7 @@
       "type": "text"
     },
     {
+      "default": "none",
       "group": "References",
       "help": "What covers a side with no reference of its own. 'mirror' reuses the other side flipped - right for a symmetric outfit, wrong for a cape or an asymmetric skirt. 'back' shares most silhouette with a profile. 'none' leaves pick() to weaken the nearest reference, which is the honest default when nothing is known.",
       "label": "Missing side",
@@ -5851,6 +5962,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "References",
       "help": "Weight at a full 180-degree mismatch, interpolated in between. Keep this LOW. Forcing a front reference onto a rear generation produces a front-facing sprite that fights the pose; a weak hint leaves the model free to invent the unseen side.",
       "label": "Weight when unmatched",
@@ -5861,6 +5973,7 @@
       "type": "float"
     },
     {
+      "default": true,
       "group": "References",
       "help": "On: weight is chosen per frame from angular distance. Off: the fixed Identity weight is used for every frame.",
       "label": "Automatic falloff",
@@ -5936,6 +6049,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Canonical",
       "help": "Send the pose guide and depth map to the anchor as well as to the frames. Without it the anchor is generated from prompt and reference alone, which is how a bow ended up drawn twice: the words said 'holding a bow' and nothing said where. With it too strong the anchor traces the depth silhouette instead. The strengths below default lower than the frames stage's because the anchor has no anchor of its own to pull against.",
       "label": "Condition the anchor",
@@ -6108,6 +6222,7 @@
       "type": "select"
     },
     {
+      "default": true,
       "group": "Identity",
       "help": "Apply the canonical sprite to every frame at equal weight, underneath the matched identity reference. It is the only input that does not vary, so it is what keeps frames on-model with each other. Turning it off reverts to steering from the reference alone, which leaves rear views with no anchor.",
       "label": "Anchor to canonical",
@@ -6115,6 +6230,7 @@
       "type": "bool"
     },
     {
+      "default": 0.9,
       "group": "Identity",
       "help": "How hard the canonical pulls. Too high and every frame becomes the canonical's pose; too low and the frames drift apart.",
       "label": "Anchor weight",
@@ -6125,6 +6241,7 @@
       "type": "float"
     },
     {
+      "default": "linear",
       "group": "Identity",
       "help": "What the anchor carries. Keep 'linear'. 'style and composition' also copies the canonical's LAYOUT, and the canonical is front-facing \u2014 at anchor weight 0.9 it outvoted the depth map that carries yaw and every side and rear frame came back facing front, with the canonical's backdrop over the keyed one.",
       "label": "Anchor transfer",
@@ -6138,6 +6255,7 @@
       "type": "select"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "How much the anchor weakens as a frame turns away from it. Reference weight already falls off with angle; the anchor's did not, so on a rear frame the FRONT canonical stayed at full weight while the rear reference was discounted for being far away \u2014 the anchor outvoted the only image showing the back. 0 keeps the old fixed behaviour. Needs a reference at the far views, or nothing holds them together.",
       "label": "Anchor falloff",
@@ -6148,6 +6266,7 @@
       "type": "float"
     },
     {
+      "default": 0.5,
       "group": "Identity",
       "help": "What the anchor decays to 180 degrees away, at falloff 1.0.",
       "label": "Anchor weight when opposite",
@@ -6158,6 +6277,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "Fraction of sampling the anchor steers for. 1.0 holds identity throughout. Lower it if frames still inherit the anchor's pose after switching transfer to linear.",
       "label": "Anchor end %",
@@ -6344,6 +6464,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Canonical",
       "help": "Fraction of sampling before the control begins. At 0 the composition is fixed from the first step; starting late lets the model choose a layout and only then corrects it toward the guide.",
       "label": "Anchor control start",
@@ -6411,6 +6532,7 @@
       "type": "text"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "Fraction of sampling before the pose control begins. The pose is the whole reason a frame differs from the anchor, so this normally starts at 0 \u2014 a late start gives the model time to commit to a pose of its own first.",
       "label": "ControlNet start %",
@@ -6421,6 +6543,7 @@
       "type": "float"
     },
     {
+      "default": 0.45,
       "group": "Pose control",
       "help": "Depth is the ONLY channel that carries the viewing angle \u2014 a 2D skeleton cannot express yaw. But the capsules are a bare body, so pushing this hard makes a costumed character collapse toward the naked silhouette: at 0.75 a veiled figure came back columnar.",
       "label": "Depth strength",
@@ -6431,6 +6554,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Pose control",
       "help": "When the depth channel joins. Depth is what carries the viewing angle, which a 2D skeleton cannot express, so a late start means the early steps commit to the wrong yaw.",
       "label": "Depth start %",
@@ -6441,6 +6565,7 @@
       "type": "float"
     },
     {
+      "default": 0.6,
       "group": "Pose control",
       "help": "Hold it long enough to survive the anchor, which runs to 100%.",
       "label": "Depth end %",
@@ -6451,6 +6576,7 @@
       "type": "float"
     },
     {
+      "default": 0.0,
       "group": "Identity",
       "help": "When identity conditioning joins. Late means the frame's layout is settled before the reference is consulted, which protects the pose at the cost of likeness.",
       "label": "Identity start %",
@@ -6461,6 +6587,7 @@
       "type": "float"
     },
     {
+      "default": 1.0,
       "group": "Identity",
       "help": "When identity conditioning stops. Releasing early lets the last steps sharpen without the reference pulling detail back toward itself; holding to 1.0 keeps the likeness tightest.",
       "label": "Identity end %",
