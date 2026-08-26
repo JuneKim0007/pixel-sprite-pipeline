@@ -69,7 +69,7 @@ def _grid_prepare(img, cfg) -> dict:
 
 
 @layer(
-    "grid", label="Grid", order=20,
+    "grid", label="Grid", order=20, gives=frozenset({"reduced"}),
     summary="Screen pixels collapse into logical ones",
     fields=[
         Field("factor", "Block size", "int", min=0, max=64, step=1, default=0,
@@ -122,7 +122,7 @@ def _palette_prepare(img, cfg) -> dict:
 
 
 @layer(
-    "palette", label="Palette", order=30,
+    "palette", label="Palette", order=30, needs=frozenset({"reduced"}),
     summary="A bounded set of colours, imposed exactly",
     prepare=_palette_prepare,
     fields=[
@@ -195,7 +195,7 @@ def _palette(img, cfg, facts, prep):
 
 
 @layer(
-    "background", label="Background", order=40,
+    "background", label="Background", order=40, needs=frozenset({"reduced"}),
     summary="The backdrop becomes transparent",
     fields=[
         Field("enabled", "Key out the backdrop", "bool", default=True,

@@ -9,7 +9,7 @@ import numpy as np
 
 from . import cache
 from . import layers as layer_mod
-from .layers import REGISTRY, admit, check_order
+from .layers import REGISTRY, admit, check_order, validate_order
 
 
 def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -> dict:
@@ -28,6 +28,8 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
                 defer: set[str] | None = None) -> tuple[np.ndarray, dict]:
     defer = {k for k in (defer or set())
              if getattr(REGISTRY.get(k), "deferrable", False)}
+    # An order that measures colour from pixels the next layer destroys is wrong before it is expensive, so it is refused first.
+    validate_order(stack)
     # A stack that cannot fit is a 413 here and a reboot two lines later.
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
 

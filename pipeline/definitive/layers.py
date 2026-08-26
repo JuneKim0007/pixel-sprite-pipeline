@@ -102,6 +102,9 @@ class LayerSpec:
     repeatable: bool = False
     magnify: Callable[[dict], float] | None = None
     deferrable: bool = False
+    # What this layer needs to already be true of the image, and what it makes true. A need nothing gives is satisfied vacuously - no grid means no lattice to contradict - but a need given LATER is an order that produces a silently wrong picture.
+    needs: frozenset[str] = frozenset()
+    gives: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         self.prepare = _guard_prepare(self.key, self.prepare)
@@ -140,13 +143,16 @@ def layer(key: str, *, label: str, summary: str, fields: list[Field],
           order: int = 50, repeatable: bool = False,
           prepare: Callable | None = None,
           magnify: Callable[[dict], float] | None = None,
-          deferrable: bool = False):
+          deferrable: bool = False,
+          needs: frozenset[str] = frozenset(),
+          gives: frozenset[str] = frozenset()):
 
     def wrap(fn):
         _SOURCE.add(key, LayerSpec(key=key, label=label, summary=summary,
                                    fields=fields, apply=fn, order=order,
                                    repeatable=repeatable, prepare=prepare,
-                                   magnify=magnify, deferrable=deferrable),
+                                   magnify=magnify, deferrable=deferrable,
+                                   needs=needs, gives=gives),
                     what="layer")
         return fn
     return wrap
@@ -208,24 +214,52 @@ def admit(stack: list[dict], pixels: int, defer: set[str] | None = None) -> None
         projected=want, ceiling=ceiling)
 
 
+# Why a particular layer needs what it needs. The dependency is declared on the layer; this is the sentence a person gets when they break it.
+WHY: dict[str, str] = {
+    "palette": "A palette measured from full-resolution pixels does not "
+               "describe the reduced image it gets applied to, so the colours "
+               "will not be the ones the picture is made of.",
+    "background": "Block reduction mixes the backdrop into every edge pixel, "
+                  "so keying first leaves a fringe that the reduction then "
+                  "spreads.",
+}
+
+
+def validate_order(stack: list[dict]) -> None:
+    """Refuse an arrangement that would produce a silently wrong picture.
+
+    The advisory half is `check_order`. This half is the same check the pipeline
+    runner has always made on stages: a declared dependency satisfied too late
+    is an error, not a sentence in the margin.
+    """
+    enabled = [s.get("layer") for s in stack if s.get("enabled", True)]
+    given: set[str] = set()
+    later = {g: key for key in reversed(enabled)
+             for g in getattr(REGISTRY.get(key), "gives", ())}
+
+    for index, key in enumerate(enabled):
+        spec = REGISTRY.get(key)
+        if spec is None:
+            continue
+        for want in sorted(spec.needs - given):
+            producer = later.get(want)
+            # Nothing gives it at all: there is no lattice to contradict, so the arrangement is consistent even though it is unreduced.
+            if producer is None:
+                continue
+            raise Invalid(
+                f"{spec.label} runs before {REGISTRY[producer].label}. "
+                + WHY.get(key, f"It needs '{want}', which "
+                               f"{REGISTRY[producer].label} produces later."),
+                field=key,
+                hint=f"move {spec.label} after {REGISTRY[producer].label}")
+        given |= spec.gives
+
+
 def check_order(stack: list[dict]) -> list[str]:
-    """Problems with an arrangement, in words. Empty means nothing to say."""
+    """Arrangements that cost something without being wrong. The ones that ARE wrong are refused by `validate_order`."""
     seen: list[str] = [s.get("layer") for s in stack if s.get("enabled", True)]
     out: list[str] = []
 
-    def before(a: str, b: str) -> bool:
-        return a in seen and b in seen and seen.index(a) < seen.index(b)
-
-    if before("palette", "grid"):
-        out.append(
-            "Palette runs before Grid. A palette measured from full-resolution "
-            "pixels does not describe the reduced image it gets applied to, so "
-            "the colours will not be the ones the picture is made of.")
-    if before("background", "grid"):
-        out.append(
-            "Background runs before Grid. Block reduction mixes the backdrop "
-            "into every edge pixel, so keying first leaves a fringe that the "
-            "reduction then spreads.")
     if "scale" in seen and seen.index("scale") != len(seen) - 1:
         out.append(
             "Scale is not last. It multiplies the pixel count by the zoom "

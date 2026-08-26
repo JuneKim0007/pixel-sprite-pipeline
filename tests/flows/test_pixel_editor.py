@@ -8,6 +8,7 @@ import pytest
 from pipeline import definitive
 from pipeline.definitive import cache, layers
 from pipeline.shared import limits
+from pipeline.shared.errors import Invalid
 
 
 @pytest.fixture
@@ -39,14 +40,40 @@ def test_the_default_stack_runs_without_a_layer_failing(root, img, stack):
     assert facts["measured_block"] >= 1, "grid recorded no measurement"
 
 
-@pytest.mark.parametrize("order,warns", [
-    (("palette", "grid"), True),
-    (("background", "grid"), True),
-    (("grid", "palette", "curves"), False),
+def _stack_of(*keys):
+    return [{"layer": k, "id": k, "enabled": True, "config": {}} for k in keys]
+
+
+@pytest.mark.parametrize("order,late", [
+    (("palette", "grid"), "Grid"),
+    (("background", "grid"), "Grid"),
 ])
-def test_a_questionable_order_warns_rather_than_blocks(order, warns):
-    built = [{"layer": k, "id": k, "enabled": True, "config": {}} for k in order]
-    assert bool(definitive.check_order(built)) is warns
+def test_an_order_that_measures_destroyed_pixels_is_refused(order, late):
+    # It used to be a sentence in the margin, so a palette measured from full-resolution pixels was applied to the reduced image and the run went on to produce colours the picture is not made of.
+    with pytest.raises(Invalid) as caught:
+        definitive.validate_order(_stack_of(*order))
+    assert late in caught.value.message
+    assert caught.value.detail["field"] == order[0]
+    assert caught.value.hint, "a refusal with no way forward is a dead end"
+
+
+@pytest.mark.parametrize("order", [
+    ("grid", "palette", "curves"),
+    ("palette", "curves"),          # nothing reduces, so nothing is contradicted
+    ("background", "curves"),
+])
+def test_a_consistent_order_is_not_refused(order):
+    definitive.validate_order(_stack_of(*order))
+
+
+@pytest.mark.parametrize("order,warns", [
+    (("grid", "scale", "palette"), True),      # scale is not last
+    (("grid", "grid", "palette"), True),       # grid twice
+    (("grid", "palette", "scale"), False),
+])
+def test_an_order_that_only_costs_something_still_warns(order, warns):
+    # These two are not dependency rules — one is cost and one is uniqueness — so they stay advisory rather than being forced through needs/gives.
+    assert bool(definitive.check_order(_stack_of(*order))) is warns
 
 
 def _committed(root):

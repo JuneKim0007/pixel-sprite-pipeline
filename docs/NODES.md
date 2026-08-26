@@ -191,8 +191,21 @@ Each step is independently useful and independently verifiable.
    references, and two mean "follow the rig" when blank. *Left:*
    `Stage.DEFAULTS`, the third shape, and making `schema.FIELDS` a projection
    of the nodes rather than a parallel list.
-2. **`LayerSpec` gains `needs`/`gives`.** `check_order`'s three warnings become
-   validation. Verify: `palette` before `grid` is refused, not warned.
+2. **`LayerSpec` gains `needs`/`gives`.** **Done 2026-08-26.** `grid` gives
+   `reduced`; `palette` and `background` need it. `validate_order` refuses an
+   order that satisfies a need too late, with the same shape `runner.validate`
+   has always used for stages — the layer named, the producer named, and a hint
+   saying where to move it. It runs before `admit`, so a wrong order costs
+   nothing.
+
+   Only **two** of the four rules were dependencies. "Scale is not last" is a
+   cost rule and "grid appears twice" is a uniqueness rule; forcing them
+   through `needs`/`gives` would have been the wrong abstraction, so
+   `check_order` survives as the advisory half and says so in its docstring.
+
+   A need nothing gives is satisfied vacuously: a stack with no `grid` has no
+   lattice for `palette` to contradict, so it is consistent even though it is
+   unreduced. That is why this is an ordering constraint and not `requires`.
 3. ~~**`Node.prepare` on stages.**~~ **Done 2026-08-13.** `Stage.prepare(ctx)`
    runs once and the runner hands its result to `run(ctx, prep)`. The palette
    stage's colours and lattice are both `prepare` results; `palette.phase` is
