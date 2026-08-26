@@ -27,7 +27,6 @@ def chosen_default(refs) -> float:
 class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
-    DEFAULTS = {"controlnet": {}, "depth_controlnet": {}, "ip_adapter": {}}
     optional = frozenset({"depthmaps", "canonicals"})
     gives = frozenset({"frames"})
     needs = frozenset({"canonical", "pose_frames", "references", "rig", "skeletons"})
@@ -79,7 +78,7 @@ class FramesStage(Stage):
             return Reference(path=per_view[best], yaw=float(best),
                              label=f"canonical@{best}")
         refs = lib.identity or [anchor]
-        stack_anchor = bool(lib.identity) and bool(opt(ip, "anchor", True))
+        stack_anchor = bool(lib.identity) and bool(ip["anchor"])
 
         uploaded = {r.path: client.upload_image(r.path) for r in refs}
         anchor_name = client.upload_image(anchor.path) if stack_anchor else None
@@ -151,7 +150,7 @@ class FramesStage(Stage):
             )
             auto = bool(opt(match_cfg, "auto", True))
             weight = (auto_weight if auto
-                      else float(opt(ip, "weight", 0.85)) * chosen.weight_scale)
+                      else float(ip["weight"]) * chosen.weight_scale)
 
             if anchor_name:
                 _a = anchor_for(frame_yaw)
@@ -161,18 +160,18 @@ class FramesStage(Stage):
                     anchor_name = anchor_cache[_a.path]
                     anchor_yaw = _a.yaw
                 # [...] was down-weighted for being far from that view while the FRONT canonical stayed at 0.9, so the anchor outvoted the one image that actually shows the back of the costume
-                a_weight = float(opt(ip, "anchor_weight", 0.9))
-                falloff = float(opt(ip, "anchor_falloff", 0.0))
+                a_weight = float(ip["anchor_weight"])
+                falloff = float(ip["anchor_falloff"])
                 if falloff > 0.0:
                     away = abs((frame_yaw - anchor_yaw + 180.0) % 360.0 - 180.0)
-                    far = float(opt(ip, "anchor_far_weight", 0.5))
+                    far = float(ip["anchor_far_weight"])
                     t = (away / 180.0) * falloff
                     a_weight = a_weight * (1.0 - t) + far * t
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
                     weight=a_weight,
-                    weight_type=opt(ip, "anchor_weight_type", "linear"),
-                    start_at=0.0, end_at=float(opt(ip, "anchor_end_at", 1.0)),
+                    weight_type=ip["anchor_weight_type"],
+                    start_at=0.0, end_at=float(ip["anchor_end_at"]),
                     ipadapter=models.get("ipadapter"),
                 )
 
@@ -180,9 +179,9 @@ class FramesStage(Stage):
             model = comfy.apply_ipadapter(
                 g, model, ref,
                 weight=weight,
-                weight_type=opt(ip, "weight_type", "linear"),
-                start_at=opt(ip, "start_at", 0.0),
-                end_at=opt(ip, "end_at", 1.0),
+                weight_type=ip["weight_type"],
+                start_at=ip["start_at"],
+                end_at=ip["end_at"],
                 ipadapter=models.get("ipadapter"),
             )
 
@@ -196,16 +195,16 @@ class FramesStage(Stage):
                 )
 
             channel = opt(cn, "union_type", None) or rig.skeleton_control
-            if not opt(cn, "enabled", True):
+            if not cn["enabled"]:
                 channel = None
             if channel and pose_name:
                 control = g.out(g.add("LoadImage", image=pose_name), 0)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
                     # Measured: 1.0 held to 0.8 makes the model trace the control image and return a stick figure.
-                    strength=opt(cn, "strength", 0.75),
-                    start_percent=opt(cn, "start_percent", 0.0),
-                    end_percent=opt(cn, "end_percent", 0.55),
+                    strength=cn["strength"],
+                    start_percent=cn["start_percent"],
+                    end_percent=cn["end_percent"],
                     union_type=channel,
                     controlnet=models.get("controlnet"),
                 )
@@ -216,9 +215,9 @@ class FramesStage(Stage):
                 depth_img = g.out(g.add("LoadImage", image=depth_name), 0)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, depth_img, vae,
-                    strength=opt(dcn, "strength", 0.45),
-                    start_percent=opt(dcn, "start_percent", 0.0),
-                    end_percent=opt(dcn, "end_percent", 0.6),
+                    strength=dcn["strength"],
+                    start_percent=dcn["start_percent"],
+                    end_percent=dcn["end_percent"],
                     union_type="depth",
                     controlnet=models.get("controlnet"),
                 )

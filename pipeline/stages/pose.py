@@ -66,7 +66,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
 class PoseStage(Stage):
     name = "pose"
     resource = Resource.CPU
-    DEFAULTS = {"llm": {}, "views": ""}
+    DEFAULTS = {"views": ""}
     gives = frozenset({"pose_frames", "skeletons"})
     needs = frozenset({"references", "rig", "rig_record"})
 
@@ -234,15 +234,15 @@ class PoseStage(Stage):
 
         cache_dir = ctx.root / "poses" / "generated"
         cached = cache_dir / f"{_slug(action)}_{n_frames}f.json"
-        if opt(llm_cfg, "cache", True) and cached.exists():
+        if llm_cfg["cache"] and cached.exists():
             data = json.loads(cached.read_text())
             print(f"   reusing cached pose {cached.relative_to(ctx.root)}")
             base = {k: list(v) for k, v in ctx.need("rig").neutral.items()}
             return [{**base, **f} for f in data["frames"]]
 
         client = Ollama(
-            host=opt(llm_cfg, "host", "http://127.0.0.1:11434"),
-            model=opt(llm_cfg, "model", "qwen3:4b"),
+            host=llm_cfg["host"],
+            model=llm_cfg["model"],
             keep_alive=opt(llm_cfg, "keep_alive", 0),
         )
         if not client.alive():
@@ -254,13 +254,13 @@ class PoseStage(Stage):
         print(f"   asking {client.model} for '{action}' ({n_frames} frames)")
         frames = generate_pose(
             client, action, n_frames,
-            temperature=opt(llm_cfg, "temperature", 0.7),
-            attempts=opt(llm_cfg, "attempts", 3),
-            tolerance=opt(llm_cfg, "tolerance", 0.3),
+            temperature=llm_cfg["temperature"],
+            attempts=llm_cfg["attempts"],
+            tolerance=llm_cfg["tolerance"],
         )
 
         for i, f in enumerate(frames):
-            issues = validate_pose(f, opt(llm_cfg, "tolerance", 0.3))
+            issues = validate_pose(f, llm_cfg["tolerance"])
             if issues:
                 raise RuntimeError(
                     # not-a-message: generate_pose() only returns frames once
@@ -271,7 +271,7 @@ class PoseStage(Stage):
                     f"frame {i} failed validation after accept: {issues}"
                 )
 
-        if opt(llm_cfg, "cache", True):
+        if llm_cfg["cache"]:
             cache_dir.mkdir(parents=True, exist_ok=True)
             cached.write_text(
                 json.dumps(

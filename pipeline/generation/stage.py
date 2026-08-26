@@ -18,6 +18,17 @@ __all__ = ["opt", "Resource", "Context", "Stage", "register", "get",
 log = logging.getLogger("pixel.config")
 
 
+def _set(block: dict[str, Any]) -> dict[str, Any]:
+    """A config block with the keys it left blank dropped, at every depth."""
+    out: dict[str, Any] = {}
+    for key, value in block.items():
+        if isinstance(value, dict):
+            out[key] = _set(value)
+        elif value is not None:
+            out[key] = value
+    return out
+
+
 class Resource:
     """Which piece of hardware a stage occupies while it runs. GPU/LLM serialise - SDXL+ControlNet+IP-Adapter already fill most of 16 GB."""
 
@@ -51,9 +62,7 @@ class Context:
 
     def stage_config(self, name: str) -> dict[str, Any]:
         """The stage's settings, its declared defaults already underneath."""
-        block = self.config.get(name, {}) or {}
-        set_here = {k: v for k, v in block.items() if v is not None}
-        return {**defaults_for(name), **set_here}
+        return _under(_set(self.config.get(name) or {}), defaults_for(name))
 
     def stage_dir(self, name: str) -> Path:
         idx = self._order.setdefault(name, len(self._order))
@@ -130,11 +139,21 @@ def available() -> dict[str, type[Stage]]:
 
 
 def defaults_for(name: str) -> dict[str, Any]:
-    """A stage's settings before any config touches them. The declared defaults come from the fields that declare the bounds too; DEFAULTS holds only what a field cannot express - the empty blocks that `opt()` needs to be dicts rather than None."""
+    """A stage's settings before any config touches them."""
     from .schema import SCHEMA
 
-    out = {key.split(".", 1)[1]: field.default
-           for key, field in SCHEMA.flat_defaults(name).items()}
+    out = SCHEMA.defaults_under(name)
     cls = _REGISTRY.find(name)
-    out.update(copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {})
+    return _under(copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {},
+                  out)
+
+
+def _under(over: dict[str, Any], under: dict[str, Any]) -> dict[str, Any]:
+    """`over` merged onto `under`, branch by branch rather than wholesale."""
+    out = dict(under)
+    for key, value in over.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _under(value, out[key])
+        else:
+            out[key] = value
     return out

@@ -227,9 +227,23 @@ Each step is independently useful and independently verifiable.
    their bounds are, each verified against the `opt()` call site that reads it
    and pinned there by a test. The other 5 have no static answer: two are
    conditional (`0.55 if strong else 0.30`), one is computed from the
-   references, and two mean "follow the rig" when blank. *Left:*
-   `Stage.DEFAULTS`, the third shape, and making `schema.FIELDS` a projection
-   of the nodes rather than a parallel list.
+   references, and two mean "follow the rig" when blank.
+
+   **Finished 2026-08-26.** `stage_config` merges branch by branch, so a nested
+   block keeps the siblings a config leaves alone — the shallow merge was the
+   only thing stopping nested fields from carrying defaults. `DEFAULTS` went
+   from 52 keys across seven stages to **three across three**, and the three
+   left are what a field cannot express: `canonical.from_reference`,
+   `pose.views`, `softbody.nodes`. `frames` declares none.
+
+   The third copy went with it. Twenty-nine `opt(block, "key", <literal>)`
+   fallbacks were unreachable once the block arrived filled, so they are
+   subscripts now and the literal exists once. Verified by diffing
+   `stage_config` for every stage across all 15 configs before and after: 290
+   keys appeared, **0 values changed, 0 keys vanished**.
+
+   *Left:* making `schema.FIELDS` a projection of the nodes rather than a
+   parallel list, and the same merge for config blocks that are not stages.
 2. **`LayerSpec` gains `needs`/`gives`.** **Done 2026-08-26.** `grid` gives
    `reduced`; `palette` and `background` need it. `validate_order` refuses an
    order that satisfies a need too late, with the same shape `runner.validate`

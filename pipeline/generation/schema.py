@@ -869,12 +869,19 @@ class ConfigSchema:
             out.append(entry)
         return out
 
-    def flat_defaults(self, stage: str) -> dict[str, ConfigField]:
-        """Fields of one stage that are a direct child of it - `frames.steps`, not `frames.controlnet.strength`, because `stage_config` merges shallowly and a nested default would be replaced wholesale by any config that sets one sibling."""
-        prefix = f"{stage}."
-        return {f.key: f for f in self.fields
-                if f.key.startswith(prefix) and "." not in f.key[len(prefix):]
-                and f.default is not None}
+    def defaults_under(self, prefix: str) -> dict[str, Any]:
+        """Every declared default below a dotted prefix, nested as the config nests it."""
+        head = f"{prefix}."
+        out: dict[str, Any] = {}
+        for field in self.fields:
+            if field.default is None or not field.key.startswith(head):
+                continue
+            node = out
+            *branch, leaf = field.key[len(head):].split(".")
+            for step in branch:
+                node = node.setdefault(step, {})
+            node[leaf] = field.default
+        return out
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
         """The settings surface. Stages are not in it: this module describes fields, and reaching for the stage registry to list them is what made `schema` and `stage` import each other."""

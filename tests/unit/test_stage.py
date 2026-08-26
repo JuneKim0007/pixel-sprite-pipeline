@@ -42,7 +42,15 @@ def test_an_unregistered_stage_has_no_defaults(root):
 def test_a_mutable_default_is_not_shared_between_reads(root):
     ctx = Context(root=root, outdir=root, config={})
     ctx.stage_config("pose")["llm"]["host"] = "poisoned"
-    assert "host" not in ctx.stage_config("pose")["llm"]
+    assert ctx.stage_config("pose")["llm"]["host"] != "poisoned"
+
+
+def test_a_nested_block_keeps_the_siblings_the_config_left_alone(root):
+    ctx = Context(root=root, outdir=root,
+                  config={"frames": {"controlnet": {"strength": 0.1}}})
+    cn = ctx.stage_config("frames")["controlnet"]
+    assert cn["strength"] == 0.1
+    assert cn["enabled"] is True and cn["end_percent"] == 0.55
 
 
 @pytest.mark.parametrize("name", sorted(REGISTRY))

@@ -43,7 +43,7 @@ def _anchor_view(ctx, cfg) -> str | float:
 class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
-    DEFAULTS = {"from_reference": {}, "controlnet": {}}
+    DEFAULTS = {"from_reference": {}}
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     gives = frozenset({"canonical", "canonicals"})
     needs = frozenset({"references", "rig"})
@@ -85,7 +85,7 @@ class CanonicalStage(Stage):
             guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
             depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
             control_names = {}
-            if bool(opt(cn, "enabled", True)) and (guide or depth):
+            if bool(cn["enabled"]) and (guide or depth):
                 ch = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
                 if guide and ch:
                     control_names["pose"] = (client.upload_image(guide), ch)
@@ -112,7 +112,7 @@ class CanonicalStage(Stage):
         guide = skeletons[_idx] if _idx < len(skeletons) else (skeletons[0] if skeletons else None)
         depth = depthmaps[_idx] if _idx < len(depthmaps) else (depthmaps[0] if depthmaps else None)
         cn = cfg["controlnet"]
-        use_control = bool(opt(cn, "enabled", True)) and (guide or depth)
+        use_control = bool(cn["enabled"]) and (guide or depth)
 
         control_names: dict = {}
         if use_control:
@@ -174,7 +174,7 @@ class CanonicalStage(Stage):
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
                     strength=opt(cn, "strength", 0.55 if strong else 0.30),
-                    start_percent=opt(cn, "start_percent", 0.0),
+                    start_percent=cn["start_percent"],
                     end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
                     union_type=channel,
                     controlnet=(ctx.config.get("models") or {}).get("controlnet"),

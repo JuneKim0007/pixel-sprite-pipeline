@@ -273,6 +273,55 @@ which skips the skeleton entirely and relies on the prompt.
 
 ---
 
+## Where a default comes from
+
+One place: the `ConfigField` in `pipeline/generation/schema.py` that also
+declares the setting's bounds, its label and its help. If the settings form
+offers a value, that is the value the pipeline reads — the two cannot drift,
+because there is only one of them.
+
+It was not always one. Until 2026-08-26 the value lived in a stage's `DEFAULTS`
+dict, the bounds lived on the field, and a dotted-path string match joined them
+at render time. Then a third copy sat inline at the call site as
+`opt(cn, "strength", 0.75)`. Three places, kept in step by hand.
+
+`Context.stage_config(name)` composes the answer: the declared defaults for that
+stage, with your config merged **branch by branch** on top. That last part is
+what makes nested settings work. Setting one key inside a block leaves its
+siblings at their declared values:
+
+```yaml
+frames:
+  controlnet:
+    strength: 0.4      # enabled, start_percent and end_percent keep their defaults
+```
+
+Under the shallow merge this replaced the whole `controlnet` block, which is why
+nested settings could not carry defaults at all — all 34 of them reached the
+form blank, and the real values were only visible at the call sites.
+
+A blank in your config means "use the default", at any depth. Writing
+`strength:` with nothing after it is the same as leaving the line out.
+
+**Not every setting has one.** Five deliberately do not:
+
+| setting | why it is blank |
+|---|---|
+| `canonical.controlnet.strength` | depends on whether the pose guide is strong: `0.55` or `0.30` |
+| `canonical.controlnet.end_percent` | same, `0.40` or `0.35` |
+| `references.match.exact_weight` | computed from the references you gave |
+| `canonical.controlnet.union_type` | blank means "follow the rig's own channel" |
+| `frames.controlnet.union_type` | same |
+
+Three keys still live on a stage rather than on a field, because a field cannot
+express them: `canonical.from_reference` and `pose.views` and `softbody.nodes`
+have no controls in the form.
+
+**Settings outside a stage block** — `references.*`, `compute.*`, `cooling.*` —
+declare defaults that fill the form but are not merged into what the pipeline
+reads; those paths still resolve their own fallbacks at the call site. It is the
+same gap the stage blocks had, one level out.
+
 ## Telling an AI to change this
 
 These files are written to be read by an assistant. Useful things to say:

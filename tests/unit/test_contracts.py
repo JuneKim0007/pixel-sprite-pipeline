@@ -149,73 +149,26 @@ def test_contracts_depends_on_nothing_but_errors():
     assert outside == set(), f"contracts.py reaches outside shared/: {outside}"
 
 
-# path -> (stage file, the dict opt() reads, its key). Every entry is a field
-# whose default is declared in the form AND read at a call site, so the two can
-# drift apart silently — which is what this pins.
-CALL_SITES = {
-    "pose.llm.host": ("pose.py", "llm_cfg", "host"),
-    "pose.llm.model": ("pose.py", "llm_cfg", "model"),
-    "pose.llm.temperature": ("pose.py", "llm_cfg", "temperature"),
-    "pose.llm.attempts": ("pose.py", "llm_cfg", "attempts"),
-    "pose.llm.tolerance": ("pose.py", "llm_cfg", "tolerance"),
-    "pose.llm.cache": ("pose.py", "llm_cfg", "cache"),
-    "frames.controlnet.enabled": ("frames.py", "cn", "enabled"),
-    "frames.controlnet.strength": ("frames.py", "cn", "strength"),
-    "frames.controlnet.start_percent": ("frames.py", "cn", "start_percent"),
-    "frames.controlnet.end_percent": ("frames.py", "cn", "end_percent"),
-    "frames.ip_adapter.weight": ("frames.py", "ip", "weight"),
-    "frames.ip_adapter.weight_type": ("frames.py", "ip", "weight_type"),
-    "frames.ip_adapter.start_at": ("frames.py", "ip", "start_at"),
-    "frames.ip_adapter.end_at": ("frames.py", "ip", "end_at"),
-    "frames.ip_adapter.anchor": ("frames.py", "ip", "anchor"),
-    "frames.ip_adapter.anchor_weight": ("frames.py", "ip", "anchor_weight"),
-    "frames.ip_adapter.anchor_weight_type": ("frames.py", "ip", "anchor_weight_type"),
-    "frames.ip_adapter.anchor_falloff": ("frames.py", "ip", "anchor_falloff"),
-    "frames.ip_adapter.anchor_far_weight": ("frames.py", "ip", "anchor_far_weight"),
-    "frames.ip_adapter.anchor_end_at": ("frames.py", "ip", "anchor_end_at"),
-    "frames.depth_controlnet.strength": ("frames.py", "dcn", "strength"),
-    "frames.depth_controlnet.start_percent": ("frames.py", "dcn", "start_percent"),
-    "frames.depth_controlnet.end_percent": ("frames.py", "dcn", "end_percent"),
-    "references.match.tolerance_degrees": ("frames.py", "match_cfg", "tolerance_degrees"),
-    "references.match.far_weight": ("frames.py", "match_cfg", "far_weight"),
-    "references.match.auto": ("frames.py", "match_cfg", "auto"),
-    "canonical.controlnet.enabled": ("canonical.py", "cn", "enabled"),
-    "canonical.controlnet.start_percent": ("canonical.py", "cn", "start_percent"),
-}
+def _declared_under_a_stage():
+    import pipeline.stages  # noqa: F401
+    from pipeline.generation.schema import FIELDS
+    from pipeline.generation.stage import available
+
+    stages = set(available())
+    return sorted(f.key for f in FIELDS
+                  if f.default is not None and f.key.split(".")[0] in stages)
 
 
-def _opt_literals() -> dict:
-    """Every `opt(block, "key", <literal>)` under stages/, by (file, block, key)."""
-    import ast
-    import pathlib
-
-    found = {}
-    for name in {site[0] for site in CALL_SITES.values()}:
-        tree = ast.parse((pathlib.Path("pipeline/stages") / name).read_text())
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                    and node.func.id == "opt" and len(node.args) == 3
-                    and isinstance(node.args[0], ast.Name)
-                    and isinstance(node.args[1], ast.Constant)):
-                continue
-            try:
-                value = ast.literal_eval(node.args[2])
-            except ValueError:
-                continue          # a computed fallback is not a static default
-            found[(name, node.args[0].id, node.args[1].value)] = value
-    return found
-
-
-@pytest.mark.parametrize("path", sorted(CALL_SITES))
-def test_the_form_s_default_is_what_the_pipeline_actually_uses(path):
-    # These reach the form through the field, not through Stage.DEFAULTS, which stops at one dot — so 34 nested fields showed no default at all and the form could not say what a blank meant.
-    import pipeline.stages  # noqa: F401  (populates the stage registry)
+@pytest.mark.parametrize("path", _declared_under_a_stage())
+def test_the_form_s_default_is_what_the_stage_actually_reads(path, tmp_path):
     from pipeline.generation.schema import SCHEMA
+    from pipeline.generation.stage import Context
 
-    served = {f["path"]: f for f in SCHEMA.fields_for(None)}
-    assert "default" in served[path], f"{path} shows no default in the form"
-    used = _opt_literals().get(CALL_SITES[path])
-    assert used is not None, f"no opt() literal for {path}; the call site moved"
-    assert served[path]["default"] == used, (
-        f"the form offers {served[path]['default']!r} and the pipeline uses "
-        f"{used!r}")
+    stage, *rest = path.split(".")
+    block = Context(root=tmp_path, outdir=tmp_path,
+                    config={}).stage_config(stage)
+    for step in rest:
+        assert isinstance(block, dict) and step in block, \
+            f"{path} never reaches the stage"
+        block = block[step]
+    assert block == SCHEMA.field(path).default
