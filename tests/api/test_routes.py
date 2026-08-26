@@ -19,7 +19,7 @@ ARGS = {
     "/api/annotation": "?image=README.md",
     "/api/file": "?path=README.md",
 }
-NEEDS_ARG = {"/api/autorig", "/api/run"}
+NEEDS_ARG = {"/api/autorig", "/api/run", "/api/run/poses"}
 ROUTES = {r["path"]: r for r in api.table.surface() if r["method"] == "GET"}
 GETS = sorted(ROUTES)
 
@@ -44,6 +44,38 @@ def test_a_response_matches_the_contract_its_route_declares(http, path):
 def test_a_side_effect_free_post_honours_its_contract_too(http):
     # The `http` fixture checks every call against its route's contract, so a POST is covered by whatever already exercises it. Only three POSTs can be called without leaving something behind; the rest are declared and checked at import, not against a live body.
     http.send("/api/queue/autopilot", {"action": "stop"})
+
+
+@pytest.fixture
+def a_run():
+    """A minimal run on disk. It has to live under the real runs_dir(): the server under test runs in this process's ROOT, so a tmp_path is invisible to it."""
+    import json
+    import shutil
+
+    from pipeline.api.context import runs_dir
+
+    home = runs_dir() / "20260101_000000_test"
+    pose = home / "03_pose"
+    pose.mkdir(parents=True)
+    (home / "run.log").write_text("ok\n")
+    (pose / "pose.json").write_text(json.dumps(
+        {"source": "library", "rig": "humanoid", "mode": "set",
+         "entries": [{"pose": {}, "yaw": 0, "spec": 0}]}))
+    try:
+        yield home.name
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
+@pytest.mark.parametrize("path,query", [
+    ("/api/run", "?id={run}"),
+    ("/api/run/poses", "?run={run}"),
+])
+def test_a_run_scoped_route_honours_its_contract(http, a_run, path, query):
+    # These three could only be called bare, which 400s in the argument check and proves nothing about the body — the same blind spot that hid a TypeError in /api/annotation for as long as that route existed.
+    body = http.raw(path + query.format(run=a_run))
+    faults = ROUTES[path]["returns"].check(body)
+    assert not faults, "; ".join(faults)
 
 
 def test_every_route_declares_what_it_returns():

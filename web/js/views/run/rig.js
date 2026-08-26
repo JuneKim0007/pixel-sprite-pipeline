@@ -394,7 +394,7 @@ export function rigEditor({ runId, onDirty } = {}) {
 
     if (runId) {
       try {
-        const data = await api.poses(runId);
+        const data = await api.runPoses(runId);
         if (data.entries?.length) {
           runEntries = data.entries;
           runRig = data.rig_def || null;
@@ -407,7 +407,7 @@ export function rigEditor({ runId, onDirty } = {}) {
 
     let library = {};
     try {
-      library = (await api.poses('')).library || {};
+      library = (await api.poses()).library || {};
     } catch { /* poses/ may be empty */ }
 
     for (const [name, data] of Object.entries(library)) {

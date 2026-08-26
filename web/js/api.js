@@ -57,7 +57,8 @@ export const api = {
   start:    (payload) => json('POST', '/api/run', payload),
   stop:     (run_id) => json('POST', '/api/stop', { run_id }),
 
-  poses:    (runId = '') => call(`/api/poses${runId ? `?run=${encodeURIComponent(runId)}` : ''}`),
+  poses:    () => call('/api/poses'),
+  runPoses: (runId) => call(`/api/run/poses?run=${encodeURIComponent(runId)}`),
   savePoses: (run_id, entries) => json('POST', '/api/poses', { run_id, entries }),
   autorig:  (image, rig = 'humanoid') =>
     call(`/api/autorig?image=${encodeURIComponent(image)}&rig=${encodeURIComponent(rig)}`),

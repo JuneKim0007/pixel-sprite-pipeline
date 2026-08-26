@@ -53,13 +53,3 @@ class Bytes(Shape):
 
     def __repr__(self) -> str:
         return "Bytes()"
-
-
-class Anything(Shape):
-    """A response whose shape is the caller's own echo, so there is nothing to promise. Every use is named at its route, so this cannot become the quiet default."""
-
-    def check(self, body: Any) -> list[str]:
-        return []
-
-    def __repr__(self) -> str:
-        return "Anything()"

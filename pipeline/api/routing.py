@@ -68,8 +68,8 @@ def _mark(method: str, path: str, summary: str, returns: Shape | None):
     if not isinstance(returns, Shape):
         raise Invalid(f"{method} {path} declares no response contract",
                       field=path,
-                      hint="pass returns=Shape(...), or Bytes()/Anything() "
-                           "when there is genuinely no object to promise")
+                      hint="pass returns=Shape(...), or Bytes() for a "
+                           "route that answers with a file")
 
     def wrap(fn):
         fn._route = (method, path, summary, returns)

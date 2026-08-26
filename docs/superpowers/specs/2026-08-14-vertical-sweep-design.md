@@ -288,16 +288,21 @@ the bug class that motivated this — a handler dropping or renaming a key the U
 reads — and both directions are verified red: a renamed key and a
 `str`-turned-`list` each fail the suite.
 
-**Coverage is honest and uneven.** All 19 GET routes are checked against a live
-response. The `http` fixture checks *every* call any test makes, so a POST is
-covered by whatever already exercises it — today that is 2 of 19. The other 17
-are declared and validated at import, not against a live body, because calling
-them leaves a job queued, a file written or a config edited behind.
+**Coverage is honest and uneven.** 19 of 20 GET routes are checked against a
+live response — `/api/autorig` needs a real sprite and is the one exception.
+The `http` fixture checks *every* call any test makes, so a POST is covered by
+whatever already exercises it; today that is 2 of 19. The other 17 are declared
+and validated at import, not against a live body, because calling them leaves a
+job queued, a file written or a config edited behind.
 
-**One escape hatch, used once.** `GET /api/poses` answers a run's `pose.json`
-with `?run=` and the whole library without it, and the two share no key. Its
-contract is `Anything()`, which is the layer reporting a design fault rather
-than papering over it: splitting the route is the fix.
+**No escape hatch.** The first draft gave `GET /api/poses` an `Anything()`
+contract because it answered a run's `pose.json` with `?run=` and the whole
+library without it, sharing no key between them. The contract layer was
+reporting a design fault, so the route was split instead: `/api/poses` is the
+library and `/api/run/poses` is one run's guides, each with a real `Shape`.
+`Anything` was then deleted — an unused escape hatch is an invitation, and a
+route that genuinely cannot be contracted can reintroduce it with its reason in
+that commit.
 
 **It found a live bug on the way in.** `GET /api/annotation` called
 `annotate.load` with three arguments where it takes one — a `TypeError` on

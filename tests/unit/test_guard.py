@@ -146,6 +146,8 @@ def test_killing_a_process_that_already_exited_is_not_an_error(victim,
 
 
 def test_a_bug_in_check_does_not_kill_the_guard(monkeypatch):
+    from pipeline.shared import guard as guard_mod
+
     guard = Guard()
     calls = []
 
@@ -154,8 +156,12 @@ def test_a_bug_in_check_does_not_kill_the_guard(monkeypatch):
         raise RuntimeError("sensor exploded")
 
     monkeypatch.setattr(guard, "check", boom)
+    # At the real one-second interval this one assertion cost 2.5s, which was half the runtime of the whole suite.
+    monkeypatch.setattr(guard_mod, "INTERVAL_S", 0.01)
     guard.start()
-    time.sleep(2.5)
+    deadline = time.monotonic() + 2.0
+    while len(calls) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
     guard.stop()
     assert len(calls) >= 2, "the loop stopped at the first exception"
 

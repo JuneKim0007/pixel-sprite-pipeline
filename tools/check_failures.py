@@ -35,14 +35,12 @@ class Index:
 
     def __init__(self, roots: list[Path]):
         self.definitions: dict[str, list[tuple[Path, ast.FunctionDef]]] = {}
-        self.trees: dict[Path, ast.Module] = {}
         for root in roots:
             for path in sorted(Path(root).rglob("*.py")):
                 try:
                     tree = ast.parse(path.read_text())
                 except (OSError, SyntaxError):
                     continue
-                self.trees[path] = tree
                 for node in ast.walk(tree):
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         self.definitions.setdefault(node.name, []).append(

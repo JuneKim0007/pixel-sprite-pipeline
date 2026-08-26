@@ -16,37 +16,38 @@ from ..shared.errors import Invalid, NotFound
 from ..stages import depth as depth_stage
 from ..stages import pose as pose_stage
 from .context import ROOT, allowed_roots, runs_dir
-from .contracts import Anything, Shape
+from .contracts import Shape
 from .routing import BaseRouter, get, post
 import yaml
 
 
-def poses(run_id: str) -> dict:
-
-    if run_id:
-        p = runs_dir() / run_id
-        for d in sorted(p.glob("*_pose")):
-            f = d / "pose.json"
-            if f.exists():
-                data = json.loads(f.read_text())
-                data["source_file"] = str(f)
-
-                rig = rig_lib.get(data.get("rig"))
-                data["rig_def"] = {
-                    "name": rig.name, "joints": list(rig.joints),
-                    "tree": {k: list(v) for k, v in rig.tree.items()},
-                    "root": rig.root,
-                    "limbs": [list(p) for p in rig.limb_pairs],
-                    "bones": [[a, b, t] for a, b, t in rig.bones],
-                    "neutral": {k: list(v) for k, v in rig.neutral.items()},
-                }
-                return data
-        raise NotFound("pose stage output", run_id)
-
+def pose_library() -> dict:
     from ..looks import poses as pose_lib
 
     return {"library": {k: json.loads(p.read_text())
                         for k, p in pose_lib.discover(ROOT).items()}}
+
+
+def run_poses(run_id: str) -> dict:
+    """The pose guides one run produced, with the rig needed to draw them."""
+    for d in sorted((runs_dir() / run_id).glob("*_pose")):
+        f = d / "pose.json"
+        if not f.exists():
+            continue
+        data = json.loads(f.read_text())
+        data["source_file"] = str(f)
+
+        rig = rig_lib.get(data.get("rig"))
+        data["rig_def"] = {
+            "name": rig.name, "joints": list(rig.joints),
+            "tree": {k: list(v) for k, v in rig.tree.items()},
+            "root": rig.root,
+            "limbs": [list(p) for p in rig.limb_pairs],
+            "bones": [[a, b, t] for a, b, t in rig.bones],
+            "neutral": {k: list(v) for k, v in rig.neutral.items()},
+        }
+        return data
+    raise NotFound("pose stage output", run_id)
 
 
 def _run_context(run: Path, pose_json: dict) -> Context:
@@ -62,8 +63,11 @@ def _run_context(run: Path, pose_json: dict) -> Context:
 def save_poses(body: dict) -> dict:
     run_id = body.get("run_id", "")
     entries = body.get("entries")
-    if not run_id or not isinstance(entries, list):
-        raise Invalid("run_id and entries are required")
+    if not run_id:
+        raise Invalid("'run_id' is required", field="run_id")
+    if not isinstance(entries, list):
+        raise Invalid(f"'entries' must be a list of poses, not "
+                      f"{type(entries).__name__}", field="entries")
 
     run = runs_dir() / run_id
     pose_dirs = sorted(run.glob("*_pose"))
@@ -129,11 +133,15 @@ def _save_annotation(body: dict) -> dict:
 class Poses(BaseRouter):
     prefix = "/api"
 
-    # Two shapes on one path: with ?run= this answers one run's pose.json, without it the whole library, and the two share no key. The contract can only say so; splitting the route is the fix.
-    @get("/poses", "the pose guides a run used, or the library",
-         returns=Anything())
+    @get("/poses", "every pose guide in the library",
+         returns=Shape(library=dict))
     def index(self, req):
-        return poses(req.query("run"))
+        return pose_library()
+
+    @get("/run/poses", "the pose guides one run produced",
+         returns=Shape(entries=list, rig=str, rig_def=dict, source_file=str))
+    def for_run(self, req):
+        return run_poses(req.required("run"))
 
     @post("/poses", "save edited pose guides",
           returns=Shape(saved=int, dir=str, manifest=str))
