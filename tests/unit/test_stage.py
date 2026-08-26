@@ -9,10 +9,13 @@ from pipeline.generation.stage import Context, Stage, available, opt
 REGISTRY = available()
 
 
-def test_no_stage_requires_what_nothing_produces():
-    required = {r for s in REGISTRY.values() for r in s.requires}
-    produced = {p for s in REGISTRY.values() for p in s.produces}
-    assert not required - produced
+def test_no_stage_needs_what_nothing_gives():
+    from pipeline.generation.resources import RESOLVERS
+
+    needed = {n for s in REGISTRY.values() for n in s.needs}
+    given = {g for s in REGISTRY.values() for g in s.gives}
+    # A need is answered by a sibling or by the run; the stage does not say which, so neither does this.
+    assert not needed - given - set(RESOLVERS)
 
 
 def test_gpu_stages_are_marked():

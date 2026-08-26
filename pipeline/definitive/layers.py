@@ -8,6 +8,7 @@ from contextvars import ContextVar
 
 from ..shared import limits
 from ..shared.contracts import LayerField as Field
+from ..shared import plan
 from ..shared.errors import Invalid, TooLarge
 from ..shared.registry import Decorated, Registry
 
@@ -228,31 +229,22 @@ WHY: dict[str, str] = {
 def validate_order(stack: list[dict]) -> None:
     """Refuse an arrangement that would produce a silently wrong picture.
 
-    The advisory half is `check_order`. This half is the same check the pipeline
-    runner has always made on stages: a declared dependency satisfied too late
-    is an error, not a sentence in the margin.
+    The advisory half is `check_order`. This half is the same walk the pipeline
+    runner makes over stages, in `shared/plan.py` — the difference is only that
+    a layer need nothing gives at all is consistent, so the walk runs in its
+    ordering mode rather than its strict one.
     """
-    enabled = [s.get("layer") for s in stack if s.get("enabled", True)]
-    given: set[str] = set()
-    later = {g: key for key in reversed(enabled)
-             for g in getattr(REGISTRY.get(key), "gives", ())}
-
-    for index, key in enumerate(enabled):
-        spec = REGISTRY.get(key)
-        if spec is None:
-            continue
-        for want in sorted(spec.needs - given):
-            producer = later.get(want)
-            # Nothing gives it at all: there is no lattice to contradict, so the arrangement is consistent even though it is unreduced.
-            if producer is None:
-                continue
-            raise Invalid(
-                f"{spec.label} runs before {REGISTRY[producer].label}. "
-                + WHY.get(key, f"It needs '{want}', which "
-                               f"{REGISTRY[producer].label} produces later."),
-                field=key,
-                hint=f"move {spec.label} after {REGISTRY[producer].label}")
-        given |= spec.gives
+    enabled = [REGISTRY.get(s.get("layer")) for s in stack
+               if s.get("enabled", True)]
+    problems = plan.unmet([n for n in enabled if n is not None], strict=False)
+    plan.refuse(
+        problems,
+        why=lambda p: (
+            f"{REGISTRY[p.node].label} runs before {REGISTRY[p.producer].label}. "
+            + WHY.get(p.node, f"It needs '{p.name}', which "
+                              f"{REGISTRY[p.producer].label} produces later.")),
+        hint=lambda p: (f"move {REGISTRY[p.node].label} after "
+                        f"{REGISTRY[p.producer].label}"))
 
 
 def check_order(stack: list[dict]) -> list[str]:

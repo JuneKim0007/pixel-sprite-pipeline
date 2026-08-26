@@ -99,6 +99,6 @@ class Machine(BaseRouter):
 
     @get("/schema", "every configurable field for a module",
          returns=Shape(module=str, modules=dict, fields=list, options=dict,
-                       stages=list))
+                       stages=list, resources=list))
     def schema(self, req):
         return schema.describe(ROOT, req.query("module") or None)

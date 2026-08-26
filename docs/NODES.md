@@ -26,7 +26,17 @@ was deferred, and the deferral is now the largest source of coupling left.
 
 ---
 
-## 2. The finding: three node systems, one shape
+## 2. The finding: ~~three~~ **two** node systems, one shape
+
+> **Corrected 2026-08-26.** `Job` is not a node system. Measured: it is a
+> `path` plus a `data` dict with properties for `module`, `config`, `attempts`
+> and `state`. It has no fields, no `prepare`/`apply`, and no artifacts — its
+> `needs` (`queue.py:231`) is a list of **file paths that must exist**, not
+> artifacts a sibling produces. It is a scheduler entry. The only property it
+> shares with `Stage` and `LayerSpec` is "a declared unit of work composed in
+> an order", which is also true of a cron entry. The `Job` column below is kept
+> because the comparison is still informative; the conclusion drawn from it was
+> not.
 
 The same argument as REFACTOR.md §2 ("six registries, three implementations"),
 one level up. Three things in this codebase are *a declared unit of work
@@ -49,7 +59,12 @@ something are below.
 
 ## 3. The three asymmetries that cost something
 
-### 3a. Stages have no `prepare`/`apply` split, so the pipeline cannot cache
+### 3a. ~~Stages have no `prepare`/`apply` split, so the pipeline cannot cache~~
+
+> **Closed 2026-08-13** by step 3 below, and the measurement it argues from is
+> the measurement that closed it: `find_phase` went 5 calls to 1 on a four-view
+> sheet, and `palette.phase` was deleted. Left here because §4 leans on it, and
+> a reader taking it at face value would rebuild something that exists.
 
 `LayerSpec` separates the *orderless* half (measure a block size, cluster a
 palette, find a lattice phase — a pure function of the arriving image and that
@@ -144,6 +159,30 @@ for batch in plan.batches():                # groups independent CPU work
         prep = cache.get(key(node, inputs, cfg), lambda: node.prepare(inputs, cfg))
         inputs |= node.apply(inputs, cfg, prep)
 ```
+
+> **What was built, 2026-08-26, and what was not.** The *declaration* is
+> unified and the *execution* is not, on purpose.
+>
+> `Stage` and `LayerSpec` now speak one vocabulary: `needs` and `gives`, where a
+> need is a name that must be satisfied before the node runs and **where it
+> comes from is the plan's business, not the node's**. For a stage that is an
+> earlier stage's `gives`, a seeded artifact, or the run's resource table;
+> `Stage.requires`/`produces` are gone. `shared/plan.py` holds the one
+> dependency walk both engines make, parametrised by the single thing that
+> differed — whether a name nothing gives at all is a hole (`strict`, stages)
+> or a non-event (`ordering`, layers). It replaces the same walk written twice.
+>
+> Merging `run(ctx, prep)` and `apply(img, cfg, facts, prep)` into one
+> `apply(inputs, cfg, prep)` was **rejected**, and not for size. It rewrites all
+> five builtin layers, both budget guards, the cache keying (which fingerprints
+> an ndarray directly), the deferral machinery, `magnify`/`growth` and `admit`;
+> and on the stage side every use of `stage_config`, `stage_dir`, `run_id`,
+> `root` and `outdir` needs another route. Against that, §4's own measured
+> justification is spent: §3a argued the split was needed to make stages
+> cacheable, and step 3 delivered that saving in 2026-08-13 without any `Node`.
+> What is left of the merge is "one shape", with no measurement behind it.
+> `AGENTS.md` says measure before asserting something is better — this says that
+> instead.
 
 **`Context` stops being a service locator.** Today a stage asks it for a rig
 and it resolves one — the reason for the five deferred imports, and the reason

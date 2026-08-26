@@ -311,11 +311,19 @@ test('features/ never touches the DOM', () => {
 test('stage ordering is decidable without a schema global', async () => {
   const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
   const stages = [
-    { name: 'pose', requires: [], produces: ['skeletons'] },
-    { name: 'frames', requires: ['skeletons'], produces: ['frames'] },
-    { name: 'export', requires: ['frames'], produces: ['sheet'] },
+    { name: 'pose', needs: [], gives: ['skeletons'] },
+    { name: 'frames', needs: ['skeletons'], gives: ['frames'] },
+    { name: 'export', needs: ['frames'], gives: ['sheet'] },
   ];
   assert.deepEqual(orderProblems(['pose', 'frames', 'export'], stages), []);
+
+  // A stage declares one set of needs and the run answers some of them, so a
+  // resource must not be reported as an artifact nothing produces.
+  const withRig = [{ name: 'pose', needs: ['rig'], gives: ['skeletons'] },
+                   { name: 'frames', needs: ['skeletons'], gives: ['frames'] }];
+  assert.deepEqual(orderProblems(['pose', 'frames'], withRig, ['rig']), []);
+  assert.equal(orderProblems(['pose', 'frames'], withRig, []).length, 1,
+               'without the resource list a rig reads as a missing artifact');
 
   const broken = orderProblems(['frames', 'pose'], stages);
   assert.equal(broken.length, 1);

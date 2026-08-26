@@ -15,8 +15,8 @@ from ..generation.stage import Context, Resource, Stage, opt, register
 class ExportStage(Stage):
     name = "export"
     resource = Resource.CPU
-    requires = frozenset({"pixel_frames"})
-    produces = frozenset({"sheet"})
+    needs = frozenset({"pixel_frames"})
+    gives = frozenset({"sheet"})
 
     ALSO_JOIN = ("pose", "depth", "frames")
 

@@ -45,8 +45,8 @@ class CanonicalStage(Stage):
     resource = Resource.GPU
     DEFAULTS = {"from_reference": {}, "controlnet": {}}
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
-    produces = frozenset({"canonical", "canonicals"})
-    needs = frozenset({'references', 'rig'})
+    gives = frozenset({"canonical", "canonicals"})
+    needs = frozenset({"references", "rig"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("canonical")

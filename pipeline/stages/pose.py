@@ -67,8 +67,8 @@ class PoseStage(Stage):
     name = "pose"
     resource = Resource.CPU
     DEFAULTS = {"llm": {}, "views": ""}
-    produces = frozenset({"skeletons", "pose_frames"})
-    needs = frozenset({'references', 'rig', 'rig_record'})
+    gives = frozenset({"pose_frames", "skeletons"})
+    needs = frozenset({"references", "rig", "rig_record"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("pose")

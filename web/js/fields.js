@@ -123,7 +123,8 @@ export function control(field, value, onChange) {
 
 /* Mirrors the server's dependency check so an unrunnable order shows up as you
  * build it, not when you press Save. */
-export const orderProblems = (active) => problemsOf(active, state.schema.stages);
+export const orderProblems = (active) =>
+  problemsOf(active, state.schema.stages, state.schema.resources);
 export const autoOrder = (active) => orderOf(active, state.schema.stages);
 
 
@@ -137,7 +138,7 @@ function stagePicker(active, onChange) {
     const chip = el('div', {
       className: `st ${on ? '' : 'off'} ${meta?.resource === 'gpu' ? 'gpu' : ''}`,
       draggable: on,
-      title: meta ? `${meta.resource.toUpperCase()} · needs ${meta.requires.join(', ') || '—'} · gives ${meta.produces.join(', ') || '—'}` : '',
+      title: meta ? `${meta.resource.toUpperCase()} · needs ${meta.needs.join(', ') || '—'} · gives ${meta.gives.join(', ') || '—'}` : '',
     },
       el('span', { className: 'num', textContent: on ? String(active.indexOf(name) + 1) : '–' }),
       name);

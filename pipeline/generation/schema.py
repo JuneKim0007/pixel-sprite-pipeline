@@ -884,6 +884,7 @@ class ConfigSchema:
                 and f.default is not None}
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
+        from .resources import RESOLVERS
         from .stage import available
 
         return {
@@ -891,12 +892,14 @@ class ConfigSchema:
             "modules": self.modules,
             "fields": self.fields_for(module),
             "options": dynamic_options(root),
+            # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as a missing artifact.
+            "resources": sorted(RESOLVERS),
             "stages": [
                 {
                     "name": name,
                     "resource": cls.resource,
-                    "requires": sorted(cls.requires),
-                    "produces": sorted(cls.produces),
+                    "needs": sorted(cls.needs),
+                    "gives": sorted(cls.gives),
                 }
                 for name, cls in sorted(available().items())
             ],

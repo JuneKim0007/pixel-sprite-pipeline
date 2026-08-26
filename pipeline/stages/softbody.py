@@ -17,8 +17,8 @@ class SoftBodyStage(Stage):
     name = "softbody"
     DEFAULTS = {"nodes": []}
     resource = Resource.CPU
-    requires = frozenset({"frames", "pose_frames"})
-    produces = frozenset({"soft_frames"})
+    needs = frozenset({"frames", "pose_frames"})
+    gives = frozenset({"soft_frames"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("softbody")

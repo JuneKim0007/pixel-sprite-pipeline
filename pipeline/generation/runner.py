@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..shared import cooling
+from ..shared import plan as plan_mod
 from .stage import Context, Resource, Stage, get
 from ..shared.errors import Invalid
 
@@ -33,36 +34,21 @@ def build(order: list[str]) -> list[Stage]:
 
 
 def validate(stages: list[Stage], seeded: set[str]) -> None:
-    """Check the configured order can actually satisfy every dependency."""
+    """Check the configured order can actually satisfy every dependency.
+
+    A stage need is satisfied by an earlier stage, by a seeded artifact, or by
+    the run's resource table — and which of the three is the plan's business,
+    which is why the stage declares one set and not three.
+    """
     from . import resources
 
-    available = set(seeded)
-    producers = {p: s.name for s in stages for p in s.produces}
-
-    for stage in stages:
-        unknown = resources.unresolvable(stage.needs)
-        if unknown:
-            raise PipelineError(
-                f"stage '{stage.name}' needs {unknown}, which nothing can "
-                f"resolve.\n\nDeclare a resolver in "
-                f"generation/resources.py, or correct the stage's `needs`."
-            )
-        missing = stage.requires - available
-        if missing:
-            details = []
-            for key in sorted(missing):
-                owner = producers.get(key)
-                if owner:
-                    details.append(f"'{key}' is produced by '{owner}', which runs later")
-                else:
-                    details.append(f"'{key}' is produced by no configured stage")
-            raise PipelineError(
-                f"stage '{stage.name}' cannot run in this order:\n  "
-                + "\n  ".join(details)
-                + "\n\nReorder `pipeline.stages` in your config, or add the "
-                  "missing producer."
-            )
-        available |= stage.produces
+    plan_mod.refuse(
+        plan_mod.unmet(stages, seeded=frozenset(seeded),
+                       supplied=lambda name: name in resources.RESOLVERS,
+                       strict=True),
+        error=PipelineError,
+        tail="\n\nReorder `pipeline.stages` in your config, add the missing "
+             "producer, or declare a resolver in generation/resources.py.")
 
 
 def plan(stages: list[Stage]) -> list[Batch]:
@@ -82,7 +68,7 @@ def plan(stages: list[Stage]) -> list[Batch]:
             continue
 
         conflict = any(
-            stage.requires & other.produces or other.requires & stage.produces
+            stage.needs & other.gives or other.needs & stage.gives
             for other in current
         )
         if conflict:
@@ -190,14 +176,14 @@ def _one(stage: Stage, ctx: Context, verbose: bool) -> dict[str, Any]:
         print(f"   prepared in {time.time() - t0:.1f}s: {', '.join(sorted(prep))}")
     produced = stage.run(ctx, prep) or {}
 
-    unexpected = set(produced) - set(stage.produces)
+    unexpected = set(produced) - set(stage.gives)
     if unexpected:
         raise PipelineError(
             f"stage '{stage.name}' returned undeclared artifacts: "
-            f"{sorted(unexpected)}. Add them to `produces` so ordering stays "
+            f"{sorted(unexpected)}. Add them to `gives` so ordering stays "
             f"checkable."
         )
-    withheld = set(stage.produces) - set(produced)
+    withheld = set(stage.gives) - set(produced)
     if withheld:
         raise PipelineError(
             f"stage '{stage.name}' declared {sorted(withheld)} but did not "

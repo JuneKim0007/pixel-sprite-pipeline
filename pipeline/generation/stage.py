@@ -89,27 +89,24 @@ class Stage(ABC):
 
     name: ClassVar[str]
     resource: ClassVar[str] = Resource.CPU
-    requires: ClassVar[frozenset[str]] = frozenset()
-    produces: ClassVar[frozenset[str]] = frozenset()
-    DEFAULTS: ClassVar[dict[str, Any]] = {}
-    optional: ClassVar[frozenset[str]] = frozenset()
-    # Artifacts come from other stages; needs come from the run. Both are declared so both can be checked before anything expensive starts.
+    # One vocabulary with `LayerSpec`: a name this cannot run without, and a name it makes available. Where a need comes from - an earlier stage, a seeded artifact, or the run's resource table - is the plan's business, not the stage's.
     needs: ClassVar[frozenset[str]] = frozenset()
+    gives: ClassVar[frozenset[str]] = frozenset()
+    optional: ClassVar[frozenset[str]] = frozenset()
+    DEFAULTS: ClassVar[dict[str, Any]] = {}
 
     def prepare(self, ctx: Context) -> dict[str, Any]:
         return {}
 
     @abstractmethod
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
-        """Do the work; return the artifacts named in `produces`."""
+        """Do the work; return the artifacts named in `gives`."""
 
     def describe(self) -> str:
-        req = ", ".join(sorted(self.requires)) or "-"
+        req = ", ".join(sorted(self.needs)) or "-"
         if self.optional:
             req += f" (+{', '.join(sorted(self.optional))}?)"
-        if self.needs:
-            req += f" [{', '.join(sorted(self.needs))}]"
-        pro = ", ".join(sorted(self.produces)) or "-"
+        pro = ", ".join(sorted(self.gives)) or "-"
         return f"{self.name:<12} [{self.resource}]  needs: {req:<34} gives: {pro}"
 
 

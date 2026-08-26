@@ -31,9 +31,9 @@ def _one_frame(args: tuple) -> str:
 class PaletteStage(Stage):
     name = "palette"
     resource = Resource.CPU
-    requires = frozenset({"frames", "canonical"})
+    needs = frozenset({"canonical", "frames"})
     optional = frozenset({"soft_frames"})
-    produces = frozenset({"palette", "pixel_frames"})
+    gives = frozenset({"palette", "pixel_frames"})
 
     def prepare(self, ctx: Context) -> dict[str, Any]:
         cfg = ctx.stage_config("palette")

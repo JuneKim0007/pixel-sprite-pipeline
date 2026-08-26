@@ -28,10 +28,9 @@ class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
     DEFAULTS = {"controlnet": {}, "depth_controlnet": {}, "ip_adapter": {}}
-    requires = frozenset({"skeletons", "canonical", "pose_frames"})
     optional = frozenset({"depthmaps", "canonicals"})
-    produces = frozenset({"frames"})
-    needs = frozenset({'references', 'rig'})
+    gives = frozenset({"frames"})
+    needs = frozenset({"canonical", "pose_frames", "references", "rig", "skeletons"})
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.stage_config("frames")
