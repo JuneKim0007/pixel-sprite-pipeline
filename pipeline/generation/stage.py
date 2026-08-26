@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Mapping
 
 from ..shared.config import opt
+from ..shared.settings import deep_merge
 from ..shared.errors import Invalid, NotFound
 from ..shared.registry import Decorated, Registry
 
@@ -60,11 +61,15 @@ class Context:
         for note in notes:
             log.warning(note)
 
-    def settings(self, path: str) -> dict[str, Any]:
-        """One config block, its declared defaults already underneath."""
-        from .schema import get_path
+    def settings(self, path: str) -> Any:
+        """The value at one config path, its declared defaults already underneath."""
+        from .schema import SCHEMA, get_path
 
-        return _under(_set(get_path(self.config, path) or {}), defaults_for(path))
+        here = get_path(self.config, path)
+        field = SCHEMA.field(path)
+        if field is not None:
+            return field.default if here is None else here
+        return deep_merge(defaults_for(path), _set(here or {}))
 
     def stage_dir(self, name: str) -> Path:
         idx = self._order.setdefault(name, len(self._order))
@@ -144,18 +149,7 @@ def defaults_for(path: str) -> dict[str, Any]:
     """One block's settings before any config touches them."""
     from .schema import SCHEMA
 
-    out = SCHEMA.defaults_under(path)
     cls = _REGISTRY.find(path)
-    return _under(copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls else {},
-                  out)
-
-
-def _under(over: dict[str, Any], under: dict[str, Any]) -> dict[str, Any]:
-    """`over` merged onto `under`, branch by branch rather than wholesale."""
-    out = dict(under)
-    for key, value in over.items():
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
-            out[key] = _under(value, out[key])
-        else:
-            out[key] = value
-    return out
+    return deep_merge(SCHEMA.defaults_under(path),
+                      copy.deepcopy(getattr(cls, "DEFAULTS", {}) or {}) if cls
+                      else {})

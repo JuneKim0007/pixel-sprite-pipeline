@@ -69,7 +69,7 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
-        bg = ctx.config.get("background") or {}
+        bg = ctx.settings("background")
         if opt(bg, "enabled", True) is False:
             return None
         raw = str(opt(bg, "colour", "") or "").lstrip("#")
@@ -96,7 +96,7 @@ class PaletteStage(Stage):
             )
             for src in frames
         ]
-        compute = ctx.config.get("compute") or {}
+        compute = ctx.settings("compute")
         wanted = opt(compute, "cpu_workers", opt(cfg, "workers", os.cpu_count() or 4))
         workers = max(1, min(int(wanted), len(jobs)))
         if workers > 1:

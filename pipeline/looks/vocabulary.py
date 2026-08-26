@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+DEFAULT_SUBJECT = "a knight in armor"
 DEFAULT_STYLE = "pixel art, game sprite, side view, plain flat background"
 
 NEGATIVE = (

@@ -50,15 +50,14 @@ class CanonicalStage(Stage):
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("canonical")
-        subject = ctx.config.get("subject", "a knight in armor")
-        client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))
+        subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
+        client = comfy.Client(ctx.settings("comfy.host"))
         if not client.alive():
             raise ComfyError("ComfyUI is not running — start it with ./start.sh")
 
-        default_style = vocabulary.DEFAULT_STYLE
-        style = ctx.config.get("style", default_style)
+        style = ctx.config.get("style") or vocabulary.DEFAULT_STYLE
         hint = ctx.need("rig").prompt_hint
-        bg = ctx.config.get("background") or {}
+        bg = ctx.settings("background")
         backdrop = None if opt(bg, "enabled", True) is False else opt(
             bg, "colour", vocabulary.BACKDROP)
         prompt = cfg.get("prompt") or ", ".join(
@@ -142,7 +141,7 @@ class CanonicalStage(Stage):
                     pose_control=bool(control_names.get("pose"))),
                 lora_strength=cfg["lora_strength"],
                 lcm=lcm,
-                models=ctx.config.get("models") or {},
+                models=ctx.settings("models"),
             )
 
             if chosen is not None:
@@ -154,7 +153,7 @@ class CanonicalStage(Stage):
                     weight=float(opt(from_ref, "weight", chosen.base_weight)),
                     weight_type=opt(from_ref, "weight_type", "linear"),
                     start_at=0.0, end_at=1.0,
-                    ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+                    ipadapter=ctx.settings("models.ipadapter"),
                 )
 
             for exemplar in lib.style[:2]:
@@ -166,7 +165,7 @@ class CanonicalStage(Stage):
                         [exemplar], cfg.get("style_weight")),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
-                    ipadapter=(ctx.config.get("models") or {}).get("ipadapter"),
+                    ipadapter=ctx.settings("models.ipadapter"),
                 )
             for kind, (name, channel) in control_names.items():
                 control = g.out(g.add("LoadImage", image=name), 0)
@@ -177,7 +176,7 @@ class CanonicalStage(Stage):
                     start_percent=cn["start_percent"],
                     end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
                     union_type=channel,
-                    controlnet=(ctx.config.get("models") or {}).get("controlnet"),
+                    controlnet=ctx.settings("models.controlnet"),
                 )
             return g, model, pos, neg, vae
 

@@ -66,6 +66,7 @@ FIELDS: list[ConfigField] = [
              "because all of those carry a look. Later sheets win over earlier "
              "ones, and the pipeline wins over all of them."),
     ConfigField(key="annotate", label="Reference annotation", kind="select",
+     default="skip",
      options=["skip", "if_present", "require"], group="Asset",
      help="Whether this pipeline uses per-image rig annotations. 'skip' "
              "ignores them, which is the right default for unattended runs. "
@@ -367,6 +368,7 @@ FIELDS: list[ConfigField] = [
              "stays sharp at any zoom."),
 
     ConfigField(key="comfy.host", label="ComfyUI host", kind="text",
+     default="http://127.0.0.1:8188",
      group="Services",
      help="Where ComfyUI is listening, normally http://127.0.0.1:8188. Set "
              "it here only to point one config at a different instance "

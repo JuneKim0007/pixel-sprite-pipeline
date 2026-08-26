@@ -324,6 +324,31 @@ setting is deliberately outside this: `compute.vram_mode` is read by
 so it never passes through Python at all. A test keeps that honest — a field
 with a declared default has to reach either the pipeline or `ctl.sh`.
 
+### The four settings with no default, and why
+
+`subject` and `style` are blank on purpose. `canonical` and `frames` fall back
+to `vocabulary.DEFAULT_SUBJECT` and `DEFAULT_STYLE` when writing a prompt, but
+the LLM palette chooser passes an empty string deliberately — an empty subject
+means "no hint", and a declared default would send it a knight it was never
+told about. A prompt fallback and a config default are different things.
+
+`props` is free-form and has no control. `paths.*` is resolved by
+`shared/settings.py` before the pipeline sees it.
+
+Everything else a stage reads goes through `ctx.settings(path)`, so the value
+comes from the field that declares it.
+
+### One default that is still written twice
+
+`shared/settings.py` holds `DEFAULT_GLOBAL`, the machine-level defaults written
+into `_global.yaml` on first run. Ten of its seventeen values are also declared
+fields — `comfy.host`, `models.*`, `compute.*` — so those defaults exist in two
+places.
+
+They cannot simply merge: `shared/` depends on no other module and a test
+enforces that, while `FIELDS` lives in `generation`. Closing this means moving
+one of them, which is a bigger change than it looks.
+
 ## Telling an AI to change this
 
 These files are written to be read by an assistant. Useful things to say:

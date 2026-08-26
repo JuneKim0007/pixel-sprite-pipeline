@@ -20,7 +20,7 @@ from ..shared import settings as settings_mod
 def _references(ctx) -> Any:
     """The typed reference library for this run."""
     cfg = ctx.settings("references")
-    cfg.setdefault("_name", ctx.config.get("name") or "")
+    cfg.setdefault("_name", ctx.settings("name") or "")
     cfg.setdefault("_runs_dir", str(settings_mod.resolve_dir(
         ctx.root, (ctx.config.get("paths") or {}).get("output_dir"),
         "out/runs")))
@@ -34,7 +34,7 @@ def _references(ctx) -> Any:
 
 def measured_proportions(ctx) -> dict[str, float]:
     """Limb ratios inferred from annotated references, if any and enabled."""
-    if ctx.config.get("annotate", "skip") == "skip":
+    if ctx.settings("annotate") == "skip":
         return {}
 
     merged: dict[str, list[float]] = {}
@@ -52,7 +52,7 @@ def _detected(ctx) -> dict:
         measured = measured_proportions(ctx)
         if measured:
             record["measured_proportions"] = measured
-        proportions = {**measured, **(ctx.config.get("proportions") or {})}
+        proportions = {**measured, **ctx.settings("proportions")}
         ctx.resources["rig"] = rigs_mod.scale(rig, proportions)
         ctx.resources["rig_record"] = record
     return ctx.resources

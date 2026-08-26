@@ -49,7 +49,7 @@ class FramesStage(Stage):
                 f"they must correspond one to one."
             )
 
-        client = comfy.Client(ctx.config.get("comfy", {}).get("host", "http://127.0.0.1:8188"))
+        client = comfy.Client(ctx.settings("comfy.host"))
         if not client.alive():
             raise ComfyError("ComfyUI is not running — start it with ./start.sh")
 
@@ -89,13 +89,13 @@ class FramesStage(Stage):
         tolerance = float(match_cfg["tolerance_degrees"])
 
         entries: list[dict] = ctx.require("pose_frames")
-        subject = ctx.config.get("subject", "a knight in armor")
+        subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
         style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
         hint = ctx.need("rig").prompt_hint
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
-            if props_mod.wanted(ctx) else [])
-        bg = ctx.config.get("background") or {}
+            if props_mod.wanted(ctx.config) else [])
+        bg = ctx.settings("background")
         backdrop = None if opt(bg, "enabled", True) is False else opt(
             bg, "colour", vocabulary.BACKDROP)
         base_prompt = cfg.get("prompt") or ", ".join(
@@ -106,7 +106,7 @@ class FramesStage(Stage):
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
 
         rig = ctx.need("rig")
-        models = ctx.config.get("models") or {}
+        models = ctx.settings("models")
         cn = cfg["controlnet"]
         outdir = ctx.stage_dir("frames")
         written: list[Path] = []
@@ -137,7 +137,7 @@ class FramesStage(Stage):
                 negative=negative,
                 lora_strength=cfg["lora_strength"],
                 lcm=lcm,
-                models=ctx.config.get("models") or {},
+                models=ctx.settings("models"),
             )
 
             frame_yaw = entries[i]["yaw"] if i < len(entries) else 0.0

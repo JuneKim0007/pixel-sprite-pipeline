@@ -17,6 +17,7 @@
       "type": "styles"
     },
     {
+      "default": "skip",
       "group": "Asset",
       "help": "Whether this pipeline uses per-image rig annotations. 'skip' ignores them, which is the right default for unattended runs. 'if_present' uses any that exist. 'require' holds the job until every reference has one, for when you intend to mark them by hand before a long batch.",
       "label": "Reference annotation",
@@ -662,6 +663,7 @@
       "type": "int"
     },
     {
+      "default": "http://127.0.0.1:8188",
       "group": "Services",
       "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
@@ -1438,6 +1440,7 @@
       "type": "styles"
     },
     {
+      "default": "skip",
       "group": "Asset",
       "help": "Whether this pipeline uses per-image rig annotations. 'skip' ignores them, which is the right default for unattended runs. 'if_present' uses any that exist. 'require' holds the job until every reference has one, for when you intend to mark them by hand before a long batch.",
       "label": "Reference annotation",
@@ -1962,6 +1965,7 @@
       "type": "int"
     },
     {
+      "default": "http://127.0.0.1:8188",
       "group": "Services",
       "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
@@ -2727,6 +2731,7 @@
       "type": "styles"
     },
     {
+      "default": "skip",
       "group": "Asset",
       "help": "Whether this pipeline uses per-image rig annotations. 'skip' ignores them, which is the right default for unattended runs. 'if_present' uses any that exist. 'require' holds the job until every reference has one, for when you intend to mark them by hand before a long batch.",
       "label": "Reference annotation",
@@ -3383,6 +3388,7 @@
       "type": "int"
     },
     {
+      "default": "http://127.0.0.1:8188",
       "group": "Services",
       "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
@@ -4136,6 +4142,7 @@
       "type": "styles"
     },
     {
+      "default": "skip",
       "group": "Asset",
       "help": "Whether this pipeline uses per-image rig annotations. 'skip' ignores them, which is the right default for unattended runs. 'if_present' uses any that exist. 'require' holds the job until every reference has one, for when you intend to mark them by hand before a long batch.",
       "label": "Reference annotation",
@@ -4649,6 +4656,7 @@
       "type": "int"
     },
     {
+      "default": "http://127.0.0.1:8188",
       "group": "Services",
       "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
@@ -5391,6 +5399,7 @@
       "type": "styles"
     },
     {
+      "default": "skip",
       "group": "Asset",
       "help": "Whether this pipeline uses per-image rig annotations. 'skip' ignores them, which is the right default for unattended runs. 'if_present' uses any that exist. 'require' holds the job until every reference has one, for when you intend to mark them by hand before a long batch.",
       "label": "Reference annotation",
@@ -5904,6 +5913,7 @@
       "type": "int"
     },
     {
+      "default": "http://127.0.0.1:8188",
       "group": "Services",
       "help": "Where ComfyUI is listening, normally http://127.0.0.1:8188. Set it here only to point one config at a different instance than the machine default in _global.yaml.",
       "label": "ComfyUI host",
