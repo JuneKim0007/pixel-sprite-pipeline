@@ -55,10 +55,7 @@ def _curves(img, cfg, facts, prep):
 
 
 def _grid_prepare(img, cfg) -> dict:
-
-    from ..looks import training
-
-    measured = training.estimate_block_size(img)
+    measured = px.estimate_block_size(img)
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
     factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
 
@@ -174,11 +171,13 @@ def _palette(img, cfg, facts, prep):
     palette = prep.get("palette")
 
     if prep.get("file"):
-        from pathlib import Path
-
-        from ..looks.palettes import registry
-
-        palette = px.load_palette(Path(registry(facts["root"]).get(prep["file"]).path))
+        resolve = facts.get("palettes")
+        if resolve is None:
+            raise Invalid("this stack reads a committed palette, and nothing "
+                          "was supplied to resolve one by name",
+                          field="palette.file",
+                          hint="pass palettes= to apply_stack")
+        palette = px.load_palette(resolve(prep["file"]))
 
     if not palette:
         return img

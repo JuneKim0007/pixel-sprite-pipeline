@@ -25,6 +25,12 @@ def _editor_source(path_str: str) -> Path:
     return files_mod.safe_path(path_str, allowed_roots())
 
 
+def _palette_path(name: str) -> Path:
+    from ..looks.palettes import registry
+
+    return Path(registry(ROOT).get(name).path)
+
+
 _GATE = threading.Semaphore(limits.get("concurrent"))
 
 
@@ -69,7 +75,7 @@ def _run(body: dict, *, full: bool) -> tuple[np.ndarray, dict, Path, dict]:
 
     with _GATE:
         out, facts = definitive.apply_stack(
-            np.asarray(image_in), stack, root=ROOT,
+            np.asarray(image_in), stack, palettes=_palette_path,
             source=f'{src}@{image_in.width}x{image_in.height}',
             defer=DEFERRED)
 

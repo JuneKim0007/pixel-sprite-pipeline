@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from ..orchestration import cooling
+from ..shared import cooling
 from .stage import Context, Resource, Stage, get
 from ..shared.errors import Invalid
 

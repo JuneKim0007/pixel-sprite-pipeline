@@ -4,7 +4,8 @@
 `shared/` kernel that depends on nothing. This is the other half it names but
 does not design: `layer_connection/`, and what a node actually is.
 
-Measured 2026-08-13, after steps 1–5 of REFACTOR.md §6.
+Measured 2026-08-13, after steps 1–5 of REFACTOR.md §6. **Re-measured
+2026-08-26**; the §1 table and §6 below carry the current state.
 
 ---
 
@@ -12,12 +13,13 @@ Measured 2026-08-13, after steps 1–5 of REFACTOR.md §6.
 
 | REFACTOR.md §6 | State | Evidence |
 |---|---|---|
-| 1. Split `stage.py` | **Partial** | `opt` → `shared/config.py` ✓, registry → `shared/registry.py` ✓. **`Context` never moved** — still 130 lines in `stage.py` with 5 deferred imports. |
-| 2. `shared/errors.py` + one handler | **Half** | Handler is one block ✓. Call sites barely moved: **71 of 117 raises are still builtins** (was 79 of 114). |
+| 1. Split `stage.py` | **Partial** | `opt` → `shared/config.py` ✓, registry → `shared/registry.py` ✓. **`Context` never moved** — still ~130 lines in `stage.py`, four of them deferred imports of other groups. |
+| 2. `shared/errors.py` + one handler | **Done 2026-08-14** | Handler is one block ✓, and the builtin count on user-reachable paths went 67 → **0**, held there by `tools/check_failures.py` in `make lint`. |
 | 3. `shared/registry.py` | **Done** | 7 registries on one generic, incl. the route table. |
 | 4. Move the modules | **Done** | Seven groups; `shared/` leaf-ness is test-enforced. |
 | 5. Split `server.py` | **Done** | 1,307 → 119 lines, routes are data. |
 | 6. Contracts | **Not started** | And the spec shapes went from two to three. |
+| — | **Added 2026-08-26** | The three group cycles are gone; `tests/flows/test_packaging.py` refuses a new one. |
 
 The horizontal work is essentially finished. Everything below is the part that
 was deferred, and the deferral is now the largest source of coupling left.
@@ -175,10 +177,13 @@ This is mostly a consolidation, not a construction.
 
 Each step is independently useful and independently verifiable.
 
-1. **`Field` becomes the one spec shape.** Give `Stage` `fields` and derive
-   `DEFAULTS` from it; make `schema.FIELDS` a projection of the nodes rather
-   than a parallel list. Verify: the "every field carries an explanation" test
-   extends from 20 fields to 146 and passes.
+1. **`Field` becomes the one spec shape.** *Half done 2026-08-14:* both
+   `schema.FIELDS` (137) and `definitive`'s 20 are `Field` subclasses, and the
+   "every field carries an explanation" test now covers all 157 — the twenty
+   that answered it with the word `TODO` were written out 2026-08-26 and
+   `Field` refuses a placeholder. *Left:* `Stage.DEFAULTS`, the third shape,
+   and making `schema.FIELDS` a projection of the nodes rather than a parallel
+   list.
 2. **`LayerSpec` gains `needs`/`gives`.** `check_order`'s three warnings become
    validation. Verify: `palette` before `grid` is refused, not warned.
 3. ~~**`Node.prepare` on stages.**~~ **Done 2026-08-13.** `Stage.prepare(ctx)`
@@ -190,10 +195,40 @@ Each step is independently useful and independently verifiable.
    N times for one answer.
 4. **`Context` inverted into `flow/`.** Nodes declare `needs={"rig"}`; the
    connection layer resolves. Verify: `stage.py` has no deferred imports and
-   `Context` is under 40 lines.
+   `Context` is under 40 lines. *2026-08-26:* the cheapest third of this is
+   done — `annotate.gather` takes the library instead of loading a second,
+   worse-configured one, which removed the `geometry ↔ refs` cycle. `rig()`
+   and `references()` still resolve on demand, so the locator itself stands.
 5. **Middleware.** Cooling and retry become decorators around `apply`.
 6. **Contracts**, last, once routes and nodes both have shapes to attach.
 
 Steps 1–3 are worth doing whether or not 4–6 happen. Step 4 is the one that
 pays down the coupling REFACTOR.md opened with, and it is much easier after 1–3
 because by then the node contract is the only thing `Context` is feeding.
+
+---
+
+## 7. The cycles, and why each existed (removed 2026-08-26)
+
+Measured over the AST rather than read: 165 cross-group import statements, and
+exactly three cycles, each smaller than §1 implies.
+
+| cycle | statements | cause | fix |
+|---|---|---|---|
+| `generation ↔ orchestration` | 3 | `cooling.py` imports `time` and nothing else. It is a leaf that was filed into a group, and §5 already calls it cross-cutting. | moved to `shared/` |
+| `definitive ↔ looks` | 3 | `estimate_block_size` is lattice measurement filed under training, and the palette layer reached the asset registry through `facts["root"]`. | measurement moved beside `find_phase`; `apply_stack` takes a `palettes=` resolver, so the dependency is visible at the composition root instead of ambient |
+| `geometry ↔ refs` | 4 | `annotate.gather(root, cfg)` loaded its own reference library, while both callers held a `Context` already caching a better-configured one. | `gather(library)` |
+
+The palette move is Dependency Injection replacing Service Locator, as §5
+prescribes. A module-global provider slot was considered and rejected: it
+satisfies the import graph while keeping the property that makes a locator bad
+— you cannot tell from a layer's declaration what it will reach for.
+
+The `gather` change fixes a bug on the way past. The library it built lacked
+`_name` and `_runs_dir`, so `from_pattern` and `from_run` contributed nothing
+to it; annotations on pattern-derived or inherited references were invisible to
+proportion measurement. Passing the run's own library makes them visible.
+
+`tests/flows/test_packaging.py::test_no_group_imports_form_a_cycle` walks the
+graph and names both edges of any cycle it finds. Verified red by adding
+`from ..looks import training` to `definitive/cache.py`.

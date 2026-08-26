@@ -160,7 +160,7 @@ class PoseStage(Stage):
     def _from_annotations(ctx: Context, cfg: dict) -> list[dict]:
         from ..geometry import annotate as ann
 
-        found = ann.gather(ctx.root, ctx.config.get("references") or {})
+        found = ann.gather(ctx.references())
         if not found:
             raise Invalid(
                 "pose.source is 'annotation' but no reference has one. "

@@ -9,7 +9,7 @@ from PIL import Image
 from pipeline.generation import runner
 from pipeline.generation.stage import Context, Resource, get
 from pipeline.geometry import rigs
-from pipeline.orchestration import cooling
+from pipeline.shared import cooling
 
 ORDER = ["pose", "depth", "canonical", "frames", "palette"]
 

@@ -45,6 +45,27 @@ SALIENT_THRESHOLD = 34.0
 _CLIP_FLOOR = 0.35
 
 
+def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16)) -> float:
+    """A sprite drawn in eight-pixel blocks loses nothing when averaged in eight-pixel blocks, so its reconstruction error at factor 8 is near zero and rises sharply at 12."""
+    a = arr.astype(np.float32)
+    h, w = a.shape[:2]
+    baseline = float(a.var()) or 1.0
+    best = 1.0
+
+    for factor in candidates:
+        if factor == 1 or h < factor * 8 or w < factor * 8:
+            continue
+        bh, bw = h // factor, w // factor
+        cropped = a[:bh * factor, :bw * factor]
+        blocks = cropped.reshape(bh, factor, bw, factor, -1).mean(axis=(1, 3))
+        restored = np.repeat(np.repeat(blocks, factor, axis=0), factor, axis=1)
+        error = float(((cropped - restored) ** 2).mean())
+        # 2% of the image's own variance: comfortably above float noise, comfortably below the error of straddling a real block boundary.
+        if error < baseline * 0.02:
+            best = float(factor)
+    return best
+
+
 def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
                   tolerance: float = 32.0) -> np.ndarray:
     blocks = _blocks(arr, factor, ox, oy)

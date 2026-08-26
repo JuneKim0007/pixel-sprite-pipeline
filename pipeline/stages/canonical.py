@@ -7,7 +7,7 @@ from typing import Mapping, Any
 
 from ..generation import comfy
 from ..generation.comfy import ComfyError
-from ..orchestration import cooling
+from ..shared import cooling
 from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod

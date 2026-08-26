@@ -204,12 +204,10 @@ def describe(annotation: Annotation) -> dict:
     }
 
 
-def gather(root: Path, ref_cfg: dict) -> list[Annotation]:
-    from ..refs.references import load as load_refs
-
-    lib = load_refs(root, ref_cfg or {})
+def gather(library) -> list[Annotation]:
+    """Every annotation on the references already resolved for this run."""
     out = []
-    for ref in lib.identity + lib.pose:
+    for ref in library.identity + library.pose:
         found = load(ref.path)
         if found:
             out.append(found)

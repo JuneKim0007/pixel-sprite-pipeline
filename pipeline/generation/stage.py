@@ -31,7 +31,7 @@ class Resource:
 
 @dataclass
 class Context:
-    """Everything a stage needs. `artifacts` is the only channel between stages - reaching outside declared requires/produces breaks the dependency check that makes reordering safe."""
+    """Everything a stage needs. `artifacts` is the only channel between stages, so what a stage passes on is checkable against requires/produces - but `references()` and `rig()` still resolve on demand rather than being declared and supplied, which is the service locator `docs/NODES.md` §4 exists to remove."""
 
     root: Path
     outdir: Path
@@ -111,7 +111,7 @@ class Context:
             return {}
 
         merged: dict[str, list[float]] = {}
-        for a in ann.gather(self.root, self.config.get("references") or {}):
+        for a in ann.gather(self.references()):
             for group, factor in ann.infer_proportions(a).items():
                 merged.setdefault(group, []).append(factor)
         out = {}

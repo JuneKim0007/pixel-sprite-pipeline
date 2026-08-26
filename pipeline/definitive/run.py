@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -22,7 +22,7 @@ def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -
 
 
 def apply_stack(image: np.ndarray, stack: list[dict], *,
-                root: Path | None = None,
+                palettes: Callable[[str], Path] | None = None,
                 source: str | None = None,
                 use_cache: bool = True,
                 defer: set[str] | None = None) -> tuple[np.ndarray, dict]:
@@ -32,7 +32,7 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
 
     facts: dict[str, Any] = {
-        "root": root,
+        "palettes": palettes,
         "before": {"width": int(image.shape[1]), "height": int(image.shape[0]),
                    "colours": cache.count_colours(image)},
         "layers": [],
@@ -114,5 +114,5 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
         "width": int(round(out.shape[1] * zoom)),
         "height": int(round(out.shape[0] * zoom)),
     }
-    facts.pop("root", None)
+    facts.pop("palettes", None)
     return out, facts
