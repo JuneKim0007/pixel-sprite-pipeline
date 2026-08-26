@@ -9,14 +9,19 @@ export function orderProblems(active, stages, resources = []) {
   const have = new Set();
   const problems = [];
   for (const name of active) {
-    for (const need of meta[name]?.needs || []) {
+    const soft = new Set(meta[name]?.optional || []);
+    const hard = (meta[name]?.needs || []).filter((n) => !soft.has(n));
+    for (const need of [...hard, ...soft]) {
       /* A stage declares one set of needs; the run answers some of them, so a
-       * name the resolvers cover is not a missing artifact. */
-      if (!have.has(need) && !supplied.has(need)) {
-        const owner = producers[need];
-        problems.push(owner
-          ? `${name} needs "${need}" from ${owner}, which runs later`
-          : `${name} needs "${need}", which no enabled stage produces`);
+       * name the resolvers cover is not a missing artifact. A soft need absent
+       * altogether is fine — produced LATER is the same mistake as a hard one,
+       * because the stage then runs without an input that was available. */
+      if (have.has(need) || supplied.has(need)) continue;
+      const owner = producers[need];
+      if (owner) {
+        problems.push(`${name} needs "${need}" from ${owner}, which runs later`);
+      } else if (!soft.has(need)) {
+        problems.push(`${name} needs "${need}", which no enabled stage produces`);
       }
     }
     for (const p of meta[name]?.gives || []) have.add(p);
@@ -34,7 +39,8 @@ export function autoOrder(active, stages) {
   while (out.length < active.length && guard-- > 0) {
     for (const name of active) {
       if (placed.has(name)) continue;
-      const deps = (meta[name]?.needs || [])
+      /* Soft needs order too, or Auto-order proposes what validate refuses. */
+      const deps = [...(meta[name]?.needs || []), ...(meta[name]?.optional || [])]
         .map((r) => producers[r]).filter((d) => d && d !== name);
       if (deps.every((d) => placed.has(d))) { out.push(name); placed.add(name); }
     }

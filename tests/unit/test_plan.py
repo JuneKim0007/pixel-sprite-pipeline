@@ -47,8 +47,19 @@ def test_a_supplied_name_counts_as_given():
                       supplied=lambda n: n == "rig") == []
 
 
-def test_an_optional_need_is_not_a_hole():
-    assert plan.unmet([N("b", needs={"x"}, optional={"x"})]) == []
+def test_an_optional_need_absent_altogether_is_not_a_hole():
+    assert plan.unmet([N("b", optional={"x"})], strict=True) == []
+
+
+def test_an_optional_need_satisfied_too_late_still_is():
+    # `optional` used to be subtracted from `needs`, and no stage ever named one in both — so the subtraction never fired and an order that quietly defeated a soft input passed. Putting depth after canonical meant canonical ran with no depthmaps and said nothing.
+    problems = plan.unmet([N("b", optional={"x"}), N("a", gives={"x"})],
+                          strict=True)
+    assert [(p.node, p.name, p.producer) for p in problems] == [("b", "x", "a")]
+
+
+def test_naming_one_in_both_reads_as_optional():
+    assert plan.unmet([N("b", needs={"x"}, optional={"x"})], strict=True) == []
 
 
 def test_an_empty_declaration_is_a_set_not_a_tuple():

@@ -64,7 +64,3 @@ RESOLVERS: dict[str, Callable[[Any], Any]] = {
     "rig_record": lambda ctx: _detected(ctx)["rig_record"],
 }
 
-
-def unresolvable(names) -> list[str]:
-    """Declared needs nothing here can answer, for a check before the run."""
-    return sorted(set(names) - set(RESOLVERS))

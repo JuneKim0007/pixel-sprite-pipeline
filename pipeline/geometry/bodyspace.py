@@ -148,19 +148,6 @@ def view_depth(
     }
 
 
-def blend(
-    a: Mapping[str, Sequence[float]], b: Mapping[str, Sequence[float]], t: float
-) -> dict[str, tuple[float, float, float]]:
-    keys = set(a) | set(b)
-    out: dict[str, tuple[float, float, float]] = {}
-    for k in keys:
-        pa, pb = a.get(k), b.get(k)
-        if pa is None or pb is None:
-            continue
-        out[k] = tuple(pa[i] + (pb[i] - pa[i]) * t for i in range(3))  # type: ignore[misc]
-    return out
-
-
 BONES: tuple[tuple[str, str], ...] = (
     ("neck", "nose"),
     ("neck", "r_shoulder"), ("r_shoulder", "r_elbow"), ("r_elbow", "r_wrist"),
@@ -289,6 +276,3 @@ def pose_from(base: Mapping[str, Sequence[float]], rig=None, **overrides) -> dic
                       hint=f"this rig has: {', '.join(sorted(known))}")
     return {**base, **overrides}
 
-
-def all_views() -> Iterable[tuple[str, float]]:
-    return VIEWS.items()

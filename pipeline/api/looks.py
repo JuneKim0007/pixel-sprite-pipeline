@@ -152,8 +152,8 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
         changed.append("notes")
 
     if changed and sheet.foldered:
-        stylelog.append(sheet.home, stylelog.Event(
-            kind="context", summary=f"edited {', '.join(changed)}"))
+        stylelog.append(sheet.home, stylelog.context_event(
+            [], home=sheet.home, note=f"edited {', '.join(changed)}"))
     return {"ok": True, "changed": changed, "detail": style_detail(name)}
 
 

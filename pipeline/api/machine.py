@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 from ..generation import schema
+from ..generation.resources import RESOLVERS
 from ..shared import settings
 from .. import stages  # noqa: F401  (importing registers the stages)
 from ..generation.stage import available
@@ -101,4 +102,15 @@ class Machine(BaseRouter):
          returns=Shape(module=str, modules=dict, fields=list, options=dict,
                        stages=list, resources=list))
     def schema(self, req):
-        return schema.describe(ROOT, req.query("module") or None)
+        described = schema.describe(ROOT, req.query("module") or None)
+        # `stage_names` fills a select, and reaching for the stage registry to build it was the last thing making `schema` and `stage` import each other.
+        described["options"]["stage_names"] = sorted(available())
+        return {
+            **described,
+            # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as an artifact nothing produces.
+            "resources": sorted(RESOLVERS),
+            "stages": [{"name": name, "resource": cls.resource,
+                        "needs": sorted(cls.needs), "gives": sorted(cls.gives),
+                        "optional": sorted(cls.optional)}
+                       for name, cls in sorted(available().items())],
+        }

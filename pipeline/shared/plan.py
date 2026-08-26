@@ -54,14 +54,16 @@ def unmet(nodes: Iterable[Any], *, seeded: frozenset[str] = frozenset(),
 
     out: list[Unmet] = []
     for node in nodes:
-        optional = frozenset(getattr(node, "optional", ()) or ())
-        needs = frozenset(getattr(node, "needs", ()) or ())
-        for name in sorted(needs - given - optional):
-            if supplied(name):
+        # A soft need is the same check in ordering mode: absent is fine, LATER is not. It is declared apart from `needs` because absent-is-fine is a property of the node, while strict-vs-ordering is a property of the engine. Naming one in both reads as "optional", so `optional` wins.
+        soft = frozenset(getattr(node, "optional", ()) or ())
+        hard = frozenset(getattr(node, "needs", ()) or ()) - soft
+        for name, strict_here in ([(n, strict) for n in sorted(hard)]
+                                  + [(n, False) for n in sorted(soft)]):
+            if name in given or supplied(name):
                 continue
             producer = later.get(name)
-            # Not given anywhere is a hole under `strict` and a non-event under `ordering`, which is the whole difference between the two engines.
-            if producer is None and not strict:
+            # Not given anywhere is a hole when the need is hard and a non-event when it is soft, which is the whole difference between the two engines.
+            if producer is None and not strict_here:
                 continue
             out.append(Unmet(_name_of(node), name, producer))
         given |= frozenset(getattr(node, "gives", ()) or ())

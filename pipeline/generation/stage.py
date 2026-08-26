@@ -92,6 +92,7 @@ class Stage(ABC):
     # One vocabulary with `LayerSpec`: a name this cannot run without, and a name it makes available. Where a need comes from - an earlier stage, a seeded artifact, or the run's resource table - is the plan's business, not the stage's.
     needs: ClassVar[frozenset[str]] = frozenset()
     gives: ClassVar[frozenset[str]] = frozenset()
+    # Soft: absent is fine, produced LATER is not, because the stage then runs without an input that was there for the taking.
     optional: ClassVar[frozenset[str]] = frozenset()
     DEFAULTS: ClassVar[dict[str, Any]] = {}
 

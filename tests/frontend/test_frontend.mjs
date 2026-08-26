@@ -325,6 +325,19 @@ test('stage ordering is decidable without a schema global', async () => {
   assert.equal(orderProblems(['pose', 'frames'], withRig, []).length, 1,
                'without the resource list a rig reads as a missing artifact');
 
+  // A soft need absent altogether is fine; produced later is the same mistake
+  // as a hard one, and this twin has to agree with runner.validate or
+  // Auto-order proposes an order the server refuses.
+  const soft = [{ name: 'canonical', needs: [], optional: ['depthmaps'], gives: ['canonical'] },
+                { name: 'depth', needs: [], gives: ['depthmaps'] }];
+  assert.deepEqual(orderProblems(['canonical'], soft), [],
+                   'a soft need nothing produces is not a problem');
+  assert.equal(orderProblems(['canonical', 'depth'], soft).length, 1,
+               'a soft need produced later is');
+  assert.deepEqual(orderProblems(['depth', 'canonical'], soft), []);
+  assert.deepEqual(autoOrder(['canonical', 'depth'], soft), ['depth', 'canonical'],
+                   'auto-order has to place a soft producer first too');
+
   const broken = orderProblems(['frames', 'pose'], stages);
   assert.equal(broken.length, 1);
   assert.ok(broken[0].includes('runs later'), broken[0]);

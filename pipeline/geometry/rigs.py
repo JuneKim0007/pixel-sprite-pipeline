@@ -251,28 +251,6 @@ BLOB = Rig(
 )
 
 
-def _limb_chain(
-    prefix: str, base: tuple[float, float, float], reach: float,
-    *, segments: int = 2, spread: float = 0.0, widths: tuple[float, ...] = (0.045, 0.034),
-) -> tuple[dict, dict, list]:
-    """A jointed limb hanging from `base`, as (neutral, tree, bones)."""
-    neutral, tree, bones = {}, {}, []
-    prev, prev_pos = None, base
-    for i in range(segments):
-        t = (i + 1) / segments
-        name = f"{prefix}_{i}"
-        neutral[name] = (
-            base[0] + spread * t,
-            base[1] + (prev_pos[1] - base[1]) * 0.2,
-            base[2] + reach * t,
-        )
-        if prev:
-            tree[prev] = (name,)
-            bones.append((prev, name, widths[min(i, len(widths) - 1)]))
-        prev, prev_pos = name, neutral[name]
-    return neutral, tree, bones
-
-
 def humanoid(arms: int = 2, *, name: str = "", label: str = "", tail: bool = False) -> Rig:
     """2 arms/no tail returns HUMANOID untouched (exact OpenPose joint order); any variation drops to scribble control."""
     if arms == 2 and not tail:
@@ -746,13 +724,3 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
                    STANCE_DEGREES, side)
     return pose
 
-
-def infer_from_pose(pose: dict) -> Rig:
-    keys = set(pose or {})
-    best, best_score = REGISTRY[DEFAULT], -1.0
-    for rig in REGISTRY.values():
-        overlap = len(keys & set(rig.joints))
-        score = overlap / max(len(rig.joints), 1)
-        if score > best_score:
-            best, best_score = rig, score
-    return best

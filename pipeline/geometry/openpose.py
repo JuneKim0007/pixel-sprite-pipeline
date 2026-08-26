@@ -99,14 +99,3 @@ def render(
 
     return canvas
 
-
-def load_pose_file(path: Path) -> tuple[str, list[list[list[float] | None]]]:
-    """Read a pose file: {"name": ..., "frames": [[[x, y] | null, ...], ...]}."""
-    data = json.loads(Path(path).read_text())
-    frames = data["frames"]
-    for i, frame in enumerate(frames):
-        if len(frame) != len(JOINTS):
-            raise ValueError(
-                f"{path} frame {i}: expected {len(JOINTS)} keypoints, got {len(frame)}"
-            )
-    return data.get("name", Path(path).stem), frames

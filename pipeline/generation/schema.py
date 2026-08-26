@@ -799,7 +799,6 @@ def dynamic_options(root: Path) -> dict[str, list[str]]:
         "palettes": palettes,
         "views": sorted(VIEWS_FOR_UI),
         "ollama": models or ["qwen3:4b"],
-        "stage_names": sorted(_stage_names()),
         "rigs": [r["name"] for r in _rig_summaries()],
         "rigs_with_auto": ["auto"] + [r["name"] for r in _rig_summaries()],
         "style_names": _style_names(root),
@@ -822,12 +821,6 @@ def _rig_summaries() -> list[dict]:
     from ..geometry.rigs import summaries
 
     return summaries()
-
-
-def _stage_names() -> list[str]:
-    from .stage import available
-
-    return list(available())
 
 
 def _render(field: ConfigField) -> dict:
@@ -884,25 +877,12 @@ class ConfigSchema:
                 and f.default is not None}
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
-        from .resources import RESOLVERS
-        from .stage import available
-
+        """The settings surface. Stages are not in it: this module describes fields, and reaching for the stage registry to list them is what made `schema` and `stage` import each other."""
         return {
             "module": module,
             "modules": self.modules,
             "fields": self.fields_for(module),
             "options": dynamic_options(root),
-            # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as a missing artifact.
-            "resources": sorted(RESOLVERS),
-            "stages": [
-                {
-                    "name": name,
-                    "resource": cls.resource,
-                    "needs": sorted(cls.needs),
-                    "gives": sorted(cls.gives),
-                }
-                for name, cls in sorted(available().items())
-            ],
         }
 
     def get(self, cfg: dict, path: str) -> Any:
