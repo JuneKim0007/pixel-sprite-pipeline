@@ -105,6 +105,13 @@ class Machine(BaseRouter):
         described = schema.describe(ROOT, req.query("module") or None)
         # `stage_names` fills a select, and reaching for the stage registry to build it was the last thing making `schema` and `stage` import each other.
         described["options"]["stage_names"] = sorted(available())
+        machine = settings.load_global(ROOT)
+        for field in described["fields"]:
+            if "default" in field:
+                continue
+            found = schema.get_path(machine, field["path"])
+            if found is not None:
+                field["default"] = found
         return {
             **described,
             # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as an artifact nothing produces.

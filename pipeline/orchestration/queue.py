@@ -238,9 +238,11 @@ def preflight(root: Path, job: Job) -> Preflight:
 def services_up(root: Path, need_llm: bool = False) -> tuple[bool, str]:
     """Are the services this queue depends on reachable?"""
     from ..generation.comfy import Client
+    from ..generation.schema import SCHEMA
     from ..shared.settings import load_global
 
-    host = (load_global(root).get("comfy") or {}).get("host", "http://127.0.0.1:8188")
+    host = ((load_global(root).get("comfy") or {}).get("host")
+            or SCHEMA.field("comfy.host").default)
     if not Client(host).alive():
         return False, f"ComfyUI unreachable at {host}"
 

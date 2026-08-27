@@ -102,6 +102,42 @@ def test_a_run_scoped_route_honours_its_contract(http, a_run, path, query):
     assert not faults, "; ".join(faults)
 
 
+def _global_leaves():
+    from pipeline.shared.settings import DEFAULT_GLOBAL
+
+    def leaves(node, prefix=""):
+        for key, value in node.items():
+            here = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, dict):
+                yield from leaves(value, here)
+            else:
+                yield here, value
+    return {k: v for k, v in leaves(DEFAULT_GLOBAL) if v is not None}
+
+
+def test_a_machine_default_reaches_the_form(http):
+    from pipeline.generation.schema import SCHEMA
+
+    served = {f["path"]: f for f in http.get("/api/schema")["fields"]}
+    silent = [path for path in _global_leaves()
+              if SCHEMA.field(path) is not None and path in served
+              and "default" not in served[path]]
+    assert not silent, (
+        f"{silent} are supplied to every run and the form offers no default")
+
+
+def test_a_setting_is_declared_in_one_place_or_the_other():
+    from pipeline.generation.schema import SCHEMA
+
+    both = [path for path, value in _global_leaves().items()
+            if (f := SCHEMA.field(path)) is not None and f.default is not None
+            and f.default == value]
+    assert not both, (
+        f"{both} are declared on the field AND in DEFAULT_GLOBAL. A machine "
+        f"fact belongs in shared/settings.py; a universal one belongs on the "
+        f"field. Never both.")
+
+
 def test_every_route_declares_what_it_returns():
     missing = [f'{r["method"]} {r["path"]}' for r in api.table.surface()
                if r["returns"] is None]

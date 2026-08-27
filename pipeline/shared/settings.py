@@ -17,7 +17,6 @@ DEFAULT_GLOBAL: dict[str, Any] = {
         "output_dir": "out/runs",
         "download_dir": "out/exports",
     },
-    "comfy": {"host": "http://127.0.0.1:8188"},
     "compute": {
         "torch_threads": 8,
         "mps_high_watermark": 0.9,

@@ -70,6 +70,7 @@ make check                     # 설정 검사만, GPU 안 씀
 | [docs/OVERNIGHT.md](docs/OVERNIGHT.md) | 다른 컴퓨터에서 밤새 돌리기 |
 | [docs/WEIGHTS.md](docs/WEIGHTS.md) | 쓰는 오픈 웨이트 목록과 사양, 훈련 요구사항 |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | 파이프라인 단계별 구조와 자세한 설명 |
+| [docs/OPEN.md](docs/OPEN.md) | 아직 안 한 일. 무엇이 남았고, 왜 안 했는지 |
 
 Apple Silicon (M4, 16GB) 에서 만들고 재봤습니다.
 쓰는 모델은 전부 오픈 웨이트입니다. 20.5 GB이고 목록은 [docs/WEIGHTS.md](docs/WEIGHTS.md) 에 있습니다.

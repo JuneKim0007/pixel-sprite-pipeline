@@ -338,16 +338,28 @@ told about. A prompt fallback and a config default are different things.
 Everything else a stage reads goes through `ctx.settings(path)`, so the value
 comes from the field that declares it.
 
-### One default that is still written twice
+### Machine defaults, and where they live
 
-`shared/settings.py` holds `DEFAULT_GLOBAL`, the machine-level defaults written
-into `_global.yaml` on first run. Ten of its seventeen values are also declared
-fields — `comfy.host`, `models.*`, `compute.*` — so those defaults exist in two
-places.
+`shared/settings.py` holds `DEFAULT_GLOBAL` — the values written into
+`_global.yaml` on a fresh install and merged under every config. These are
+facts about *your machine*: which weights you downloaded, how many cores to
+give torch. They are not universal, so they do not belong on a field, and
+`shared/` — which depends on no other module — is the right place for them.
 
-They cannot simply merge: `shared/` depends on no other module and a test
-enforces that, while `FIELDS` lives in `generation`. Closing this means moving
-one of them, which is a bigger change than it looks.
+A universal default belongs on the field instead. `comfy.host` is the example:
+`http://127.0.0.1:8188` is ComfyUI's own default port, true everywhere, so it
+is declared once on `ConfigField` and nowhere else.
+
+**Never both.** A test refuses a setting whose field default equals a
+`DEFAULT_GLOBAL` value, because that is one value with two homes and they drift.
+
+The settings form shows machine defaults too — `/api/schema` fills any field
+that has no declared default from `load_global`, so `models.checkpoint` reads
+as `sd_xl_base_1.0.safetensors` rather than blank. What you see is what the run
+resolves to, including your own `_global.yaml` overrides.
+
+Five settings in that table have no control at all — `paths.*` and `ui.*`, plus
+`models.lcm_lora` and `models.clip_vision`. See `docs/OPEN.md`.
 
 ## Telling an AI to change this
 
