@@ -256,8 +256,14 @@ Each step is independently useful and independently verifiable.
    does. `compute.vram_mode` is the one field left out on purpose — `ctl.sh`
    reads it out of the YAML directly.
 
-   *Left:* making `schema.FIELDS` a projection of the nodes rather than a
-   parallel list.
+   *Left:* nothing worth doing. Making `schema.FIELDS` a projection of the
+   nodes was the last item here, and it is now **withdrawn**: assembling
+   `FIELDS` from the stage registry means `schema` importing `stage`, which is
+   the intra-group cycle broken on 2026-08-26 and which no test can catch
+   returning. Measured the same day, the parallel list is not wrong about
+   anything — every stage has fields, every `settings()` path is declared — so
+   the correspondence is now enforced by two checks rather than restructured
+   into existence. See `docs/OPEN.md` item 3.
 2. **`LayerSpec` gains `needs`/`gives`.** **Done 2026-08-26.** `grid` gives
    `reduced`; `palette` and `background` need it. `validate_order` refuses an
    order that satisfies a need too late, with the same shape `runner.validate`

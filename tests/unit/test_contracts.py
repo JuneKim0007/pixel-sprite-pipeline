@@ -185,3 +185,60 @@ def test_the_form_only_settings_are_read_somewhere_other_than_python():
         assert SCHEMA.field(path) is not None, f"{path} is not a field"
         assert path.split(".")[-1] in ctl, \
             f"{path} reaches neither the pipeline nor ctl.sh"
+
+
+def _settings_paths() -> dict[str, list[str]]:
+    """Every `settings("path")` in the tree, and where it is read."""
+    import ast
+    import pathlib
+
+    found: dict[str, list[str]] = {}
+    for source in sorted(pathlib.Path("pipeline").rglob("*.py")):
+        tree = ast.parse(source.read_text())
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "settings"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)):
+                found.setdefault(node.args[0].value, []).append(
+                    f"{source}:{node.lineno}")
+    return found
+
+
+def test_every_settings_path_has_something_declared_at_it():
+    import pipeline.stages  # noqa: F401
+    from pipeline.generation.schema import SCHEMA
+
+    undeclared = {
+        path: where for path, where in _settings_paths().items()
+        if SCHEMA.field(path) is None and not SCHEMA.defaults_under(path)
+        and not [f for f in SCHEMA.fields if f.key.startswith(f"{path}.")]
+    }
+    assert not undeclared, (
+        f"{undeclared} are read as settings and no field declares them, so "
+        f"they have no bounds, no help, and no row in the settings form")
+
+
+def test_a_field_named_for_a_stage_belongs_to_one_that_exists():
+    import pipeline.stages  # noqa: F401
+    from pipeline.generation.schema import FIELDS
+    from pipeline.generation.stage import available
+
+    stages = set(available())
+    read = {p.split(".")[0] for p in _settings_paths()}
+    elsewhere = {
+        "cooling": "cooling.rest reads ctx.config directly",
+        "detect": "refs/detect.py reads config['detect']",
+        "pipeline": "run.py reads pipeline.stages before a Context exists",
+    }
+    heads = {f.key.split(".")[0] for f in FIELDS if "." in f.key}
+    stray = sorted(heads - stages - read - set(elsewhere))
+    assert not stray, (
+        f"{stray} name neither a stage nor a known config block. A field "
+        f"whose prefix matches nothing is a control that configures nothing.")
+
+    barren = sorted(s for s in stages
+                    if not [f for f in FIELDS if f.key.startswith(f"{s}.")])
+    assert not barren, f"{barren} run with settings nobody can see or bound"

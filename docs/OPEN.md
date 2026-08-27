@@ -45,10 +45,29 @@ checked before the run. But because it holds `ctx`, nothing stops it reading a
 resource it never declared. Only passing resources as arguments makes that
 impossible rather than merely checkable — which is item 1.
 
-## 3. `schema.FIELDS` is a parallel list, not a projection of the nodes
+## 3. `schema.FIELDS` is a parallel list — and should stay one
 
-The last line of `NODES.md` §6.1. Fields and stages are declared separately and
-joined by a dotted-path prefix.
+`NODES.md` §6.1 asks for it to become a projection of the nodes: each `Stage`
+owning its fields, `FIELDS` assembled from the registry. **Do not do this.**
+It requires `schema` to read the stage registry, which re-creates the
+`schema ↔ stage` cycle broken on 2026-08-26 — and as an *intra-group* cycle,
+the packaging test cannot catch it coming back.
+
+Measured 2026-08-27: nothing is currently wrong. 91 of 137 fields sit under a
+stage prefix and 46 under other config blocks; no stage lacks fields, and no
+`settings()` path in the tree lacks a declaration. The relationship is correct,
+it was simply unenforced.
+
+So it is enforced instead of restructured. Two checks in
+`tests/unit/test_contracts.py`: every `settings("path")` found by walking the
+AST has a field declared at or under it, and every field prefix names either a
+stage, a block something reads through `settings()`, or one of three blocks
+read another way — `cooling` through `cooling.rest`, `detect` inside
+`refs/detect.py`, `pipeline` from `run.py` before a `Context` exists.
+
+**Still true, and not covered:** a field whose block nothing reads at all. The
+reverse check is all false positives, because several blocks are read through
+raw config, the queue, or `ctl.sh` rather than `settings()`.
 
 ## 4. `DEFAULT_GLOBAL` still holds five settings with no control
 
