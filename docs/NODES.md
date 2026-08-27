@@ -172,6 +172,14 @@ for batch in plan.batches():                # groups independent CPU work
 > differed — whether a name nothing gives at all is a hole (`strict`, stages)
 > or a non-event (`ordering`, layers). It replaces the same walk written twice.
 >
+> **2026-08-27:** the return half of that merge landed. A layer now answers with
+> a dict instead of writing into a `facts` dict handed to it, and
+> `plan.undeclared` is the one check both engines make against what a node
+> declared. `LayerSpec` gained `reports` for the keys it may return; the layer
+> engine previously checked nothing at all. What is still two things is how work
+> *arrives* — `inputs` versus `Context` — and the schedulers, which measurement
+> says should stay two. See `docs/OPEN.md` item 1.
+>
 > Merging `run(ctx, prep)` and `apply(img, cfg, facts, prep)` into one
 > `apply(inputs, cfg, prep)` was **rejected**, and not for size. It rewrites all
 > five builtin layers, both budget guards, the cache keying (which fingerprints

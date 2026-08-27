@@ -22,10 +22,38 @@ from .errors import Invalid
 
 
 class Node(Protocol):
-    """What the walk needs to know. Both `Stage` and `LayerSpec` satisfy it."""
+    """What `Stage` and `LayerSpec` genuinely share.
+
+    Both declare `needs`/`gives`, both split the orderless half into `prepare`,
+    and both `apply` by RETURNING what they produced — which is what lets one
+    check hold them to it, rather than a layer writing into a dict the caller
+    passed in and nothing noticing.
+
+    What they do NOT share is how the work arrives: a layer is handed its
+    inputs, a stage is handed the run's `Context`. Unifying that is what
+    `docs/OPEN.md` still calls open, and it is why this declares no signatures.
+    """
 
     needs: frozenset[str]
     gives: frozenset[str]
+
+
+def undeclared(node: str, produced: Iterable[str], allowed: Iterable[str],
+               *, required: Iterable[str] = ()) -> str:
+    """Why a node's answer does not match what it declared, or "" if it does.
+
+    One check for both engines. The stage runner has enforced it since it was
+    written; the layer engine had no equivalent, so a layer could return any
+    key or none and nothing said so.
+    """
+    extra = sorted(set(produced) - set(allowed))
+    if extra:
+        return (f"'{node}' returned {extra}, which it never declared. Add them "
+                f"so what it produces stays checkable.")
+    missing = sorted(set(required) - set(produced))
+    if missing:
+        return f"'{node}' declared {missing} and did not return them."
+    return ""
 
 
 @dataclass(frozen=True)

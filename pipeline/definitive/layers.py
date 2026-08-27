@@ -48,9 +48,9 @@ def _guard_prepare(key: str, fn):
     if getattr(fn, "_budgeted", False):
         return fn
 
-    def wrapped(image, cfg):
-        _within(key, image)
-        return fn(image, cfg)
+    def wrapped(inputs, cfg):
+        _within(key, inputs["image"])
+        return fn(inputs, cfg)
 
     wrapped._budgeted = True
     return wrapped
@@ -69,15 +69,19 @@ def _produced(key: str, image) -> None:
         )
 
 
-def _guard_apply(key: str, fn):
+def _guard_apply(key: str, fn, reports: frozenset[str]):
     if getattr(fn, "_budgeted", False):
         return fn
 
-    def wrapped(image, cfg, facts, prep):
-        _within(key, image)
-        out = fn(image, cfg, facts, prep)
-        if getattr(out, "shape", None) is not None and len(out.shape) >= 2:
-            _produced(key, out)
+    def wrapped(inputs, cfg, prep):
+        _within(key, inputs["image"])
+        out = fn(inputs, cfg, prep)
+        wrong = plan.undeclared(key, out, {"image", *reports},
+                               required={"image"})
+        if wrong:
+            raise Invalid(wrong, field=key,
+                          hint="declare it in the layer's reports=")
+        _produced(key, out["image"])
         return out
 
     wrapped._budgeted = True
@@ -106,10 +110,11 @@ class LayerSpec:
     # What this layer needs to already be true of the image, and what it makes true. A need nothing gives is satisfied vacuously - no grid means no lattice to contradict - but a need given LATER is an order that produces a silently wrong picture.
     needs: frozenset[str] = frozenset()
     gives: frozenset[str] = frozenset()
+    reports: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         self.prepare = _guard_prepare(self.key, self.prepare)
-        self.apply = _guard_apply(self.key, self.apply)
+        self.apply = _guard_apply(self.key, self.apply, self.reports)
 
     def defaults(self) -> dict:
         return {f.key: f.default for f in self.fields}
@@ -146,14 +151,15 @@ def layer(key: str, *, label: str, summary: str, fields: list[Field],
           magnify: Callable[[dict], float] | None = None,
           deferrable: bool = False,
           needs: frozenset[str] = frozenset(),
-          gives: frozenset[str] = frozenset()):
+          gives: frozenset[str] = frozenset(),
+          reports: frozenset[str] = frozenset()):
 
     def wrap(fn):
         _SOURCE.add(key, LayerSpec(key=key, label=label, summary=summary,
                                    fields=fields, apply=fn, order=order,
                                    repeatable=repeatable, prepare=prepare,
                                    magnify=magnify, deferrable=deferrable,
-                                   needs=needs, gives=gives),
+                                   needs=needs, gives=gives, reports=reports),
                     what="layer")
         return fn
     return wrap

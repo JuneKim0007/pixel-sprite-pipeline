@@ -176,19 +176,10 @@ def _one(stage: Stage, ctx: Context, verbose: bool) -> dict[str, Any]:
         print(f"   prepared in {time.time() - t0:.1f}s: {', '.join(sorted(prep))}")
     produced = stage.run(ctx, prep) or {}
 
-    unexpected = set(produced) - set(stage.gives)
-    if unexpected:
-        raise PipelineError(
-            f"stage '{stage.name}' returned undeclared artifacts: "
-            f"{sorted(unexpected)}. Add them to `gives` so ordering stays "
-            f"checkable."
-        )
-    withheld = set(stage.gives) - set(produced)
-    if withheld:
-        raise PipelineError(
-            f"stage '{stage.name}' declared {sorted(withheld)} but did not "
-            f"return them."
-        )
+    wrong = plan_mod.undeclared(stage.name, produced, stage.gives,
+                                required=stage.gives)
+    if wrong:
+        raise PipelineError(wrong)
 
     if verbose:
         print(f"   {stage.name} done in {time.time() - t0:.1f}s")

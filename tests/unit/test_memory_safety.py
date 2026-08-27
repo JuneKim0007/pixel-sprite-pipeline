@@ -71,11 +71,32 @@ def test_the_refusal_happens_in_apply_stack_itself():
 def test_a_layer_that_grows_without_declaring_it_is_caught_on_output():
     spec = REGISTRY["scale"]
     liar = type(spec)(key="liar", label="L", summary="", fields=spec.fields,
-                      apply=lambda img, cfg, facts, prep:
-                          np.zeros((9000, 9000, 4), np.uint8))
+                      apply=lambda inputs, cfg, prep:
+                          {"image": np.zeros((9000, 9000, 4), np.uint8)})
     assert liar.growth({}) == 1.0, "the point is that it claims not to grow"
     with pytest.raises(TooLarge, match="produced"):
-        liar.apply(np.zeros((8, 8, 3), np.uint8), {}, {}, {})
+        liar.apply({"image": np.zeros((8, 8, 3), np.uint8)}, {}, {})
+
+
+def test_a_layer_returning_what_it_never_declared_is_refused():
+    from pipeline.shared.errors import Invalid
+
+    spec = REGISTRY["scale"]
+    chatty = type(spec)(key="chatty", label="C", summary="", fields=spec.fields,
+                        apply=lambda inputs, cfg, prep:
+                            {"image": inputs["image"], "surprise": 1})
+    with pytest.raises(Invalid, match="surprise"):
+        chatty.apply({"image": np.zeros((8, 8, 3), np.uint8)}, {}, {})
+
+
+def test_a_layer_that_returns_no_image_is_refused():
+    from pipeline.shared.errors import Invalid
+
+    spec = REGISTRY["scale"]
+    silent = type(spec)(key="silent", label="S", summary="", fields=spec.fields,
+                        apply=lambda inputs, cfg, prep: {})
+    with pytest.raises(Invalid, match="image"):
+        silent.apply({"image": np.zeros((8, 8, 3), np.uint8)}, {}, {})
 
 
 def test_deferring_magnification_gives_the_identical_picture():

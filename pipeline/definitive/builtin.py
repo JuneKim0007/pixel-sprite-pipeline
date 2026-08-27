@@ -43,18 +43,21 @@ MATCHERS = [
                    "palette gets a muted variant of the same art."),
     ],
 )
-def _curves(img, cfg, facts, prep):
+def _curves(inputs, cfg, prep):
+    img = inputs["image"]
     if all(float(cfg.get(k, d)) == d for k, d in
            (("gamma", 1.0), ("contrast", 1.0), ("brightness", 0.0), ("saturation", 1.0))):
-        return img
-    return px.curves(img,
-                     gamma=float(cfg.get("gamma", 1.0)),
-                     contrast=float(cfg.get("contrast", 1.0)),
-                     brightness=float(cfg.get("brightness", 0.0)),
-                     saturation=float(cfg.get("saturation", 1.0)))
+        return {"image": img}
+    return {"image": px.curves(
+        img,
+        gamma=float(cfg.get("gamma", 1.0)),
+        contrast=float(cfg.get("contrast", 1.0)),
+        brightness=float(cfg.get("brightness", 0.0)),
+        saturation=float(cfg.get("saturation", 1.0)))}
 
 
-def _grid_prepare(img, cfg) -> dict:
+def _grid_prepare(inputs, cfg) -> dict:
+    img = inputs["image"]
     measured = px.estimate_block_size(img)
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
     factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
@@ -97,18 +100,21 @@ def _grid_prepare(img, cfg) -> dict:
                    "most frequent one is arbitrary."),
     ],
     prepare=_grid_prepare,
+    reports=frozenset({"measured_block", "factor", "phase"}),
 )
-def _grid(img, cfg, facts, prep):
-    facts["measured_block"] = prep["measured_block"]
-    facts["factor"] = prep["factor"]
-    facts["phase"] = prep["phase"]
+def _grid(inputs, cfg, prep):
+    img = inputs["image"]
+    said = {"measured_block": prep["measured_block"], "factor": prep["factor"],
+            "phase": prep["phase"]}
     if prep["factor"] <= 1:
-        return img
+        return {"image": img, **said}
     ox, oy = prep["phase"]
-    return px.reduce_blocks(img, prep["factor"], ox, oy, cfg.get("reduce", "median"))
+    return {"image": px.reduce_blocks(img, prep["factor"], ox, oy,
+                                      cfg.get("reduce", "median")), **said}
 
 
-def _palette_prepare(img, cfg) -> dict:
+def _palette_prepare(inputs, cfg) -> dict:
+    img = inputs["image"]
     source = cfg.get("source", "generate")
     if source == "none":
         return {"palette": None}
@@ -123,6 +129,7 @@ def _palette_prepare(img, cfg) -> dict:
 
 @layer(
     "palette", label="Palette", order=30, needs=frozenset({"reduced"}),
+    reports=frozenset({"palette_size"}),
     summary="A bounded set of colours, imposed exactly",
     prepare=_palette_prepare,
     fields=[
@@ -167,11 +174,12 @@ def _palette_prepare(img, cfg) -> dict:
                    "idiom; on when a small palette has to carry a gradient."),
     ],
 )
-def _palette(img, cfg, facts, prep):
+def _palette(inputs, cfg, prep):
+    img = inputs["image"]
     palette = prep.get("palette")
 
     if prep.get("file"):
-        resolve = facts.get("palettes")
+        resolve = inputs.get("palettes")
         if resolve is None:
             raise Invalid("this stack reads a committed palette, and nothing "
                           "was supplied to resolve one by name",
@@ -180,22 +188,25 @@ def _palette(img, cfg, facts, prep):
         palette = px.load_palette(resolve(prep["file"]))
 
     if not palette:
-        return img
+        return {"image": img}
 
-    facts["palette_size"] = len(palette)
+    said = {"palette_size": len(palette)}
     if cfg.get("dither"):
         img = px.quantize_median_cut(img[..., :3], len(palette), True)
 
     method = cfg.get("match", "weighted")
     if cfg.get("fit"):
         alpha = img[..., 3] if img.shape[2] == 4 else None
-        return px.fit_to_palette(img[..., :3], palette, method=method, alpha=alpha,
-                                 strength=float(cfg.get("fit_strength", 1.0)))
-    return px.apply_fixed_palette(img[..., :3], palette, method=method)
+        return {"image": px.fit_to_palette(
+            img[..., :3], palette, method=method, alpha=alpha,
+            strength=float(cfg.get("fit_strength", 1.0))), **said}
+    return {"image": px.apply_fixed_palette(img[..., :3], palette,
+                                            method=method), **said}
 
 
 @layer(
     "background", label="Background", order=40, needs=frozenset({"reduced"}),
+    reports=frozenset({"kept"}),
     summary="The backdrop becomes transparent",
     fields=[
         Field("enabled", "Key out the backdrop", "bool", default=True,
@@ -214,9 +225,10 @@ def _palette(img, cfg, facts, prep):
                    "character that a flood cannot."),
     ],
 )
-def _background(img, cfg, facts, prep):
+def _background(inputs, cfg, prep):
+    img = inputs["image"]
     if not cfg.get("enabled", True):
-        return img
+        return {"image": img}
     raw = str(cfg.get("colour") or "").lstrip("#")
     key = None
     if len(raw) == 6:
@@ -226,8 +238,7 @@ def _background(img, cfg, facts, prep):
             raise Invalid(f"'{cfg.get('colour')}' is not a hex colour",
                           field="colour") from None
     out = px.background_to_alpha(img[..., :3], int(cfg.get("tolerance", 14)), key=key)
-    facts["kept"] = float((out[..., 3] > 0).mean())
-    return out
+    return {"image": out, "kept": float((out[..., 3] > 0).mean())}
 
 
 @layer(
@@ -242,13 +253,14 @@ def _background(img, cfg, facts, prep):
     # [...] set that grows, and the reason admission control exists: at the declared maximum it is 256x the pixels, which on a full-resolution source is 16 GB and a panicked kernel
     magnify=lambda cfg: max(1, int(cfg.get("upscale", 1))) ** 2,
     deferrable=True,
+    reports=frozenset({"colours"}),
 )
-def _scale(img, cfg, facts, prep):
+def _scale(inputs, cfg, prep):
+    img = inputs["image"]
     n = max(1, int(cfg.get("upscale", 1)))
     if n == 1:
-        return img
-    # Counted here, on the small image, because repetition cannot add a colour and counting after the magnification measured 17x slower for the same answer.
+        return {"image": img}
     from .cache import count_colours
 
-    facts["_colours"] = count_colours(img)
-    return np.repeat(np.repeat(img, n, axis=0), n, axis=1)
+    return {"image": np.repeat(np.repeat(img, n, axis=0), n, axis=1),
+            "colours": count_colours(img)}

@@ -10,23 +10,33 @@ Measurements here are dated; re-measure before trusting one.
 
 ---
 
-## 1. `Node` execution, not just declaration
+## 1. How work ARRIVES at a node is still two things
 
-`Stage` and `LayerSpec` speak one vocabulary — `needs`/`gives` over
-`shared/plan.py` — but still run through two engines with two signatures:
-`run(ctx, prep)` and `apply(img, cfg, facts, prep)`.
+**Half done 2026-08-27.** What a node *returns* is one contract now: it answers
+with a dict, and `plan.undeclared` holds both engines to it — a key it never
+declared is refused, a key it declared and withheld is refused. The layer
+engine had no such check at all; a layer wrote into a `facts` dict the caller
+passed in, and any key or none went unnoticed.
 
-**What it would take.** One `apply(inputs, cfg, prep)` rewrites all five
-builtin layers, both budget guards, the cache keying (it fingerprints an
-ndarray directly), the deferral machinery, `magnify`/`growth` and `admit`; on
-the stage side every use of `stage_config`, `stage_dir`, `run_id`, `root` and
-`outdir` needs another route.
+**What is left.** A layer is handed `inputs`; a stage is handed the run's
+`Context` and reads `settings`, `stage_dir`, `run_id`, `root`, `outdir` off it.
+One `apply(inputs, cfg, prep)` means those five arrive as inputs instead, which
+rewrites seven stage bodies.
 
-**Why not.** `NODES.md` §4's own justification is spent — §3a argued the split
-was needed to make stages cacheable, and step 3 delivered that on 2026-08-13
-without any `Node`. What is left is "one shape", with no measurement behind it.
+**Why not yet.** It cannot be verified here. A real pipeline run needs ComfyUI
+and a GPU, so a rewrite of the stage bodies would be checked only by tests that
+assert structure, never by a render. The return contract above was worth doing
+precisely because it *is* fully coverable.
 
-Design: `docs/NODES.md` §4.
+**Not worth doing at all: merging the two schedulers.** Measured 2026-08-27 —
+the shared execution core is four lines, `prepare` then `apply`. Everything
+around it differs for real reasons: serial versus `ThreadPoolExecutor` batched
+by `Resource`; one image threaded versus a dict of artifacts; prefix snapshots
+versus a manifest; a failing node recorded versus a run aborted; deferral and a
+budget token versus cooling and `stop_after`. `NODES.md` §4's `Plan.batches()`
+would merge two schedulers that then branch on every one of those.
+
+Design: `docs/NODES.md` §4, read with this note.
 
 ## 2. `Context` is still reachable from inside a stage
 

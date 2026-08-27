@@ -40,6 +40,25 @@ def test_the_default_stack_runs_without_a_layer_failing(root, img, stack):
     assert facts["measured_block"] >= 1, "grid recorded no measurement"
 
 
+UI_READS = ("before", "after", "measured_block", "factor", "phase",
+            "palette_size", "kept", "deferred", "warnings", "layers")
+
+
+def test_the_report_carries_every_key_the_editor_reads(root, img):
+    stack = [{"layer": k, "id": k, "enabled": True, "config": {}}
+             for k in ("curves", "grid", "palette", "background", "scale")]
+    _, facts = definitive.apply_stack(img, stack, palettes=_committed(root))
+    missing = [k for k in UI_READS if k not in facts]
+    assert not missing, f"web/js/views/editor reads {missing} and they are gone"
+    assert not [la for la in facts["layers"] if la.get("error")]
+
+
+def test_a_report_key_belongs_to_the_layer_that_declares_it():
+    said = {r for spec in definitive.REGISTRY.values() for r in spec.reports}
+    assert said == {"measured_block", "factor", "phase", "palette_size",
+                    "kept", "colours"}
+
+
 def _stack_of(*keys):
     return [{"layer": k, "id": k, "enabled": True, "config": {}} for k in keys]
 

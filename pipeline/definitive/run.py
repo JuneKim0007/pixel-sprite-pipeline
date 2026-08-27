@@ -12,13 +12,13 @@ from . import layers as layer_mod
 from .layers import REGISTRY, admit, check_order, validate_order
 
 
-def prepare_for(spec, image: np.ndarray, cfg: dict, *, use_cache: bool = True) -> dict:
+def prepare_for(spec, inputs: dict, cfg: dict, *, use_cache: bool = True) -> dict:
     if spec.prepare is None:
         return {}
     if not use_cache:
-        return spec.prepare(image, cfg)
-    key = cache.key(f"prep:{spec.key}", image, cfg)
-    return cache.CACHE.get(key, lambda: spec.prepare(image, cfg))
+        return spec.prepare(inputs, cfg)
+    key = cache.key(f"prep:{spec.key}", inputs["image"], cfg)
+    return cache.CACHE.get(key, lambda: spec.prepare(inputs, cfg))
 
 
 def apply_stack(image: np.ndarray, stack: list[dict], *,
@@ -34,7 +34,6 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
 
     facts: dict[str, Any] = {
-        "palettes": palettes,
         "before": {"width": int(image.shape[1]), "height": int(image.shape[0]),
                    "colours": cache.count_colours(image)},
         "layers": [],
@@ -91,10 +90,13 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
 
             try:
                 before = cache.CACHE.misses
-                prep = prepare_for(spec, out, cfg, use_cache=use_cache)
+                inputs = {"image": out, "palettes": palettes}
+                prep = prepare_for(spec, inputs, cfg, use_cache=use_cache)
                 record["prepared"] = cache.CACHE.misses > before
                 facts["prepared" if record["prepared"] else "reused"] += 1
-                out = spec.apply(out, cfg, facts, prep)
+                produced = spec.apply(inputs, cfg, prep)
+                out = produced.pop("image")
+                facts.update(produced)
             except Exception as e:                   # noqa: BLE001
                 record["error"] = f"{type(e).__name__}: {e}"
             facts["layers"].append(record)
@@ -104,9 +106,9 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
         layer_mod.release(token)
 
     # Scale records the count before it magnifies, because magnification cannot change it and counting afterwards is 17x the work for the same number.
+    counted = facts.pop("colours", None)
     facts["after"] = {"width": int(out.shape[1]), "height": int(out.shape[0]),
-                      "colours": facts.pop("_colours", None)
-                      if facts.get("_colours") is not None
+                      "colours": counted if counted is not None
                       else cache.count_colours(out)}
 
     zoom = round(deferred["scale"], 6)
@@ -116,5 +118,4 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
         "width": int(round(out.shape[1] * zoom)),
         "height": int(round(out.shape[0] * zoom)),
     }
-    facts.pop("palettes", None)
     return out, facts
