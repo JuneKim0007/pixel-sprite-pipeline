@@ -22,6 +22,45 @@ def chosen_default(refs) -> float:
     return refs[0].base_weight if refs else 0.85
 
 
+def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
+    """The three artifacts a frame needs, checked to correspond one to one."""
+    skeletons: list[Path] = ctx.require("skeletons")
+    if not skeletons:
+        skeletons = [None] * len(ctx.require("pose_frames"))
+    depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
+    if depthmaps and len(depthmaps) != len(skeletons):
+        raise RuntimeError(
+            # not-a-message: render_entries() writes both lists one file per
+            # pose entry, so a mismatch is a partial write or a version skew,
+            # not a config the caller can fix.
+            f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
+            f"they must correspond one to one.")
+    return skeletons, ctx.require("canonical"), depthmaps
+
+
+def _require_ipadapter(client) -> None:
+    missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
+               if not client.has_node(n)]
+    if missing:
+        raise ComfyError(
+            f"ComfyUI is missing node(s) {missing}. The IPAdapter_plus custom "
+            f"nodes are installed but the server needs a restart to load them.")
+
+
+def _base_prompt(ctx: Context, cfg: dict) -> tuple[str, str | None]:
+    """The prompt every frame starts from, and the backdrop it was built with."""
+    held = props_mod.prompt_terms(
+        props_mod.load(ctx.config.get("props"), root=ctx.root)
+        if props_mod.wanted(ctx.config) else [])
+    backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
+    prompt = cfg.get("prompt") or vocabulary.prompt_for(
+        ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT,
+        ctx.need("rig").prompt_hint,
+        ctx.config.get("style") or vocabulary.DEFAULT_STYLE,
+        backdrop, held=held)
+    return prompt, backdrop
+
+
 @register
 class FramesStage(Stage):
     name = "frames"
@@ -32,31 +71,10 @@ class FramesStage(Stage):
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("frames")
-        skeletons: list[Path] = ctx.require("skeletons")
-        entries_for_count: list[dict] = ctx.require("pose_frames")
-        if not skeletons:
-            skeletons = [None] * len(entries_for_count)
-        canonical: Path = ctx.require("canonical")
-        depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
-        if depthmaps and len(depthmaps) != len(skeletons):
-            raise RuntimeError(
-                # not-a-message: both lists are written one file per pose entry
-                # by render_entries(), from the same pose_frames — a length
-                # mismatch means a partial write or a stage version skew, not
-                # a config the caller can fix.
-                f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
-                f"they must correspond one to one."
-            )
+        skeletons, canonical, depthmaps = _frame_inputs(ctx)
 
         client = comfy.connect(ctx.settings("comfy.host"))
-
-        missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
-                   if not client.has_node(n)]
-        if missing:
-            raise ComfyError(
-                f"ComfyUI is missing node(s) {missing}. The IPAdapter_plus custom "
-                f"nodes are installed but the server needs a restart to load them."
-            )
+        _require_ipadapter(client)
 
         match_cfg = ctx.settings("references.match")
         ip = cfg["ip_adapter"]
@@ -86,14 +104,7 @@ class FramesStage(Stage):
         tolerance = float(match_cfg["tolerance_degrees"])
 
         entries: list[dict] = ctx.require("pose_frames")
-        subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
-        style = ctx.config.get("style") or vocabulary.DEFAULT_STYLE
-        held = props_mod.prompt_terms(
-            props_mod.load(ctx.config.get("props"), root=ctx.root)
-            if props_mod.wanted(ctx.config) else [])
-        backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
-        base_prompt = cfg.get("prompt") or vocabulary.prompt_for(
-            subject, ctx.need("rig").prompt_hint, style, backdrop, held=held)
+        base_prompt, backdrop = _base_prompt(ctx, cfg)
         # Measured: at 8 LCM steps the skeleton is only partly obeyed even at end_percent 0.85.
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
