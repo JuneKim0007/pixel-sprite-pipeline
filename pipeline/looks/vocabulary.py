@@ -41,6 +41,23 @@ FACE_NEGATIVE_REAR = "face, eyes, nose, mouth, facial features, front view"
 FACE_NEGATIVE_NEAR_REAR = "both eyes visible, front-facing face"
 
 
+def backdrop_colour(settings: dict | None) -> str | None:
+    """The colour to key against, or None when the background is part of the art."""
+    from ..shared.config import opt
+
+    if opt(settings, "enabled", True) is False:
+        return None
+    return opt(settings, "colour", BACKDROP)
+
+
+def prompt_for(subject: str, hint: str, style: str, backdrop: str | None,
+               held: str = "") -> str:
+    """The positive prompt, from whichever terms a run actually has."""
+    return ", ".join(p for p in (
+        subject, hint, held, style,
+        backdrop_prompt(backdrop) if backdrop else "") if p)
+
+
 def backdrop_prompt(colour: str | None) -> str:
     return BACKDROP_TERMS.format(colour=colour or BACKDROP)
 

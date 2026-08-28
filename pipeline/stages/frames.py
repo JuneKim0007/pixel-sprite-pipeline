@@ -48,9 +48,7 @@ class FramesStage(Stage):
                 f"they must correspond one to one."
             )
 
-        client = comfy.Client(ctx.settings("comfy.host"))
-        if not client.alive():
-            raise ComfyError("ComfyUI is not running — start it with ./start.sh")
+        client = comfy.connect(ctx.settings("comfy.host"))
 
         missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
                    if not client.has_node(n)]
@@ -90,16 +88,12 @@ class FramesStage(Stage):
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
         style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
-        hint = ctx.need("rig").prompt_hint
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props_mod.wanted(ctx.config) else [])
-        bg = ctx.settings("background")
-        backdrop = None if opt(bg, "enabled", True) is False else opt(
-            bg, "colour", vocabulary.BACKDROP)
-        base_prompt = cfg.get("prompt") or ", ".join(
-            p for p in (subject, hint, held, style,
-                        vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
+        backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
+        base_prompt = cfg.get("prompt") or vocabulary.prompt_for(
+            subject, ctx.need("rig").prompt_hint, style, backdrop, held=held)
         # Measured: at 8 LCM steps the skeleton is only partly obeyed even at end_percent 0.85.
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))

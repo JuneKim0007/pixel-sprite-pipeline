@@ -25,6 +25,14 @@ class ComfyError(Unavailable):
     """ComfyUI is unreachable, or refused a graph."""
 
 
+def connect(host: str) -> "Client":
+    """A client that has answered, or the one sentence that says it has not."""
+    client = Client(host)
+    if not client.alive():
+        raise ComfyError("ComfyUI is not running — start it with ./start.sh")
+    return client
+
+
 class Client:
     def __init__(self, host: str = "http://127.0.0.1:8188") -> None:
         self.host = host.rstrip("/")

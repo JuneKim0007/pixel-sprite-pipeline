@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Mapping, Any
 
 from ..generation import comfy
-from ..generation.comfy import ComfyError
 from ..shared import cooling
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
@@ -50,18 +49,12 @@ class CanonicalStage(Stage):
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("canonical")
         subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
-        client = comfy.Client(ctx.settings("comfy.host"))
-        if not client.alive():
-            raise ComfyError("ComfyUI is not running — start it with ./start.sh")
+        client = comfy.connect(ctx.settings("comfy.host"))
 
         style = ctx.config.get("style") or vocabulary.DEFAULT_STYLE
-        hint = ctx.need("rig").prompt_hint
-        bg = ctx.settings("background")
-        backdrop = None if opt(bg, "enabled", True) is False else opt(
-            bg, "colour", vocabulary.BACKDROP)
-        prompt = cfg.get("prompt") or ", ".join(
-            p for p in (subject, hint, style,
-                        vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
+        backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
+        prompt = cfg.get("prompt") or vocabulary.prompt_for(
+            subject, ctx.need("rig").prompt_hint, style, backdrop)
         lcm = bool(cfg["lcm"])
 
         lib = ctx.need("references")
