@@ -6,8 +6,8 @@ from ..shared import paths
 
 import math
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Sequence
 
 from .bodyspace import project_point
 from ..shared.errors import Invalid, NotFound

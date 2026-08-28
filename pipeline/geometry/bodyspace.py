@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from . import rigs as _rigs
 from .openpose import JOINTS

@@ -250,7 +250,7 @@ def _background(inputs, cfg, prep):
                    "anything. Applied to the written file too, which is what "
                    "makes a 128px sprite viewable outside a pixel-art editor."),
     ],
-    # [...] set that grows, and the reason admission control exists: at the declared maximum it is 256x the pixels, which on a full-resolution source is 16 GB and a panicked kernel
+    # Zoom squared: the only layer that grows. At the maximum that is 256x the pixels, 16 GB.
     magnify=lambda cfg: max(1, int(cfg.get("upscale", 1))) ** 2,
     deferrable=True,
     reports=frozenset({"colours"}),

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Mapping, Any
 
 from ..geometry import props as props_mod
-from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..geometry.depthmap import render_depth
 from ..generation.stage import Context, Resource, Stage, opt, register

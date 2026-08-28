@@ -1,8 +1,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterable
+from dataclasses import dataclass
 from ..shared.errors import Invalid
 from ..shared.registry import Decorated, Registry
 
@@ -305,7 +304,6 @@ def multileg(
     legs: int = 6, *, name: str = "", label: str = "", body_len: float = 0.30,
     label_hint: str = "", tail: bool = False, wings: int = 0,
 ) -> Rig:
-    import math
 
     ranks = max(legs // 2, 1)
     joints = ["head", "thorax", "abdomen"]
@@ -569,7 +567,6 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
             hint=f"available: {', '.join(sorted(PROPORTION_GROUPS))}",
         )
 
-    import math
 
     neutral = {k: list(v) for k, v in rig.neutral.items()}
 
@@ -697,7 +694,6 @@ A_POSE_DEGREES = 40.0
 def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
           ) -> dict[str, list[float]]:
     """40 degrees (A-pose) chosen over 88 (true T, reads as a weapon) and 4/arms-down (joint pairs land within 4% of the canvas, silhouette has no gap)."""
-    import math
 
     pose = {k: list(v) for k, v in rig.neutral.items()}
     angle = A_POSE_DEGREES if spread is None else float(spread)

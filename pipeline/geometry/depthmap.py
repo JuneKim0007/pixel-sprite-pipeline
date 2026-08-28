@@ -70,7 +70,7 @@ def render_depth(
     from . import rigs as _rigs
 
     rig = rig if rig is not None else _rigs.HUMANOID
-    # [...] with `fill=` and then hand the RAW pose to the prop renderer, so the body was drawn at 1.3x and its weapons were computed from unscaled body space: a bow anchored to a hand that [...]
+    # Fit once: projecting with fill= while the prop renderer got the RAW pose drew bodies at 1.3x.
     fitted = frame_fit(pose, fill=fill) if fill else pose
     grow = frame_scale(pose, fill)
 

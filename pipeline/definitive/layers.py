@@ -12,7 +12,7 @@ from ..shared import plan
 from ..shared.errors import Invalid, TooLarge
 from ..shared.registry import Decorated, Registry
 
-# [...] enlarged image is analysing invented pixels, and it is what makes a reordered Scale cost 16x
+# No layer may be handed more; upscaling invents no detail, so a reordered Scale costs 16x.
 _BUDGET: ContextVar[int] = ContextVar("layer_budget", default=0)
 
 

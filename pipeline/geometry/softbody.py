@@ -95,9 +95,9 @@ def simulate(
     passes = (preroll + 1) if loop else 1
     recorded: list[tuple[float, float]] = []
 
-    for p in range(passes):
+    for _pass in range(passes):
         frame_offsets: list[tuple[float, float]] = []
-        for i, (ax, ay) in enumerate(anchors):
+        for ax, ay in anchors:
             # Substep the integration: a stiff spring at 12fps is unstable with one Euler step per frame and will oscillate out of control.
             for _ in range(substeps):
                 fx = k * (ax - px) - c * vx

@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -80,9 +79,6 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     if band.max() <= 0:
         return fit
 
-    def at(fraction: float) -> int:
-        return int(top + fraction * height)
-
     def px(y: int, x: float) -> list[float]:
         return [float(x) / w, float(y) / h]
 
@@ -105,8 +101,6 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     shoulder_y = top + shoulder_rel
     shoulder_span = _extent(mask, shoulder_y)
 
-    head_band = band[: max(1, shoulder_y - top)]
-    head_y = top + int(np.argmin(head_band)) if len(head_band) > 2 else at(0.08)
     nose_y = top + int(height * 0.11)
 
     lower_start = int(height * 0.42)

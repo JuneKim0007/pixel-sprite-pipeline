@@ -9,7 +9,6 @@ from ..generation import comfy
 from ..generation.comfy import ComfyError
 from ..shared import cooling
 from ..geometry import props as props_mod
-from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
@@ -159,7 +158,7 @@ class FramesStage(Stage):
                         anchor_cache[_a.path] = client.upload_image(_a.path)
                     anchor_name = anchor_cache[_a.path]
                     anchor_yaw = _a.yaw
-                # [...] was down-weighted for being far from that view while the FRONT canonical stayed at 0.9, so the anchor outvoted the one image that actually shows the back of the costume
+                # Without anchor_falloff the front canonical outvoted the rear reference on rear frames.
                 a_weight = float(ip["anchor_weight"])
                 falloff = float(ip["anchor_falloff"])
                 if falloff > 0.0:

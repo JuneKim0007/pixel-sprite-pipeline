@@ -97,7 +97,7 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return out
 
     if how == "clipped":
-        # [...] out the outliers and then lets the remaining pixels average properly, so a block that is 90% one colour returns that colour cleanly rather than a colour pulled toward the 10%
+        # Clipping drops the outliers, so a 90%-one-colour block returns that colour cleanly.
         rgb = flat[..., :3].astype(np.float32)
         mean = rgb.mean(axis=2, keepdims=True)
         dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))

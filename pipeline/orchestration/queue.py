@@ -7,7 +7,6 @@ import itertools
 import json
 import shutil
 import time
-import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any

@@ -76,7 +76,7 @@ def main() -> int:
 
     if a.list_stages:
         print("registered stages:")
-        for name, cls in sorted(stage_mod.available().items()):
+        for _name, cls in sorted(stage_mod.available().items()):
             print("  " + cls().describe())
         return 0
 
