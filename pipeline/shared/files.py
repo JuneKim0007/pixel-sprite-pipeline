@@ -96,6 +96,11 @@ def unique_name(directory: Path, filename: str) -> Path:
     raise FileExistsError(f"cannot find a free name for {filename} in {directory}")
 
 
+def _disposition_field(disposition: str, key: str) -> str:
+    m = re.search(rf'{key}="([^"]*)"', disposition)
+    return m.group(1) if m else ""
+
+
 def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, bytes]]:
     """The stdlib `cgi` module did this, but it is deprecated and removed in Python 3.13, and `email.parser` mangles binary payloads unless carefully coaxed."""
     marker = "boundary="
@@ -117,13 +122,10 @@ def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, byte
         if not disposition:
             continue
 
-        def field(key: str) -> str:
-            m = re.search(rf'{key}="([^"]*)"', disposition)
-            return m.group(1) if m else ""
-
         if data.endswith(b"\r\n"):
             data = data[:-2]
-        parts.append((field("name"), field("filename"), data))
+        parts.append((_disposition_field(disposition, "name"),
+                      _disposition_field(disposition, "filename"), data))
     return parts
 
 

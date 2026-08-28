@@ -87,7 +87,7 @@ class FramesStage(Stage):
 
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
-        style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
+        style = ctx.config.get("style") or vocabulary.DEFAULT_STYLE
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props_mod.wanted(ctx.config) else [])
@@ -157,7 +157,7 @@ class FramesStage(Stage):
                 a_weight = float(ip["anchor_weight"])
                 falloff = float(ip["anchor_falloff"])
                 if falloff > 0.0:
-                    away = abs((frame_yaw - anchor_yaw + 180.0) % 360.0 - 180.0)
+                    away = refs_mod.angular_distance(frame_yaw, anchor_yaw)
                     far = float(ip["anchor_far_weight"])
                     t = (away / 180.0) * falloff
                     a_weight = a_weight * (1.0 - t) + far * t

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Any
 
@@ -11,6 +12,14 @@ from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
 from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
+
+
+@dataclass
+class _Conditioning:
+    """What one anchor view is conditioned on: an identity image, and control channels."""
+
+    chosen: Any
+    control_names: dict
 
 
 def _label_for(yaw: float) -> str:
@@ -61,82 +70,55 @@ class CanonicalStage(Stage):
         from_ref = cfg["from_reference"] or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
-        def _prepare(view: float) -> None:
-            nonlocal want_view, chosen, guide, depth, control_names
-            want_view = view
-            chosen = None
-            if lib.identity and opt(from_ref, "enabled", True):
-                chosen, _, d = refs_mod.pick(lib.identity, view, tolerance=180.0)
-                print(f"   identity from {chosen.label} ({d:.0f}deg away)")
-            i = 0
-            ents = ctx.artifacts.get("pose_frames") or []
-            if ents:
-                i = min(range(len(ents)), key=lambda k: refs_mod.angular_distance(
-                    float((ents[k] or {}).get("yaw", 0.0)), view))
-            guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
-            depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
-            control_names = {}
-            if bool(cn["enabled"]) and (guide or depth):
-                ch = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
-                if guide and ch:
-                    control_names["pose"] = (client.upload_image(guide), ch)
-                if depth:
-                    control_names["depth"] = (client.upload_image(depth), "depth")
-
-        chosen = None
-        if lib.identity and opt(from_ref, "enabled", True):
-            chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
-            print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
-
-        # That gap produced three symptoms: duplicate props, broken anatomy, degradation.
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
-
-        _entries = ctx.artifacts.get("pose_frames") or []
-        _idx = 0
-        if _entries:
-            _idx = min(
-                range(len(_entries)),
-                key=lambda i: refs_mod.angular_distance(
-                    float((_entries[i] or {}).get("yaw", 0.0)), want_view),
-            )
-        guide = skeletons[_idx] if _idx < len(skeletons) else (skeletons[0] if skeletons else None)
-        depth = depthmaps[_idx] if _idx < len(depthmaps) else (depthmaps[0] if depthmaps else None)
         cn = cfg["controlnet"]
-        use_control = bool(cn["enabled"]) and (guide or depth)
 
-        control_names: dict = {}
-        if use_control:
-            channel = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
-            if guide and channel:
-                control_names["pose"] = (client.upload_image(guide), channel)
-            if depth:
-                control_names["depth"] = (client.upload_image(depth), "depth")
+        def _conditioning(view: float) -> _Conditioning:
+            chosen = None
+            if lib.identity and opt(from_ref, "enabled", True):
+                chosen, _, away = refs_mod.pick(lib.identity, view, tolerance=180.0)
+                print(f"   identity from {chosen.label} ({away:.0f}deg away)")
+
             entries = ctx.artifacts.get("pose_frames") or []
-            origin = (entries[0] or {}).get("from_annotation") if entries else None
-            source = ctx.settings("pose").get("source", "library")
-            where = (f"annotation of {Path(origin).name}" if origin
-                     else f"{source} pose, {ctx.need("rig").label}")
-            print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
-                  f"  <- {where}")
+            i = min(range(len(entries)),
+                    key=lambda k: refs_mod.angular_distance(
+                        float((entries[k] or {}).get("yaw", 0.0)), view)) if entries else 0
+            guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
+            depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
+
+            names: dict = {}
+            if bool(cn["enabled"]) and (guide or depth):
+                channel = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
+                if guide and channel:
+                    names["pose"] = (client.upload_image(guide), channel)
+                if depth:
+                    names["depth"] = (client.upload_image(depth), "depth")
+                origin = (entries[0] or {}).get("from_annotation") if entries else None
+                where = (f"annotation of {Path(origin).name}" if origin
+                         else f"{ctx.settings('pose').get('source', 'library')} pose, "
+                              f"{ctx.need('rig').label}")
+                print(f"   conditioned by {', '.join(names) or 'nothing'}  <- {where}")
+            return _Conditioning(chosen, names)
 
         # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
         uploads: dict = {}
 
-        def build():
+        def build(cond: _Conditioning):
             g = comfy.Graph()
             model, pos, neg, vae = comfy.base_graph(
                 g,
                 prompt=prompt,
                 negative=vocabulary.negative_for(
                     cfg["negative"], backdrop=bool(backdrop),
-                    pose_control=bool(control_names.get("pose"))),
+                    pose_control=bool(cond.control_names.get("pose"))),
                 lora_strength=cfg["lora_strength"],
                 lcm=lcm,
                 models=ctx.settings("models"),
             )
 
-            if chosen is not None:
+            if cond.chosen is not None:
+                chosen = cond.chosen
                 if chosen.path not in uploads:
                     uploads[chosen.path] = client.upload_image(chosen.path)
                 ref_img = g.out(g.add("LoadImage", image=uploads[chosen.path]), 0)
@@ -159,7 +141,7 @@ class CanonicalStage(Stage):
                     start_at=0.0, end_at=0.8,
                     ipadapter=ctx.settings("models.ipadapter"),
                 )
-            for kind, (name, channel) in control_names.items():
+            for kind, (name, channel) in cond.control_names.items():
                 control = g.out(g.add("LoadImage", image=name), 0)
                 strong = kind == "pose"
                 pos, neg = comfy.apply_controlnet(
@@ -192,12 +174,12 @@ class CanonicalStage(Stage):
         for vi, view in enumerate(views):
             if len(views) > 1:
                 print(f"   -- anchor {vi + 1}/{len(views)} at {view:g}deg")
-            _prepare(view)
+            cond = _conditioning(view)
             wanted = max(1, int(cfg["candidates"]))
             images: list[bytes] = []
 
             if bool(cfg["batch_candidates"]) and wanted > 1:
-                g, model, pos, neg, vae = build()
+                g, model, pos, neg, vae = build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=wanted, seed=base_seed,
@@ -208,7 +190,7 @@ class CanonicalStage(Stage):
                 wanted = 0
 
             for n in range(wanted):
-                g, model, pos, neg, vae = build()
+                g, model, pos, neg, vae = build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=1, seed=base_seed + n,
@@ -225,7 +207,7 @@ class CanonicalStage(Stage):
             dst.write_bytes(images[0])
             for i, blob in enumerate(images[1:], start=1):
                 (outdir / f"candidate_{label}_{i:02d}.png").write_bytes(blob)
-            made[round(view) % 360] = dst
+            made[refs_mod.bearing(view)] = dst
             if primary is None:
                 primary = dst
             print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {base_seed})")
