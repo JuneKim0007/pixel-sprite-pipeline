@@ -148,89 +148,128 @@ class Preflight:
         return bool(self.waiting_on) and not self.problems
 
 
+def _entry_paths(entries) -> list[str]:
+    if isinstance(entries, (str, dict)):
+        entries = [entries]
+    return [e if isinstance(e, str) else e.get("path", "") for e in (entries or [])]
+
+
+def _missing_config(job: Job, cfg_path: Path) -> list[str]:
+    if not job.config:
+        return ["job has no 'config'"]
+    if not cfg_path.exists():
+        return [f"no config '{job.config}' in configs/"]
+    return []
+
+
+def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
+    """The config as the run would see it, or the reason it cannot be read."""
+    import yaml
+
+    from ..generation import schema
+    from ..looks import styles
+    from ..shared import settings
+
+    try:
+        raw = yaml.safe_load(cfg_path.read_text()) or {}
+    except yaml.YAMLError as e:
+        return {}, [f"config is not valid YAML: {e}"]
+
+    for path, value in (job.data.get("overrides") or {}).items():
+        schema.set_path(raw, path, value)
+    try:
+        styled, _record = styles.layer(root, raw)
+    except styles.StyleError as e:
+        return {}, [str(e)]
+    return settings.effective(root, styled), []
+
+
+def _check_stack(merged: dict) -> list[str]:
+    # `stages` must be imported for its side effect: without it the registry is
+    # empty and every job fails validation, turning the guard into the fault.
+    from .. import stages  # noqa: F401  (importing registers them)
+    from ..generation import runner
+
+    order = (merged.get("pipeline") or {}).get("stages") or []
+    try:
+        runner.validate(runner.build(list(order)), seeded=set())
+    except Exception as e:                       # noqa: BLE001
+        return [str(e).split("\n")[0]]
+    return []
+
+
+def _check_rig(merged: dict) -> list[str]:
+    rig = merged.get("rig")
+    if not rig or rig == "auto":
+        return []
+    from ..geometry import rigs
+
+    return [] if rig in rigs.REGISTRY else [f"unknown rig '{rig}'"]
+
+
+def _check_references(root: Path, merged: dict) -> list[str]:
+    from ..refs import references as refs_mod
+
+    ref_cfg = merged.get("references") or {}
+    found = []
+    if "images" in ref_cfg:
+        found.append("references.images was replaced by typed roles: identity, "
+                     "style, pose, palette")
+    for role in refs_mod.ROLES:
+        for rel in _entry_paths(ref_cfg.get(role)):
+            if rel and not (root / rel).exists():
+                found.append(f"references.{role} missing: {rel}")
+    return found
+
+
+def _await_source_run(root: Path, merged: dict) -> list[str]:
+    from ..shared import settings
+
+    from_run = (merged.get("references") or {}).get("from_run")
+    if not from_run:
+        return []
+    runs = settings.resolve_dir(
+        root, (merged.get("paths") or {}).get("output_dir"), "out/runs")
+    return [] if (runs / from_run).is_dir() else [
+        f"run '{from_run}' does not exist yet"]
+
+
+def _await_annotations(root: Path, merged: dict) -> list[str]:
+    if merged.get("annotate") != "require":
+        return []
+    from ..geometry import annotate as ann
+
+    ref_cfg = merged.get("references") or {}
+    found = []
+    for role in ("identity", "pose"):
+        for rel in _entry_paths(ref_cfg.get(role)):
+            image = root / rel
+            if rel and image.exists() and not ann.load(image):
+                found.append(f"awaiting annotation: {rel}")
+    return found
+
+
+def _await_needs(root: Path, job: Job) -> list[str]:
+    return [f"missing file: {dep}" for dep in (job.data.get("needs") or [])
+            if not (root / dep).exists()]
+
+
 def preflight(root: Path, job: Job) -> Preflight:
-    problems: list[str] = []
+    cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
+    problems = _missing_config(job, cfg_path)
     waiting: list[str] = []
 
-    cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
-    if not job.config:
-        problems.append("job has no 'config'")
-    elif not cfg_path.exists():
-        problems.append(f"no config '{job.config}' in configs/")
-
     if not problems:
-        import yaml
+        merged, unreadable = _resolve(root, job, cfg_path)
+        if unreadable:
+            return Preflight(False, unreadable)
+        problems += _check_stack(merged)
+        problems += _check_rig(merged)
+        problems += _check_references(root, merged)
+        waiting += _await_source_run(root, merged)
+        waiting += _await_annotations(root, merged)
 
-        # `stages` must be imported for its side effect: stage classes register themselves on import, and without it the registry is empty and every job fails validation — turning the guard [...]
-        from .. import stages  # noqa: F401  (importing registers them)
-        from ..generation import runner, schema  # noqa: F401
-        from ..looks import styles  # noqa: F401
-        from ..shared import settings  # noqa: F401
-
-        try:
-            raw = yaml.safe_load(cfg_path.read_text()) or {}
-        except yaml.YAMLError as e:
-            return Preflight(False, [f"config is not valid YAML: {e}"])
-
-        for path, value in (job.data.get("overrides") or {}).items():
-            schema.set_path(raw, path, value)
-        try:
-            styled, _record = styles.layer(root, raw)
-        except styles.StyleError as e:
-            return Preflight(False, [str(e)])
-        merged = settings.effective(root, styled)
-
-        order = (merged.get("pipeline") or {}).get("stages") or []
-        try:
-            runner.validate(runner.build(list(order)), seeded=set())
-        except Exception as e:
-            problems.append(str(e).split("\n")[0])
-
-        rig = merged.get("rig")
-        if rig and rig != "auto":
-            from ..geometry import rigs
-
-            if rig not in rigs.REGISTRY:
-                problems.append(f"unknown rig '{rig}'")
-
-        ref_cfg = merged.get("references") or {}
-        if "images" in ref_cfg:
-            problems.append(
-                "references.images was replaced by typed roles: identity, "
-                "style, pose, palette"
-            )
-        from ..refs import references as refs_mod
-
-        for role in refs_mod.ROLES:
-            entries = ref_cfg.get(role) or []
-            if isinstance(entries, (str, dict)):
-                entries = [entries]
-            for entry in entries:
-                rel = entry if isinstance(entry, str) else entry.get("path", "")
-                if rel and not (root / rel).exists():
-                    problems.append(f"references.{role} missing: {rel}")
-
-        from_run = ref_cfg.get("from_run")
-        if from_run:
-            runs = settings.resolve_dir(
-                root, (merged.get("paths") or {}).get("output_dir"), "out/runs")
-            if not (runs / from_run).is_dir():
-                waiting.append(f"run '{from_run}' does not exist yet")
-
-        if merged.get("annotate") == "require":
-            from ..geometry import annotate as ann
-
-            for role in ("identity", "pose"):
-                for entry in (ref_cfg.get(role) or []):
-                    rel = entry if isinstance(entry, str) else entry.get("path", "")
-                    image = root / rel
-                    if rel and image.exists() and not ann.load(image):
-                        waiting.append(f"awaiting annotation: {rel}")
-
-    for dep in job.data.get("needs") or []:
-        if not (root / dep).exists():
-            waiting.append(f"missing file: {dep}")
-
+    waiting += _await_needs(root, job)
     return Preflight(not problems, problems, waiting)
 
 

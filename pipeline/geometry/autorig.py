@@ -58,6 +58,35 @@ def _extent(mask: np.ndarray, y: int) -> tuple[int, int] | None:
     return (int(xs.min()), int(xs.max())) if len(xs) else None
 
 
+def _shoulder_row(band: np.ndarray, height: int) -> tuple[int, bool]:
+    """Rows from the top to the head-to-shoulder step, and whether it was guessed."""
+    span = max(3, height // 40)
+    smooth = np.convolve(band, np.ones(span) / span, mode="same")
+    search_lo, search_hi = int(height * 0.08), int(height * 0.40)
+    slope = np.diff(smooth[:max(search_hi + 1, search_lo + 2)])
+    rel = None
+    if len(slope) > search_lo + 1:
+        rise = slope[search_lo:]
+        if len(rise):
+            rel = search_lo + int(np.argmax(rise)) + 1
+    if rel is None or rel >= height:
+        return int(height * 0.20), True
+    return rel, False
+
+
+def _confidence(band: np.ndarray, height: int, h: int, w: int, ankle_l: float,
+                ankle_r: float, guessed_shoulder: bool) -> tuple[float, bool]:
+    """How much to trust the fit, and whether the legs read as one mass."""
+    signals = [min(1.0, height / (h * 0.45)),
+               0.35 if guessed_shoulder else 1.0]
+    waist = band[int(height * 0.30):int(height * 0.45)]
+    if len(waist) and band.max() > 0:
+        signals.append(min(1.0, (1.0 - waist.min() / band.max()) * 2.2))
+    one_mass = abs(ankle_r - ankle_l) <= w * 0.01
+    signals.append(0.2 if one_mass else 1.0)
+    return float(np.mean(signals)), one_mass
+
+
 def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     """Read a standing humanoid's joints off its width profile."""
     rig = rig or rigs.HUMANOID
@@ -86,17 +115,8 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
         value = centres[max(top, min(bottom, y))]
         return float(value) if not math.isnan(value) else w / 2
 
-    smooth = np.convolve(band, np.ones(max(3, height // 40)) / max(3, height // 40),
-                         mode="same")
-    search_lo, search_hi = int(height * 0.08), int(height * 0.40)
-    slope = np.diff(smooth[:max(search_hi + 1, search_lo + 2)])
-    shoulder_rel = None
-    if len(slope) > search_lo + 1:
-        window = slope[search_lo:]
-        if len(window):
-            shoulder_rel = search_lo + int(np.argmax(window)) + 1
-    if shoulder_rel is None or shoulder_rel >= height:
-        shoulder_rel = int(height * 0.20)
+    shoulder_rel, guessed_shoulder = _shoulder_row(band, height)
+    if guessed_shoulder:
         fit.notes.append("no clear head-to-shoulder step; used a default height")
     shoulder_y = top + shoulder_rel
     shoulder_span = _extent(mask, shoulder_y)
@@ -159,19 +179,10 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
         "r_ankle": px(ankle_y, ankle_l),
     }
 
-    signals = []
-    signals.append(min(1.0, height / (h * 0.45)))
-    signals.append(0.35 if any("head-to-shoulder" in n for n in fit.notes) else 1.0)
-    waist = band[int(height * 0.30):int(height * 0.45)]
-    if len(waist) and band.max() > 0:
-        pinch = 1.0 - waist.min() / band.max()
-        signals.append(min(1.0, pinch * 2.2))
-    if abs(ankle_r - ankle_l) > w * 0.01:
-        signals.append(1.0)
-    else:
-        signals.append(0.2)
+    fit.confidence, one_mass = _confidence(
+        band, height, h, w, ankle_l, ankle_r, guessed_shoulder)
+    if one_mass:
         fit.notes.append("legs did not separate; the fit may be a single mass")
-    fit.confidence = float(np.mean(signals))
 
     fit.proportions = measure_proportions(fit.points, rig)
     return fit
