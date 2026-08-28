@@ -177,6 +177,7 @@ class CanonicalStage(Stage):
 
         base_seed = cfg["seed"]
         timeout = cfg["timeout"]
+        sampling = comfy.Sampling.from_config(cfg)
 
         _entries_all = ctx.artifacts.get("pose_frames") or []
         if bool(cfg["per_view"]) and _entries_all:
@@ -199,15 +200,7 @@ class CanonicalStage(Stage):
                 g, model, pos, neg, vae = build()
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
-                    width=cfg["width"], height=cfg["height"],
-                    batch=wanted,
-                    seed=base_seed,
-                    steps=opt(cfg, "steps", 8 if lcm else 25),
-                    cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                    lcm=lcm,
-                    denoise=1.0,
-                    sampler=cfg.get("sampler"),
-                    scheduler=cfg.get("scheduler"),
+                    sampling=sampling, batch=wanted, seed=base_seed,
                     prefix=f"{ctx.run_id}_canonical",
                 )
                 print(f"   {wanted} candidates as one batch")
@@ -218,15 +211,7 @@ class CanonicalStage(Stage):
                 g, model, pos, neg, vae = build()
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
-                    width=cfg["width"], height=cfg["height"],
-                    batch=1,
-                    seed=base_seed + n,
-                    steps=opt(cfg, "steps", 8 if lcm else 25),
-                    cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                    lcm=lcm,
-                    denoise=1.0,
-                    sampler=cfg.get("sampler"),
-                    scheduler=cfg.get("scheduler"),
+                    sampling=sampling, batch=1, seed=base_seed + n,
                     prefix=f"{ctx.run_id}_canonical{n:02d}",
                 )
                 images += client.generate(g.build(), timeout=timeout)

@@ -11,7 +11,9 @@ import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
+from ..shared.config import opt
 from ..shared.errors import Unavailable
 from ..shared.settings import DEFAULT_GLOBAL
 
@@ -269,22 +271,47 @@ def encode_image(g: Graph, image: Link, vae: Link) -> Link:
     return g.out(g.add("VAEEncode", pixels=image, vae=vae), 0)
 
 
+@dataclass(frozen=True)
+class Sampling:
+    """How to sample, read once from the config block that declares it."""
+
+    width: int
+    height: int
+    steps: int
+    cfg: float
+    lcm: bool
+    denoise: float = 1.0
+    sampler: str | None = None
+    scheduler: str | None = None
+
+    @classmethod
+    def from_config(cls, block: dict, *, denoise: float = 1.0) -> "Sampling":
+        lcm = bool(block["lcm"])
+        return cls(
+            width=block["width"], height=block["height"],
+            steps=opt(block, "steps", 8 if lcm else 25),
+            cfg=opt(block, "cfg", 1.5 if lcm else 7.0),
+            lcm=lcm, denoise=denoise,
+            sampler=block.get("sampler"), scheduler=block.get("scheduler"),
+        )
+
+
 def sample_and_save(
     g: Graph, model: Link, positive: Link, negative: Link, vae: Link,
-    *, width: int, height: int, batch: int, seed: int, steps: int, cfg: float,
-    lcm: bool, denoise: float, prefix: str, latent: Link | None = None,
-    sampler: str | None = None, scheduler: str | None = None,
+    *, sampling: Sampling, batch: int, seed: int, prefix: str,
+    latent: Link | None = None,
 ) -> str:
     if latent is None:
-        empty = g.add("EmptyLatentImage", width=width, height=height, batch_size=batch)
+        empty = g.add("EmptyLatentImage", width=sampling.width,
+                      height=sampling.height, batch_size=batch)
         latent = g.out(empty, 0)
 
     sampler = g.add(
         "KSampler",
-        seed=seed, steps=steps, cfg=cfg,
-        sampler_name=sampler or ("lcm" if lcm else "dpmpp_2m"),
-        scheduler=scheduler or ("sgm_uniform" if lcm else "karras"),
-        denoise=denoise,
+        seed=seed, steps=sampling.steps, cfg=sampling.cfg,
+        sampler_name=sampling.sampler or ("lcm" if sampling.lcm else "dpmpp_2m"),
+        scheduler=sampling.scheduler or ("sgm_uniform" if sampling.lcm else "karras"),
+        denoise=sampling.denoise,
         model=model, positive=positive, negative=negative, latent_image=latent,
     )
     decode = g.add("VAEDecode", samples=g.out(sampler, 0), vae=vae)

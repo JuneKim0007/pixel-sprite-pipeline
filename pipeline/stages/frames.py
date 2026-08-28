@@ -97,6 +97,7 @@ class FramesStage(Stage):
         # Measured: at 8 LCM steps the skeleton is only partly obeyed even at end_percent 0.85.
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
+        sampling = comfy.Sampling.from_config(cfg, denoise=cfg["denoise"])
 
         rig = ctx.need("rig")
         models = ctx.settings("models")
@@ -217,15 +218,7 @@ class FramesStage(Stage):
 
             comfy.sample_and_save(
                 g, model, pos, neg, vae,
-                width=cfg["width"], height=cfg["height"],
-                batch=1,
-                seed=seed,
-                steps=opt(cfg, "steps", 8 if lcm else 25),
-                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                lcm=lcm,
-                denoise=cfg["denoise"],
-                sampler=cfg.get("sampler"),
-                scheduler=cfg.get("scheduler"),
+                sampling=sampling, batch=1, seed=seed,
                 prefix=f"{ctx.run_id}_frame{i:03d}",
             )
 
