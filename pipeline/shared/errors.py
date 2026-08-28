@@ -89,7 +89,7 @@ class Internal(PixelError):
     kind = "internal"
 
 
-# [...] errors, and urllib raises TimeoutError from the ComfyUI client - which is what the 504 is for
+# Four of these seven have no raise site here; open(), os and urllib raise them for us.
 BUILTIN_STATUS: dict[type, int] = {
     FileNotFoundError: 404,
     PermissionError: 403,

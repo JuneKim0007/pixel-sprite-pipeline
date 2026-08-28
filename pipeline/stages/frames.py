@@ -9,7 +9,6 @@ from ..generation import comfy
 from ..generation.comfy import ComfyError
 from ..shared import cooling
 from ..geometry import props as props_mod
-from ..geometry import rigs as rig_lib
 from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
@@ -49,9 +48,7 @@ class FramesStage(Stage):
                 f"they must correspond one to one."
             )
 
-        client = comfy.Client(ctx.settings("comfy.host"))
-        if not client.alive():
-            raise ComfyError("ComfyUI is not running — start it with ./start.sh")
+        client = comfy.connect(ctx.settings("comfy.host"))
 
         missing = [n for n in ("IPAdapterAdvanced", "IPAdapterModelLoader")
                    if not client.has_node(n)]
@@ -91,19 +88,16 @@ class FramesStage(Stage):
         entries: list[dict] = ctx.require("pose_frames")
         subject = ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT
         style = opt(ctx.config, "style", vocabulary.DEFAULT_STYLE)
-        hint = ctx.need("rig").prompt_hint
         held = props_mod.prompt_terms(
             props_mod.load(ctx.config.get("props"), root=ctx.root)
             if props_mod.wanted(ctx.config) else [])
-        bg = ctx.settings("background")
-        backdrop = None if opt(bg, "enabled", True) is False else opt(
-            bg, "colour", vocabulary.BACKDROP)
-        base_prompt = cfg.get("prompt") or ", ".join(
-            p for p in (subject, hint, held, style,
-                        vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
-        # Measured: at 8 LCM steps the skeleton is only partially obeyed even at end_percent 0.85, because LCM's trajectory settles composition in the first couple of steps and [...]
+        backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
+        base_prompt = cfg.get("prompt") or vocabulary.prompt_for(
+            subject, ctx.need("rig").prompt_hint, style, backdrop, held=held)
+        # Measured: at 8 LCM steps the skeleton is only partly obeyed even at end_percent 0.85.
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
+        sampling = comfy.Sampling.from_config(cfg, denoise=cfg["denoise"])
 
         rig = ctx.need("rig")
         models = ctx.settings("models")
@@ -159,7 +153,7 @@ class FramesStage(Stage):
                         anchor_cache[_a.path] = client.upload_image(_a.path)
                     anchor_name = anchor_cache[_a.path]
                     anchor_yaw = _a.yaw
-                # [...] was down-weighted for being far from that view while the FRONT canonical stayed at 0.9, so the anchor outvoted the one image that actually shows the back of the costume
+                # Without anchor_falloff the front canonical outvoted the rear reference on rear frames.
                 a_weight = float(ip["anchor_weight"])
                 falloff = float(ip["anchor_falloff"])
                 if falloff > 0.0:
@@ -224,15 +218,7 @@ class FramesStage(Stage):
 
             comfy.sample_and_save(
                 g, model, pos, neg, vae,
-                width=cfg["width"], height=cfg["height"],
-                batch=1,
-                seed=seed,
-                steps=opt(cfg, "steps", 8 if lcm else 25),
-                cfg=opt(cfg, "cfg", 1.5 if lcm else 7.0),
-                lcm=lcm,
-                denoise=cfg["denoise"],
-                sampler=cfg.get("sampler"),
-                scheduler=cfg.get("scheduler"),
+                sampling=sampling, batch=1, seed=seed,
                 prefix=f"{ctx.run_id}_frame{i:03d}",
             )
 

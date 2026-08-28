@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import shutil
 import sys
 import time
@@ -45,17 +44,6 @@ def apply_compute(cfg: dict) -> None:
         os.environ.setdefault("OMP_NUM_THREADS", str(threads))
 
 
-def seed_stage_numbering(ctx: stage_mod.Context) -> None:
-    """Continue the NN_stage folder numbering instead of restarting at 00."""
-    existing = []
-    for d in sorted(ctx.outdir.iterdir()):
-        m = re.match(r"^(\d\d)_(.+)$", d.name) if d.is_dir() else None
-        if m:
-            existing.append((int(m.group(1)), m.group(2)))
-    for index, name in sorted(existing):
-        ctx._order[name] = index
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run the sprite pipeline.")
     ap.add_argument("config", nargs="?", type=Path, help="path to a config YAML")
@@ -76,7 +64,7 @@ def main() -> int:
 
     if a.list_stages:
         print("registered stages:")
-        for name, cls in sorted(stage_mod.available().items()):
+        for _name, cls in sorted(stage_mod.available().items()):
             print("  " + cls().describe())
         return 0
 
@@ -140,7 +128,7 @@ def main() -> int:
     ctx = stage_mod.Context(
         root=ROOT, outdir=outdir, config=cfg, run_id=run_id, artifacts=seeded
     )
-    seed_stage_numbering(ctx)
+    ctx.resume_numbering()
 
     print(f"run {run_id}\n{runner.describe(built)}")
     if gate:

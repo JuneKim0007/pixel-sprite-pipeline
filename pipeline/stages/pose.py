@@ -72,7 +72,6 @@ class PoseStage(Stage):
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("pose")
-        size = cfg["size"]
         outdir = ctx.stage_dir("pose")
         rig = ctx.need("rig")
 

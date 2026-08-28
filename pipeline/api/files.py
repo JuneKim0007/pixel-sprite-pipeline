@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..shared import files as files_mod
 from ..shared.errors import Invalid, NotFound
-from .context import ROOT, allowed_roots, download_dir, human_size, input_dir
+from .context import allowed_roots, download_dir, input_dir
 from .contracts import Bytes, Shape
 from .routing import BaseRouter, Raw, get, post
 from .context import runs_dir

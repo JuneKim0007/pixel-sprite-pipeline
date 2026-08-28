@@ -149,7 +149,6 @@ def broken(root: Path) -> list:
 
 def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[Style]:
     seen = seen if seen is not None else set()
-    available = discover(root)
     out: list[Style] = []
 
     for name in names:

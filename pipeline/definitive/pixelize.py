@@ -97,7 +97,7 @@ def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
         return out
 
     if how == "clipped":
-        # [...] out the outliers and then lets the remaining pixels average properly, so a block that is 90% one colour returns that colour cleanly rather than a colour pulled toward the 10%
+        # Clipping drops the outliers, so a 90%-one-colour block returns that colour cleanly.
         rgb = flat[..., :3].astype(np.float32)
         mean = rgb.mean(axis=2, keepdims=True)
         dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))
@@ -176,6 +176,19 @@ LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
 
 MATCH_METHODS = ("rgb", "weighted", "luma", "lab")
 
+_SPACES = {
+    "lab": lambda p: _to_lab(p.astype(np.float32)),
+    "weighted": lambda p: p.astype(np.float32) * LUMA,
+    "luma": lambda p: np.concatenate(
+        [(p.astype(np.float32) @ LUMA)[:, None], p.astype(np.float32) * 0.1], axis=1),
+    "rgb": lambda p: p.astype(np.float32),
+}
+
+
+def project(colours: np.ndarray, method: str) -> np.ndarray:
+    """Colours in the space distances are measured in. Unknown falls to weighted."""
+    return _SPACES[method if method in MATCH_METHODS else "weighted"](colours)
+
 
 def _to_lab(rgb: np.ndarray) -> np.ndarray:
     """sRGB to CIELAB. Approximate D65, which is close enough to rank by."""
@@ -218,15 +231,7 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
         raise ValueError("no opaque pixels to build a palette from")
     colours = max(1, min(int(colours), len(np.unique(pixels, axis=0))))
 
-    space = {
-        "lab": lambda p: _to_lab(p.astype(np.float32)),
-        "weighted": lambda p: p.astype(np.float32) * LUMA,
-        "luma": lambda p: np.concatenate(
-            [(p.astype(np.float32) @ LUMA)[:, None], p.astype(np.float32) * 0.1], axis=1),
-        "rgb": lambda p: p.astype(np.float32),
-    }[method if method in MATCH_METHODS else "weighted"]
-
-    feats = space(pixels)
+    feats = project(pixels, method)
     rng = np.random.default_rng(0)
 
     centres = [int(rng.integers(len(feats)))]
@@ -317,16 +322,7 @@ def apply_fixed_palette(
     uniq, inverse = np.unique(source, axis=0, return_inverse=True)
     flat = uniq.astype(np.float32)
 
-    if method == "lab":
-        a, b = _to_lab(flat), _to_lab(pal)
-    elif method == "weighted":
-        a, b = flat * LUMA, pal * LUMA
-    elif method == "luma":
-
-        a = np.concatenate([(flat @ LUMA)[:, None], flat * 0.1], axis=1)
-        b = np.concatenate([(pal @ LUMA)[:, None], pal * 0.1], axis=1)
-    else:
-        a, b = flat, pal
+    a, b = project(flat, method), project(pal, method)
 
     from ..shared import limits
 

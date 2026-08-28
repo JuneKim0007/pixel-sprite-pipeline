@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import shutil
-import time
 from pathlib import Path
 
 from ..shared import files as files_mod
-from ..looks import palettes as palette_lib
 from ..looks import styles, stylelog
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, allowed_roots, dump_roundtrip, load_roundtrip

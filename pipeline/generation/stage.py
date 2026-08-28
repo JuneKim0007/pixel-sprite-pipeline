@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -70,6 +71,16 @@ class Context:
         if field is not None:
             return field.default if here is None else here
         return deep_merge(defaults_for(path), _set(here or {}))
+
+    def resume_numbering(self) -> None:
+        """Continue the NN_stage folder numbering instead of restarting at 00."""
+        existing = []
+        for d in sorted(self.outdir.iterdir()):
+            m = re.match(r"^(\d\d)_(.+)$", d.name) if d.is_dir() else None
+            if m:
+                existing.append((int(m.group(1)), m.group(2)))
+        for index, name in sorted(existing):
+            self._order[name] = index
 
     def stage_dir(self, name: str) -> Path:
         idx = self._order.setdefault(name, len(self._order))

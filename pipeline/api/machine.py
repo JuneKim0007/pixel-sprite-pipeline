@@ -1,21 +1,14 @@
 
 from __future__ import annotations
 
-import json
-import platform
 import shutil
-import subprocess
-import urllib.error
-import urllib.request
-from pathlib import Path
 
 from ..generation import schema
 from ..generation.resources import RESOLVERS
 from ..shared import settings
 from .. import stages  # noqa: F401  (importing registers the stages)
 from ..generation.stage import available
-from .context import (CONFIGS, ROOT, dir_size, download_dir, global_cfg,
-                      human_size, input_dir, runs_dir)
+from .context import (ROOT, dir_size, download_dir, human_size, input_dir, runs_dir)
 from .contracts import Shape
 from .routing import BaseRouter, get
 import sys
