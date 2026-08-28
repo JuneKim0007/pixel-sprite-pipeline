@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..shared import paths
+from ..shared import contracts, paths
 
 import math
 from pathlib import Path
@@ -33,18 +33,8 @@ class Prop:
 
     @classmethod
     def from_config(cls, entry: dict) -> "Prop":
-        known = set(cls.__dataclass_fields__)
-        unknown = set(entry) - known
-        if unknown:
-            raise Invalid(
-                f"prop '{entry.get('name', '?')}' has unknown key(s) {sorted(unknown)}",
-                hint=f"valid: {sorted(known)}",
-            )
-        data = dict(entry)
-        for key in ("offset", "aim"):
-            if key in data and data[key] is not None:
-                data[key] = tuple(float(v) for v in data[key])
-        return cls(**data)
+        return contracts.from_entry(cls, entry, noun="prop",
+                                    tuples=("offset", "aim"))
 
 
 DIRNAME = "props"

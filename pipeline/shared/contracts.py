@@ -8,6 +8,22 @@ from typing import Any
 from .errors import Invalid
 
 
+def from_entry(cls, entry: dict, *, noun: str, tuples: tuple[str, ...] = ()):
+    """One library entry as `cls`, refusing a key the dataclass cannot hold."""
+    known = set(cls.__dataclass_fields__)
+    unknown = set(entry) - known
+    if unknown:
+        raise Invalid(
+            f"{noun} '{entry.get('name', '?')}' has unknown key(s) {sorted(unknown)}",
+            hint=f"valid: {sorted(known)}",
+        )
+    data = dict(entry)
+    for key in tuples:
+        if data.get(key) is not None:
+            data[key] = tuple(float(v) for v in data[key])
+    return cls(**data)
+
+
 @dataclass
 class Field:
     """One configurable value, and everything any consumer needs to know."""

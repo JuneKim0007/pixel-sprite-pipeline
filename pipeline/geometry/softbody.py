@@ -10,7 +10,8 @@ import numpy as np
 from scipy.ndimage import map_coordinates
 
 from .bodyspace import NEUTRAL, project_point
-from ..shared.errors import Invalid, NotFound
+from ..shared import contracts
+from ..shared.errors import NotFound
 
 
 @dataclass
@@ -30,18 +31,8 @@ class SoftNode:
 
     @classmethod
     def from_config(cls, entry: dict) -> "SoftNode":
-        known = {f for f in cls.__dataclass_fields__}
-        unknown = set(entry) - known
-        if unknown:
-            raise Invalid(
-                f"soft node '{entry.get('name', '?')}' has unknown key(s) {sorted(unknown)}",
-                hint=f"valid: {sorted(known)}",
-            )
-        data = dict(entry)
-        for key in ("offset", "axis"):
-            if key in data and data[key] is not None:
-                data[key] = tuple(float(v) for v in data[key])
-        return cls(**data)
+        return contracts.from_entry(cls, entry, noun="soft node",
+                                    tuples=("offset", "axis"))
 
 
 @dataclass
