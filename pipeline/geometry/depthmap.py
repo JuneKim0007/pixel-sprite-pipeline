@@ -81,7 +81,7 @@ def render_depth(
         if isinstance(build, dict):
             from . import rigs as _r
 
-            return float(build.get(_r._group_of(parent, child) or "", 1.0))
+            return float(build.get(_r.group_of(parent, child) or "", 1.0))
         return float(build)
     keypoints = project(
         fitted, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,

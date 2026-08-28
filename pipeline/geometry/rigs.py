@@ -537,7 +537,7 @@ PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
 _HEADWARD = ("nose", "head", "eye", "ear", "skull", "jaw", "horn")
 
 
-def _group_of(parent: str, child: str) -> str | None:
+def group_of(parent: str, child: str) -> str | None:
     """Direction matters at the neck, and getting it wrong silently disabled a knob."""
     if "neck" in parent:
         return "neck" if any(n in child for n in _HEADWARD) else _by_name(child)
@@ -554,7 +554,7 @@ def _by_name(joint: str) -> str | None:
 
 
 def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
-    """[...] and carries everything below them along, so the skeleton stays connected: proportions: {neck: 1.8, arms: 1.3, legs: 0.85} Applied to the neutral pose, so every pose derived from it inherits the [...]"""
+    """A copy of `rig` with named bone groups scaled, everything below carried along."""
     factors = {k: float(v) for k, v in (proportions or {}).items() if v}
     if not factors:
         return rig
@@ -576,7 +576,7 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
         for child in rig.tree.get(parent, ()):
             if child not in neutral or parent not in neutral:
                 continue
-            group = _group_of(parent, child)
+            group = group_of(parent, child)
             factor = factors.get(group or "", 1.0)
             if factor != 1.0:
                 px, py, pz = neutral[parent]
@@ -599,9 +599,9 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
     described = ", ".join(f"{k} x{v:g}" for k, v in sorted(factors.items()))
     head_radius = rig.head_radius * factors.get("head", 1.0)
 
-    # Leaving thickness alone was wrong in a visible way: legs lengthened 1.75x kept their 0.055 capsule width and came out proportionally 1.75x thinner than the rig [...]
+    # Legs lengthened 1.75x kept their 0.055 width and read 1.75x thinner, so thickness scales too.
     bones = tuple(
-        (a, b, thickness * (factors.get(_group_of(a, b) or "", 1.0) ** THICKNESS_EXPONENT))
+        (a, b, thickness * (factors.get(group_of(a, b) or "", 1.0) ** THICKNESS_EXPONENT))
         for a, b, thickness in rig.bones
     )
     return Rig(

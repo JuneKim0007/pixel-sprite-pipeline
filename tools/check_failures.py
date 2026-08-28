@@ -95,7 +95,7 @@ def _raises_in_own_body(node: ast.FunctionDef) -> list[ast.Raise]:
 
 
 def _comment_map(source: str) -> dict[int, str]:
-    """tokenize is the only reliable way to tell a `#` inside a string literal from an actual comment; a regex over raw text cannot, and a false match there would silently suppress a real violation - the [...]"""
+    """tokenize, not regex: a `#` inside a string would otherwise suppress a real violation."""
     comments: dict[int, str] = {}
     try:
         for tok in tokenize.generate_tokens(io.StringIO(source).readline):

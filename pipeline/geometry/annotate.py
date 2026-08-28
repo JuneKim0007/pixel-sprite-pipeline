@@ -146,7 +146,7 @@ def infer_proportions(annotation: Annotation) -> dict[str, float]:
     for a, b, _w in rig.bones:
         if a not in pts or b not in pts:
             continue
-        group = rigs._group_of(a, b)
+        group = rigs.group_of(a, b)
         if not group:
             continue
         observed = math.dist(pts[a], pts[b]) / anchor

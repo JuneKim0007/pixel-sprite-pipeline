@@ -18,13 +18,13 @@ def _label_for(yaw: float) -> str:
     """Named views only span 0-180, so the character's right side has no name and becomes its angle."""
     from ..geometry.bodyspace import VIEWS
     for name, deg in VIEWS.items():
-        if abs(deg - (round(yaw) % 360)) < 0.5:
+        if abs(deg - refs_mod.bearing(yaw)) < 0.5:
             return name
-    return f"{round(yaw) % 360:03d}"
+    return f"{refs_mod.bearing(yaw):03d}"
 
 
 def _anchor_view(ctx, cfg) -> str | float:
-    """[...] for a sheet whose first view is front, and a reference labelled `front` was then measured as 90 degrees away and down-weighted by the falloff for being a poor match"""
+    """Which way the anchor faces. Three sources, most specific first."""
     explicit = cfg.get("view")
     if explicit is not None:
         return explicit
@@ -95,7 +95,7 @@ class CanonicalStage(Stage):
             chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
             print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
 
-        # Three symptoms came from that one gap: duplicate props (told only "holding a bow", the model decides where it goes and sometimes decides twice), broken anatomy, and degradation [...]
+        # That gap produced three symptoms: duplicate props, broken anatomy, degradation.
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
 
@@ -127,7 +127,7 @@ class CanonicalStage(Stage):
             print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
                   f"  <- {where}")
 
-        # Measured: batch 1806 s and 1.28M swap-ins against sequential 2096 s and 2.8M, and candidate 0 is byte-identical [...]
+        # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
         uploads: dict = {}
 
         def build():

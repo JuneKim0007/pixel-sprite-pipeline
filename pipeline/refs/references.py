@@ -60,6 +60,11 @@ def angular_distance(a: float, b: float) -> float:
     return 360.0 - d if d > 180.0 else d
 
 
+def bearing(yaw: float) -> int:
+    """A heading as one whole degree in [0, 360), so two spellings of a view match."""
+    return round(yaw) % 360
+
+
 def _one(root: Path, entry: Any, role: str, index: int) -> Reference:
     if isinstance(entry, str):
         entry = {"path": entry}
@@ -123,11 +128,11 @@ def from_pattern(root: Path, cfg: dict, existing: list[Reference]) -> list[Refer
         return []
 
     name = cfg.get("_name") or cfg.get("name") or ""
-    have = {round(r.yaw) % 360 for r in existing}
+    have = {bearing(r.yaw) for r in existing}
     found: list[Reference] = []
 
     for label, yaw in VIEW_ALIASES.items():
-        if round(yaw) % 360 in have:
+        if bearing(yaw) in have:
             continue
         rel = str(pattern).replace("{view}", label) \
                           .replace("{name}", str(name)).replace("{id}", str(name))
@@ -135,7 +140,7 @@ def from_pattern(root: Path, cfg: dict, existing: list[Reference]) -> list[Refer
         if not path.is_file():
             continue
         found.append(Reference(path=path, role="identity", yaw=yaw, label=label))
-        have.add(round(yaw) % 360)
+        have.add(bearing(yaw))
 
     return found
 
@@ -161,18 +166,18 @@ def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
     if mode == "none":
         return []
 
-    have = {round(r.yaw) % 360 for r in existing}
-    by_yaw = {round(r.yaw) % 360: r for r in existing}
+    have = {bearing(r.yaw) for r in existing}
+    by_yaw = {bearing(r.yaw): r for r in existing}
     out: list[Reference] = []
 
     for yaw, other in ((90.0, 270), (270.0, 90)):
-        if round(yaw) % 360 in have:
+        if bearing(yaw) in have:
             continue
         src = None
         if mode == "mirror":
             src = by_yaw.get(other)
             if src is not None:
-                # Re-pointing the left image at 270 without mirroring would hand the model a left-facing figure labelled as the right side [...]
+                # Re-pointing left at 270 unmirrored labels a left-facing figure as the right side.
                 src = _mirrored(src, yaw)
         elif mode in ("back", "rear"):
             src = by_yaw.get(180)

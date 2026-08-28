@@ -124,7 +124,7 @@ def test_scale_leaves_unnamed_bones_alone(name):
     moved = rigs.scale(rig, {"neck": 2.0, "legs": 0.6, "tail": 1.8})
     assert set(moved.neutral) == set(rig.neutral), "joints lost"
     for a, b, _w in rig.bones:
-        if rigs._group_of(a, b) in {"neck", "legs", "tail"}:
+        if rigs.group_of(a, b) in {"neck", "legs", "tail"}:
             continue
         assert abs(_span(moved, a, b) - _span(rig, a, b)) < 1e-9, f"{a}->{b} moved"
 

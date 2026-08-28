@@ -100,7 +100,7 @@ class FramesStage(Stage):
         base_prompt = cfg.get("prompt") or ", ".join(
             p for p in (subject, hint, held, style,
                         vocabulary.backdrop_prompt(backdrop) if backdrop else "") if p)
-        # Measured: at 8 LCM steps the skeleton is only partially obeyed even at end_percent 0.85, because LCM's trajectory settles composition in the first couple of steps and [...]
+        # Measured: at 8 LCM steps the skeleton is only partly obeyed even at end_percent 0.85.
         lcm = bool(cfg["lcm"])
         seed = opt(cfg, "seed", ctx.settings("canonical").get("seed", 1234))
 

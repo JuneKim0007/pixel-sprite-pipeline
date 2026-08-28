@@ -86,7 +86,7 @@ class PaletteStage(Stage):
         palette = prep["palette"]
         save_palette(palette, pal_path, note=f"run {ctx.run_id}")
 
-        # Defaults chosen by measurement, not by taste: median beat mode 100% to 70% on structural accuracy, because anti-aliased input makes almost every pixel [...]
+        # Measured, not chosen: median beat mode 100% to 70% on structural accuracy.
         jobs = [
             (
                 str(src), str(outdir / f"{src.stem}_px.png"),
@@ -114,7 +114,7 @@ class PaletteStage(Stage):
         alpha_tol: int, key_colour: tuple[int, int, int] | None = None,
         tolerance: float = 32.0,
     ) -> list[tuple[int, int, int]]:
-        """A sprite occupies roughly 15% of the canvas, so extracting from the whole image spends almost the entire budget subdividing one [...]"""
+        """A sprite is roughly 15% of the canvas; extracting from the whole image spends the budget on backdrop."""
         ox, oy = phase
         small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
         keyed = background_to_alpha(small, alpha_tol, key=key_colour)

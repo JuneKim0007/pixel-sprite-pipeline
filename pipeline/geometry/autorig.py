@@ -214,7 +214,7 @@ def measure_proportions(points: dict[str, list[float]], rig) -> dict[str, float]
         o, e = observed(a, b), expected(a, b)
         if not o or not e:
             continue
-        group = rigs._group_of(a, b)
+        group = rigs.group_of(a, b)
         if group:
             groups.setdefault(group, []).append((o / scale) / e)
 

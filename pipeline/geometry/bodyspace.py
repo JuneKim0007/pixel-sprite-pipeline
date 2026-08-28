@@ -85,7 +85,7 @@ def frame_fit(
     if abs(scale - 1.0) < 1e-9:
         return {k: list(v) for k, v in pose.items()}
     top = min(p[2] for p in pose.values())
-    # Sit the figure `margin` from the top, which leaves the remainder under its feet — a sprite standing on nothing looks wrong hard against the bottom edge, and export crops to the [...]
+    # Margin from the top, remainder under the feet: a sprite hard against the bottom edge reads wrong.
     return {
         joint: [p[0] * scale, p[1] * scale, margin + (p[2] - top) * scale]
         for joint, p in pose.items()
@@ -138,7 +138,7 @@ def project_point(
 def view_depth(
     pose: Mapping[str, Sequence[float]], yaw_deg: float
 ) -> dict[str, float]:
-    """[...] angles can project to nearly identical keypoints — 145 degrees and 180 degrees differ by only ~18% in horizontal spread — while their depth profiles are obviously different: at 145 the shoulders [...]"""
+    """Depth separates views that keypoints cannot: 145 and 180 degrees differ by ~18% in spread."""
     yaw = math.radians(yaw_deg)
     sin_y, cos_y = math.sin(yaw), math.cos(yaw)
     return {

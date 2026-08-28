@@ -111,7 +111,7 @@ def remember(source: str, stack: list, upto: int, image) -> None:
 
 
 def fingerprint(image: np.ndarray) -> str:
-    """[...] than some of what it saves, and a stride that reads every 7th row and 5th column still touches ~28,000 pixels of a 1280 canvas - enough that two images differing anywhere visible differ here"""
+    """A content hash cheap enough to take every call: a 7x5 stride still reads ~28,000 pixels of a 1280 canvas."""
     h = hashlib.blake2b(digest_size=16)
     h.update(f"{image.shape}{image.dtype}".encode())
     h.update(np.ascontiguousarray(image[::7, ::5]).tobytes())
@@ -123,7 +123,7 @@ def key(what: str, image: np.ndarray, params: Any = None) -> str:
 
 
 def count_colours(image: np.ndarray) -> int:
-    """[...] pure waste: nearest-neighbour repetition cannot invent a colour, so a 1.6 megapixel upscale costs 0.70 s to reach the same answer 0.04 s buys on the image it was made from - measured, 17x for nothing"""
+    """Distinct colours, counted before upscaling: nearest-neighbour invents none, and costs 17x - measured."""
     flat = image.reshape(-1, image.shape[2])[:, :3]
     if len(flat) > 400_000:
         flat = flat[::7]
