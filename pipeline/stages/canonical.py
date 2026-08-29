@@ -46,6 +46,74 @@ def _anchor_view(ctx, cfg) -> str | float:
     return first.get("view", "side") if isinstance(first, dict) else "side"
 
 
+class _AnchorGraph:
+    """Assembles one anchor's graph. Image uploads are shared across anchors."""
+
+    def __init__(self, ctx, cfg, client, lib, prompt, backdrop, from_ref, cn):
+        self.ctx, self.cfg, self.client, self.lib = ctx, cfg, client, lib
+        self.prompt, self.backdrop = prompt, backdrop
+        self.from_ref, self.cn = from_ref, cn
+        self.lcm = bool(cfg["lcm"])
+        self.uploads: dict = {}
+
+    def _loaded(self, g, path):
+        """A LoadImage for `path`, uploading it at most once per run."""
+        if path not in self.uploads:
+            self.uploads[path] = self.client.upload_image(path)
+        return g.out(g.add("LoadImage", image=self.uploads[path]), 0)
+
+    def _with_identity(self, g, model, chosen):
+        return comfy.apply_ipadapter(
+            g, model, self._loaded(g, chosen.path),
+            weight=float(opt(self.from_ref, "weight", chosen.base_weight)),
+            weight_type=opt(self.from_ref, "weight_type", "linear"),
+            start_at=0.0, end_at=1.0,
+            ipadapter=self.ctx.settings("models.ipadapter"),
+        )
+
+    def _with_style(self, g, model):
+        for exemplar in self.lib.style[:2]:
+            model = comfy.apply_ipadapter(
+                g, model, self._loaded(g, exemplar.path),
+                weight=refs_mod.style_weight([exemplar], self.cfg.get("style_weight")),
+                weight_type="style transfer",
+                start_at=0.0, end_at=0.8,
+                ipadapter=self.ctx.settings("models.ipadapter"),
+            )
+        return model
+
+    def _with_control(self, g, pos, neg, vae, control_names):
+        for kind, (name, channel) in control_names.items():
+            strong = kind == "pose"
+            pos, neg = comfy.apply_controlnet(
+                g, pos, neg, g.out(g.add("LoadImage", image=name), 0), vae,
+                strength=opt(self.cn, "strength", 0.55 if strong else 0.30),
+                start_percent=self.cn["start_percent"],
+                end_percent=opt(self.cn, "end_percent", 0.40 if strong else 0.35),
+                union_type=channel,
+                controlnet=self.ctx.settings("models.controlnet"),
+            )
+        return pos, neg
+
+    def build(self, cond: "_Conditioning"):
+        g = comfy.Graph()
+        model, pos, neg, vae = comfy.base_graph(
+            g,
+            prompt=self.prompt,
+            negative=vocabulary.negative_for(
+                self.cfg["negative"], backdrop=bool(self.backdrop),
+                pose_control=bool(cond.control_names.get("pose"))),
+            lora_strength=self.cfg["lora_strength"],
+            lcm=self.lcm,
+            models=self.ctx.settings("models"),
+        )
+        if cond.chosen is not None:
+            model = self._with_identity(g, model, cond.chosen)
+        model = self._with_style(g, model)
+        pos, neg = self._with_control(g, pos, neg, vae, cond.control_names)
+        return g, model, pos, neg, vae
+
+
 @register
 class CanonicalStage(Stage):
     name = "canonical"
@@ -64,7 +132,6 @@ class CanonicalStage(Stage):
         backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
         prompt = cfg.get("prompt") or vocabulary.prompt_for(
             subject, ctx.need("rig").prompt_hint, style, backdrop)
-        lcm = bool(cfg["lcm"])
 
         lib = ctx.need("references")
         from_ref = cfg["from_reference"] or {}
@@ -102,57 +169,7 @@ class CanonicalStage(Stage):
             return _Conditioning(chosen, names)
 
         # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
-        uploads: dict = {}
-
-        def build(cond: _Conditioning):
-            g = comfy.Graph()
-            model, pos, neg, vae = comfy.base_graph(
-                g,
-                prompt=prompt,
-                negative=vocabulary.negative_for(
-                    cfg["negative"], backdrop=bool(backdrop),
-                    pose_control=bool(cond.control_names.get("pose"))),
-                lora_strength=cfg["lora_strength"],
-                lcm=lcm,
-                models=ctx.settings("models"),
-            )
-
-            if cond.chosen is not None:
-                chosen = cond.chosen
-                if chosen.path not in uploads:
-                    uploads[chosen.path] = client.upload_image(chosen.path)
-                ref_img = g.out(g.add("LoadImage", image=uploads[chosen.path]), 0)
-                model = comfy.apply_ipadapter(
-                    g, model, ref_img,
-                    weight=float(opt(from_ref, "weight", chosen.base_weight)),
-                    weight_type=opt(from_ref, "weight_type", "linear"),
-                    start_at=0.0, end_at=1.0,
-                    ipadapter=ctx.settings("models.ipadapter"),
-                )
-
-            for exemplar in lib.style[:2]:
-                if exemplar.path not in uploads:
-                    uploads[exemplar.path] = client.upload_image(exemplar.path)
-                model = comfy.apply_ipadapter(
-                    g, model, g.out(g.add("LoadImage", image=uploads[exemplar.path]), 0),
-                    weight=refs_mod.style_weight(
-                        [exemplar], cfg.get("style_weight")),
-                    weight_type="style transfer",
-                    start_at=0.0, end_at=0.8,
-                    ipadapter=ctx.settings("models.ipadapter"),
-                )
-            for kind, (name, channel) in cond.control_names.items():
-                control = g.out(g.add("LoadImage", image=name), 0)
-                strong = kind == "pose"
-                pos, neg = comfy.apply_controlnet(
-                    g, pos, neg, control, vae,
-                    strength=opt(cn, "strength", 0.55 if strong else 0.30),
-                    start_percent=cn["start_percent"],
-                    end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
-                    union_type=channel,
-                    controlnet=ctx.settings("models.controlnet"),
-                )
-            return g, model, pos, neg, vae
+        anchors = _AnchorGraph(ctx, cfg, client, lib, prompt, backdrop, from_ref, cn)
 
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
@@ -179,7 +196,7 @@ class CanonicalStage(Stage):
             images: list[bytes] = []
 
             if bool(cfg["batch_candidates"]) and wanted > 1:
-                g, model, pos, neg, vae = build(cond)
+                g, model, pos, neg, vae = anchors.build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=wanted, seed=base_seed,
@@ -190,7 +207,7 @@ class CanonicalStage(Stage):
                 wanted = 0
 
             for n in range(wanted):
-                g, model, pos, neg, vae = build(cond)
+                g, model, pos, neg, vae = anchors.build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=1, seed=base_seed + n,

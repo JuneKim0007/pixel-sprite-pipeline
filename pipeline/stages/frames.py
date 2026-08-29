@@ -22,6 +22,27 @@ def chosen_default(refs) -> float:
     return refs[0].base_weight if refs else 0.85
 
 
+def _frame_prompt(base: str, entry: dict | None, *,
+                  posed: bool) -> tuple[str, str, float]:
+    """One frame's prompt. A frame with no skeleton must be told which way to face."""
+    yaw = entry["yaw"] if entry is not None else 0.0
+    prompt = base if posed else f"{base}, {vocabulary.view_words(yaw)}"
+    framing = ((entry.get("crop") or {}) if entry is not None else {}).get("framing")
+    if framing:
+        prompt = f"{prompt}, {framing}"
+    return prompt, vocabulary.facing_negative(yaw), yaw
+
+
+def _anchor_weight(ip: dict, frame_yaw: float, anchor_yaw: float) -> float:
+    """Without this the front canonical outvoted the rear reference on rear frames."""
+    weight = float(ip["anchor_weight"])
+    falloff = float(ip["anchor_falloff"])
+    if falloff <= 0.0:
+        return weight
+    t = (refs_mod.angular_distance(frame_yaw, anchor_yaw) / 180.0) * falloff
+    return weight * (1.0 - t) + float(ip["anchor_far_weight"]) * t
+
+
 def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
     """The three artifacts a frame needs, checked to correspond one to one."""
     skeletons: list[Path] = ctx.require("skeletons")
@@ -119,14 +140,9 @@ class FramesStage(Stage):
         for i, skeleton in enumerate(skeletons):
             pose_name = client.upload_image(skeleton) if skeleton else None
 
-            frame_yaw_for_prompt = entries[i]["yaw"] if i < len(entries) else 0.0
-            prompt = base_prompt
-            if not pose_name:
-                prompt = f"{base_prompt}, {vocabulary.view_words(frame_yaw_for_prompt)}"
-            facing_neg = vocabulary.facing_negative(frame_yaw_for_prompt)
-            framing = ((entries[i].get("crop") or {}) if i < len(entries) else {}).get("framing")
-            if framing:
-                prompt = f"{prompt}, {framing}"
+            entry = entries[i] if i < len(entries) else None
+            prompt, facing_neg, frame_yaw = _frame_prompt(
+                base_prompt, entry, posed=bool(pose_name))
 
             negative = vocabulary.negative_for(
                 cfg["negative"], backdrop=bool(backdrop),
@@ -145,7 +161,6 @@ class FramesStage(Stage):
                 models=ctx.settings("models"),
             )
 
-            frame_yaw = entries[i]["yaw"] if i < len(entries) else 0.0
             chosen, auto_weight, dist = pick(
                 refs, frame_yaw,
                 tolerance=tolerance,
@@ -164,14 +179,7 @@ class FramesStage(Stage):
                         anchor_cache[_a.path] = client.upload_image(_a.path)
                     anchor_name = anchor_cache[_a.path]
                     anchor_yaw = _a.yaw
-                # Without anchor_falloff the front canonical outvoted the rear reference on rear frames.
-                a_weight = float(ip["anchor_weight"])
-                falloff = float(ip["anchor_falloff"])
-                if falloff > 0.0:
-                    away = refs_mod.angular_distance(frame_yaw, anchor_yaw)
-                    far = float(ip["anchor_far_weight"])
-                    t = (away / 180.0) * falloff
-                    a_weight = a_weight * (1.0 - t) + far * t
+                a_weight = _anchor_weight(ip, frame_yaw, anchor_yaw)
                 model = comfy.apply_ipadapter(
                     g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
                     weight=a_weight,
