@@ -21,6 +21,34 @@ def prepare_for(spec, inputs: dict, cfg: dict, *, use_cache: bool = True) -> dic
     return cache.CACHE.get(key, lambda: spec.prepare(inputs, cfg))
 
 
+def _opening_facts(image: np.ndarray, stack: list[dict]) -> dict[str, Any]:
+    """What the stack was handed, before any layer has run."""
+    return {
+        "before": {"width": int(image.shape[1]), "height": int(image.shape[0]),
+                   "colours": cache.count_colours(image)},
+        "layers": [],
+        "warnings": check_order(stack),
+        "prepared": 0,
+        "reused": 0,
+    }
+
+
+def _closing_facts(facts: dict, out: np.ndarray, deferred: dict) -> None:
+    """What the stack produced, and what a deferred layer would still do to it."""
+    # Scale records the count before it magnifies: magnification cannot change the number, and counting after is 17x the work for the same answer.
+    counted = facts.pop("colours", None)
+    facts["after"] = {"width": int(out.shape[1]), "height": int(out.shape[0]),
+                      "colours": counted if counted is not None
+                      else cache.count_colours(out)}
+    zoom = round(deferred["scale"], 6)
+    facts["deferred"] = {
+        "scale": zoom,
+        "layers": deferred["layers"],
+        "width": int(round(out.shape[1] * zoom)),
+        "height": int(round(out.shape[0] * zoom)),
+    }
+
+
 def apply_stack(image: np.ndarray, stack: list[dict], *,
                 palettes: Callable[[str], Path] | None = None,
                 source: str | None = None,
@@ -33,15 +61,7 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
     # A stack that cannot fit is a 413 here and a reboot two lines later.
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
 
-    facts: dict[str, Any] = {
-        "before": {"width": int(image.shape[1]), "height": int(image.shape[0]),
-                   "colours": cache.count_colours(image)},
-        "layers": [],
-        "warnings": check_order(stack),
-        "prepared": 0,
-        "reused": 0,
-    }
-
+    facts = _opening_facts(image, stack)
     deferred: dict[str, Any] = {"scale": 1.0, "layers": []}
 
     if source and defer:
@@ -105,17 +125,5 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
     finally:
         layer_mod.release(token)
 
-    # Scale records the count before it magnifies, because magnification cannot change it and counting afterwards is 17x the work for the same number.
-    counted = facts.pop("colours", None)
-    facts["after"] = {"width": int(out.shape[1]), "height": int(out.shape[0]),
-                      "colours": counted if counted is not None
-                      else cache.count_colours(out)}
-
-    zoom = round(deferred["scale"], 6)
-    facts["deferred"] = {
-        "scale": zoom,
-        "layers": deferred["layers"],
-        "width": int(round(out.shape[1] * zoom)),
-        "height": int(round(out.shape[0] * zoom)),
-    }
+    _closing_facts(facts, out, deferred)
     return out, facts
