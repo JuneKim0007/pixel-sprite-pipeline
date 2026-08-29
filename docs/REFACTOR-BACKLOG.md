@@ -11,6 +11,14 @@ one past the highest ever issued.
 
 ## Open
 
+**The blocker is coverage, not difficulty.** R6, R7 and most of R9 are gated on
+the same thing: no test executes run.main, autopilot.work, PoseStage.run or
+runner.run. tests/flows/conftest.py shows the shape that unblocked the stage
+bodies — a fake that records what the code decided, and a fixture that builds
+the context. Doing that for these four is worth more than any single extraction
+behind it.
+
+
 ### R6 · Long method · run.py:47 · main
 status   planned
 evidence 71 statements, 102 lines. The argparse block and the resume block are
@@ -27,21 +35,30 @@ remedy   Extract Method
 blocked  no test drives autopilot.work. Characterise first.
 first seen 2026-08-28
 
-### R8 · Long method · pipeline/definitive/run.py:24 · apply_stack
-status   planned
-evidence 62 statements, depth 4, 97 lines
-remedy   Extract Method
-blocked  none — tests/flows/test_pixel_editor.py drives this path
-first seen 2026-08-28
+### R8 · Long method · pipeline/definitive/run.py · apply_stack
+status   part done, rest reconsidered
+evidence 59 statements, from 62. `_opening_facts` and `_closing_facts` are out.
+         What remains is four skip arms — already cached, unknown layer,
+         disabled, deferred — each ending in `continue`.
+remedy   none proposed. Extraction cannot reach past a `continue`; a control
+         flag replacing them is a named smell, and a helper preserving the
+         exact order of record["prepared"], the counter and the raise needs
+         seven parameters to move seven statements. Reopen only with a loop
+         redesign worth arguing for.
+first seen 2026-08-28 · revised 2026-08-29 by f668518
 
-### R9 · Long method · 6 more over threshold
-status   open
-evidence autorig.py:90 fit_humanoid 66 (was 87) · generation/runner.py:92 run 47 ·
-         geometry/depthmap.py:54 render_depth 44 · stages/pose.py:73 run 43 ·
-         definitive/pixelize.py:69 reduce_blocks 43 · pixelize.py:345
-         background_to_alpha 42/depth 5
+### R9 · Long method · 5 more over threshold
+status   open · every one of them blocked on coverage
+evidence autorig.py fit_humanoid 66 (was 87) · generation/runner.py run 47 ·
+         stages/pose.py run 43 · definitive/pixelize.py reduce_blocks 43 ·
+         pixelize.py background_to_alpha 42/depth 5
+         depthmap.render_depth closed at 37 (was 44) by the _bulk extraction.
 remedy   Extract Method, case by case
-first seen 2026-08-28
+blocked  no test executes PoseStage.run or runner.run — test_generate.py plans
+         but never runs. Same gap the stage bodies had before 54f0353, and the
+         same fix applies: a recording fake and a fixture. pixelize's two are
+         covered by test_pixel_editor.
+first seen 2026-08-28 · revised 2026-08-29
 
 ### R10 · Nesting only · 3 methods at depth 5
 status   open
