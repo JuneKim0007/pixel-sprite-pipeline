@@ -11,12 +11,11 @@ one past the highest ever issued.
 
 ## Open
 
-**The blocker is coverage, not difficulty.** R6, R7 and most of R9 are gated on
-the same thing: no test executes run.main, autopilot.work, PoseStage.run or
-runner.run. tests/flows/conftest.py shows the shape that unblocked the stage
-bodies — a fake that records what the code decided, and a fixture that builds
-the context. Doing that for these four is worth more than any single extraction
-behind it.
+**Two of the four coverage gaps are closed.** runner.run and PoseStage.run now
+have tests (aa35b2d, 4de0eac) and were refactored behind them. R6 and R7 remain:
+nothing executes run.main or autopilot.work. tests/unit/test_runner.py and
+tests/flows/test_pose_stage.py show the two shapes that worked — fake objects
+where the seam is an object, and a source that needs nothing where it is not.
 
 
 ### R6 · Long method · run.py:47 · main
@@ -47,17 +46,16 @@ remedy   none proposed. Extraction cannot reach past a `continue`; a control
          redesign worth arguing for.
 first seen 2026-08-28 · revised 2026-08-29 by f668518
 
-### R9 · Long method · 5 more over threshold
-status   open · every one of them blocked on coverage
-evidence autorig.py fit_humanoid 66 (was 87) · generation/runner.py run 47 ·
-         stages/pose.py run 43 · definitive/pixelize.py reduce_blocks 43 ·
-         pixelize.py background_to_alpha 42/depth 5
-         depthmap.render_depth closed at 37 (was 44) by the _bulk extraction.
+### R9 · Long method · 3 more over threshold
+status   open · none of the three is blocked
+evidence autorig.py fit_humanoid 66 (was 87) · definitive/pixelize.py
+         reduce_blocks 43 · pixelize.py background_to_alpha 42/depth 5
+closed since the sweep: depthmap.render_depth 37 (was 44) by b80cf1d ·
+         generation/runner.py run 24 (was 47) by aa35b2d + the refactor behind
+         it · stages/pose.py run 28 (was 43) by 4de0eac + the same
 remedy   Extract Method, case by case
-blocked  no test executes PoseStage.run or runner.run — test_generate.py plans
-         but never runs. Same gap the stage bodies had before 54f0353, and the
-         same fix applies: a recording fake and a fixture. pixelize's two are
-         covered by test_pixel_editor.
+blocked  none. pixelize's two are covered by test_pixel_editor; fit_humanoid by
+         test_autorig plus the dump used in 63541c0.
 first seen 2026-08-28 · revised 2026-08-29
 
 ### R10 · Nesting only · 3 methods at depth 5
