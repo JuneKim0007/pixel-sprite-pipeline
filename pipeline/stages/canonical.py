@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Any
 
@@ -11,6 +12,14 @@ from ..geometry.bodyspace import resolve_view
 from ..refs import references as refs_mod
 from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
+
+
+@dataclass
+class _Conditioning:
+    """What one anchor view is conditioned on: an identity image, and control channels."""
+
+    chosen: Any
+    control_names: dict
 
 
 def _label_for(yaw: float) -> str:
@@ -37,6 +46,74 @@ def _anchor_view(ctx, cfg) -> str | float:
     return first.get("view", "side") if isinstance(first, dict) else "side"
 
 
+class _AnchorGraph:
+    """Assembles one anchor's graph. Image uploads are shared across anchors."""
+
+    def __init__(self, ctx, cfg, client, lib, prompt, backdrop, from_ref, cn):
+        self.ctx, self.cfg, self.client, self.lib = ctx, cfg, client, lib
+        self.prompt, self.backdrop = prompt, backdrop
+        self.from_ref, self.cn = from_ref, cn
+        self.lcm = bool(cfg["lcm"])
+        self.uploads: dict = {}
+
+    def _loaded(self, g, path):
+        """A LoadImage for `path`, uploading it at most once per run."""
+        if path not in self.uploads:
+            self.uploads[path] = self.client.upload_image(path)
+        return g.out(g.add("LoadImage", image=self.uploads[path]), 0)
+
+    def _with_identity(self, g, model, chosen):
+        return comfy.apply_ipadapter(
+            g, model, self._loaded(g, chosen.path),
+            weight=float(opt(self.from_ref, "weight", chosen.base_weight)),
+            weight_type=opt(self.from_ref, "weight_type", "linear"),
+            start_at=0.0, end_at=1.0,
+            ipadapter=self.ctx.settings("models.ipadapter"),
+        )
+
+    def _with_style(self, g, model):
+        for exemplar in self.lib.style[:2]:
+            model = comfy.apply_ipadapter(
+                g, model, self._loaded(g, exemplar.path),
+                weight=refs_mod.style_weight([exemplar], self.cfg.get("style_weight")),
+                weight_type="style transfer",
+                start_at=0.0, end_at=0.8,
+                ipadapter=self.ctx.settings("models.ipadapter"),
+            )
+        return model
+
+    def _with_control(self, g, pos, neg, vae, control_names):
+        for kind, (name, channel) in control_names.items():
+            strong = kind == "pose"
+            pos, neg = comfy.apply_controlnet(
+                g, pos, neg, g.out(g.add("LoadImage", image=name), 0), vae,
+                strength=opt(self.cn, "strength", 0.55 if strong else 0.30),
+                start_percent=self.cn["start_percent"],
+                end_percent=opt(self.cn, "end_percent", 0.40 if strong else 0.35),
+                union_type=channel,
+                controlnet=self.ctx.settings("models.controlnet"),
+            )
+        return pos, neg
+
+    def build(self, cond: "_Conditioning"):
+        g = comfy.Graph()
+        model, pos, neg, vae = comfy.base_graph(
+            g,
+            prompt=self.prompt,
+            negative=vocabulary.negative_for(
+                self.cfg["negative"], backdrop=bool(self.backdrop),
+                pose_control=bool(cond.control_names.get("pose"))),
+            lora_strength=self.cfg["lora_strength"],
+            lcm=self.lcm,
+            models=self.ctx.settings("models"),
+        )
+        if cond.chosen is not None:
+            model = self._with_identity(g, model, cond.chosen)
+        model = self._with_style(g, model)
+        pos, neg = self._with_control(g, pos, neg, vae, cond.control_names)
+        return g, model, pos, neg, vae
+
+
 @register
 class CanonicalStage(Stage):
     name = "canonical"
@@ -55,122 +132,44 @@ class CanonicalStage(Stage):
         backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
         prompt = cfg.get("prompt") or vocabulary.prompt_for(
             subject, ctx.need("rig").prompt_hint, style, backdrop)
-        lcm = bool(cfg["lcm"])
 
         lib = ctx.need("references")
         from_ref = cfg["from_reference"] or {}
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
-        def _prepare(view: float) -> None:
-            nonlocal want_view, chosen, guide, depth, control_names
-            want_view = view
-            chosen = None
-            if lib.identity and opt(from_ref, "enabled", True):
-                chosen, _, d = refs_mod.pick(lib.identity, view, tolerance=180.0)
-                print(f"   identity from {chosen.label} ({d:.0f}deg away)")
-            i = 0
-            ents = ctx.artifacts.get("pose_frames") or []
-            if ents:
-                i = min(range(len(ents)), key=lambda k: refs_mod.angular_distance(
-                    float((ents[k] or {}).get("yaw", 0.0)), view))
-            guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
-            depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
-            control_names = {}
-            if bool(cn["enabled"]) and (guide or depth):
-                ch = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
-                if guide and ch:
-                    control_names["pose"] = (client.upload_image(guide), ch)
-                if depth:
-                    control_names["depth"] = (client.upload_image(depth), "depth")
-
-        chosen = None
-        if lib.identity and opt(from_ref, "enabled", True):
-            chosen, _, dist = refs_mod.pick(lib.identity, want_view, tolerance=180.0)
-            print(f"   identity from {chosen.label} ({dist:.0f}deg away)")
-
-        # That gap produced three symptoms: duplicate props, broken anatomy, degradation.
         skeletons = ctx.artifacts.get("skeletons") or []
         depthmaps = ctx.artifacts.get("depthmaps") or []
-
-        _entries = ctx.artifacts.get("pose_frames") or []
-        _idx = 0
-        if _entries:
-            _idx = min(
-                range(len(_entries)),
-                key=lambda i: refs_mod.angular_distance(
-                    float((_entries[i] or {}).get("yaw", 0.0)), want_view),
-            )
-        guide = skeletons[_idx] if _idx < len(skeletons) else (skeletons[0] if skeletons else None)
-        depth = depthmaps[_idx] if _idx < len(depthmaps) else (depthmaps[0] if depthmaps else None)
         cn = cfg["controlnet"]
-        use_control = bool(cn["enabled"]) and (guide or depth)
 
-        control_names: dict = {}
-        if use_control:
-            channel = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
-            if guide and channel:
-                control_names["pose"] = (client.upload_image(guide), channel)
-            if depth:
-                control_names["depth"] = (client.upload_image(depth), "depth")
+        def _conditioning(view: float) -> _Conditioning:
+            chosen = None
+            if lib.identity and opt(from_ref, "enabled", True):
+                chosen, _, away = refs_mod.pick(lib.identity, view, tolerance=180.0)
+                print(f"   identity from {chosen.label} ({away:.0f}deg away)")
+
             entries = ctx.artifacts.get("pose_frames") or []
-            origin = (entries[0] or {}).get("from_annotation") if entries else None
-            source = ctx.settings("pose").get("source", "library")
-            where = (f"annotation of {Path(origin).name}" if origin
-                     else f"{source} pose, {ctx.need("rig").label}")
-            print(f"   conditioned by {', '.join(control_names) or 'nothing'}"
-                  f"  <- {where}")
+            i = min(range(len(entries)),
+                    key=lambda k: refs_mod.angular_distance(
+                        float((entries[k] or {}).get("yaw", 0.0)), view)) if entries else 0
+            guide = skeletons[i] if i < len(skeletons) else (skeletons[0] if skeletons else None)
+            depth = depthmaps[i] if i < len(depthmaps) else (depthmaps[0] if depthmaps else None)
+
+            names: dict = {}
+            if bool(cn["enabled"]) and (guide or depth):
+                channel = opt(cn, "union_type", None) or ctx.need("rig").skeleton_control
+                if guide and channel:
+                    names["pose"] = (client.upload_image(guide), channel)
+                if depth:
+                    names["depth"] = (client.upload_image(depth), "depth")
+                origin = (entries[0] or {}).get("from_annotation") if entries else None
+                where = (f"annotation of {Path(origin).name}" if origin
+                         else f"{ctx.settings('pose').get('source', 'library')} pose, "
+                              f"{ctx.need('rig').label}")
+                print(f"   conditioned by {', '.join(names) or 'nothing'}  <- {where}")
+            return _Conditioning(chosen, names)
 
         # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
-        uploads: dict = {}
-
-        def build():
-            g = comfy.Graph()
-            model, pos, neg, vae = comfy.base_graph(
-                g,
-                prompt=prompt,
-                negative=vocabulary.negative_for(
-                    cfg["negative"], backdrop=bool(backdrop),
-                    pose_control=bool(control_names.get("pose"))),
-                lora_strength=cfg["lora_strength"],
-                lcm=lcm,
-                models=ctx.settings("models"),
-            )
-
-            if chosen is not None:
-                if chosen.path not in uploads:
-                    uploads[chosen.path] = client.upload_image(chosen.path)
-                ref_img = g.out(g.add("LoadImage", image=uploads[chosen.path]), 0)
-                model = comfy.apply_ipadapter(
-                    g, model, ref_img,
-                    weight=float(opt(from_ref, "weight", chosen.base_weight)),
-                    weight_type=opt(from_ref, "weight_type", "linear"),
-                    start_at=0.0, end_at=1.0,
-                    ipadapter=ctx.settings("models.ipadapter"),
-                )
-
-            for exemplar in lib.style[:2]:
-                if exemplar.path not in uploads:
-                    uploads[exemplar.path] = client.upload_image(exemplar.path)
-                model = comfy.apply_ipadapter(
-                    g, model, g.out(g.add("LoadImage", image=uploads[exemplar.path]), 0),
-                    weight=refs_mod.style_weight(
-                        [exemplar], cfg.get("style_weight")),
-                    weight_type="style transfer",
-                    start_at=0.0, end_at=0.8,
-                    ipadapter=ctx.settings("models.ipadapter"),
-                )
-            for kind, (name, channel) in control_names.items():
-                control = g.out(g.add("LoadImage", image=name), 0)
-                strong = kind == "pose"
-                pos, neg = comfy.apply_controlnet(
-                    g, pos, neg, control, vae,
-                    strength=opt(cn, "strength", 0.55 if strong else 0.30),
-                    start_percent=cn["start_percent"],
-                    end_percent=opt(cn, "end_percent", 0.40 if strong else 0.35),
-                    union_type=channel,
-                    controlnet=ctx.settings("models.controlnet"),
-                )
-            return g, model, pos, neg, vae
+        anchors = _AnchorGraph(ctx, cfg, client, lib, prompt, backdrop, from_ref, cn)
 
         if lib.style:
             print(f"   style from {len(lib.style[:2])} exemplar(s)")
@@ -192,12 +191,12 @@ class CanonicalStage(Stage):
         for vi, view in enumerate(views):
             if len(views) > 1:
                 print(f"   -- anchor {vi + 1}/{len(views)} at {view:g}deg")
-            _prepare(view)
+            cond = _conditioning(view)
             wanted = max(1, int(cfg["candidates"]))
             images: list[bytes] = []
 
             if bool(cfg["batch_candidates"]) and wanted > 1:
-                g, model, pos, neg, vae = build()
+                g, model, pos, neg, vae = anchors.build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=wanted, seed=base_seed,
@@ -208,7 +207,7 @@ class CanonicalStage(Stage):
                 wanted = 0
 
             for n in range(wanted):
-                g, model, pos, neg, vae = build()
+                g, model, pos, neg, vae = anchors.build(cond)
                 comfy.sample_and_save(
                     g, model, pos, neg, vae,
                     sampling=sampling, batch=1, seed=base_seed + n,
@@ -225,7 +224,7 @@ class CanonicalStage(Stage):
             dst.write_bytes(images[0])
             for i, blob in enumerate(images[1:], start=1):
                 (outdir / f"candidate_{label}_{i:02d}.png").write_bytes(blob)
-            made[round(view) % 360] = dst
+            made[refs_mod.bearing(view)] = dst
             if primary is None:
                 primary = dst
             print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {base_seed})")

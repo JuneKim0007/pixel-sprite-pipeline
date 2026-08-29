@@ -51,6 +51,17 @@ def _capsule(
         draw.ellipse([px - r, py - r, px + r, py + r], fill=shade)
 
 
+def _bulk(build: float | dict | None, parent: str, child: str) -> float:
+    """How much to thicken one bone. A dict does it per proportion group, which is what a pot-bellied character with thin arms needs: {torso: 1.6, arms: 0.9}."""
+    if build is None:
+        return 1.0
+    if isinstance(build, dict):
+        from . import rigs as _rigs
+
+        return float(build.get(_rigs.group_of(parent, child) or "", 1.0))
+    return float(build)
+
+
 def render_depth(
     pose: Mapping[str, Sequence[float]],
     yaw_deg: float,
@@ -74,15 +85,6 @@ def render_depth(
     fitted = frame_fit(pose, fill=fill) if fill else pose
     grow = frame_scale(pose, fill)
 
-    # A dict does it per proportion group, which is what a pot-bellied character with thin arms needs: {torso: 1.6, arms: 0.9}.
-    def bulk(parent: str, child: str) -> float:
-        if build is None:
-            return 1.0
-        if isinstance(build, dict):
-            from . import rigs as _r
-
-            return float(build.get(_r.group_of(parent, child) or "", 1.0))
-        return float(build)
     keypoints = project(
         fitted, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
         rig=rig,
@@ -124,13 +126,13 @@ def render_depth(
     for parent, child in bones:
         _capsule(
             draw, screen[parent], screen[child],
-            widths[(parent, child)] * scale * grow * bulk(parent, child),
+            widths[(parent, child)] * scale * grow * _bulk(build, parent, child),
             shade(parent, child),
         )
 
     head = screen.get(rig.head_joint) or screen.get(rig.root)
     if head:
-        r = rig.head_radius * scale * grow * bulk(rig.head_joint, rig.head_joint)
+        r = rig.head_radius * scale * grow * _bulk(build, rig.head_joint, rig.head_joint)
         draw.ellipse(
             [head[0] - r, head[1] - r, head[0] + r, head[1] + r],
             fill=shade(rig.head_joint, rig.root),

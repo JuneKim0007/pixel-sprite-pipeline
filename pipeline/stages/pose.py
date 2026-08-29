@@ -70,6 +70,35 @@ class PoseStage(Stage):
     gives = frozenset({"pose_frames", "skeletons"})
     needs = frozenset({"references", "rig", "rig_record"})
 
+    def _from_spec(self, ctx: Context, cfg: dict, spec: Any,
+                   index: int) -> list[dict[str, Any]]:
+        """One entry of `pose.set`: the block, overridden by the spec."""
+        if not isinstance(spec, dict):
+            raise Invalid(f"pose.set[{index}] must be a mapping", field="set")
+        merged = {**cfg, **spec}
+        merged.pop("set", None)
+        pick = spec.get("frame")
+        got = self._resolve(
+            ctx, merged, wanted=None if pick is not None else spec.get("frames", 1))
+        if pick is not None:
+            if not 0 <= pick < len(got):
+                raise Invalid(
+                    f"pose.set[{index}].frame={pick} but that pose has "
+                    f"{len(got)} frame(s)",
+                    field="frame",
+                )
+            got = [got[pick]]
+        yaw = resolve_view(merged["view"])
+        return [{"pose": p, "yaw": yaw, "spec": index} for p in got]
+
+    def _from_block(self, ctx: Context, cfg: dict) -> list[dict[str, Any]]:
+        """No `set`: the pose block alone. An annotation already carries its yaw."""
+        got = self._resolve(ctx, cfg, wanted=cfg.get("frames"))
+        if got and isinstance(got[0], dict) and "annotation" in got[0]:
+            return [{**g, "spec": 0} for g in got]
+        yaw = resolve_view(cfg["view"])
+        return [{"pose": p, "yaw": yaw, "spec": 0} for p in got]
+
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("pose")
         outdir = ctx.stage_dir("pose")
@@ -82,31 +111,9 @@ class PoseStage(Stage):
 
         if specs:
             for i, spec in enumerate(specs):
-                if not isinstance(spec, dict):
-                    raise Invalid(f"pose.set[{i}] must be a mapping", field="set")
-                merged = {**cfg, **spec}
-                merged.pop("set", None)
-                pick = spec.get("frame")
-                got = self._resolve(
-                    ctx, merged, wanted=None if pick is not None else spec.get("frames", 1)
-                )
-                if pick is not None:
-                    if not 0 <= pick < len(got):
-                        raise Invalid(
-                            f"pose.set[{i}].frame={pick} but that pose has "
-                            f"{len(got)} frame(s)",
-                            field="frame",
-                        )
-                    got = [got[pick]]
-                yaw = resolve_view(merged["view"])
-                entries += [{"pose": p, "yaw": yaw, "spec": i} for p in got]
+                entries += self._from_spec(ctx, cfg, spec, i)
         else:
-            got = self._resolve(ctx, cfg, wanted=cfg.get("frames"))
-            if got and isinstance(got[0], dict) and "annotation" in got[0]:
-                entries = [{**g, "spec": 0} for g in got]
-            else:
-                yaw = resolve_view(cfg["view"])
-                entries = [{"pose": p, "yaw": yaw, "spec": 0} for p in got]
+            entries = self._from_block(ctx, cfg)
 
         written: list[Path] = []
         if not rig.joints:

@@ -142,14 +142,12 @@ def test_frames_writes_one_image_per_skeleton(comfy_fake, gpu_ctx, tmp_path):
     assert len(comfy_fake.graphs) == 3
 
 
-def test_frames_keeps_a_blank_style_blank(comfy_fake, gpu_ctx, tmp_path):
-    """The pair of the canonical test above: `opt` only replaces a MISSING style.
-
-    The two stages read the same setting two different ways. This pins the
-    divergence so it cannot be changed by accident while it is being unified.
-    """
+def test_frames_falls_back_to_the_default_style_when_it_is_blank(comfy_fake,
+                                                                gpu_ctx,
+                                                                tmp_path):
+    """The pair of the canonical test above; the two used to disagree here."""
     get("frames")().run(_frames_ctx(gpu_ctx, tmp_path, 1, style=""), {})
-    assert vocabulary.DEFAULT_STYLE not in comfy_fake.prompt()
+    assert vocabulary.DEFAULT_STYLE in comfy_fake.prompt()
 
 
 def test_frames_refuses_to_start_without_comfyui(comfy_fake, gpu_ctx, tmp_path):
@@ -215,3 +213,39 @@ def test_the_recorded_graph_is_json_serialisable(comfy_fake, gpu_ctx):
     """A graph that cannot be serialised could never have reached ComfyUI."""
     get("canonical")().run(gpu_ctx(), {})
     assert json.loads(json.dumps(comfy_fake.graphs[0]))
+
+
+def test_canonical_uploads_each_skeleton_once(comfy_fake, gpu_ctx, tmp_path):
+    """The conditioning was computed before the loop and again inside it, so
+    every run pushed the same PNG to ComfyUI twice."""
+    ctx = gpu_ctx()
+    ctx.artifacts["skeletons"] = _skeletons(tmp_path, 3)
+    ctx.artifacts["pose_frames"] = _entries(3)
+    get("canonical")().run(ctx, {})
+
+    assert len(comfy_fake.uploads) == len(set(comfy_fake.uploads)), \
+        f"uploaded twice: {comfy_fake.uploads}"
+
+
+def test_canonical_per_view_uploads_only_the_anchors_it_renders(comfy_fake,
+                                                                 gpu_ctx,
+                                                                 tmp_path):
+    ctx = gpu_ctx(canonical={"per_view": True})
+    ctx.artifacts["skeletons"] = _skeletons(tmp_path, 3)
+    ctx.artifacts["pose_frames"] = _entries(3)
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.uploads == ["skeleton_000.png", "skeleton_001.png",
+                                  "skeleton_002.png"]
+
+
+def test_both_stages_read_a_blank_style_the_same_way(comfy_fake, gpu_ctx,
+                                                     tmp_path):
+    """canonical used `or`, frames used `opt`: falsy against missing."""
+    get("canonical")().run(gpu_ctx(style=""), {})
+    canonical_prompt = comfy_fake.prompt()
+    comfy_fake.graphs.clear()
+    get("frames")().run(_frames_ctx(gpu_ctx, tmp_path, 1, style=""), {})
+
+    assert (vocabulary.DEFAULT_STYLE in canonical_prompt) is \
+           (vocabulary.DEFAULT_STYLE in comfy_fake.prompt())

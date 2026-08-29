@@ -83,6 +83,46 @@ def describe(stages: list[Stage]) -> str:
     return "\n".join(lines)
 
 
+def _check_gate(stages: list[Stage], stop_after: str | None) -> None:
+    if stop_after and stop_after not in {s.name for s in stages}:
+        raise PipelineError(
+            f"stop_after '{stop_after}' is not in this pipeline. Stages: "
+            + ", ".join(s.name for s in stages)
+        )
+
+
+def _gpu_batches_ahead(batches: list, stop_after: str | None) -> int:
+    """How many GPU batches will actually run, so cooling knows which is last."""
+    executed = batches
+    if stop_after:
+        for i, b in enumerate(batches):
+            if stop_after in [s.name for s in b.stages]:
+                executed = batches[: i + 1]
+                break
+    return sum(1 for b in executed
+               if any(s.resource == Resource.GPU for s in b.stages))
+
+
+def _run_batch(batch, ctx: Context, verbose: bool) -> None:
+    """One batch, in parallel or alone. Artifacts land only once every stage is done."""
+    if not batch.parallel:
+        stage = batch.stages[0]
+        if verbose:
+            print(f"\n== {stage.name} ==")
+        ctx.artifacts.update(_one(stage, ctx, verbose))
+        ctx.completed.append(stage.name)
+        return
+
+    if verbose:
+        print(f"\n== {', '.join(s.name for s in batch.stages)} (parallel) ==")
+    with ThreadPoolExecutor(max_workers=len(batch.stages)) as pool:
+        futures = {pool.submit(_one, s, ctx, verbose): s for s in batch.stages}
+        results = [(futures[fut], fut.result()) for fut in futures]
+    for stage, produced in results:
+        ctx.artifacts.update(produced)
+        ctx.completed.append(stage.name)
+
+
 def run(
     stages: list[Stage],
     ctx: Context,
@@ -91,49 +131,19 @@ def run(
     skip: set[str] | None = None,
 ) -> Context:
     skip = skip or set()
-    if stop_after and stop_after not in {s.name for s in stages}:
-        raise PipelineError(
-            f"stop_after '{stop_after}' is not in this pipeline. Stages: "
-            + ", ".join(s.name for s in stages)
-        )
+    _check_gate(stages, stop_after)
 
     validate(stages, seeded=set(ctx.artifacts))
     batches = plan([s for s in stages if s.name not in skip])
     started = time.time()
     ctx.completed = list(skip)
-
-
-    executed = batches
-    if stop_after:
-        for i, b in enumerate(batches):
-            if stop_after in [s.name for s in b.stages]:
-                executed = batches[: i + 1]
-                break
-    gpu_left = sum(1 for b in executed
-                   if any(s.resource == Resource.GPU for s in b.stages))
+    gpu_left = _gpu_batches_ahead(batches, stop_after)
 
     if skip and verbose:
         print(f"resuming — skipping completed: {', '.join(sorted(skip))}")
 
     for batch in batches:
-        if batch.parallel:
-            if verbose:
-                names = ", ".join(s.name for s in batch.stages)
-                print(f"\n== {names} (parallel) ==")
-            with ThreadPoolExecutor(max_workers=len(batch.stages)) as pool:
-                futures = {pool.submit(_one, s, ctx, verbose): s for s in batch.stages}
-                results: list[tuple[Stage, dict[str, Any]]] = []
-                for fut in futures:
-                    results.append((futures[fut], fut.result()))
-            for stage, produced in results:
-                ctx.artifacts.update(produced)
-                ctx.completed.append(stage.name)
-        else:
-            stage = batch.stages[0]
-            if verbose:
-                print(f"\n== {stage.name} ==")
-            ctx.artifacts.update(_one(stage, ctx, verbose))
-            ctx.completed.append(stage.name)
+        _run_batch(batch, ctx, verbose)
 
         if any(s.resource == Resource.GPU for s in batch.stages):
             gpu_left -= 1
