@@ -1,7 +1,8 @@
 # Refactor backlog
 
-Surveyed 2026-08-28 · scope `pipeline/ tools/ autopilot.py run.py server.py` · 72 files
-Baseline: 560 pytest + 1 xfailed · 120 frontend · `make check` clean · 12,584 lines · 94 comment lines
+Surveyed 2026-08-28, revised 2026-08-29 · scope `pipeline/ tools/ autopilot.py run.py server.py` · 72 files
+Baseline: 560 pytest + 1 xfailed · 120 frontend · `make check` clean
+Stage bodies: canonical.run 76 statements (was 120), frames.run 78 (was 107)
 
 Ids are permanent. `Done`, `Dropped` and `Refused` keep theirs; the next id is
 one past the highest ever issued.
@@ -9,25 +10,6 @@ one past the highest ever issued.
 ---
 
 ## Open
-
-### R4 · Long method · pipeline/stages/frames.py:33 · run
-status   planned
-evidence 91 statements, depth 4, 191 lines. Down from 107; the remaining bulk
-         is the per-frame loop body, not setup.
-remedy   Extract Method — the anchor-weighting block and the controlnet block
-         → refactor-composing-method
-expect   frames.py run under 60 statements
-blocked  none. tests/flows/test_generation_stages.py covers this body now.
-first seen 2026-08-28
-
-### R5 · Long method · pipeline/stages/canonical.py:58 · run
-status   planned
-evidence 95 statements, depth 3, 160 lines. Down from 120 after the duplicated
-         conditioning came out. `build()` is still a 45-statement closure.
-remedy   Extract Method on `build()` → refactor-composing-method
-expect   canonical.py run under 60 statements
-blocked  none
-first seen 2026-08-28
 
 ### R6 · Long method · run.py:47 · main
 status   planned
@@ -104,6 +86,17 @@ name. 35 lines out, one upload per run saved.
 closed 2026-08-28 by 63541c0 — the four colour-space projections were a dispatch
 table in one function and an if/elif chain 90 lines below it. Both call
 `project()` now.
+
+### R4 · Long method · pipeline/stages/frames.py · run
+closed 2026-08-29 by 3c74587 — 107 statements to 78. `_frame_prompt` and
+`_anchor_weight` extracted; the frame's yaw had also been computed twice under
+two names.
+
+### R5 · Long method · pipeline/stages/canonical.py · run
+closed 2026-08-29 by 41e1bc2 and 3c74587 — 120 statements to 76. The duplicated
+conditioning went first; then `build`, a 40-statement closure over eight
+run-scoped names, became `_AnchorGraph` with identity, style and control as
+three methods and the upload cache as a field.
 
 ### R12 · Long method · orchestration/queue.py · preflight
 closed 2026-08-28 by 63541c0 — 60 statements at depth 5 → 14 at depth 2, eight
