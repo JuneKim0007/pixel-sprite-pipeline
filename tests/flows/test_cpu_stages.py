@@ -11,63 +11,30 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pipeline.generation.stage import Context, get
-from pipeline.geometry import rigs
-from pipeline.refs import references as refs_mod
+from pipeline.generation.stage import get
 from pipeline.shared.errors import NotFound
-
-
-def png(path, size=(16, 16), shade=120):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", size, (shade, shade, shade)).save(path)
-    return path
-
-
-@pytest.fixture
-def cpu_ctx(tmp_path):
-    def build(**config):
-        cfg = {"cooling": {"enabled": False}}
-        cfg.update(config)
-        outdir = tmp_path / "run"
-        outdir.mkdir(parents=True, exist_ok=True)
-        return Context(root=tmp_path, outdir=outdir, config=cfg, run_id="testrun",
-                       artifacts={},
-                       resources={"rig": rigs.HUMANOID,
-                                  "references": refs_mod.Library(),
-                                  "rig_record": {"source": "test"}})
-    return build
-
-
-def frames(tmp_path, n=2, size=(16, 16)):
-    return [png(tmp_path / "in" / f"frame_{i:03d}.png", size) for i in range(n)]
-
-
-def entries(n=2, rig=None):
-    """Pose entries as PoseStage writes them: a pose, a yaw and its spec index."""
-    pose = rigs.tpose(rig or rigs.HUMANOID)
-    return [{"pose": pose, "yaw": i * 90.0, "spec": 0} for i in range(n)]
 
 
 # -------------------------------------------------------------------- depth
 
-def test_depth_writes_one_map_per_pose_entry(cpu_ctx, tmp_path):
-    ctx = cpu_ctx()
-    ctx.artifacts["pose_frames"] = entries(3)
+def test_depth_writes_one_map_per_pose_entry(stage_ctx, pose_entries):
+    ctx = stage_ctx()
+    ctx.artifacts["pose_frames"] = pose_entries(3)
     out = get("depth")().run(ctx, {})
 
     assert len(out["depthmaps"]) == 3
     assert all(p.exists() for p in out["depthmaps"])
 
 
-def test_depth_refuses_to_run_without_poses(cpu_ctx):
+def test_depth_refuses_to_run_without_poses(stage_ctx):
     with pytest.raises(NotFound, match="pose_frames"):
-        get("depth")().run(cpu_ctx(), {})
+        get("depth")().run(stage_ctx(), {})
 
 
-def test_depth_maps_differ_between_views(cpu_ctx, tmp_path):
+def test_depth_maps_differ_between_views(stage_ctx, pose_entries):
     """A depth map that ignored yaw would make every view identical."""
-    ctx = cpu_ctx()
-    ctx.artifacts["pose_frames"] = entries(2)
+    ctx = stage_ctx()
+    ctx.artifacts["pose_frames"] = pose_entries(2)
     out = get("depth")().run(ctx, {})
 
     a, b = (np.asarray(Image.open(p).convert("L")) for p in out["depthmaps"])
@@ -76,11 +43,10 @@ def test_depth_maps_differ_between_views(cpu_ctx, tmp_path):
 
 # ----------------------------------------------------------------- softbody
 
-def test_softbody_passes_frames_through_when_no_nodes_are_configured(cpu_ctx,
-                                                                     tmp_path):
-    ctx = cpu_ctx()
-    ctx.artifacts["frames"] = frames(tmp_path, 2)
-    ctx.artifacts["pose_frames"] = entries(2)
+def test_softbody_passes_frames_through_when_no_nodes_are_configured(stage_ctx, frames, pose_entries, png):
+    ctx = stage_ctx()
+    ctx.artifacts["frames"] = frames(2)
+    ctx.artifacts["pose_frames"] = pose_entries(2)
     out = get("softbody")().run(ctx, {})
 
     assert len(out["soft_frames"]) == 2
@@ -91,26 +57,25 @@ def test_softbody_passes_frames_through_when_no_nodes_are_configured(cpu_ctx,
             "with no soft nodes the pixels must survive untouched"
 
 
-def test_softbody_writes_a_frame_per_input_with_a_node_configured(cpu_ctx,
-                                                                  tmp_path):
+def test_softbody_writes_a_frame_per_input_with_a_node_configured(stage_ctx, frames, pose_entries, png):
     """The warp itself is not asserted: it needs the anchor to move faster than
     the spring tracks it, and at the default stiffness a two-frame pose that
     does that could not be constructed here. What is asserted is the shape."""
-    ctx = cpu_ctx(softbody={"nodes": [{"name": "belly", "anchor": "neck",
+    ctx = stage_ctx(softbody={"nodes": [{"name": "belly", "anchor": "neck",
                                        "max_displacement": 0.3,
                                        "influence": 1.0}]})
-    ctx.artifacts["frames"] = frames(tmp_path, 2)
-    ctx.artifacts["pose_frames"] = entries(2)
+    ctx.artifacts["frames"] = frames(2)
+    ctx.artifacts["pose_frames"] = pose_entries(2)
     out = get("softbody")().run(ctx, {})
 
     assert [p.name for p in out["soft_frames"]] == ["frame_000_soft.png",
                                                     "frame_001_soft.png"]
 
 
-def test_softbody_names_the_joint_a_node_cannot_anchor_to(cpu_ctx, tmp_path):
-    ctx = cpu_ctx(softbody={"nodes": [{"name": "belly", "anchor": "tentacle"}]})
-    ctx.artifacts["frames"] = frames(tmp_path, 1)
-    ctx.artifacts["pose_frames"] = entries(1)
+def test_softbody_names_the_joint_a_node_cannot_anchor_to(stage_ctx, frames, pose_entries):
+    ctx = stage_ctx(softbody={"nodes": [{"name": "belly", "anchor": "tentacle"}]})
+    ctx.artifacts["frames"] = frames(1)
+    ctx.artifacts["pose_frames"] = pose_entries(1)
 
     with pytest.raises(NotFound) as caught:
         get("softbody")().run(ctx, {})
@@ -118,10 +83,10 @@ def test_softbody_names_the_joint_a_node_cannot_anchor_to(cpu_ctx, tmp_path):
     assert "neck" in caught.value.hint, "the hint lists the joints that do exist"
 
 
-def test_softbody_names_an_unknown_node_key(cpu_ctx, tmp_path):
-    ctx = cpu_ctx(softbody={"nodes": [{"name": "belly", "nope": 1}]})
-    ctx.artifacts["frames"] = frames(tmp_path, 1)
-    ctx.artifacts["pose_frames"] = entries(1)
+def test_softbody_names_an_unknown_node_key(stage_ctx, tmp_path, frames, pose_entries, png):
+    ctx = stage_ctx(softbody={"nodes": [{"name": "belly", "nope": 1}]})
+    ctx.artifacts["frames"] = frames(1)
+    ctx.artifacts["pose_frames"] = pose_entries(1)
 
     with pytest.raises(Exception, match="soft node"):
         get("softbody")().run(ctx, {})
@@ -129,15 +94,19 @@ def test_softbody_names_an_unknown_node_key(cpu_ctx, tmp_path):
 
 # ------------------------------------------------------------------ palette
 
-def _palette_ctx(cpu_ctx, tmp_path, n=2, **config):
-    ctx = cpu_ctx(**config)
-    ctx.artifacts["frames"] = frames(tmp_path, n, size=(32, 32))
-    ctx.artifacts["canonical"] = png(tmp_path / "in" / "canonical.png", (32, 32))
-    return ctx
+@pytest.fixture
+def palette_ctx(stage_ctx, frames, png, tmp_path):
+    """A Context the palette stage can run against: frames and an anchor to measure."""
+    def build(n=2, **config):
+        ctx = stage_ctx(**config)
+        ctx.artifacts["frames"] = frames(n, (32, 32))
+        ctx.artifacts["canonical"] = png(tmp_path / "in" / "canonical.png", (32, 32))
+        return ctx
+    return build
 
 
-def test_palette_writes_a_hex_file_and_one_image_per_frame(cpu_ctx, tmp_path):
-    ctx = _palette_ctx(cpu_ctx, tmp_path, 2)
+def test_palette_writes_a_hex_file_and_one_image_per_frame(palette_ctx, png):
+    ctx = palette_ctx(2)
     stage = get("palette")()
     out = stage.run(ctx, stage.prepare(ctx))
 
@@ -147,16 +116,16 @@ def test_palette_writes_a_hex_file_and_one_image_per_frame(cpu_ctx, tmp_path):
     assert all(p.exists() and p.name.endswith("_px.png") for p in out["pixel_frames"])
 
 
-def test_palette_records_the_run_it_came_from(cpu_ctx, tmp_path):
-    ctx = _palette_ctx(cpu_ctx, tmp_path, 1)
+def test_palette_records_the_run_it_came_from(palette_ctx):
+    ctx = palette_ctx(1)
     stage = get("palette")()
     out = stage.run(ctx, stage.prepare(ctx))
 
     assert "testrun" in out["palette"].read_text()
 
 
-def test_palette_prefers_soft_frames_when_softbody_ran(cpu_ctx, tmp_path):
-    ctx = _palette_ctx(cpu_ctx, tmp_path, 2)
+def test_palette_prefers_soft_frames_when_softbody_ran(tmp_path, palette_ctx, png):
+    ctx = palette_ctx(2)
     soft = [png(tmp_path / "soft" / f"s_{i}.png", (32, 32)) for i in range(3)]
     ctx.artifacts["soft_frames"] = soft
     stage = get("palette")()
@@ -166,9 +135,9 @@ def test_palette_prefers_soft_frames_when_softbody_ran(cpu_ctx, tmp_path):
     assert all("s_" in p.name for p in out["pixel_frames"])
 
 
-def test_palette_holds_every_frame_to_the_same_colours(cpu_ctx, tmp_path):
+def test_palette_holds_every_frame_to_the_same_colours(palette_ctx, frames):
     """Fixing the palette is the point: frames must not drift colour apart."""
-    ctx = _palette_ctx(cpu_ctx, tmp_path, 2)
+    ctx = palette_ctx(2)
     stage = get("palette")()
     out = stage.run(ctx, stage.prepare(ctx))
 
@@ -182,9 +151,9 @@ def test_palette_holds_every_frame_to_the_same_colours(cpu_ctx, tmp_path):
 
 # ------------------------------------------------------------------- export
 
-def test_export_joins_the_frames_into_one_sheet(cpu_ctx, tmp_path):
-    ctx = cpu_ctx()
-    ctx.artifacts["pixel_frames"] = frames(tmp_path, 3, size=(8, 8))
+def test_export_joins_the_frames_into_one_sheet(stage_ctx, frames):
+    ctx = stage_ctx()
+    ctx.artifacts["pixel_frames"] = frames(3, (8, 8))
     out = get("export")().run(ctx, {})
 
     assert out["sheet"].exists()
@@ -192,16 +161,16 @@ def test_export_joins_the_frames_into_one_sheet(cpu_ctx, tmp_path):
     assert sheet.size == (24, 8), "three 8px cells in one row"
 
 
-def test_export_wraps_into_rows_at_the_configured_column_count(cpu_ctx, tmp_path):
-    ctx = cpu_ctx(export={"columns": 2})
-    ctx.artifacts["pixel_frames"] = frames(tmp_path, 3, size=(8, 8))
+def test_export_wraps_into_rows_at_the_configured_column_count(stage_ctx, frames):
+    ctx = stage_ctx(export={"columns": 2})
+    ctx.artifacts["pixel_frames"] = frames(3, (8, 8))
     out = get("export")().run(ctx, {})
 
     assert Image.open(out["sheet"]).size == (16, 16), "2 columns, 2 rows"
 
 
-def test_export_sizes_every_cell_to_the_largest_frame(cpu_ctx, tmp_path):
-    ctx = cpu_ctx()
+def test_export_sizes_every_cell_to_the_largest_frame(stage_ctx, tmp_path, png):
+    ctx = stage_ctx()
     ctx.artifacts["pixel_frames"] = [
         png(tmp_path / "in" / "a.png", (8, 8)),
         png(tmp_path / "in" / "b.png", (12, 10)),
@@ -211,6 +180,6 @@ def test_export_sizes_every_cell_to_the_largest_frame(cpu_ctx, tmp_path):
     assert Image.open(out["sheet"]).size == (24, 10), "cells are 12x10"
 
 
-def test_export_refuses_to_run_without_pixel_frames(cpu_ctx):
+def test_export_refuses_to_run_without_pixel_frames(stage_ctx):
     with pytest.raises(NotFound, match="pixel_frames"):
-        get("export")().run(cpu_ctx(), {})
+        get("export")().run(stage_ctx(), {})

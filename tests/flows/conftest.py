@@ -12,6 +12,13 @@ from pipeline.geometry import rigs
 from pipeline.refs import references as refs_mod
 
 
+def png(path, size=(8, 8), shade: int = 128):
+    """A flat image on disk. Every stage test needs one and none of them care what is in it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", size, (shade, shade, shade)).save(path)
+    return path
+
+
 def png_bytes(shade: int = 200) -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (8, 8), (shade, shade, shade)).save(buf, format="PNG")
@@ -80,10 +87,14 @@ def comfy_fake(monkeypatch):
 
 
 @pytest.fixture
-def gpu_ctx(tmp_path, root):
-    """A Context a GPU stage can run against, with cooling off so it does not sleep."""
+def stage_ctx(tmp_path):
+    """A Context any stage can run against.
 
-    def build(**config):
+    Cooling is off so a run does not sleep, and the three resources a stage may
+    declare are seeded, so no test resolves a rig through an LLM.
+    """
+
+    def build(rig=rigs.HUMANOID, **config):
         cfg = {
             "subject": "a knight in armor",
             "style": "pixel art",
@@ -93,12 +104,58 @@ def gpu_ctx(tmp_path, root):
         outdir = tmp_path / "run"
         outdir.mkdir(parents=True, exist_ok=True)
         return Context(
-            root=tmp_path,
-            outdir=outdir,
-            config=cfg,
-            run_id="testrun",
+            root=tmp_path, outdir=outdir, config=cfg, run_id="testrun",
             artifacts={},
-            resources={"rig": rigs.HUMANOID, "references": refs_mod.Library()},
+            resources={"rig": rig,
+                       "references": refs_mod.Library(),
+                       "rig_record": {"source": "test"}},
         )
 
+    return build
+
+
+@pytest.fixture(name="png")
+def png_fixture():
+    """The on-disk image helper, as a fixture so tests need no package import."""
+    return png
+
+
+@pytest.fixture
+def pose_entries():
+    """Pose entries as PoseStage writes them.
+
+    `posed=False` leaves out the joint positions, which is all the GPU stages
+    read and is what the generation tests passed before this was shared.
+    """
+    def build(n=2, *, step=90.0, rig=None, posed=True):
+        entry = ({"pose": rigs.tpose(rig or rigs.HUMANOID)} if posed
+                 else {"mode": "library"})
+        return [{**entry, "yaw": i * step, "spec": 0} for i in range(n)]
+    return build
+
+
+@pytest.fixture
+def frames(tmp_path):
+    """n flat frames on disk, named as the stages that write them do."""
+    def build(n=2, size=(8, 8)):
+        return [png(tmp_path / "in" / f"frame_{i:03d}.png", size) for i in range(n)]
+    return build
+
+
+@pytest.fixture
+def skeletons(tmp_path):
+    def build(n=1):
+        return [png(tmp_path / "in" / f"skeleton_{i:03d}.png") for i in range(n)]
+    return build
+
+
+@pytest.fixture
+def frames_ctx(stage_ctx, skeletons, pose_entries, tmp_path):
+    """A Context the frames stage can run against: skeletons, poses and an anchor."""
+    def build(n=2, **config):
+        ctx = stage_ctx(**config)
+        ctx.artifacts["skeletons"] = skeletons(n)
+        ctx.artifacts["pose_frames"] = pose_entries(n, posed=False)
+        ctx.artifacts["canonical"] = png(tmp_path / "in" / "canonical.png")
+        return ctx
     return build
