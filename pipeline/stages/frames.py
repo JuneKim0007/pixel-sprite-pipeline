@@ -116,12 +116,10 @@ class FramesStage(Stage):
         refs = lib.identity or [anchor]
         stack_anchor = bool(lib.identity) and bool(ip["anchor"])
 
-        uploaded = {r.path: client.upload_image(r.path) for r in refs}
         anchor_name = client.upload_image(anchor.path) if stack_anchor else None
-        anchor_cache: dict = {}
-        style_uploads = [(r, client.upload_image(r.path)) for r in lib.style[:2]]
-        if style_uploads:
-            print(f"   style from {len(style_uploads)} exemplar(s)")
+        style_refs = lib.style[:2]
+        if style_refs:
+            print(f"   style from {len(style_refs)} exemplar(s)")
         tolerance = float(match_cfg["tolerance_degrees"])
 
         entries: list[dict] = ctx.require("pose_frames")
@@ -175,20 +173,18 @@ class FramesStage(Stage):
             if anchor_name:
                 _a = anchor_for(frame_yaw)
                 if _a.path != anchor.path:
-                    if _a.path not in anchor_cache:
-                        anchor_cache[_a.path] = client.upload_image(_a.path)
-                    anchor_name = anchor_cache[_a.path]
+                    anchor_name = client.upload_image(_a.path)
                     anchor_yaw = _a.yaw
                 a_weight = _anchor_weight(ip, frame_yaw, anchor_yaw)
                 model = comfy.apply_ipadapter(
-                    g, model, g.out(g.add("LoadImage", image=anchor_name), 0),
+                    g, model, comfy.load_image(g, anchor_name),
                     weight=a_weight,
                     weight_type=ip["anchor_weight_type"],
                     start_at=0.0, end_at=float(ip["anchor_end_at"]),
                     ipadapter=models.get("ipadapter"),
                 )
 
-            ref = g.out(g.add("LoadImage", image=uploaded[chosen.path]), 0)
+            ref = comfy.load_image(g, client.upload_image(chosen.path))
             model = comfy.apply_ipadapter(
                 g, model, ref,
                 weight=weight,
@@ -198,9 +194,10 @@ class FramesStage(Stage):
                 ipadapter=models.get("ipadapter"),
             )
 
-            for exemplar, name in style_uploads:
+            for exemplar in style_refs:
                 model = comfy.apply_ipadapter(
-                    g, model, g.out(g.add("LoadImage", image=name), 0),
+                    g, model,
+                    comfy.load_image(g, client.upload_image(exemplar.path)),
                     weight=refs_mod.style_weight([exemplar], cfg.get("style_weight")),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
@@ -211,7 +208,7 @@ class FramesStage(Stage):
             if not cn["enabled"]:
                 channel = None
             if channel and pose_name:
-                control = g.out(g.add("LoadImage", image=pose_name), 0)
+                control = comfy.load_image(g, pose_name)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
                     # Measured: 1.0 held to 0.8 makes the model trace the control image and return a stick figure.
@@ -225,7 +222,7 @@ class FramesStage(Stage):
             if depthmaps and i < len(depthmaps):
                 dcn = cfg["depth_controlnet"]
                 depth_name = client.upload_image(depthmaps[i])
-                depth_img = g.out(g.add("LoadImage", image=depth_name), 0)
+                depth_img = comfy.load_image(g, depth_name)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, depth_img, vae,
                     strength=dcn["strength"],

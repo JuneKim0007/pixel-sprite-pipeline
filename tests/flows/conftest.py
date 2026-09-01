@@ -36,6 +36,7 @@ class FakeComfy:
     def __init__(self, host: str = "") -> None:
         self.host = host
         self.uploads: list[str] = []
+        self._uploaded: dict = {}
         self.graphs: list[dict] = []
         self.alive_answer = True
         self.missing_nodes: set[str] = set()
@@ -47,8 +48,13 @@ class FakeComfy:
         return node not in self.missing_nodes
 
     def upload_image(self, path, subfolder: str = "pipeline") -> str:
+        """Memoised exactly as `comfy.Client` is, so `uploads` counts what the
+        network would actually see rather than what the caller asked for."""
+        if path in self._uploaded:
+            return self._uploaded[path]
         self.uploads.append(Path(path).name)
-        return f"{subfolder}/{Path(path).name}"
+        self._uploaded[path] = f"{subfolder}/{Path(path).name}"
+        return self._uploaded[path]
 
     def generate(self, graph: dict, timeout: float = 1800) -> list[bytes]:
         self.graphs.append(graph)

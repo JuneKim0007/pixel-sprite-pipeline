@@ -39,6 +39,7 @@ class Client:
     def __init__(self, host: str = "http://127.0.0.1:8188") -> None:
         self.host = host.rstrip("/")
         self.client_id = str(uuid.uuid4())
+        self._uploaded: dict[Path, str] = {}
 
 
     def _get(self, path: str, timeout: float = 30) -> Any:
@@ -63,7 +64,17 @@ class Client:
             return False
 
     def upload_image(self, path: Path, subfolder: str = "pipeline") -> str:
-        """POST an image into ComfyUI's input area; returns its LoadImage name."""
+        """POST an image into ComfyUI's input area; returns its LoadImage name.
+
+        Memoised for the client's lifetime, which is one stage: a run sends the
+        same reference to every frame, and the file does not change underneath it.
+        """
+        if path in self._uploaded:
+            return self._uploaded[path]
+        self._uploaded[path] = self._upload(path, subfolder)
+        return self._uploaded[path]
+
+    def _upload(self, path: Path, subfolder: str) -> str:
         boundary = f"----pixel{uuid.uuid4().hex}"
         mime = mimetypes.guess_type(path.name)[0] or "image/png"
         buf = io.BytesIO()
@@ -162,6 +173,11 @@ class Graph:
 
     def build(self) -> dict:
         return self.nodes
+
+
+def load_image(g: Graph, name: str) -> Link:
+    """An already-uploaded image as a graph link."""
+    return g.out(g.add("LoadImage", image=name), 0)
 
 
 def base_graph(

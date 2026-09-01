@@ -54,17 +54,10 @@ class _AnchorGraph:
         self.prompt, self.backdrop = prompt, backdrop
         self.from_ref, self.cn = from_ref, cn
         self.lcm = bool(cfg["lcm"])
-        self.uploads: dict = {}
-
-    def _loaded(self, g, path):
-        """A LoadImage for `path`, uploading it at most once per run."""
-        if path not in self.uploads:
-            self.uploads[path] = self.client.upload_image(path)
-        return g.out(g.add("LoadImage", image=self.uploads[path]), 0)
 
     def _with_identity(self, g, model, chosen):
         return comfy.apply_ipadapter(
-            g, model, self._loaded(g, chosen.path),
+            g, model, comfy.load_image(g, self.client.upload_image(chosen.path)),
             weight=float(opt(self.from_ref, "weight", chosen.base_weight)),
             weight_type=opt(self.from_ref, "weight_type", "linear"),
             start_at=0.0, end_at=1.0,
@@ -74,7 +67,7 @@ class _AnchorGraph:
     def _with_style(self, g, model):
         for exemplar in self.lib.style[:2]:
             model = comfy.apply_ipadapter(
-                g, model, self._loaded(g, exemplar.path),
+                g, model, comfy.load_image(g, self.client.upload_image(exemplar.path)),
                 weight=refs_mod.style_weight([exemplar], self.cfg.get("style_weight")),
                 weight_type="style transfer",
                 start_at=0.0, end_at=0.8,
@@ -86,7 +79,7 @@ class _AnchorGraph:
         for kind, (name, channel) in control_names.items():
             strong = kind == "pose"
             pos, neg = comfy.apply_controlnet(
-                g, pos, neg, g.out(g.add("LoadImage", image=name), 0), vae,
+                g, pos, neg, comfy.load_image(g, name), vae,
                 strength=opt(self.cn, "strength", 0.55 if strong else 0.30),
                 start_percent=self.cn["start_percent"],
                 end_percent=opt(self.cn, "end_percent", 0.40 if strong else 0.35),
