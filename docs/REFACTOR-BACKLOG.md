@@ -1,8 +1,13 @@
 # Refactor backlog
 
-Surveyed 2026-08-28, revised 2026-08-29 · scope `pipeline/ tools/ autopilot.py run.py server.py` · 72 files
-Baseline: 560 pytest + 1 xfailed · 120 frontend · `make check` clean
-Stage bodies: canonical.run 76 statements (was 120), frames.run 78 (was 107)
+Surveyed 2026-08-28 · re-surveyed 2026-09-01 after the campaign merged · scope
+`pipeline/ tools/ autopilot.py run.py server.py` · 72 files
+Baseline: 635 pytest + 1 xfailed · 120 frontend · `make check` clean · 12,794 lines
+· 86 comment lines · master dd62c9f
+
+Long methods 16 -> 4. Nothing at nesting depth 5. Zero dead code, zero unused
+imports, zero cross-file duplicates, zero truncated comments — all measured on
+the merged tree, not the branch.
 
 Ids are permanent. `Done`, `Dropped` and `Refused` keep theirs; the next id is
 one past the highest ever issued.
@@ -16,6 +21,32 @@ tests, each mutation-checked. Long methods are down from 16 to 5 and nothing in
 scope sits at nesting depth 5. What is left is one deferred item and one where
 the remaining shape was judged not worth changing.
 
+
+### R33 · Large class · pipeline/stages/canonical.py:49 · _AnchorGraph
+status   open · low value
+evidence 10 fields over 6 methods, and the field clusters do not overlap:
+         `_loaded` touches client and uploads; `_with_identity`, `_with_style`,
+         `_with_control` and `build` touch backdrop, cfg, cn, ctx, from_ref,
+         lcm, lib and prompt. Two clusters sharing no field is the rule's
+         definition, and this class was introduced by 3c74587 — the refactor
+         made it.
+remedy   none scheduled. Extracting the upload cache gives a class of two
+         fields and one method, which is the Lazy Class threshold. The finding
+         is real and the fix is worse; recorded so a later survey does not
+         rediscover it as though it were new.
+blocked  none
+first seen 2026-09-01
+
+### R34 · Long method · autopilot.py:135 · work
+status   open · accepted regression
+evidence 57 statements at depth 4, up from 55 at depth 3. The drain fix in
+         ff31230 added a branch inside the empty-queue arm: re-check the held
+         jobs, continue if any was released, exit otherwise.
+remedy   none scheduled. The depth is the cost of R32 being fixed correctly
+         rather than by exiting straight away, which would have stranded a job
+         unblocked mid-run. Reopen only if `work` grows past 60 statements.
+blocked  none
+first seen 2026-09-01
 
 ### R11 · Shotgun surgery · 7 stage files + generation/stage.py
 status   deferred
