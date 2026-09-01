@@ -34,12 +34,6 @@ def build(order: list[str]) -> list[Stage]:
 
 
 def validate(stages: list[Stage], seeded: set[str]) -> None:
-    """Check the configured order can actually satisfy every dependency.
-
-    A stage need is satisfied by an earlier stage, by a seeded artifact, or by
-    the run's resource table — and which of the three is the plan's business,
-    which is why the stage declares one set and not three.
-    """
     from . import resources
 
     plan_mod.refuse(

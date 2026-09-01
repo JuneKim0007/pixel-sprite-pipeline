@@ -1,9 +1,3 @@
-"""Where a stage's declared needs are resolved, and the only place they are.
-
-A stage says `needs = frozenset({"rig"})` and reads `ctx.need("rig")`. Nothing
-in `stage.py` knows what a rig is, and `runner.validate` refuses a need no
-resolver can answer before any GPU work starts.
-"""
 
 from __future__ import annotations
 
