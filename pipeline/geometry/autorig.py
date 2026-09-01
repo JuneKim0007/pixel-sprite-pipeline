@@ -87,19 +87,108 @@ def _confidence(band: np.ndarray, height: int, h: int, w: int, ankle_l: float,
     return float(np.mean(signals)), one_mass
 
 
+class _Figure:
+    """A masked subject, and the coordinate reads a humanoid fit is made of."""
+
+    def __init__(self, mask: np.ndarray, top: int, bottom: int,
+                 centres: np.ndarray):
+        self.mask = mask
+        self.h, self.w = mask.shape
+        self.top, self.bottom = top, bottom
+        self.height = bottom - top
+        self.centres = centres
+
+    def px(self, y: int, x: float) -> list[float]:
+        """A pixel position as a fraction of the canvas."""
+        return [float(x) / self.w, float(y) / self.h]
+
+    def centre_at(self, y: int) -> float:
+        value = self.centres[max(self.top, min(self.bottom, y))]
+        return float(value) if not math.isnan(value) else self.w / 2
+
+    def split_centres(self, y: int) -> tuple[float, float]:
+        """Left and right limb centres on one row, from the widest gap in it."""
+        xs = np.nonzero(self.mask[max(self.top, min(self.bottom, y))])[0]
+        if len(xs) == 0:
+            c = self.centre_at(y)
+            return c - self.w * 0.02, c + self.w * 0.02
+        gaps = np.nonzero(np.diff(xs) > 1)[0]
+        if len(gaps):
+            cut = gaps[len(gaps) // 2]
+            left, right = xs[: cut + 1], xs[cut + 1:]
+            return float(left.mean()), float(right.mean())
+        c = float(xs.mean())
+        quarter = (xs.max() - xs.min()) / 4 or self.w * 0.02
+        return c - quarter, c + quarter
+
+    def rows(self, band: np.ndarray) -> tuple[dict[str, int], bool]:
+        """Which row each landmark sits on, and whether the shoulder was guessed."""
+        shoulder_rel, guessed = _shoulder_row(band, self.height)
+        shoulder_y = self.top + shoulder_rel
+
+        lower_start, lower_end = int(self.height * 0.42), int(self.height * 0.72)
+        mid = band[lower_start:lower_end]
+        hip_y = self.top + lower_start + (
+            int(np.argmax(mid)) if len(mid) else int(self.height * 0.15))
+        ankle_y = self.bottom - max(1, int(self.height * 0.03))
+
+        torso = max(hip_y - shoulder_y, int(self.height * 0.15))
+        return {
+            "nose": self.top + int(self.height * 0.11),
+            "shoulder": shoulder_y,
+            "hip": hip_y,
+            "ankle": ankle_y,
+            "knee": int((hip_y + ankle_y) / 2),
+            "elbow": min(self.bottom, shoulder_y + int(torso * 0.55)),
+            "wrist": min(self.bottom, shoulder_y + int(torso * 1.05)),
+        }, guessed
+
+    def points(self, y: dict[str, int]
+               ) -> tuple[dict[str, list[float]], float, float]:
+        """The fourteen joints placed across each row, plus the two ankle centres."""
+        w, px, centre_at = self.w, self.px, self.centre_at
+        knee_l, knee_r = self.split_centres(y["knee"])
+        ankle_l, ankle_r = self.split_centres(y["ankle"])
+
+        shoulder_span = _extent(self.mask, y["shoulder"])
+        hip_span = _extent(self.mask, y["hip"])
+        elbow_span = _extent(self.mask, y["elbow"])
+        wrist_span = _extent(self.mask, y["wrist"])
+
+        centre_x = centre_at(y["shoulder"])
+        half = ((shoulder_span[1] - shoulder_span[0]) / 2 if shoulder_span
+                else w * 0.08)
+        hip_half = (hip_span[1] - hip_span[0]) / 2 if hip_span else half * 0.7
+
+        return {
+            "nose": px(y["nose"], centre_at(y["nose"])),
+            "neck": px(y["shoulder"] - int(self.height * 0.02), centre_x),
+            "l_shoulder": px(y["shoulder"], centre_x + half * 0.78),
+            "r_shoulder": px(y["shoulder"], centre_x - half * 0.78),
+            "l_elbow": px(y["elbow"], (elbow_span[1] if elbow_span else centre_x + half) - w * 0.01),
+            "r_elbow": px(y["elbow"], (elbow_span[0] if elbow_span else centre_x - half) + w * 0.01),
+            "l_wrist": px(y["wrist"], (wrist_span[1] if wrist_span else centre_x + half) - w * 0.01),
+            "r_wrist": px(y["wrist"], (wrist_span[0] if wrist_span else centre_x - half) + w * 0.01),
+            "l_hip": px(y["hip"], centre_at(y["hip"]) + hip_half * 0.5),
+            "r_hip": px(y["hip"], centre_at(y["hip"]) - hip_half * 0.5),
+            "l_knee": px(y["knee"], knee_r),
+            "r_knee": px(y["knee"], knee_l),
+            "l_ankle": px(y["ankle"], ankle_r),
+            "r_ankle": px(y["ankle"], ankle_l),
+        }, ankle_l, ankle_r
+
+
 def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     """Read a standing humanoid's joints off its width profile."""
     rig = rig or rigs.HUMANOID
     fit = Fit()
-    h, w = mask.shape
 
     rows = np.nonzero(mask.any(axis=1))[0]
     if len(rows) < 12:
         fit.notes.append("subject too small to fit")
         return fit
     top, bottom = int(rows.min()), int(rows.max())
-    height = bottom - top
-    if height < 12:
+    if bottom - top < 12:
         fit.notes.append("subject too short to fit")
         return fit
 
@@ -108,79 +197,15 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
     if band.max() <= 0:
         return fit
 
-    def px(y: int, x: float) -> list[float]:
-        return [float(x) / w, float(y) / h]
-
-    def centre_at(y: int) -> float:
-        value = centres[max(top, min(bottom, y))]
-        return float(value) if not math.isnan(value) else w / 2
-
-    shoulder_rel, guessed_shoulder = _shoulder_row(band, height)
+    figure = _Figure(mask, top, bottom, centres)
+    landmarks, guessed_shoulder = figure.rows(band)
     if guessed_shoulder:
         fit.notes.append("no clear head-to-shoulder step; used a default height")
-    shoulder_y = top + shoulder_rel
-    shoulder_span = _extent(mask, shoulder_y)
 
-    nose_y = top + int(height * 0.11)
-
-    lower_start = int(height * 0.42)
-    lower_end = int(height * 0.72)
-    mid = band[lower_start:lower_end]
-    hip_y = top + lower_start + (int(np.argmax(mid)) if len(mid) else int(height * 0.15))
-    hip_span = _extent(mask, hip_y)
-
-    ankle_y = bottom - max(1, int(height * 0.03))
-    knee_y = int((hip_y + ankle_y) / 2)
-
-    def split_centres(y: int) -> tuple[float, float]:
-        xs = np.nonzero(mask[max(top, min(bottom, y))])[0]
-        if len(xs) == 0:
-            c = centre_at(y)
-            return c - w * 0.02, c + w * 0.02
-        gaps = np.nonzero(np.diff(xs) > 1)[0]
-        if len(gaps):
-            cut = gaps[len(gaps) // 2]
-            left, right = xs[: cut + 1], xs[cut + 1:]
-            return float(left.mean()), float(right.mean())
-        c = float(xs.mean())
-        quarter = (xs.max() - xs.min()) / 4 or w * 0.02
-        return c - quarter, c + quarter
-
-    knee_l, knee_r = split_centres(knee_y)
-    ankle_l, ankle_r = split_centres(ankle_y)
-
-    centre_x = centre_at(shoulder_y)
-    if shoulder_span:
-        half = (shoulder_span[1] - shoulder_span[0]) / 2
-    else:
-        half = w * 0.08
-    hip_half = ((hip_span[1] - hip_span[0]) / 2 if hip_span else half * 0.7)
-
-    torso = max(hip_y - shoulder_y, int(height * 0.15))
-    elbow_y = min(bottom, shoulder_y + int(torso * 0.55))
-    wrist_y = min(bottom, shoulder_y + int(torso * 1.05))
-    elbow_span = _extent(mask, elbow_y)
-    wrist_span = _extent(mask, wrist_y)
-
-    fit.points = {
-        "nose": px(nose_y, centre_at(nose_y)),
-        "neck": px(shoulder_y - int(height * 0.02), centre_x),
-        "l_shoulder": px(shoulder_y, centre_x + half * 0.78),
-        "r_shoulder": px(shoulder_y, centre_x - half * 0.78),
-        "l_elbow": px(elbow_y, (elbow_span[1] if elbow_span else centre_x + half) - w * 0.01),
-        "r_elbow": px(elbow_y, (elbow_span[0] if elbow_span else centre_x - half) + w * 0.01),
-        "l_wrist": px(wrist_y, (wrist_span[1] if wrist_span else centre_x + half) - w * 0.01),
-        "r_wrist": px(wrist_y, (wrist_span[0] if wrist_span else centre_x - half) + w * 0.01),
-        "l_hip": px(hip_y, centre_at(hip_y) + hip_half * 0.5),
-        "r_hip": px(hip_y, centre_at(hip_y) - hip_half * 0.5),
-        "l_knee": px(knee_y, knee_r),
-        "r_knee": px(knee_y, knee_l),
-        "l_ankle": px(ankle_y, ankle_r),
-        "r_ankle": px(ankle_y, ankle_l),
-    }
-
+    fit.points, ankle_l, ankle_r = figure.points(landmarks)
     fit.confidence, one_mass = _confidence(
-        band, height, h, w, ankle_l, ankle_r, guessed_shoulder)
+        band, figure.height, figure.h, figure.w, ankle_l, ankle_r,
+        guessed_shoulder)
     if one_mass:
         fit.notes.append("legs did not separate; the fit may be a single mass")
 
