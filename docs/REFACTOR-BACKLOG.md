@@ -49,16 +49,29 @@ blocked  none
 first seen 2026-09-01
 
 ### R11 · Shotgun surgery · 7 stage files + generation/stage.py
-status   deferred
+status   deferred · gated ASK 2026-09-02, answered: correct the reason, leave
+         the code
 evidence The stage↔settings contract moved 7 times, each editing 4-7 of the 7
          stage files: 1462901, db13bb5, fce2794, 451ba86, 12a8b85, 97ad0b4,
-         65ddf8c. Threshold 3/3; measured 7/7.
-remedy   Move Method — settings resolution onto Stage
-blocked  docs/OPEN.md §1 owns the general version and defers it. The trend is
-         already downward (7 stage files per change → 5) under an in-flight
-         campaign; adding a mediator now would freeze a design mid-migration.
-         Re-measure after the next settings change.
-first seen 2026-08-28
+         65ddf8c. Threshold 3/3; measured 7/7. The trend is downward — 7 stage
+         files per change, then 5.
+remedy   docs/NODES.md §4's `apply(inputs, cfg, prep)`, per docs/OPEN.md §1.
+blocked  NOT by coverage any more. All seven stage bodies now execute under
+         test — c1d3908 closed the last four — and OPEN.md §1's "needs ComfyUI
+         and a GPU" was wrong for five of seven stages. That reason is
+         corrected in the doc rather than left to mislead the next reader.
+
+         What blocks it now is a design question, not a test gap. Two of the
+         nine Context members a stage reads are behaviour rather than values:
+         `ctx.need` is lazy and memoised because `rig: auto` costs an LLM call,
+         and `ctx.stage_dir` creates the directory and assigns its number when
+         called. Passing either in as an input moves when that work happens, so
+         the rewrite is a design change and not a refactor. Radius measured:
+         105 access sites, 10 source files, 9 test files.
+
+         Asked and answered 2026-09-02 — hold, correct the reason, do not
+         rewrite. Do not re-ask without new evidence.
+first seen 2026-08-28 · re-gated 2026-09-02
 
 ---
 

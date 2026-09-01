@@ -19,14 +19,35 @@ engine had no such check at all; a layer wrote into a `facts` dict the caller
 passed in, and any key or none went unnoticed.
 
 **What is left.** A layer is handed `inputs`; a stage is handed the run's
-`Context` and reads `settings`, `stage_dir`, `run_id`, `root`, `outdir` off it.
-One `apply(inputs, cfg, prep)` means those five arrive as inputs instead, which
-rewrites seven stage bodies.
+`Context`. One `apply(inputs, cfg, prep)` means what a stage reads off `Context`
+arrives as inputs instead, which rewrites seven stage bodies.
 
-**Why not yet.** It cannot be verified here. A real pipeline run needs ComfyUI
-and a GPU, so a rewrite of the stage bodies would be checked only by tests that
-assert structure, never by a render. The return contract above was worth doing
-precisely because it *is* fully coverable.
+The surface is nine members, not five. Counted 2026-09-02 across the seven
+stages: `settings` 29 accesses, `need` 17, `config` 17, `root` 12, `require` 10,
+`artifacts` 7, `stage_dir` 7, `run_id` 5, `outdir` 1 — 105 in all.
+
+**Why not yet — corrected 2026-09-02.** This entry used to say the work could
+not be verified without ComfyUI and a GPU. That was wrong on measurement and is
+no longer the reason.
+
+Only two of the seven stages are `Resource.GPU`. The other five compute from
+files on disk and run with no ComfyUI and no GPU at all. All seven bodies now
+execute under test: `canonical` and `frames` through a recording ComfyUI client
+that byte-compares the graph they build across 24 scenarios — the graph *is* the
+request, so that is not weaker than comparing a render — and the remaining five
+directly.
+
+The real obstacle is that two of the nine members are behaviour, not values.
+`ctx.need` resolves lazily and memoises *because* a rig under `rig: auto` costs
+an LLM call; handing a stage pre-resolved inputs resolves it for stages that
+never ask. `ctx.stage_dir` creates the directory and assigns its `NN_` number as
+a side effect of being called. Passing either one in moves *when* the work
+happens, which makes this a design change rather than a refactor — and it is the
+question to settle before the rewrite, not during it.
+
+Blast radius, measured the same day: 105 access sites across seven stage files,
+plus `stage.py`, `runner.py` and `resources.py`, plus nine test files that build
+a `Context` and five that call `run(ctx, prep)`.
 
 **Not worth doing at all: merging the two schedulers.** Measured 2026-08-27 —
 the shared execution core is four lines, `prepare` then `apply`. Everything
