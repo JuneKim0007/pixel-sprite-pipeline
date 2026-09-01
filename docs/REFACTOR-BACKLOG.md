@@ -17,18 +17,6 @@ scope sits at nesting depth 5. What is left is one deferred item and one where
 the remaining shape was judged not worth changing.
 
 
-### R8 · Long method · pipeline/definitive/run.py · apply_stack
-status   part done, rest reconsidered
-evidence 59 statements, from 62. `_opening_facts` and `_closing_facts` are out.
-         What remains is four skip arms — already cached, unknown layer,
-         disabled, deferred — each ending in `continue`.
-remedy   none proposed. Extraction cannot reach past a `continue`; a control
-         flag replacing them is a named smell, and a helper preserving the
-         exact order of record["prepared"], the counter and the raise needs
-         seven parameters to move seven statements. Reopen only with a loop
-         redesign worth arguing for.
-first seen 2026-08-28 · revised 2026-08-29 by f668518
-
 ### R11 · Shotgun surgery · 7 stage files + generation/stage.py
 status   deferred
 evidence The stage↔settings contract moved 7 times, each editing 4-7 of the 7
@@ -101,6 +89,16 @@ share one function and the order decides which a caller sees — so 9767066 pinn
 that order with eight tests before anything moved. Nothing in scope sits at
 depth 5 now.
 
+### R8 · Long method · pipeline/definitive/run.py · apply_stack
+closed 2026-09-01 — 59 statements at depth 4 to 6 at depth 1, as `_StackRun`.
+This entry previously said the rest was not worth doing, on two grounds that
+were both true and neither sufficient. Extraction cannot reach past a
+`continue` — but the four continues were not needed: `cache.remember` fires in
+exactly the cases that are neither already-cached nor unknown-layer, so the
+checkpoint belongs at the end of one branch. And a helper preserving the exact
+order of the run would need seven parameters — which is what a method object
+dissolves, because the seven are the run's own state.
+
 ### R12 · Long method · orchestration/queue.py · preflight
 closed 2026-08-28 by 63541c0 — 60 statements at depth 5 → 14 at depth 2, eight
 check functions, each keeping the local import it needs.
@@ -147,9 +145,12 @@ stages read `subject` with `or`, so frames was the outlier.
 
 ---
 
-## Bugs found, not fixed here
+## Bugs found and fixed
 
-### R31 · queue.submit silently overwrites a same-second duplicate
+### R31 · queue.submit silently overwrote a same-second duplicate
+closed 2026-09-01 by ff31230 — submit now uses shared.files.unique_name, which
+already existed for this and is used at three other write sites.
+Was:
 found 2026-09-01 while writing tests/flows/test_autopilot.py. Two submit() calls
 in the same second with the same config name return two Job objects and write
 one file: the path is `{priority:04d}_{stamp}_{name}.json` and the disambiguating
@@ -158,7 +159,11 @@ suffix only separates matrix cells within a single call. Verified directly —
 Not fixed: a filename change is a stored-format change and needs its own commit
 with its own argument.
 
-### R32 · --drain never exits while a job is held
+### R32 · --drain never exited while a job is held
+closed 2026-09-01 by ff31230 — a drain that finds nothing ready re-checks the
+held jobs, returns any whose wait is over, and exits only when none is. Exiting
+straight away would have stranded a job unblocked by a later job in the same run.
+Was:
 found 2026-09-01 the same way. `if args.drain and not held` means a permanently
 held job keeps a drain run alive forever, sleeping on poll. Arguably correct —
 a held job may become ready — but it makes `--drain` unable to terminate a
