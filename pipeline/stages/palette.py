@@ -61,8 +61,7 @@ class PaletteStage(Stage):
             palette = self._choose(ctx, cfg)
         else:
             palette = self._extract_from_subject(
-                arr, phase, cfg["size"], cfg["factor"], cfg["reduce"],
-                cfg["alpha_tolerance"], key_colour, float(cfg["clip_tolerance"]))
+                arr, cfg, phase=phase, key_colour=key_colour)
             print(f"   extracted {len(palette)} colours from the canonical's subject")
 
         return {"palette": palette, "phase": phase, "key_colour": key_colour}
@@ -110,18 +109,18 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _extract_from_subject(
-        arr, phase: tuple[int, int], size: int, factor: int, reduce: str,
-        alpha_tol: int, key_colour: tuple[int, int, int] | None = None,
-        tolerance: float = 32.0,
+        arr, cfg: dict, *, phase: tuple[int, int],
+        key_colour: tuple[int, int, int] | None = None,
     ) -> list[tuple[int, int, int]]:
         """A sprite is roughly 15% of the canvas; extracting from the whole image spends the budget on backdrop."""
+        size = cfg["size"]
         ox, oy = phase
-        small = reduce_blocks(arr, factor, ox, oy, reduce, tolerance)
-        keyed = background_to_alpha(small, alpha_tol, key=key_colour)
+        small = reduce_blocks(arr, cfg["factor"], ox, oy, cfg["reduce"],
+                              float(cfg["clip_tolerance"]))
+        keyed = background_to_alpha(small, cfg["alpha_tolerance"], key=key_colour)
         rgb, alpha = keyed[..., :3], keyed[..., 3]
 
-        opaque = int((alpha > 0).sum())
-        if opaque < size * 4:
+        if int((alpha > 0).sum()) < size * 4:
             return extract_palette(arr, size)
         return extract_palette(rgb, size, ignore_alpha=alpha)
 

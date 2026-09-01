@@ -74,19 +74,6 @@ def _shoulder_row(band: np.ndarray, height: int) -> tuple[int, bool]:
     return rel, False
 
 
-def _confidence(band: np.ndarray, height: int, h: int, w: int, ankle_l: float,
-                ankle_r: float, guessed_shoulder: bool) -> tuple[float, bool]:
-    """How much to trust the fit, and whether the legs read as one mass."""
-    signals = [min(1.0, height / (h * 0.45)),
-               0.35 if guessed_shoulder else 1.0]
-    waist = band[int(height * 0.30):int(height * 0.45)]
-    if len(waist) and band.max() > 0:
-        signals.append(min(1.0, (1.0 - waist.min() / band.max()) * 2.2))
-    one_mass = abs(ankle_r - ankle_l) <= w * 0.01
-    signals.append(0.2 if one_mass else 1.0)
-    return float(np.mean(signals)), one_mass
-
-
 class _Figure:
     """A masked subject, and the coordinate reads a humanoid fit is made of."""
 
@@ -120,6 +107,18 @@ class _Figure:
         c = float(xs.mean())
         quarter = (xs.max() - xs.min()) / 4 or self.w * 0.02
         return c - quarter, c + quarter
+
+    def confidence(self, band: np.ndarray, ankles: tuple[float, float], *,
+                   guessed_shoulder: bool) -> tuple[float, bool]:
+        """How much to trust the fit, and whether the legs read as one mass."""
+        signals = [min(1.0, self.height / (self.h * 0.45)),
+                   0.35 if guessed_shoulder else 1.0]
+        waist = band[int(self.height * 0.30):int(self.height * 0.45)]
+        if len(waist) and band.max() > 0:
+            signals.append(min(1.0, (1.0 - waist.min() / band.max()) * 2.2))
+        one_mass = abs(ankles[1] - ankles[0]) <= self.w * 0.01
+        signals.append(0.2 if one_mass else 1.0)
+        return float(np.mean(signals)), one_mass
 
     def rows(self, band: np.ndarray) -> tuple[dict[str, int], bool]:
         """Which row each landmark sits on, and whether the shoulder was guessed."""
@@ -203,9 +202,8 @@ def fit_humanoid(mask: np.ndarray, rig=None) -> Fit:
         fit.notes.append("no clear head-to-shoulder step; used a default height")
 
     fit.points, ankle_l, ankle_r = figure.points(landmarks)
-    fit.confidence, one_mass = _confidence(
-        band, figure.height, figure.h, figure.w, ankle_l, ankle_r,
-        guessed_shoulder)
+    fit.confidence, one_mass = figure.confidence(
+        band, (ankle_l, ankle_r), guessed_shoulder=guessed_shoulder)
     if one_mass:
         fit.notes.append("legs did not separate; the fit may be a single mass")
 
