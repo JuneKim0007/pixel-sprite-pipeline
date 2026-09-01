@@ -11,10 +11,10 @@ one past the highest ever issued.
 
 ## Open
 
-**All four coverage gaps are closed.** Every entry point the sweep found
-untested — the two stage bodies, runner.run, PoseStage.run, run.main and
-autopilot.work — now has tests, each mutation-checked, and each was refactored
-behind them. What remains below is unblocked work, not blocked work.
+**Nothing here is blocked.** Every entry point the sweep found untested now has
+tests, each mutation-checked. Long methods are down from 16 to 5 and nothing in
+scope sits at nesting depth 5. What is left is one deferred item and one where
+the remaining shape was judged not worth changing.
 
 
 ### R8 · Long method · pipeline/definitive/run.py · apply_stack
@@ -28,30 +28,6 @@ remedy   none proposed. Extraction cannot reach past a `continue`; a control
          seven parameters to move seven statements. Reopen only with a loop
          redesign worth arguing for.
 first seen 2026-08-28 · revised 2026-08-29 by f668518
-
-### R9 · Long method · 3 more over threshold
-status   open · none of the three is blocked
-evidence autorig.py fit_humanoid 66 (was 87) · definitive/pixelize.py
-         reduce_blocks 43 · pixelize.py background_to_alpha 42/depth 5
-closed since the sweep: depthmap.render_depth 37 (was 44) by b80cf1d ·
-         generation/runner.py run 24 (was 47) by aa35b2d + the refactor behind
-         it · stages/pose.py run 28 (was 43) by 4de0eac + the same
-remedy   Extract Method, case by case
-blocked  none. pixelize's two are covered by test_pixel_editor; fit_humanoid by
-         test_autorig plus the dump used in 63541c0.
-first seen 2026-08-28 · revised 2026-08-29
-
-### R10 · Nesting only · 3 methods at depth 5
-status   open
-evidence geometry/rigs.py:556 scale 33 stmts · api/runs.py:36 list_runs 29 ·
-         api/jobs.py:71 queue_act 17
-remedy   Replace Nested Conditional with Guard Clauses
-blocked  queue_act is the one worth doing and the one without coverage: its
-         `action` chain sits inside a double loop with a return and a trailing
-         raise, so restructuring can reorder Conflict/Invalid/NotFound. Needs a
-         characterisation test on the route first. rigs.scale is covered by 6
-         tests but buys little alone.
-first seen 2026-08-28
 
 ### R11 · Shotgun surgery · 7 stage files + generation/stage.py
 status   deferred
@@ -109,6 +85,21 @@ closed 2026-09-01 by b403dbd and the refactor behind it — 68 statements to 55.
 read. Seventeen tests first. The breaker was written at both failure arms and
 only one was covered, so mutating the other failed nothing until a test for it
 existed.
+
+### R9 · Long method · the six that were over threshold
+closed 2026-09-01. depthmap.render_depth 37 (was 44) by b80cf1d ·
+runner.run 24 (was 47) by aa35b2d · pose.run 28 (was 43) by 4de0eac ·
+pixelize.reduce_blocks 4 (was 43) and background_to_alpha 18 (was 42) by
+a871844 · autorig.fit_humanoid 25 (was 87) by the _Figure method object.
+reduce_blocks held five algorithms in one if-chain over five recomputed locals;
+they are `_Blocks` and a dispatch dict, matching the idiom already in the file.
+
+### R10 · Nesting only · 3 methods at depth 5
+closed 2026-09-01. queue_act 13/depth 3 (was 17/5), rigs.scale 22/3 (was 33/5),
+list_runs 14/2 (was 29/5). queue_act was the blocked one — its three refusals
+share one function and the order decides which a caller sees — so 9767066 pinned
+that order with eight tests before anything moved. Nothing in scope sits at
+depth 5 now.
 
 ### R12 · Long method · orchestration/queue.py · preflight
 closed 2026-08-28 by 63541c0 — 60 statements at depth 5 → 14 at depth 2, eight
