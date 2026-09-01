@@ -48,9 +48,8 @@ def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
     from pipeline.generation import schema
 
     cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
-    raw = yaml.safe_load(cfg_path.read_text()) or {}
-    for path, value in (job.data.get("overrides") or {}).items():
-        schema.set_path(raw, path, value)
+    raw = settings.read_yaml(cfg_path)
+    schema.apply_overrides(raw, job.data.get("overrides"))
 
     runs = settings.resolve_dir(
         root, (settings.load_global(root).get("paths") or {}).get("output_dir"),

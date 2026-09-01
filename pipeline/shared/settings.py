@@ -39,6 +39,11 @@ DEFAULT_GLOBAL: dict[str, Any] = {
 }
 
 
+def read_yaml(path: Path) -> dict:
+    """A YAML file as a dict. An empty file is an empty config, not None."""
+    return yaml.safe_load(path.read_text()) or {}
+
+
 def global_path(root: Path) -> Path:
     return paths.resolve(root, "configs") / f"{GLOBAL_NAME}.yaml"
 
@@ -52,7 +57,7 @@ def load_global(root: Path) -> dict[str, Any]:
             "# overrides them. Edit here to change all pipelines at once.\n"
             + yaml.safe_dump(DEFAULT_GLOBAL, sort_keys=False)
         )
-    loaded = yaml.safe_load(path.read_text()) or {}
+    loaded = read_yaml(path)
     return deep_merge(copy.deepcopy(DEFAULT_GLOBAL), loaded)
 
 

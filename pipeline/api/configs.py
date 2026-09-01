@@ -103,14 +103,14 @@ class Configs(BaseRouter):
     def detail(self, req):
         name = req.required("name")
         path = _named(name)
-        own = yaml.safe_load(path.read_text()) or {}
-        merged, record = styles.layer(ROOT, own)
+        own = settings.read_yaml(path)
+        effective, record = styles.effective(ROOT, own)
         return {
             "name": name,
             "module": own.get("module", "animation"),
             "raw": path.read_text(),
             "config": own,
-            "effective": settings.effective(ROOT, merged),
+            "effective": effective,
             "style_record": record,
             "overrides": sorted(settings.overridden_paths(own)),
         }

@@ -9,7 +9,6 @@ import sys
 import time
 from pathlib import Path
 
-import yaml
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -24,7 +23,7 @@ from pipeline.shared import settings  # noqa: E402
 
 
 def load_config(path: Path) -> dict:
-    cfg = yaml.safe_load(path.read_text()) or {}
+    cfg = settings.read_yaml(path)
     if "pipeline" not in cfg or "stages" not in cfg["pipeline"]:
         raise SystemExit(
             f"{path} must define pipeline.stages, e.g.\n"
@@ -119,9 +118,8 @@ def main() -> int:
     # Style sheets sit between the global defaults and the pipeline config, so
     # a named look can set anything that affects the result while the pipeline
     # still overrides it and a single job still overrides everything.
-    styled, style_record = styles.layer(
-        ROOT, raw_cfg, picks=raw_cfg.get('style_picks'))
-    cfg = settings.effective(ROOT, styled)
+    cfg, style_record = styles.effective(
+        ROOT, raw_cfg, picks=raw_cfg.get("style_picks"))
     if style_record["styles"]:
         print(f"styles: {' + '.join(style_record['styles'])}")
     apply_compute(cfg)

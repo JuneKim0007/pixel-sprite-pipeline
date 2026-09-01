@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..shared import contracts, paths
+from ..shared import settings
 
 import math
 from pathlib import Path
@@ -68,9 +69,8 @@ def registry(root) -> Registry[dict]:
 
 def _entries(path: Path) -> dict[str, dict]:
     """Every prop in one file. A malformed one names itself now."""
-    import yaml
 
-    data = yaml.safe_load(path.read_text()) or {}
+    data = settings.read_yaml(path)
     listed = data.get("props")
     if listed is None:
         return {}

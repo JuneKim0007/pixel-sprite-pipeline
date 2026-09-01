@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from ..generation import comfy, runner
+from ..shared import settings
 from ..shared.errors import NotFound
 from .context import CONFIGS, ROOT, runs_dir
 from .contracts import Shape
@@ -50,8 +51,7 @@ def _stopped_at(run: Path, completed: list[str]) -> str | None:
     if not cfg_path.exists():
         return None
     try:
-        pipeline = ((yaml.safe_load(cfg_path.read_text()) or {}).get("pipeline")
-                    or {})
+        pipeline = (settings.read_yaml(cfg_path).get("pipeline") or {})
     except (OSError, yaml.YAMLError):
         return None
 
@@ -108,7 +108,7 @@ def run_audit(run_dir: Path) -> dict:
     if not cfg_path.exists():
         return {}
     try:
-        cfg = yaml.safe_load(cfg_path.read_text()) or {}
+        cfg = settings.read_yaml(cfg_path)
     except yaml.YAMLError as e:
         return {"error": str(e)}
 
@@ -192,9 +192,8 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
 
         effective = cfg_path
         if overrides or style_picks:
-            merged = yaml.safe_load(cfg_path.read_text()) or {}
-            for path, value in (overrides or {}).items():
-                schema.set_path(merged, path, value)
+            merged = schema.apply_overrides(
+                settings.read_yaml(cfg_path), overrides)
             if style_picks:
                 merged["style_picks"] = style_picks
             effective = out / "config.effective.yaml"

@@ -172,17 +172,15 @@ def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
     from ..shared import settings
 
     try:
-        raw = yaml.safe_load(cfg_path.read_text()) or {}
+        raw = settings.read_yaml(cfg_path)
     except yaml.YAMLError as e:
         return {}, [f"config is not valid YAML: {e}"]
 
-    for path, value in (job.data.get("overrides") or {}).items():
-        schema.set_path(raw, path, value)
+    schema.apply_overrides(raw, job.data.get("overrides"))
     try:
-        styled, _record = styles.layer(root, raw)
+        return styles.effective(root, raw)[0], []
     except styles.StyleError as e:
         return {}, [str(e)]
-    return settings.effective(root, styled), []
 
 
 def _check_stack(merged: dict) -> list[str]:

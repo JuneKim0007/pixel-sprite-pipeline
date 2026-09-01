@@ -18,7 +18,6 @@ from ..stages import pose as pose_stage
 from .context import ROOT, allowed_roots, runs_dir
 from .contracts import Shape
 from .routing import BaseRouter, get, post
-import yaml
 
 
 def pose_library() -> dict:
@@ -51,9 +50,8 @@ def run_poses(run_id: str) -> dict:
 
 
 def _run_context(run: Path, pose_json: dict) -> Context:
-    raw = yaml.safe_load((run / "config.yaml").read_text()) or {}
-    styled, _record = styles.layer(ROOT, raw, picks=raw.get("style_picks"))
-    cfg = settings.effective(ROOT, styled)
+    raw = settings.read_yaml(run / "config.yaml")
+    cfg, _record = styles.effective(ROOT, raw, picks=raw.get("style_picks"))
     recorded = pose_json.get("rig")
     if recorded:
         cfg = {**cfg, "rig": recorded}

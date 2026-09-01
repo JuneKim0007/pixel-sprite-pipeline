@@ -774,6 +774,13 @@ def set_path(cfg: dict, path: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+def apply_overrides(cfg: dict, overrides: dict | None) -> dict:
+    """Dotted-path overrides written into `cfg`, which is returned for chaining."""
+    for path, value in (overrides or {}).items():
+        set_path(cfg, path, value)
+    return cfg
+
+
 def dynamic_options(root: Path) -> dict[str, list[str]]:
     """Options that depend on what's actually on disk or running."""
     from ..looks import poses as pose_lib
