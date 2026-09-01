@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -66,66 +67,106 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
     return best
 
 
+@dataclass(frozen=True)
+class _Blocks:
+    """One image cut into factor x factor blocks, flattened for reduction."""
+
+    pixels: np.ndarray
+    bh: int
+    bw: int
+    c: int
+    factor: int
+    tolerance: float
+
+    @classmethod
+    def of(cls, arr: np.ndarray, factor: int, ox: int, oy: int,
+           tolerance: float) -> "_Blocks":
+        blocks = _blocks(arr, factor, ox, oy)
+        bh, bw, _, _, c = blocks.shape
+        return cls(blocks.reshape(bh, bw, factor * factor, c),
+                   bh, bw, c, factor, tolerance)
+
+    def empty(self) -> np.ndarray:
+        return np.empty((self.bh, self.bw, self.c), dtype=np.uint8)
+
+    def median_alpha(self) -> np.ndarray:
+        return np.median(self.pixels[..., 3], axis=2).round().astype(np.uint8)
+
+
+def _reduce_mean(b: _Blocks) -> np.ndarray:
+    return b.pixels.mean(axis=2).round().astype(np.uint8)
+
+
+def _reduce_median(b: _Blocks) -> np.ndarray:
+    return np.median(b.pixels, axis=2).round().astype(np.uint8)
+
+
+def _reduce_mode(b: _Blocks) -> np.ndarray:
+    """The most frequent exact colour, which needs the block unpacked per pixel."""
+    out = b.empty()
+    packed = (
+        b.pixels[..., 0].astype(np.uint32) << 16
+        | b.pixels[..., 1].astype(np.uint32) << 8
+        | b.pixels[..., 2].astype(np.uint32)
+    )
+    for y in range(b.bh):
+        for x in range(b.bw):
+            vals, counts = np.unique(packed[y, x], return_counts=True)
+            win = int(vals[counts.argmax()])
+            out[y, x, 0] = (win >> 16) & 0xFF
+            out[y, x, 1] = (win >> 8) & 0xFF
+            out[y, x, 2] = win & 0xFF
+            if b.c == 4:
+                out[y, x, 3] = int(np.median(b.pixels[y, x, :, 3]))
+    return out
+
+
+def _reduce_clipped(b: _Blocks) -> np.ndarray:
+    # Clipping drops the outliers, so a 90%-one-colour block returns that colour cleanly.
+    rgb = b.pixels[..., :3].astype(np.float32)
+    mean = rgb.mean(axis=2, keepdims=True)
+    dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))
+    keep = dist <= max(float(b.tolerance), 0.0)
+
+    kept = keep.sum(axis=2, keepdims=True)
+    enough = kept >= max(1, int(b.factor * b.factor * _CLIP_FLOOR))
+    safe = np.where(kept > 0, kept, 1)
+    clipped = (rgb * keep).sum(axis=2, keepdims=True) / safe
+
+    out_rgb = np.where(enough, clipped, np.median(rgb, axis=2, keepdims=True))
+    out = b.empty()
+    out[..., :3] = out_rgb[:, :, 0, :].round().clip(0, 255).astype(np.uint8)
+    if b.c == 4:
+        out[..., 3] = b.median_alpha()
+    return out
+
+
+def _reduce_salient(b: _Blocks) -> np.ndarray:
+    """A high-contrast block keeps its outlier; a flat one takes its median."""
+    med = np.median(b.pixels, axis=2)
+    deviation = np.abs(b.pixels - med[:, :, None, :]).sum(axis=3)
+    extreme = np.take_along_axis(
+        b.pixels, deviation.argmax(axis=2)[:, :, None, None], axis=2)[:, :, 0, :]
+    spread = b.pixels.std(axis=2).mean(axis=2)
+    contrasty = spread > SALIENT_THRESHOLD
+    return np.where(contrasty[..., None], extreme, med).round().astype(np.uint8)
+
+
+_REDUCERS = {
+    "mean": _reduce_mean,
+    "median": _reduce_median,
+    "mode": _reduce_mode,
+    "clipped": _reduce_clipped,
+    "salient": _reduce_salient,
+}
+
+
 def reduce_blocks(arr: np.ndarray, factor: int, ox: int, oy: int, how: str,
                   tolerance: float = 32.0) -> np.ndarray:
-    blocks = _blocks(arr, factor, ox, oy)
-    bh, bw, _, _, c = blocks.shape
-    flat = blocks.reshape(bh, bw, factor * factor, c)
-
-    if how == "mean":
-        return flat.mean(axis=2).round().astype(np.uint8)
-
-    if how == "median":
-        return np.median(flat, axis=2).round().astype(np.uint8)
-
-    if how == "mode":
-        out = np.empty((bh, bw, c), dtype=np.uint8)
-        packed = (
-            flat[..., 0].astype(np.uint32) << 16
-            | flat[..., 1].astype(np.uint32) << 8
-            | flat[..., 2].astype(np.uint32)
-        )
-        for y in range(bh):
-            for x in range(bw):
-                vals, counts = np.unique(packed[y, x], return_counts=True)
-                win = int(vals[counts.argmax()])
-                out[y, x, 0] = (win >> 16) & 0xFF
-                out[y, x, 1] = (win >> 8) & 0xFF
-                out[y, x, 2] = win & 0xFF
-                if c == 4:
-                    out[y, x, 3] = int(np.median(flat[y, x, :, 3]))
-        return out
-
-    if how == "clipped":
-        # Clipping drops the outliers, so a 90%-one-colour block returns that colour cleanly.
-        rgb = flat[..., :3].astype(np.float32)
-        mean = rgb.mean(axis=2, keepdims=True)
-        dist = np.sqrt(((rgb - mean) ** 2).sum(axis=3, keepdims=True))
-        keep = dist <= max(float(tolerance), 0.0)
-
-        kept = keep.sum(axis=2, keepdims=True)
-        enough = kept >= max(1, int(factor * factor * _CLIP_FLOOR))
-        safe = np.where(kept > 0, kept, 1)
-        clipped = (rgb * keep).sum(axis=2, keepdims=True) / safe
-
-        out_rgb = np.where(enough, clipped, np.median(rgb, axis=2, keepdims=True))
-        out = np.empty((bh, bw, c), dtype=np.uint8)
-        out[..., :3] = out_rgb[:, :, 0, :].round().clip(0, 255).astype(np.uint8)
-        if c == 4:
-            out[..., 3] = np.median(flat[..., 3], axis=2).round().astype(np.uint8)
-        return out
-
-    if how == "salient":
-
-        med = np.median(flat, axis=2)
-        deviation = np.abs(flat - med[:, :, None, :]).sum(axis=3)
-        extreme = np.take_along_axis(
-            flat, deviation.argmax(axis=2)[:, :, None, None], axis=2)[:, :, 0, :]
-        spread = flat.std(axis=2).mean(axis=2)
-        contrasty = spread > SALIENT_THRESHOLD
-        return np.where(contrasty[..., None], extreme, med).round().astype(np.uint8)
-
-    raise NotFound("reduce mode", how, available=list(REDUCE_MODES))
+    blocks = _Blocks.of(arr, factor, ox, oy, tolerance)
+    if how not in _REDUCERS:
+        raise NotFound("reduce mode", how, available=list(REDUCE_MODES))
+    return _REDUCERS[how](blocks)
 
 
 def load_palette(path: Path) -> list[tuple[int, int, int]]:
@@ -342,6 +383,46 @@ def quantize_median_cut(rgb: np.ndarray, colours: int, dither: bool) -> np.ndarr
     return np.asarray(q.convert("RGB"))
 
 
+def _edge_seeds(alpha: np.ndarray) -> list[tuple[int, int]]:
+    """Still-opaque pixels on the frame's border, where a backdrop must reach."""
+    h, w = alpha.shape[:2]
+    seeds = []
+    for x in range(w):
+        for y in (0, h - 1):
+            if alpha[y, x]:
+                seeds.append((y, x))
+    for y in range(h):
+        for x in (0, w - 1):
+            if alpha[y, x]:
+                seeds.append((y, x))
+    return seeds
+
+
+def _flood(rgb: np.ndarray, alpha: np.ndarray, seeds: list[tuple[int, int]],
+           tol: int) -> np.ndarray:
+    """Clear everything reachable from `seeds` within `tol` of the seed's colour."""
+    h, w = alpha.shape[:2]
+    seen = np.zeros((h, w), dtype=bool)
+    trial = alpha.copy()
+
+    stack = []
+    for y, x in seeds:
+        if not seen[y, x]:
+            seen[y, x] = True
+            stack.append((y, x, rgb[y, x].astype(np.int16)))
+
+    while stack:
+        y, x, ref = stack.pop()
+        trial[y, x] = 0
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < h and 0 <= nx < w and not seen[ny, nx] and trial[ny, nx]:
+                if int(np.abs(rgb[ny, nx].astype(np.int16) - ref).max()) <= tol:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx, ref))
+    return trial
+
+
 def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
                         keep_min: float = 0.04,
                         key: tuple[int, int, int] | None = None) -> np.ndarray:
@@ -356,38 +437,12 @@ def background_to_alpha(rgb: np.ndarray, tol: int, passes: int = 3,
             alpha[near] = 0
 
     for _ in range(max(1, passes)):
-        seeds = []
-        for x in range(w):
-            for y in (0, h - 1):
-                if alpha[y, x]:
-                    seeds.append((y, x))
-        for y in range(h):
-            for x in (0, w - 1):
-                if alpha[y, x]:
-                    seeds.append((y, x))
+        seeds = _edge_seeds(alpha)
         if not seeds:
             break
 
-        seen = np.zeros((h, w), dtype=bool)
-        trial = alpha.copy()
-        stack = []
-        for y, x in seeds:
-            if not seen[y, x]:
-                seen[y, x] = True
-                stack.append((y, x, rgb[y, x].astype(np.int16)))
-
-        while stack:
-            y, x, ref = stack.pop()
-            trial[y, x] = 0
-            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                ny, nx = y + dy, x + dx
-                if 0 <= ny < h and 0 <= nx < w and not seen[ny, nx] and trial[ny, nx]:
-                    if int(np.abs(rgb[ny, nx].astype(np.int16) - ref).max()) <= tol:
-                        seen[ny, nx] = True
-                        stack.append((ny, nx, ref))
-
-        remaining = (trial > 0).mean()
-        if remaining < keep_min:
+        trial = _flood(rgb, alpha, seeds, tol)
+        if (trial > 0).mean() < keep_min:
             break
         if (trial > 0).sum() == (alpha > 0).sum():
             break

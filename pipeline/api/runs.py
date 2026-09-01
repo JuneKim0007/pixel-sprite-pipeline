@@ -33,6 +33,35 @@ def validate_order(cfg: dict) -> str | None:
     return None
 
 
+def _completed(run: Path) -> list[str]:
+    """The stages a run recorded finishing; an unreadable manifest reads as none."""
+    manifest = run / "artifacts.json"
+    if not manifest.exists():
+        return []
+    try:
+        return json.loads(manifest.read_text()).get("completed", [])
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _stopped_at(run: Path, completed: list[str]) -> str | None:
+    """The gate a run stopped on, or None if it ran past it or never reached it."""
+    cfg_path = run / "config.yaml"
+    if not cfg_path.exists():
+        return None
+    try:
+        pipeline = ((yaml.safe_load(cfg_path.read_text()) or {}).get("pipeline")
+                    or {})
+    except (OSError, yaml.YAMLError):
+        return None
+
+    gate = pipeline.get("stop_after")
+    if not gate or gate not in completed:
+        return None
+    planned = pipeline.get("stages") or []
+    return gate if any(s not in completed for s in planned) else None
+
+
 def list_runs() -> list[dict]:
     base = runs_dir()
     if not base.exists():
@@ -47,25 +76,8 @@ def list_runs() -> list[dict]:
         with _LOCK:
             running = d.name in _ACTIVE and _ACTIVE[d.name].poll() is None
 
-        stopped_at, completed = None, []
-        manifest = d / "artifacts.json"
-        if manifest.exists():
-            try:
-                data = json.loads(manifest.read_text())
-                completed = data.get("completed", [])
-            except (OSError, json.JSONDecodeError):
-                pass
-        cfg_path = d / "config.yaml"
-        if cfg_path.exists():
-            try:
-                cfg = yaml.safe_load(cfg_path.read_text()) or {}
-                gate = (cfg.get("pipeline") or {}).get("stop_after")
-                if gate and gate in completed:
-                    planned = (cfg.get("pipeline") or {}).get("stages") or []
-                    if any(s not in completed for s in planned):
-                        stopped_at = gate
-            except (OSError, yaml.YAMLError):
-                pass
+        completed = _completed(d)
+        stopped_at = _stopped_at(d, completed)
 
         out.append(
             {
