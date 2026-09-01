@@ -553,6 +553,29 @@ def _by_name(joint: str) -> str | None:
     return None
 
 
+def _shift_subtree(rig: Rig, neutral: dict, root: str,
+                   shift: tuple[float, float, float]) -> None:
+    """Move `root` and everything hanging off it, so the skeleton stays joined."""
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node in neutral:
+            neutral[node] = [neutral[node][i] + shift[i] for i in range(3)]
+        stack.extend(rig.tree.get(node, ()))
+
+
+def _stretch(rig: Rig, neutral: dict, parent: str, child: str,
+             factor: float) -> None:
+    """Lengthen one bone from its parent end, carrying its subtree with it."""
+    px, py, pz = neutral[parent]
+    cx, cy, cz = neutral[child]
+    moved = (px + (cx - px) * factor,
+             py + (cy - py) * factor,
+             pz + (cz - pz) * factor)
+    _shift_subtree(rig, neutral, child,
+                   (moved[0] - cx, moved[1] - cy, moved[2] - cz))
+
+
 def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
     """A copy of `rig` with named bone groups scaled, everything below carried along."""
     factors = {k: float(v) for k, v in (proportions or {}).items() if v}
@@ -576,24 +599,9 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
         for child in rig.tree.get(parent, ()):
             if child not in neutral or parent not in neutral:
                 continue
-            group = group_of(parent, child)
-            factor = factors.get(group or "", 1.0)
+            factor = factors.get(group_of(parent, child) or "", 1.0)
             if factor != 1.0:
-                px, py, pz = neutral[parent]
-                cx, cy, cz = neutral[child]
-                dx, dy, dz = cx - px, cy - py, cz - pz
-                nx, ny, nz = px + dx * factor, py + dy * factor, pz + dz * factor
-                shift = (nx - cx, ny - cy, nz - cz)
-                stack = [child]
-                while stack:
-                    node = stack.pop()
-                    if node in neutral:
-                        neutral[node] = [
-                            neutral[node][0] + shift[0],
-                            neutral[node][1] + shift[1],
-                            neutral[node][2] + shift[2],
-                        ]
-                    stack.extend(rig.tree.get(node, ()))
+                _stretch(rig, neutral, parent, child, factor)
             queue.append(child)
 
     described = ", ".join(f"{k} x{v:g}" for k, v in sorted(factors.items()))

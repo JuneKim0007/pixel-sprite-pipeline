@@ -68,29 +68,36 @@ def queue_submit(spec: dict, priority: int = 50) -> dict:
     return {"created": [j.id for j in created], "count": len(created)}
 
 
+def _find(q, queue, job_id: str):
+    """The job with this id, and the state it is sitting in."""
+    for state in q.STATES:
+        for job in queue.list(state):
+            if job.id == job_id:
+                return job, state
+    raise errors.NotFound("job", job_id)
+
+
 def queue_act(job_id: str, action: str) -> dict:
     """Retry, hold or drop one job. Nothing here touches a running job."""
     q, queue = _queue()
-    for state in q.STATES:
-        for job in queue.list(state):
-            if job.id != job_id:
-                continue
-            if state == q.RUNNING:
-                raise errors.Conflict(
-                    f"{job_id} is running. Stop the autopilot first — moving a "
-                    f"job out from under it would leave two writers on one run.")
-            if action == "retry":
-                queue.move(job, q.PENDING, attempts=0, error=None)
-            elif action == "hold":
-                queue.move(job, q.HELD, retry_after=time.time() + 3600)
-            elif action == "drop":
-                job.path.unlink()
-            else:
-                raise errors.Invalid(f"unknown queue action '{action}'",
-                                     field="action",
-                                     hint="retry, hold or drop")
-            return {"ok": True, "job": job_id, "action": action}
-    raise errors.NotFound("job", job_id)
+    job, state = _find(q, queue, job_id)
+
+    if state == q.RUNNING:
+        raise errors.Conflict(
+            f"{job_id} is running. Stop the autopilot first — moving a "
+            f"job out from under it would leave two writers on one run.")
+
+    if action == "retry":
+        queue.move(job, q.PENDING, attempts=0, error=None)
+    elif action == "hold":
+        queue.move(job, q.HELD, retry_after=time.time() + 3600)
+    elif action == "drop":
+        job.path.unlink()
+    else:
+        raise errors.Invalid(f"unknown queue action '{action}'",
+                             field="action",
+                             hint="retry, hold or drop")
+    return {"ok": True, "job": job_id, "action": action}
 
 
 def autopilot(action: str, args: dict | None = None) -> dict:
