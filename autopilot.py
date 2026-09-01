@@ -95,12 +95,38 @@ def chain(queue: q.Queue, job: q.Job, run_id: str) -> int:
     return made
 
 
+def _fail(queue: q.Queue, job: q.Job, error: str, message: str, *, detail: str,
+          **fields) -> None:
+    """Move a job to failed, and put the whole reason beside it on disk."""
+    log(f"✗ {message}")
+    queue.move(job, q.FAILED, error=error, **fields)
+    _write_error(queue.dir(q.FAILED) / job.path.name, detail)
+
+
+def _tripped(consecutive: int, breaker: int) -> bool:
+    if consecutive < breaker:
+        return False
+    log(f"{consecutive} failures in a row — stopping. Fix and restart.")
+    return True
+
+
+def _await_services(wait: float) -> bool:
+    """Block until the services answer. False if a signal arrived first."""
+    while not STOPPING:
+        ok, why = q.services_up(ROOT)
+        if ok:
+            return True
+        log(f"paused: {why} — rechecking in {wait}s")
+        time.sleep(wait)
+    return False
+
+
 def work(args) -> int:
     queue = q.Queue(ROOT)
     reclaim(queue)
 
     consecutive = 0
-    idle_since = None
+    idle = False
 
     while not STOPPING:
         job = queue.next_ready()
@@ -110,44 +136,32 @@ def work(args) -> int:
             if args.drain and not held:
                 log("queue empty — exiting")
                 return 0
-            if idle_since is None:
-                idle_since = time.time()
+            if not idle:
+                idle = True
                 log(f"queue empty ({held} held) — waiting")
             time.sleep(args.poll)
             continue
-        idle_since = None
+        idle = False
 
-        # 1. Would this job work at all? Milliseconds, and no GPU touched.
         check = q.preflight(ROOT, job)
         if check.problems:
-            log(f"✗ {job.id}: {check.problems[0]}")
-            queue.move(job, q.FAILED, error="; ".join(check.problems))
-            _write_error(queue.dir(q.FAILED) / job.path.name,
-                         "\n".join(check.problems))
+            _fail(queue, job, "; ".join(check.problems),
+                  f"{job.id}: {check.problems[0]}",
+                  detail="\n".join(check.problems))
             consecutive += 1
-            if consecutive >= args.breaker:
-                log(f"{consecutive} failures in a row — stopping. Fix and restart.")
+            if _tripped(consecutive, args.breaker):
                 return 1
             continue
 
         if check.held:
-            when = time.time() + args.hold
             log(f"⏸ {job.id}: {check.waiting_on[0]} — retrying in {args.hold / 60:.0f}m")
-            queue.move(job, q.HELD, retry_after=when,
+            queue.move(job, q.HELD, retry_after=time.time() + args.hold,
                        error="; ".join(check.waiting_on))
             continue
 
-        # 2. Is the machine healthy? A dead service is not the job's fault.
-        while not STOPPING:
-            ok, why = q.services_up(ROOT)
-            if ok:
-                break
-            log(f"paused: {why} — rechecking in {args.service_wait}s")
-            time.sleep(args.service_wait)
-        if STOPPING:
+        if not _await_services(args.service_wait):
             break
 
-        # 3. Run it.
         job = queue.move(job, q.RUNNING, started=time.strftime("%Y-%m-%d %H:%M:%S"))
         log(f"▶ {job.id} ({job.config})")
         started = time.time()
@@ -165,7 +179,7 @@ def work(args) -> int:
                 return 0
             continue
 
-        # 4. One retry absorbs a transient fault; a second failure is real.
+        # One retry absorbs a transient fault; a second failure is real.
         attempts = job.attempts + 1
         if attempts < args.retries:
             log(f"↻ {job.id} failed, retrying ({attempts}/{args.retries})")
@@ -173,12 +187,10 @@ def work(args) -> int:
             continue
 
         consecutive += 1
-        queue.move(job, q.FAILED, attempts=attempts, run_id=run_id,
-                   error=detail[-500:])
-        _write_error(queue.dir(q.FAILED) / job.path.name, detail)
-        log(f"✗ {job.id} failed after {attempts} attempt(s)")
-        if consecutive >= args.breaker:
-            log(f"{consecutive} failures in a row — stopping. Fix and restart.")
+        _fail(queue, job, detail[-500:],
+              f"{job.id} failed after {attempts} attempt(s)",
+              detail=detail, attempts=attempts, run_id=run_id)
+        if _tripped(consecutive, args.breaker):
             return 1
 
     log("stopped")
