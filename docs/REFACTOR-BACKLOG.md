@@ -16,26 +16,15 @@ one past the highest ever issued.
 
 ## Open
 
-**Nothing here is blocked.** Every entry point the sweep found untested now has
+**Nothing here is blocked.** Re-swept 2026-09-02: no dead code, no unused
+imports, no cross-file duplication in source. The two remaining source
+repetitions are irreducible — the `sys.path` bootstrap in the two entry points
+cannot be factored into a module that needs that path to be importable, and
+argparse declarations are what the library asks for. Every entry point the sweep found untested now has
 tests, each mutation-checked. Long methods are down from 16 to 5 and nothing in
 scope sits at nesting depth 5. What is left is one deferred item and one where
 the remaining shape was judged not worth changing.
 
-
-### R33 · Large class · pipeline/stages/canonical.py:49 · _AnchorGraph
-status   open · low value
-evidence 10 fields over 6 methods, and the field clusters do not overlap:
-         `_loaded` touches client and uploads; `_with_identity`, `_with_style`,
-         `_with_control` and `build` touch backdrop, cfg, cn, ctx, from_ref,
-         lcm, lib and prompt. Two clusters sharing no field is the rule's
-         definition, and this class was introduced by 3c74587 — the refactor
-         made it.
-remedy   none scheduled. Extracting the upload cache gives a class of two
-         fields and one method, which is the Lazy Class threshold. The finding
-         is real and the fix is worse; recorded so a later survey does not
-         rediscover it as though it were new.
-blocked  none
-first seen 2026-09-01
 
 ### R34 · Long method · autopilot.py:135 · work
 status   open · accepted regression
@@ -142,6 +131,33 @@ exactly the cases that are neither already-cached nor unknown-layer, so the
 checkpoint belongs at the end of one branch. And a helper preserving the exact
 order of the run would need seven parameters — which is what a method object
 dissolves, because the seven are the run's own state.
+
+### R33 · Large class · stages/canonical.py · _AnchorGraph
+closed 2026-09-02 by 76455a6, and not by the fix this entry expected. It had two
+field clusters because `_loaded` held an upload cache nothing else touched, and
+extracting that cache would have made a lazy class. The cache was not the
+class's business at all: three of them existed across two stages, all answering
+"has this file been sent yet", which the client knows. Memoising
+`Client.upload_image` removed all three, `comfy.load_image` took the node
+builder, and `_loaded` had nothing left to be. One cluster over five methods.
+
+### R35 · Duplicate code · reading a config · 5 modules
+closed 2026-09-02 by 961f81c — `yaml.safe_load(p.read_text()) or {}` at nine
+sites is `settings.read_yaml`; the override loop at three is
+`schema.apply_overrides`; `styles.layer` followed by `settings.effective` at
+four is `styles.effective`. Each placed where no group gained a dependency:
+shared still has no outgoing edge and the graph has no cycle.
+
+### R36 · Duplicate code · three Context fixtures
+closed 2026-09-02 by ccdf8b6 — gpu_ctx, cpu_ctx and pose_ctx were one fixture
+with cosmetic differences. `entries` was two functions that looked
+interchangeable and were not, since the GPU stages read only the yaw; the
+difference is now the argument `posed`.
+
+### R37 · Long parameter list · autorig._confidence, palette._extract_from_subject
+closed 2026-09-02 by d395440 — seven arguments of which three were already
+fields on the object being computed for, and eight of which five were unpacked
+from one config block. Both were left by earlier refactors in this campaign.
 
 ### R12 · Long method · orchestration/queue.py · preflight
 closed 2026-08-28 by 63541c0 — 60 statements at depth 5 → 14 at depth 2, eight
