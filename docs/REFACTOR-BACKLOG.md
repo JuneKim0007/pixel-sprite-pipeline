@@ -11,28 +11,11 @@ one past the highest ever issued.
 
 ## Open
 
-**Two of the four coverage gaps are closed.** runner.run and PoseStage.run now
-have tests (aa35b2d, 4de0eac) and were refactored behind them. R6 and R7 remain:
-nothing executes run.main or autopilot.work. tests/unit/test_runner.py and
-tests/flows/test_pose_stage.py show the two shapes that worked — fake objects
-where the seam is an object, and a source that needs nothing where it is not.
+**All four coverage gaps are closed.** Every entry point the sweep found
+untested — the two stage bodies, runner.run, PoseStage.run, run.main and
+autopilot.work — now has tests, each mutation-checked, and each was refactored
+behind them. What remains below is unblocked work, not blocked work.
 
-
-### R6 · Long method · run.py:47 · main
-status   planned
-evidence 71 statements, 102 lines. The argparse block and the resume block are
-         separable; the outdir-base expression is written twice (lines ~85, ~127).
-remedy   Extract Method
-expect   run.py main under 40 statements, one outdir expression
-blocked  none — but no test drives run.main. Characterise first.
-first seen 2026-08-28
-
-### R7 · Long method · autopilot.py:98 · work
-status   planned
-evidence 68 statements, depth 3, 87 lines
-remedy   Extract Method
-blocked  no test drives autopilot.work. Characterise first.
-first seen 2026-08-28
 
 ### R8 · Long method · pipeline/definitive/run.py · apply_stack
 status   part done, rest reconsidered
@@ -113,6 +96,20 @@ conditioning went first; then `build`, a 40-statement closure over eight
 run-scoped names, became `_AnchorGraph` with identity, style and control as
 three methods and the upload cache as a field.
 
+### R6 · Long method · run.py · main
+closed 2026-09-01 by 2da1236 and the refactor behind it — 71 statements to 46.
+`_parse`, `_resume`, `_fresh`. Twenty-one tests first; there were none.
+The entry's claim that the outdir expression was written twice was wrong: the
+two read different sources, and necessarily — a resume cannot use the effective
+config because the file it merges from is inside the directory being located.
+
+### R7 · Long method · autopilot.py · work
+closed 2026-09-01 by b403dbd and the refactor behind it — 68 statements to 55.
+`_fail`, `_tripped`, `_await_services`; `idle_since` was a timestamp nothing
+read. Seventeen tests first. The breaker was written at both failure arms and
+only one was covered, so mutating the other failed nothing until a test for it
+existed.
+
 ### R12 · Long method · orchestration/queue.py · preflight
 closed 2026-08-28 by 63541c0 — 60 statements at depth 5 → 14 at depth 2, eight
 check functions, each keeping the local import it needs.
@@ -156,6 +153,26 @@ uploads and graphs; 21 tests, checked by mutation.
 closed 2026-08-28 by 41e1bc2 — `style: ""` reached the prompt as nothing in
 frames (`opt`, missing) and as the default in canonical (`or`, falsy). Both
 stages read `subject` with `or`, so frames was the outlier.
+
+---
+
+## Bugs found, not fixed here
+
+### R31 · queue.submit silently overwrites a same-second duplicate
+found 2026-09-01 while writing tests/flows/test_autopilot.py. Two submit() calls
+in the same second with the same config name return two Job objects and write
+one file: the path is `{priority:04d}_{stamp}_{name}.json` and the disambiguating
+suffix only separates matrix cells within a single call. Verified directly —
+`submit` twice, 2 Jobs returned, 1 file on disk, `list(PENDING)` reports 1.
+Not fixed: a filename change is a stored-format change and needs its own commit
+with its own argument.
+
+### R32 · --drain never exits while a job is held
+found 2026-09-01 the same way. `if args.drain and not held` means a permanently
+held job keeps a drain run alive forever, sleeping on poll. Arguably correct —
+a held job may become ready — but it makes `--drain` unable to terminate a
+queue containing an unsatisfiable dependency. Recorded rather than changed;
+tests/flows/test_autopilot.py pins the current behaviour and says why.
 
 ---
 
