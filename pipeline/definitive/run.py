@@ -49,6 +49,86 @@ def _closing_facts(facts: dict, out: np.ndarray, deferred: dict) -> None:
     }
 
 
+class _StackRun:
+    """One pass of a layer stack over one image, and what it recorded doing."""
+
+    def __init__(self, image: np.ndarray, stack: list[dict], *,
+                 palettes: Callable[[str], Path] | None,
+                 source: str | None, use_cache: bool, defer: set[str]):
+        self.stack = stack
+        self.palettes = palettes
+        self.source = source
+        self.use_cache = use_cache
+        self.defer = defer
+        self.pixels = image.shape[0] * image.shape[1]
+
+        self.facts = _opening_facts(image, stack)
+        self.deferred: dict[str, Any] = {"scale": 1.0, "layers": []}
+
+        self.start, self.out = 0, image
+        if source:
+            self.start, resumed = cache.resume_from(source, stack)
+            if resumed is not None:
+                self.out = resumed
+        self.facts["resumed_after"] = self.start
+
+    def _checkpoint(self, index: int) -> None:
+        """Keep the image after this layer, so a later edit resumes from here."""
+        if self.source:
+            cache.remember(self.source, self.stack, index + 1, self.out)
+
+    def _apply(self, spec, cfg: dict, record: dict) -> None:
+        try:
+            before = cache.CACHE.misses
+            inputs = {"image": self.out, "palettes": self.palettes}
+            prep = prepare_for(spec, inputs, cfg, use_cache=self.use_cache)
+            record["prepared"] = cache.CACHE.misses > before
+            self.facts["prepared" if record["prepared"] else "reused"] += 1
+            produced = spec.apply(inputs, cfg, prep)
+            self.out = produced.pop("image")
+            self.facts.update(produced)
+        except Exception as e:                   # noqa: BLE001
+            record["error"] = f"{type(e).__name__}: {e}"
+
+    def _step(self, index: int, entry: dict) -> dict:
+        """What one entry did. A layer that never ran leaves no checkpoint."""
+        key = entry.get("layer")
+        spec = REGISTRY.get(key)
+        record: dict[str, Any] = {"id": entry.get("id") or key, "layer": key}
+
+        if index < self.start:
+            record["cached"] = True
+            return record
+        if spec is None:
+            record["error"] = f"no layer '{key}'"
+            return record
+
+        if not entry.get("enabled", True):
+            record["skipped"] = True
+        else:
+            cfg = spec.settings(entry.get("config"))
+            if spec.key in self.defer:
+                record["deferred"] = True
+                self.deferred["scale"] *= spec.growth(cfg) ** 0.5
+                self.deferred["layers"].append(spec.key)
+            else:
+                self._apply(spec, cfg, record)
+
+        self._checkpoint(index)
+        return record
+
+    def run(self) -> tuple[np.ndarray, dict]:
+        token = layer_mod.budget(self.pixels)
+        try:
+            for index, entry in enumerate(self.stack):
+                self.facts["layers"].append(self._step(index, entry))
+        finally:
+            layer_mod.release(token)
+
+        _closing_facts(self.facts, self.out, self.deferred)
+        return self.out, self.facts
+
+
 def apply_stack(image: np.ndarray, stack: list[dict], *,
                 palettes: Callable[[str], Path] | None = None,
                 source: str | None = None,
@@ -61,69 +141,9 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
     # A stack that cannot fit is a 413 here and a reboot two lines later.
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)
 
-    facts = _opening_facts(image, stack)
-    deferred: dict[str, Any] = {"scale": 1.0, "layers": []}
-
     if source and defer:
         source = f"{source}|defer={','.join(sorted(defer))}"
 
-    start, out = 0, image
-    if source:
-        start, resumed = cache.resume_from(source, stack)
-        if resumed is not None:
-            out = resumed
-    facts["resumed_after"] = start
+    return _StackRun(image, stack, palettes=palettes, source=source,
+                     use_cache=use_cache, defer=defer).run()
 
-    token = layer_mod.budget(image.shape[0] * image.shape[1])
-    try:
-        for index, entry in enumerate(stack):
-            key = entry.get("layer")
-            spec = REGISTRY.get(key)
-            record: dict[str, Any] = {"id": entry.get("id") or key, "layer": key}
-
-            if index < start:
-                record["cached"] = True
-                facts["layers"].append(record)
-                continue
-            if spec is None:
-                record["error"] = f"no layer '{key}'"
-                facts["layers"].append(record)
-                continue
-            if not entry.get("enabled", True):
-                record["skipped"] = True
-                facts["layers"].append(record)
-                if source:
-                    cache.remember(source, stack, index + 1, out)
-                continue
-
-            cfg = spec.settings(entry.get("config"))
-
-            if spec.key in defer:
-                grow = spec.growth(cfg)
-                record["deferred"] = True
-                deferred["scale"] *= grow ** 0.5
-                deferred["layers"].append(spec.key)
-                facts["layers"].append(record)
-                if source:
-                    cache.remember(source, stack, index + 1, out)
-                continue
-
-            try:
-                before = cache.CACHE.misses
-                inputs = {"image": out, "palettes": palettes}
-                prep = prepare_for(spec, inputs, cfg, use_cache=use_cache)
-                record["prepared"] = cache.CACHE.misses > before
-                facts["prepared" if record["prepared"] else "reused"] += 1
-                produced = spec.apply(inputs, cfg, prep)
-                out = produced.pop("image")
-                facts.update(produced)
-            except Exception as e:                   # noqa: BLE001
-                record["error"] = f"{type(e).__name__}: {e}"
-            facts["layers"].append(record)
-            if source:
-                cache.remember(source, stack, index + 1, out)
-    finally:
-        layer_mod.release(token)
-
-    _closing_facts(facts, out, deferred)
-    return out, facts
