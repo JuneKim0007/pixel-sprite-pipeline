@@ -10,6 +10,7 @@ under test is the loop's own judgement rather than a mock's.
 from __future__ import annotations
 
 import argparse
+import time
 
 import pytest
 
@@ -116,14 +117,7 @@ def test_a_failing_preflight_writes_the_reason_beside_the_job(queue, monkeypatch
 
 
 def test_a_job_waiting_on_a_dependency_is_held_not_failed(queue, monkeypatch):
-    """--drain does not exit while anything is held, so this stops on a signal.
-
-    A held job may still become ready, so an empty pending queue with a held
-    job is not a drained queue.
-    """
     runs(monkeypatch)
-    monkeypatch.setattr(autopilot.time, "sleep",
-                        lambda _s: setattr(autopilot, "STOPPING", True))
     queue.submit({"config": "knight_attack", "needs": ["missing.png"]})
 
     assert autopilot.work(opts()) == 0
@@ -251,3 +245,48 @@ def test_the_breaker_also_trips_on_repeated_run_failures(queue, monkeypatch):
     assert autopilot.work(opts(breaker=2, retries=1)) == 1
     assert len(queue.list(q.FAILED)) == 2, "it stops at the breaker"
     assert len(queue.list(q.PENDING)) == 1, "the third job is never taken"
+
+
+def test_drain_exits_on_a_dependency_that_will_never_arrive(queue, monkeypatch):
+    """A held job used to keep --drain alive forever, sleeping out its own timer."""
+    runs(monkeypatch)
+    queue.submit({"config": "knight_attack", "needs": ["never.png"]})
+
+    assert autopilot.work(opts(drain=True)) == 0
+    assert len(queue.list(q.HELD)) == 1, "it is left queued for a later run"
+
+
+def test_drain_takes_a_held_job_whose_dependency_arrived(queue, home,
+                                                         monkeypatch):
+    """Exiting must not strand a job another job in the same drain unblocked."""
+    seen = runs(monkeypatch, (True, "rid", ""))
+    (home / "later.png").write_bytes(b"x")
+    job = queue.submit({"config": "knight_attack", "needs": ["missing.png"]})[0]
+    queue.move(job, q.HELD, retry_after=time.time() + 3600,
+               error="missing file: missing.png")
+    queue.submit({"config": "knight_attack", "name": "z_other",
+                  "needs": ["later.png"]})
+
+    assert autopilot.work(opts(drain=True)) == 0
+    assert len(seen) == 1, "the satisfiable job ran rather than being stranded"
+    assert len(queue.list(q.HELD)) == 1, "the unsatisfiable one stays held"
+
+
+def test_two_jobs_submitted_in_the_same_second_are_both_queued(queue):
+    """They shared a filename, so the second overwrote the first on disk."""
+    a = queue.submit({"config": "knight_attack"})[0]
+    b = queue.submit({"config": "knight_attack"})[0]
+
+    assert a.path != b.path
+    assert a.id != b.id
+    assert len(queue.list(q.PENDING)) == 2
+
+
+def test_both_same_second_jobs_actually_run(queue, monkeypatch):
+    seen = runs(monkeypatch, (True, "a", ""), (True, "b", ""))
+    queue.submit({"config": "knight_attack"})
+    queue.submit({"config": "knight_attack"})
+
+    assert autopilot.work(opts()) == 0
+    assert len(seen) == 2, "one of the two used to vanish before it ran"
+    assert len(queue.list(q.DONE)) == 2

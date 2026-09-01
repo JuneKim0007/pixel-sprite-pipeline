@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-from ..shared import paths
+from ..shared import files, paths
 
 
 import itertools
@@ -114,7 +114,8 @@ class Queue:
                 data["matrix_cell"] = combo
 
             suffix = f"_{i:02d}" if len(combos) > 1 else ""
-            path = self.dir(PENDING) / f"{priority:04d}_{stamp}_{base_name}{suffix}.json"
+            path = files.unique_name(
+                self.dir(PENDING), f"{priority:04d}_{stamp}_{base_name}{suffix}.json")
             path.write_text(json.dumps(data, indent=2))
             created.append(Job(path, data))
         return created

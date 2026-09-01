@@ -95,6 +95,17 @@ def chain(queue: q.Queue, job: q.Job, run_id: str) -> int:
     return made
 
 
+def _release(queue: q.Queue, held: list[q.Job]) -> int:
+    """Held jobs whose wait is already over, returned to pending."""
+    released = 0
+    for job in held:
+        if q.preflight(ROOT, job).held:
+            continue
+        queue.move(job, q.PENDING, retry_after=0)
+        released += 1
+    return released
+
+
 def _fail(queue: q.Queue, job: q.Job, error: str, message: str, *, detail: str,
           **fields) -> None:
     """Move a job to failed, and put the whole reason beside it on disk."""
@@ -132,13 +143,16 @@ def work(args) -> int:
         job = queue.next_ready()
 
         if job is None:
-            held = len(queue.list(q.HELD))
-            if args.drain and not held:
-                log("queue empty — exiting")
+            held = queue.list(q.HELD)
+            if args.drain:
+                if _release(queue, held):
+                    continue
+                log("queue empty — exiting"
+                    + (f" ({len(held)} still held)" if held else ""))
                 return 0
             if not idle:
                 idle = True
-                log(f"queue empty ({held} held) — waiting")
+                log(f"queue empty ({len(held)} held) — waiting")
             time.sleep(args.poll)
             continue
         idle = False
