@@ -99,7 +99,31 @@ settings form has never offered them and still does not.
 
 **Why not.** Inventing controls for them is a product decision, not a cleanup.
 
-## 5. The stylelog writes half of what it reads
+## 5. The illustrate to pixelise pass is wired for and not wired up
+
+Three pieces exist and nothing connects them: `comfy.encode_image` has no
+caller, `sample_and_save` takes a `latent` nobody passes so every sample starts
+from `EmptyLatentImage`, and `frames.denoise` is exposed as a setting that every
+config in the library leaves at 1.0. Together they are one img2img path.
+
+**Why they are here.** `DECISIONS.md` argues against img2img from an *identity*
+reference — denoising from an illustration traces its gradients and soft edges,
+which is the opposite of a sprite — and keeps `encode_image` for the different
+case where the source is already in the target style and tracing it is the
+point.
+
+**Why this note exists.** That reasoning lives inside a decision about something
+else, so the three pieces read as dead code to anyone who finds them first. They
+are a capability that was never wired up, which AGENTS.md says not to delete.
+Deleting `encode_image` also would not be caught: it is a module-level export,
+so no linter reports it.
+
+**What finishing it would take.** A caller that encodes a source image, passes
+the latent to `sample_and_save`, and reads `denoise` below 1.0 — plus a decision
+about which stage owns it, since neither `canonical` nor `frames` should grow a
+second mode.
+
+## 6. The stylelog writes half of what it reads
 
 `views/styles/styles.js` renders `train` and `tune` events;
 `looks/stylelog.py` has `tune_event`, `train_event` and `archive_training` and
@@ -108,7 +132,7 @@ would leave live readers for a format nothing can produce.
 
 **Why not.** Finishing or removing it is a product call.
 
-## 6. Ten write routes are declared but never driven
+## 7. Ten write routes are declared but never driven
 
 Every route carries a response contract, checked at import. Seven of seventeen
 write routes are also driven against a live body. The other ten cannot be,
@@ -123,7 +147,7 @@ the moment something exercises it.
 
 Detail: `docs/superpowers/specs/2026-08-14-vertical-sweep-design.md` §5.
 
-## 7. Ten raw `ctx.config` reads remain
+## 8. Ten raw `ctx.config` reads remain
 
 Down from 28. Each remaining one is either not a schema field (`props`,
 `paths.*`) or wants a different fallback than the schema would give —
