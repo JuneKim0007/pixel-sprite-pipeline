@@ -381,6 +381,8 @@ A static page cannot read your output directories, edit configs, or start a
 run, so there is a small stdlib-only backend that reuses the pipeline package
 directly. Loopback only, no auth — don't expose it.
 
+Above the tabs is the workspace rail: what kind of thing you are making.
+
 | Tab | What it does |
 |---|---|
 | **Input** | Per-job values: prompts, reference upload/browse with view labels, folders |
@@ -397,6 +399,36 @@ place: add a field there and it appears in the UI with the right control and
 range. The UI hardcodes no knobs. Lists of objects — reference images, pose
 sets, soft-body nodes — get bespoke editors, since a flat field table cannot
 express them.
+
+### Asset types
+
+The rail's cells are files in `library/modules/`, one per type, not entries in
+a Python dict. A type declares what it is called, which stage order a new
+pipeline of it starts from, whether props attach, and optionally another type
+whose settings it also shows:
+
+```yaml
+label:   Portraits
+detail:  one face, several expressions
+blurb:   A head at several expressions.
+stages:  [pose, canonical, frames, palette, export]
+extends: character_sheet
+props:   false
+```
+
+**`available` is derived, not declared.** The server asks whether every stage
+the type names is registered; a type may name one that is not, and the cell
+says `needs tile_edges` until something registers it. That is why `tileset` and
+`object` are greyed out: they name stages nobody has written. The day those
+land, the cells turn on by themselves — there is no flag to remember to flip.
+
+`extends` matters more than it looks. Field scoping is a whitelist inside each
+setting, so a type nothing scopes to shows only the settings no type claims —
+124 of 137 — and the form looks like it lost half its knobs. `extends:
+character_sheet` gets that type's 127.
+
+Create one from the rail's **+ New type** cell, which then offers to create its
+first pipeline: a workspace with no pipeline cannot be opened.
 
 ### Global defaults vs per-pipeline
 

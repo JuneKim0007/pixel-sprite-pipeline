@@ -56,6 +56,8 @@ ignore policy, which is the whole reason they are separated.
                        experiments/ holds the A/B fixtures.
       styles/          the looks. Foldered ones carry their own exemplars,
                        training data and history.
+      modules/         asset types - what kind of thing a pipeline makes.
+                       One file per rail workspace. Seeded on first load.
       palettes/ poses/ props/
       refs/            reference art (gitignored, not ours to redistribute).
                        The char_1..3 sheets predate the gitignore and are still

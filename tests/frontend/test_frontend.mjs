@@ -642,6 +642,39 @@ test('the blank order the dialog offers is one the server would accept', async (
             'a soft producer must still be placed first');
 });
 
+test('the rail says which stage an unavailable type is waiting on', () => {
+  // `available` is derived from the stage registry now, so the cell can name
+  // the work. "not built yet" threw that away.
+  railState.schema = {
+    stages: [{ name: 'pose', needs: [], gives: ['skeletons'] }],
+    resources: [],
+    modules: {
+      animation: { key: 'animation', label: 'Animation', detail: 'one action',
+                   blurb: 'b', available: true, missing: [] },
+      tileset: { key: 'tileset', label: 'Tileset', detail: 'terrain',
+                 blurb: 'b', available: false, missing: ['tile_pose', 'tile_edges'] },
+    },
+  };
+  railState.module = 'animation';
+  const host = el('div', {});
+  rail.renderRail(host, { onSwitch() {}, onCreated() {}, onTypeCreated() {} });
+
+  const details = host.querySelectorAll('.rail-detail').map((n) => n.textContent);
+  assert.ok(details.includes('one action'), details);
+  assert.ok(details.includes('needs tile_pose, tile_edges'), details);
+  assert.ok(!details.includes('not built yet'), 'still hiding which work is missing');
+});
+test('an unavailable cell cannot be clicked, and New type always can', () => {
+  const host = el('div', {});
+  rail.renderRail(host, { onSwitch() {}, onCreated() {}, onTypeCreated() {} });
+  const cells = host.querySelectorAll('.rail-cell');
+  assert.equal(cells.length, 3, 'two types plus the add cell');
+  const tileset = cells.find((c) => c.textContent.includes('Tileset'));
+  assert.ok(tileset.disabled, 'a type whose stages do not exist was clickable');
+  const add = host.querySelector('.rail-cell.add');
+  assert.ok(add && !add.disabled, 'no way to define a type');
+});
+
 console.log('\nchrome');
 /* toast is the one function every other failure path reports through, so a
  * throw inside it hides the message it was called to show. */

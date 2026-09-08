@@ -79,6 +79,15 @@ stage prefix and 46 under other config blocks; no stage lacks fields, and no
 `settings()` path in the tree lacks a declaration. The relationship is correct,
 it was simply unenforced.
 
+**A precedent, 2026-09-08.** Asset types needed the same join — "is every stage
+this type names registered" — and took the other route: the registry lives in
+`shared/modules.py`, which `test_packaging.py:27` forbids from importing any
+sibling group, so it *cannot* ask the stage registry anything. The join is
+forced into `api/machine.py`, beside the one that already fills
+`options.stage_names`. Placing the data where the cycle is impossible costs
+nothing and needs no test; that is the shape to copy if this entry is ever
+revisited.
+
 So it is enforced instead of restructured. Two checks in
 `tests/unit/test_contracts.py`: every `settings("path")` found by walking the
 AST has a field declared at or under it, and every field prefix names either a
