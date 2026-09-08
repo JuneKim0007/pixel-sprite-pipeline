@@ -1,0 +1,15 @@
+# What kind of thing a pipeline makes. The rail shows one cell per
+# file here. `stages` is the order a new pipeline of this type
+# starts from; naming a stage that does not exist yet is allowed,
+# and the type stays unavailable until something registers it.
+label: Objects
+detail: props, no rig
+blurb: Chests, signposts, trees. Neither a character nor a tile - no body plan to
+  pose, but placed on a grid. Needs a stage that seats one on its cell, which is what
+  a skeleton does for a character and nothing does for a crate.
+stages:
+- canonical
+- frames
+- grid_fit
+- palette
+- export

@@ -1,0 +1,17 @@
+# What kind of thing a pipeline makes. The rail shows one cell per
+# file here. `stages` is the order a new pipeline of this type
+# starts from; naming a stage that does not exist yet is allowed,
+# and the type stays unavailable until something registers it.
+label: Tileset
+detail: terrain, 47-blob
+blurb: 'Top-down terrain tiles that meet their neighbours without a seam. A different
+  constraint from a character: a sprite is judged on its silhouette, a tile on its
+  edges. Needs two stages nothing implements yet - a tile layout in place of a skeleton,
+  and an edge pass that makes neighbours agree.'
+stages:
+- tile_pose
+- canonical
+- frames
+- tile_edges
+- palette
+- export

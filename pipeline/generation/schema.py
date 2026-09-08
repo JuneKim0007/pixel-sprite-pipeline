@@ -5,42 +5,10 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 from ..shared.contracts import ConfigField
-
-
-MODULES: dict[str, dict[str, Any]] = {
-    "character_sheet": {
-        "label": "Character sheet",
-        "detail": "one pose, several angles",
-        "blurb": "One reference pose seen from several angles. Usually the "
-                 "first thing you make, and the input to an animation.",
-        "available": True,
-    },
-    "animation": {
-        "label": "Animation",
-        "detail": "one action, several frames",
-        "blurb": "A sequence of frames of one character performing an action.",
-        "available": True,
-    },
-    "tileset": {
-        "label": "Tileset",
-        "detail": "terrain, 47-blob",
-        "blurb": "Top-down terrain tiles that meet their neighbours without a "
-                 "seam. A different constraint from a character: a sprite is "
-                 "judged on its silhouette, a tile on its edges.",
-        "available": False,
-    },
-    "object": {
-        "label": "Objects",
-        "detail": "props, no rig",
-        "blurb": "Chests, signposts, trees. Neither a character nor a tile - "
-                 "no body plan to pose, but placed on a grid.",
-        "available": False,
-    },
-}
 
 
 FIELDS: list[ConfigField] = [
@@ -863,13 +831,17 @@ class ConfigSchema:
     """The pipeline settings surface: its fields, and every operation on them."""
 
     fields: list[ConfigField]
-    modules: dict[str, dict[str, Any]]
 
-    def fields_for(self, module: str | None) -> list[dict[str, Any]]:
+    def fields_for(self, module: str | None,
+                   inherits: Iterable[str] = ()) -> list[dict[str, Any]]:
+        """`inherits` is the type and everything it extends, so a new asset type
+        declaring `extends: animation` shows animation's scoped fields instead of
+        only the 124 that no module scopes."""
+        mine = {module, *inherits} - {None}
         out = []
         for field in self.fields:
             scope = field.modules
-            if scope and module and module not in scope:
+            if scope and module and not (mine & set(scope)):
                 continue
             entry = _render(field)
             override = (entry.pop("help_for", None) or {}).get(module or "")
@@ -894,10 +866,11 @@ class ConfigSchema:
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
         """The settings surface. Stages are not in it: this module describes fields, and reaching for the stage registry to list them is what made `schema` and `stage` import each other."""
+        from ..shared import modules as modules_mod
+
         return {
             "module": module,
-            "modules": self.modules,
-            "fields": self.fields_for(module),
+            "fields": self.fields_for(module, modules_mod.lineage(root, module)),
             "options": dynamic_options(root),
         }
 
@@ -941,12 +914,13 @@ class ConfigSchema:
                 self._clamp_into(value, notes, here)
 
 
-SCHEMA = ConfigSchema(fields=FIELDS, modules=MODULES)
+SCHEMA = ConfigSchema(fields=FIELDS)
 
 
-def fields_for(module: str | None) -> list[dict[str, Any]]:
+def fields_for(module: str | None,
+               inherits: Iterable[str] = ()) -> list[dict[str, Any]]:
     """Fields relevant to a pipeline kind, with any per-module rewording applied."""
-    return SCHEMA.fields_for(module)
+    return SCHEMA.fields_for(module, inherits)
 
 
 def describe(root: Path, module: str | None = None) -> dict[str, Any]:

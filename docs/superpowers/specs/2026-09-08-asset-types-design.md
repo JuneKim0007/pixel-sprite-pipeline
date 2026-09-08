@@ -1,5 +1,8 @@
 # Asset types become data
 
+**Landed 2026-09-08.** All sections are implemented. Two things the design got
+wrong are corrected in place below, marked **Corrected**.
+
 Design for authoring a new asset type — a rail workspace — from the web UI.
 Written before anything moves, so the reasoning survives the diff.
 
@@ -174,9 +177,12 @@ label, field scoping, style-sheet keying, and a default stage list.
 
 ## 7. Schema stops owning the list
 
-`ConfigSchema.modules` is injected at construction rather than read from a
-module-level `MODULES`. `describe()` returns the same shape it does now plus
-`missing`, so the rail's contract widens rather than changes.
+**Corrected.** `ConfigSchema` does not take the module table at all. It only
+ever used it to answer `describe()`, and that answer now needs the stage
+registry, which `schema` must not reach — so `api/machine.py` builds the table
+and merges it into the response instead. `ConfigSchema` keeps only `fields`,
+and `fields_for` gains the resolved lineage as an argument. The rail's contract
+widens rather than changes: the same `modules` key, plus `missing`.
 
 `fields_for` resolves `extends`: a field scoped `modules=["animation"]` is shown
 for a type declaring `extends: animation`. Without this a new type sees only the
@@ -201,9 +207,13 @@ decorator; adding a verb touches the dispatch, the decorator set, and the route
 contract test. That is its own change, not a rider on this one. Removing a type
 is deleting a file.
 
-`PUT` validates the stage order through the same `runner.validate` that
-`configs.save_config` already uses, so a type cannot be saved declaring an order
-that a pipeline built from it would refuse.
+**Corrected.** The design said `PUT` validates the stage order through the same
+`runner.validate` that `configs.save_config` uses. That contradicts §5: an order
+containing an unregistered stage cannot be built, so it cannot be checked at
+all, and refusing it would forbid exactly the tileset case the feature exists
+for. The rule is therefore: when every stage in the order exists, the order is
+validated and an unrunnable one is refused; when any stage is missing, the order
+is saved unchecked and the type reports `missing` and stays unavailable.
 
 ---
 

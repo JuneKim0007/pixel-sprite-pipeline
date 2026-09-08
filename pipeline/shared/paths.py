@@ -5,6 +5,7 @@ from pathlib import Path
 LAYOUT: dict[str, str] = {
     "configs": "library/configs",
     "experiments": "library/configs/experiments",
+    "modules": "library/modules",
     "styles": "library/styles",
     "palettes": "library/palettes",
     "poses": "library/poses",

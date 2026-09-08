@@ -95,7 +95,7 @@ def test_a_config_field_speaks_the_form_s_dialect():
     spec = ConfigField(key="frames.steps", label="Steps", kind="int",
                        help="How many denoising steps.", group="Frames",
                        min=1, max=150)
-    got = ConfigSchema(fields=[spec], modules={}).fields_for(None)[0]
+    got = ConfigSchema(fields=[spec]).fields_for(None)[0]
     assert got["path"] == "frames.steps"
     assert got["type"] == "int"
     assert got["group"] == "Frames"
@@ -123,10 +123,14 @@ def test_the_settings_form_is_unchanged_by_the_migration():
 
     from pipeline.generation import schema
 
+    from pipeline.shared import modules
+
+    # The builtin keys rather than whatever is on disk: a type someone adds to
+    # library/modules/ must not move this golden.
     want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
     got = json.loads(json.dumps(
         {("null" if m is None else m): schema.fields_for(m)
-         for m in [None, *schema.MODULES]},
+         for m in [None, *modules.BUILTIN]},
         sort_keys=True, default=str))
     assert got == want
 

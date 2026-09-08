@@ -63,8 +63,8 @@ def test_prop_never_draws_below_the_body_floor():
     ({"module": "character_sheet", "props": {"enabled": True}}, True),
     ({"module": "animation", "props": {"enabled": False}}, False),
 ])
-def test_module_decides_whether_props_are_drawn(config, wanted):
-    assert props.wanted(config) is wanted
+def test_module_decides_whether_props_are_drawn(config, wanted, root):
+    assert props.wanted(config, root) is wanted
 
 
 def test_both_config_shapes_load(root):

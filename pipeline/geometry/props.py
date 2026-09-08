@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..shared import contracts, paths
-from ..shared import settings
+from ..shared import modules, settings
 
 import math
 from pathlib import Path
@@ -43,7 +43,7 @@ DIRNAME = "props"
 _REGISTRIES: dict[Path, Registry] = {}
 
 
-def wanted(config: dict) -> bool:
+def wanted(config: dict, root: Path) -> bool:
     from ..shared.config import opt
 
     block = config.get("props")
@@ -54,7 +54,7 @@ def wanted(config: dict) -> bool:
     explicit = config.get("props_enabled")
     if explicit is not None:
         return bool(explicit)
-    return config.get("module", settings.DEFAULT_MODULE) != "character_sheet"
+    return modules.wants_props(root, config.get("module"))
 
 
 def registry(root) -> Registry[dict]:

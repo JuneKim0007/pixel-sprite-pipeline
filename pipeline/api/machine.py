@@ -5,7 +5,7 @@ import shutil
 
 from ..generation import schema
 from ..generation.resources import RESOLVERS
-from ..shared import settings
+from ..shared import modules, settings
 from .. import stages  # noqa: F401  (importing registers the stages)
 from ..generation.stage import available
 from .context import (ROOT, dir_size, download_dir, human_size, input_dir, runs_dir)
@@ -82,6 +82,31 @@ def system_info() -> dict:
     }
 
 
+def module_table() -> dict[str, dict]:
+    """Every asset type, and whether the stages it names actually exist.
+
+    The join lives here because it cannot live anywhere else: `shared/modules`
+    imports no sibling group, and putting it in `schema` would rebuild the
+    `schema <-> stage` cycle inside one group, where the packaging test cannot
+    see it. `available` is therefore derived rather than hand-set - a type
+    becomes usable the day its last missing stage is registered, and nobody can
+    mark one ready early.
+    """
+    known = set(available())
+    out = {}
+    for key, spec in sorted(modules.all(ROOT).items()):
+        missing = [s for s in spec.stages if s not in known]
+        out[key] = {**spec.rendered(), "available": not missing,
+                    "missing": missing}
+    for bad in modules.registry(ROOT).broken():
+        out[bad.path.stem] = {
+            "key": bad.path.stem, "label": bad.path.stem, "detail": "unreadable",
+            "blurb": bad.why, "stages": [], "extends": "", "props": True,
+            "available": False, "missing": [], "error": bad.why,
+        }
+    return out
+
+
 class Machine(BaseRouter):
     prefix = "/api"
 
@@ -107,6 +132,7 @@ class Machine(BaseRouter):
                 field["default"] = found
         return {
             **described,
+            "modules": module_table(),
             # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as an artifact nothing produces.
             "resources": sorted(RESOLVERS),
             "stages": [{"name": name, "resource": cls.resource,

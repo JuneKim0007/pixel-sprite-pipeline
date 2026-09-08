@@ -1,0 +1,16 @@
+# What kind of thing a pipeline makes. The rail shows one cell per
+# file here. `stages` is the order a new pipeline of this type
+# starts from; naming a stage that does not exist yet is allowed,
+# and the type stays unavailable until something registers it.
+label: Character sheet
+detail: one pose, several angles
+blurb: One reference pose seen from several angles. Usually the first thing you make,
+  and the input to an animation.
+stages:
+- pose
+- depth
+- canonical
+- frames
+- palette
+- export
+props: false

@@ -171,6 +171,17 @@ function renderRailBar() {
   renderRail($('#railbar'), {
     onSwitch: () => { renderConfigPicker(); render(); },
     onCreated: (name) => refreshConfigs(name),
+    // A new type has no pipeline, and the rail cannot open a workspace without
+    // one, so making the type offers to make its first pipeline too.
+    onTypeCreated: async (key) => {
+      state.schema = await api.schema(state.module);
+      const meta = state.schema.modules?.[key];
+      renderRailBar();
+      if (!meta?.available) { render(); return; }
+      const made = await newPipelineDialog(key, meta);
+      if (made) { await refreshConfigs(made); renderRailBar(); }
+      render();
+    },
   });
 }
 

@@ -25,6 +25,9 @@ export const api = {
   configs:  () => call('/api/configs'),
   config:   (name) => call(`/api/config?name=${encodeURIComponent(name)}`),
   saveConfig: (name, payload) => json('PUT', `/api/config?name=${encodeURIComponent(name)}`, payload),
+  modules:  () => call('/api/modules'),
+  saveModule: (name, module) => json('PUT', `/api/module?name=${encodeURIComponent(name)}`, { module }),
+
   global:   () => call('/api/global'),
   saveGlobal: (config) => json('PUT', '/api/global', { config }),
 

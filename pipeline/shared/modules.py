@@ -1,0 +1,165 @@
+"""Asset types: what kind of thing a pipeline makes.
+
+One file per type in `library/modules/`, because a type is something a person
+writes rather than something the program ships.
+
+This deliberately cannot see the stage registry. `shared/` imports no sibling
+group, so "is every stage this type names registered" has to be answered
+somewhere that can see both — `api/machine.py`, which already joins them for
+`options.stage_names`. Answering it here would put `schema -> stage` back
+inside one group, where `test_packaging.py` cannot see the cycle.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from . import paths
+from .contracts import from_entry
+from .errors import Invalid
+from .registry import Registry, Scanned
+
+# The asset type a config that names none is.
+DEFAULT = "animation"
+
+
+@dataclass
+class ModuleSpec:
+    """One asset type, as declared."""
+
+    key: str
+    label: str
+    detail: str
+    blurb: str
+    stages: list[str] = field(default_factory=list)
+    extends: str = ""
+    props: bool = True
+
+    def rendered(self) -> dict[str, Any]:
+        return {"key": self.key, "label": self.label, "detail": self.detail,
+                "blurb": self.blurb, "stages": list(self.stages),
+                "extends": self.extends, "props": self.props}
+
+
+BUILTIN: dict[str, dict[str, Any]] = {
+    "character_sheet": {
+        "label": "Character sheet",
+        "detail": "one pose, several angles",
+        "blurb": "One reference pose seen from several angles. Usually the "
+                 "first thing you make, and the input to an animation.",
+        "stages": ["pose", "depth", "canonical", "frames", "palette", "export"],
+        "props": False,
+    },
+    "animation": {
+        "label": "Animation",
+        "detail": "one action, several frames",
+        "blurb": "A sequence of frames of one character performing an action.",
+        "stages": ["pose", "depth", "canonical", "frames", "softbody",
+                   "palette", "export"],
+    },
+    "tileset": {
+        "label": "Tileset",
+        "detail": "terrain, 47-blob",
+        "blurb": "Top-down terrain tiles that meet their neighbours without a "
+                 "seam. A different constraint from a character: a sprite is "
+                 "judged on its silhouette, a tile on its edges. Needs two "
+                 "stages nothing implements yet - a tile layout in place of a "
+                 "skeleton, and an edge pass that makes neighbours agree.",
+        "stages": ["tile_pose", "canonical", "frames", "tile_edges",
+                   "palette", "export"],
+    },
+    "object": {
+        "label": "Objects",
+        "detail": "props, no rig",
+        "blurb": "Chests, signposts, trees. Neither a character nor a tile - "
+                 "no body plan to pose, but placed on a grid. Needs a stage "
+                 "that seats one on its cell, which is what a skeleton does "
+                 "for a character and nothing does for a crate.",
+        "stages": ["canonical", "frames", "grid_fit", "palette", "export"],
+    },
+}
+
+_HEADER = ("# What kind of thing a pipeline makes. The rail shows one cell per\n"
+           "# file here. `stages` is the order a new pipeline of this type\n"
+           "# starts from; naming a stage that does not exist yet is allowed,\n"
+           "# and the type stays unavailable until something registers it.\n")
+
+
+def directory(root: Path) -> Path:
+    return paths.resolve(root, "modules")
+
+
+def seed(root: Path) -> Path:
+    """Write the builtin types the first time, as `_global.yaml` is written."""
+    base = directory(root)
+    for key, body in BUILTIN.items():
+        path = base / f"{key}.yaml"
+        if not path.exists():
+            path.write_text(_HEADER + yaml.safe_dump(body, sort_keys=False))
+    return base
+
+
+def _parse(path: Path) -> tuple[str, ModuleSpec]:
+    body = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(body, dict):
+        raise Invalid(f"{path.name} is not a mapping", hint=str(path))
+    spec = from_entry(ModuleSpec, {**body, "key": path.stem}, noun="asset type")
+    spec.stages = [str(s) for s in (spec.stages or [])]
+    return spec.key, spec
+
+
+_REGISTRIES: dict[Path, Registry[ModuleSpec]] = {}
+
+
+def registry(root: Path) -> Registry[ModuleSpec]:
+    root = Path(root).resolve()
+    found = _REGISTRIES.get(root)
+    if found is None:
+        seed(root)
+        found = Registry("asset type", Scanned(directory(root), ["*.yaml"],
+                                               _parse, what="asset type"))
+        _REGISTRIES[root] = found
+    return found
+
+
+def all(root: Path) -> dict[str, ModuleSpec]:  # noqa: A001
+    return registry(root).all()
+
+
+def get(root: Path, key: str | None) -> ModuleSpec:
+    return registry(root).get(key or DEFAULT)
+
+
+def find(root: Path, key: str | None) -> ModuleSpec | None:
+    return registry(root).find(key or DEFAULT)
+
+
+def lineage(root: Path, key: str | None) -> list[str]:
+    """A type and the types it extends, nearest first.
+
+    A field scoped to `animation` shows for a type declaring
+    `extends: animation`; without that a new type sees only the fields no
+    module scopes, which reads as the form having lost its pose settings.
+    """
+    known = all(root)
+    out: list[str] = []
+    seen: set[str] = set()
+    here = key or DEFAULT
+    while here and here in known and here not in seen:
+        seen.add(here)
+        out.append(here)
+        here = known[here].extends
+    if here and here in seen:
+        raise Invalid(f"asset type '{key}' extends itself through {out}",
+                      field="extends")
+    return out
+
+
+def wants_props(root: Path, key: str | None) -> bool:
+    """Whether this type attaches props. Was a string compare in props.py."""
+    spec = find(root, key)
+    return True if spec is None else spec.props

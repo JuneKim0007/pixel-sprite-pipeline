@@ -19,7 +19,7 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
     size = opt(cfg, "size", pose_cfg["size"])
     rig = ctx.need("rig")
     props = props_mod.load(ctx.config.get("props"), root=ctx.root)
-    if props and not props_mod.wanted(ctx.config):
+    if props and not props_mod.wanted(ctx.config, ctx.root):
         props = []
     if props:
         print(f"   props: {props_mod.describe(props)}")

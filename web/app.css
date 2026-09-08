@@ -1165,3 +1165,8 @@ input.wide { width: 100%; max-width: 420px; }
 .pickerrow { display: flex; gap: 6px; align-items: stretch; }
 .pickerrow .select { flex: 1; min-width: 0; }
 .pickerrow .btn { padding: 0 10px; line-height: 1; }
+
+.rail-cell.add { border-style: dashed; opacity: .8; }
+.rail-cell.add:hover { opacity: 1; }
+.stagepick { display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: 420px; }
+.modal-card.wide .fields { max-height: 62vh; overflow-y: auto; }
