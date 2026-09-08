@@ -2,10 +2,7 @@
 # Only canonical.batch_candidates differs. Delete after measuring.
 name: memtest_seq
 module: character_sheet
-subject: a young woman archer with short windswept pale cyan hair with pink streaks,
-  red eyes, a white cropped jacket over a black and teal bodysuit, white shorts, black
-  thigh-high socks, chunky black boots, a quiver of arrows, holding a curved black
-  bow
+subject: a young woman archer with short windswept pale cyan hair with pink streaks, red eyes, a white cropped jacket over a black and teal bodysuit, white shorts, black thigh-high socks, chunky black boots, a quiver of arrows, holding a curved black bow
 style: pixel art, game sprite, plain flat background
 rig: humanoid
 pipeline:
@@ -13,7 +10,7 @@ pipeline:
   - pose
   - depth
   - canonical
-  stop_after: null
+  stop_after:
 comfy:
   host: http://127.0.0.1:8188
 pose:
@@ -34,7 +31,7 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: inputs/archer_dynamic.png
+  - path: library/refs/archer_dynamic.png
     view: front
     weight: 1.0
   style: []

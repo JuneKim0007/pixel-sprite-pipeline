@@ -19,6 +19,7 @@ from pipeline.orchestration import artifacts as artifacts_io  # noqa: E402
 from pipeline import stages  # noqa: E402,F401  (importing registers them)
 from pipeline.generation import runner, stage as stage_mod  # noqa: E402
 from pipeline.looks import styles  # noqa: E402
+from pipeline.refs import references as refs_mod  # noqa: E402
 from pipeline.shared import settings  # noqa: E402
 
 
@@ -129,6 +130,16 @@ def main() -> int:
 
     if a.explain:
         runner.validate(built, seeded=set())
+        # A dead reference path used to survive every gate and fail minutes into
+        # a run. Seven of fourteen configs were unrunnable this way for a month,
+        # each reported `ok` by `make check`.
+        dead = refs_mod.unresolved(ROOT, cfg.get("references"))
+        if dead:
+            print(runner.describe(built))
+            print("\nreferences that name no file:")
+            for line in dead:
+                print(f"  {line}")
+            return 1
         print(runner.describe(built))
         return 0
 

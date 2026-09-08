@@ -87,6 +87,24 @@ def _one(root: Path, entry: Any, role: str, index: int) -> Reference:
     )
 
 
+def unresolved(root: Path, cfg: dict | None) -> list[str]:
+    """Every listed reference path that names no file, in declaration order.
+
+    `load` raises on the first one, which is right for a run and wrong for a
+    check: a config with four dead paths should report four, not one per fix.
+    """
+    out: list[str] = []
+    for role in ROLES:
+        entries = (cfg or {}).get(role) or []
+        if isinstance(entries, (str, dict)):
+            entries = [entries]
+        for entry in entries:
+            rel = entry if isinstance(entry, str) else (entry or {}).get("path")
+            if rel and not (root / rel).resolve().exists():
+                out.append(f"references.{role}: {rel}")
+    return out
+
+
 def load(root: Path, cfg: dict | None) -> Library:
     """Build the library from a config's `references:` block."""
     cfg = cfg or {}

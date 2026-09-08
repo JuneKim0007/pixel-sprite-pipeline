@@ -10,7 +10,7 @@ pipeline:
   - pose
   - depth
   - canonical
-  stop_after: null
+  stop_after:
 comfy:
   host: http://127.0.0.1:8188
 pose:
@@ -58,7 +58,7 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: inputs/knight_front.png
+  - path: library/refs/knight_front.png
     view: front
     weight_scale: 1
   style: []

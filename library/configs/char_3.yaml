@@ -38,19 +38,18 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: overnight/char_3/refs/side.png
-    view: side
-  - path: overnight/char_3/refs/rear.png
-    view: rear
-  - path: overnight/char_3/refs/side_right.png
-    view: 270
-  - path: /Users/personal_jk/pixel/library/refs/111.png
+  - path: library/refs/char_3/front.png
     view: front
-    weight: 1
+  - path: library/refs/char_3/side.png
+    view: side
+  - path: library/refs/char_3/rear.png
+    view: rear
+  - path: library/refs/char_3/side_right.png
+    view: 270
   style: []
   pose: []
   palette:
-  - path: palettes/char_3.hex
+  - path: library/palettes/char_3.hex
 depth:
   build:
     torso: 1.55

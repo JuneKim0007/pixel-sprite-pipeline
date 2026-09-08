@@ -57,7 +57,11 @@ ignore policy, which is the whole reason they are separated.
       styles/          the looks. Foldered ones carry their own exemplars,
                        training data and history.
       palettes/ poses/ props/
-      refs/            reference art (gitignored, not ours to redistribute)
+      refs/            reference art (gitignored, not ours to redistribute).
+                       The char_1..3 sheets predate the gitignore and are still
+                       in history: `git show cac8ba1:overnight/char_3/refs/front.png`
+                       restores one. A clone has no reference art, so those
+                       configs fail `make check` until it is recovered.
     out/               derived and gitignored. Reproducible.
       runs/<run_id>/   one numbered folder per stage, plus artifacts.json
       exports/<name>/  finished work, filed by asset

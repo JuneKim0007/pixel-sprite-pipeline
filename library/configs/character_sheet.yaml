@@ -114,7 +114,7 @@ references:
     far_weight: 0.45
 
   identity:
-  - path: inputs/knight_front.png
+  - path: library/refs/knight_front.png
     view: front
     weight_scale: 1
   style: []

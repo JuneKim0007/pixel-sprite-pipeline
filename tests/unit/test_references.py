@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pipeline.refs.references import Reference, pick
+from pipeline.refs.references import Reference, pick, unresolved
 
 # Keywords, not positions: `role` was inserted second and positional construction silently made yaw="front".
 REFS = [Reference(path=Path("front.png"), yaw=0, label="front"),
@@ -32,3 +32,35 @@ def test_a_per_image_weight_scales_the_result():
 def test_the_manual_branch_applies_the_scale_too():
     scaled = Reference(path=Path("a.png"), yaw=0, label="front", weight_scale=0.5)
     assert abs(0.85 * scaled.weight_scale - 0.425) < 1e-9
+
+
+def test_unresolved_names_every_dead_path_not_only_the_first(tmp_path):
+    """`load` raises on the first; a check that fixes one path per run is a check
+    nobody finishes. Eighteen configs were broken this way at once."""
+    (tmp_path / "library" / "refs").mkdir(parents=True)
+    (tmp_path / "library" / "refs" / "here.png").write_bytes(b"x")
+
+    cfg = {
+        "identity": [
+            {"path": "library/refs/here.png", "view": "front"},
+            {"path": "overnight/char_3/refs/side.png", "view": "side"},
+            {"path": "overnight/char_3/refs/rear.png", "view": "rear"},
+        ],
+        "palette": [{"path": "palettes/char_3.hex"}],
+    }
+    dead = unresolved(tmp_path, cfg)
+    assert len(dead) == 3, dead
+    assert dead[0].startswith("references.identity")
+    assert dead[-1].startswith("references.palette")
+    assert all("here.png" not in d for d in dead), "a resolvable path was reported"
+
+
+def test_unresolved_accepts_a_bare_string_entry():
+    """`load` allows `- path.png` as shorthand, so the check has to as well."""
+    assert unresolved(Path("/nowhere"), {"style": ["gone.png"]}) == [
+        "references.style: gone.png"]
+
+
+def test_unresolved_is_quiet_when_there_is_nothing_to_check():
+    assert unresolved(Path("/nowhere"), None) == []
+    assert unresolved(Path("/nowhere"), {"identity": []}) == []

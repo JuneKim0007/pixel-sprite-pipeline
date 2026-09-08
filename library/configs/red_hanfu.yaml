@@ -5,9 +5,7 @@
 # and must outweigh a smooth illustration, not sit under it.
 name: red_hanfu
 module: character_sheet
-subject: a woman with very long flowing crimson red hair, wearing a black and deep
-  red hanfu robe with wide draping sleeves, a gold and jade waist ornament hanging
-  from a red sash, black skirt, geta sandals
+subject: a woman with very long flowing crimson red hair, wearing a black and deep red hanfu robe with wide draping sleeves, a gold and jade waist ornament hanging from a red sash, black skirt, geta sandals
 style: pixel art, game sprite, plain flat background
 rig: humanoid
 pipeline:
@@ -18,7 +16,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after: null
+  stop_after:
 comfy:
   host: http://127.0.0.1:8188
 pose:
@@ -73,7 +71,7 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: inputs/red_hanfu_swordswoman.png
+  - path: library/refs/red_hanfu_swordswoman.png
     view: front
     weight: 1.0
   style: []
