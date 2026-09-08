@@ -90,14 +90,35 @@ read another way — `cooling` through `cooling.rest`, `detect` inside
 reverse check is all false positives, because several blocks are read through
 raw config, the queue, or `ctl.sh` rather than `settings()`.
 
-## 4. `DEFAULT_GLOBAL` still holds five settings with no control
+## 4. `DEFAULT_GLOBAL` holds three settings with no control, and one that a
+control could not reach
 
-`paths.input_dir`, `paths.output_dir`, `paths.download_dir`,
-`ui.suppress_gate_confirm`, `ui.suppress_overwrite_confirm`, plus
-`models.lcm_lora` and `models.clip_vision`. They have no `ConfigField`, so the
-settings form has never offered them and still does not.
+Corrected 2026-09-08. This entry used to list seven settings and say the
+settings form "has never offered them and still does not". That was already
+wrong for the three `paths.*` entries — `settings.js` has rendered them through
+a hand-written `pathsSection` for some time, and the Input tab rendered a second
+copy of the same three. The duplicate is gone and `Settings -> Paths` is now the
+one editor, scoped by what each folder is: `output_dir` is read from the run
+config by `generation/resources.py` and `orchestration/queue.py`, so a pipeline
+may pin it; `input_dir` and `download_dir` are only ever read through
+`api/context.py` from the global, so pinning them did nothing at all.
 
-**Why not.** Inventing controls for them is a product decision, not a cleanup.
+`ui.suppress_gate_confirm` also has a control — the "don't show this again" box
+in `views/run/run.js`.
+
+**What actually has none.** `ui.suppress_overwrite_confirm` (declared, and read
+by nothing), `models.lcm_lora`, and `models.clip_vision`.
+
+**And one of those a `ConfigField` would not fix.** `generation/comfy.py:242`
+builds `CLIPVisionLoader` from `DEFAULT_GLOBAL["models"]["clip_vision"]`
+directly, not from the run's `models` block — unlike the `ipadapter` beside it,
+which `apply_ipadapter` takes as a parameter. So setting `models.clip_vision` in
+`_global.yaml` is ignored today, and adding a form field for it would offer a
+control that changes nothing. The fix is a parameter, matching `ipadapter`;
+the graph is byte-compared in tests, so the default keeps those green.
+
+**Why the rest are not done.** Inventing controls for them is a product
+decision, not a cleanup.
 
 ## 5. The illustrate to pixelise pass is wired for and not wired up
 

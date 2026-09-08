@@ -9,7 +9,7 @@
 import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { confirmDialog, lightbox, state, toast } from '../../store.js';
-import { browseDialog } from '../input/input.js';
+import { browseDialog } from '../../ui/dialog.js';
 
 const STAGE_LABEL = {
   pose: 'Pose guides', depth: 'Depth maps', canonical: 'Reference sprite',

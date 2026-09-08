@@ -10,6 +10,7 @@
 import { api, delPath, getPath, setPath } from '../../api.js';
 import { renderGroup } from '../../fields.js';
 import { el } from '../../core/dom.js';
+import { browseDialog } from '../../ui/dialog.js';
 import { state, toast } from '../../store.js';
 
 /* An ordering hint, not a whitelist.
@@ -37,7 +38,10 @@ function sectionOrder(counts) {
   return [...ORDER, ...extra];
 }
 
+// Labelled 'usually set globally'; still editable in the pipeline scope.
 const GLOBAL_ONLY = new Set(['Models', 'Compute', 'Services', 'Paths']);
+// Hidden there outright, because nothing in it is per-pipeline at all.
+const PIPELINE_HIDDEN = new Set(['Services']);
 
 function sectionCounts() {
   const counts = {};
@@ -74,7 +78,7 @@ export function renderSettings(host, { onSaved }) {
   const shown = sectionOrder(counts).filter((s) => counts[s] || ALWAYS.has(s));
 
   for (const name of shown) {
-    if (!isGlobal && GLOBAL_ONLY.has(name) && name !== 'Models' && name !== 'Compute') continue;
+    if (!isGlobal && PIPELINE_HIDDEN.has(name)) continue;
     const pinnedHere = state.overrides.filter((p) => fieldGroup(p) === name).length;
     const item = el('div', {
       className: `subnav-item ${state.settingsSection === name ? 'on' : ''}`,
@@ -121,7 +125,7 @@ export function renderSettings(host, { onSaved }) {
         ? el('span', { className: 'headnote', textContent: 'usually set globally' })
         : null),
     section === 'Paths'
-      ? pathsSection(isGlobal, onChange)
+      ? pathsSection(isGlobal, onChange, isGlobal ? null : onReset)
       : renderGroup(section, cfg, {
           onChange, onReset: isGlobal ? null : onReset,
           overrides: isGlobal ? [] : state.overrides,
@@ -156,29 +160,55 @@ function fieldGroup(path) {
   return state.schema.fields.find((f) => f.path === path)?.group;
 }
 
-/* Directories are global-only: a pipeline that redefined where runs are
- * written would scatter output unpredictably. */
-function pathsSection(isGlobal, onChange) {
+/* Folders are scoped by what each one is, which is what the pipeline already
+ * does: `output_dir` is read from the run config by resources.py and queue.py,
+ * so a pipeline may pin it. The other two are only ever read through the
+ * global, by the upload sink and the browse root, so pinning them did nothing. */
+const PATH_ROWS = [
+  ['paths.input_dir', 'Input folder', false,
+   'Where uploads land, and the root the image browser opens in. Machine-level: '
+   + 'uploads arrive before a pipeline is chosen.'],
+  ['paths.output_dir', 'Output folder', true,
+   'Where runs are written. A pipeline may pin its own — references.from_run '
+   + 'resolves against it.'],
+  ['paths.download_dir', 'Export folder', false,
+   'Default target when exporting results. Machine-level.'],
+];
+
+function pathsSection(isGlobal, onChange, onReset) {
   const host = el('div', { className: 'fields' });
-  if (!isGlobal) {
-    host.append(el('p', { className: 'empty', textContent: 'Folders are configured globally.' }));
-    return host;
-  }
-  const rows = [
-    ['paths.input_dir', 'Input folder', 'Where uploads land and the image browser opens.'],
-    ['paths.output_dir', 'Output folder', 'Where runs are written.'],
-    ['paths.download_dir', 'Download folder', 'Default target when exporting results.'],
-  ];
-  for (const [path, label, help] of rows) {
-    const input = el('input', { type: 'text', style: 'width:340px', value: getPath(state.global, path) ?? '' });
+  for (const [path, label, pinnable, help] of PATH_ROWS) {
+    const editable = isGlobal || pinnable;
+    const value = getPath(isGlobal ? state.global : state.effective, path) ?? '';
+    const pinned = !isGlobal && state.overrides.includes(path);
+
+    const input = el('input', {
+      type: 'text', className: 'wide', value, disabled: !editable,
+    });
     input.onchange = () => onChange(path, input.value);
+
+    const browse = el('button', {
+      className: 'btn ghost', textContent: 'Browse…', disabled: !editable,
+    });
+    browse.onclick = async () => {
+      const chosen = await browseDialog(value, false);
+      if (chosen) { input.value = chosen; onChange(path, chosen); }
+    };
+
+    const reset = (pinned && onReset)
+      ? el('button', { className: 'btn ghost mini', textContent: 'Reset' })
+      : null;
+    if (reset) reset.onclick = () => onReset(path);
+
     host.append(el('div', { className: 'field' },
-      el('div', { className: 'field-top' },
+      el('div', { className: 'field-top stacked' },
         el('div', {},
           el('label', { textContent: label }),
+          pinned ? el('span', { className: 'dot' }) : null,
           el('div', { className: 'path', textContent: path })),
-        el('div', { className: 'control-wrap' }, input)),
-      el('p', { className: 'help', textContent: help })));
+        el('div', { className: 'control-wrap' }, input, browse, reset)),
+      el('p', { className: 'help', textContent: editable ? help
+        : `${help} Set it under Global defaults.` })));
   }
   return host;
 }

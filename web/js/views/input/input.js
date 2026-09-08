@@ -10,6 +10,7 @@ import { api, getPath } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { draftConfig, state, toast } from '../../store.js';
 import { VIEW_OPTIONS } from '../../features/pose.js';
+import { browseDialog } from '../../ui/dialog.js';
 
 /* Textareas that grow with their content — a two-line box for a paragraph of
  * prompt is the single most cramped thing in the old layout. */
@@ -80,64 +81,6 @@ function creaturePicker(onChange) {
       sel,
       el('p', { className: `channelnote ${channel ? '' : 'depthonly'}`, textContent: line }),
       meta?.note ? el('p', { className: 'help', textContent: meta.note }) : null));
-}
-
-/* ------------------------------------------------------------- browsing */
-
-export function browseDialog(startPath = '', imagesOnly = false) {
-  return new Promise((resolve) => {
-    const listing = el('div', { className: 'browser' });
-    const crumb = el('div', { className: 'crumb mono' });
-    const chosen = new Set();
-    let currentDir = startPath;
-
-    const cancel = el('button', { className: 'btn ghost', textContent: 'Cancel' });
-    const ok = el('button', { className: 'btn primary', textContent: imagesOnly ? 'Select' : 'Use folder' });
-
-    const load = async (path) => {
-      try {
-        const data = await api.browse(path, imagesOnly);
-        currentDir = data.dir;
-        crumb.textContent = data.dir;
-        listing.replaceChildren();
-
-        if (data.parent) {
-          const up = el('div', { className: 'browse-row dir' }, '⤴  ..');
-          up.onclick = () => load(data.parent);
-          listing.append(up);
-        }
-        for (const item of data.entries) {
-          const row = el('div', { className: `browse-row ${item.is_dir ? 'dir' : ''}` },
-            item.is_dir ? '📁  ' : '',
-            item.is_image ? el('img', { className: 'minithumb', src: api.fileUrl(item.path) }) : null,
-            el('span', { textContent: item.name }));
-          if (item.is_dir) row.onclick = () => load(item.path);
-          else if (imagesOnly) {
-            row.onclick = () => {
-              row.classList.toggle('sel');
-              chosen.has(item.path) ? chosen.delete(item.path) : chosen.add(item.path);
-            };
-          }
-          listing.append(row);
-        }
-      } catch (e) {
-        listing.replaceChildren(el('p', { className: 'empty', textContent: e.message }));
-      }
-    };
-
-    const modal = el('div', { className: 'modal' },
-      el('div', { className: 'modal-card wide' },
-        el('h2', { textContent: imagesOnly ? 'Select images' : 'Select a folder' }),
-        crumb, listing,
-        el('div', { className: 'modal-actions' }, cancel, ok)));
-
-    const close = (value) => { modal.remove(); resolve(value); };
-    cancel.onclick = () => close(null);
-    ok.onclick = () => close(imagesOnly ? [...chosen] : currentDir);
-    modal.onclick = (e) => { if (e.target === modal) close(null); };
-    document.body.append(modal);
-    load(startPath);
-  });
 }
 
 /* ----------------------------------------------------------- references */
@@ -510,30 +453,6 @@ export function renderInput(host, { onChange, onContinue }) {
       dropZone(sendFiles),
       el('div', { className: 'row' }, uploadBtn, pickBtn, upload),
       referenceCards(role, onChange))));
-
-  /* --- folders --- */
-  const dirRow = (label, value, help, path) => {
-    const text = el('input', { type: 'text', value: value || '', className: 'wide' });
-    text.onchange = () => onChange(path, text.value);
-    const browse = el('button', { className: 'btn ghost', textContent: 'Browse…' });
-    browse.onclick = async () => {
-      const chosen = await browseDialog(value, false);
-      if (chosen) { text.value = chosen; onChange(path, chosen); }
-    };
-    return el('div', { className: 'field' },
-      el('div', { className: 'field-top stacked' },
-        el('div', {}, el('label', { textContent: label }),
-          el('div', { className: 'path', textContent: path })),
-        el('div', { className: 'control-wrap' }, text, browse)),
-      el('p', { className: 'help', textContent: help }));
-  };
-
-  host.append(el('section', { className: 'group' },
-    el('h2', { textContent: 'Folders' }),
-    el('div', { className: 'fields' },
-      dirRow('Input', paths.input_dir, 'Where uploads land and the browser opens.', 'paths.input_dir'),
-      dirRow('Output', paths.output_dir, 'Where runs are written.', 'paths.output_dir'),
-      dirRow('Export', paths.download_dir, 'Default target when exporting results.', 'paths.download_dir'))));
 
   const cont = el('button', { className: 'btn primary lg', textContent: 'Continue to Run →' });
   cont.onclick = onContinue;
