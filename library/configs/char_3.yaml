@@ -13,10 +13,7 @@ module: character_sheet
 rig: humanoid
 styles:
 - hi_fidelity
-subject: a mint-green haired elf archer with pointed ears, blue eyes and a gold circlet, wearing a 
-  dark teal shoulder mantle with gold trim, a pale ice-blue layered robe dress with a high slit, 
-  sheer translucent ice-blue wide sleeves and side panels with crystal pendants, a brown leather 
-  belt, pale blue armoured greaves with snowflake motifs
+subject: a mint-green haired elf archer with pointed ears, blue eyes and a gold circlet, wearing a dark teal shoulder mantle with gold trim, a pale ice-blue layered robe dress with a high slit, sheer translucent ice-blue wide sleeves and side panels with crystal pendants, a brown leather belt, pale blue armoured greaves with snowflake motifs
 pipeline:
   stages:
   - pose
@@ -25,7 +22,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after:
+  stop_after: depth
 pose:
   source: tpose
   size: 1024
@@ -41,14 +38,15 @@ references:
     exact_weight: 0.85
     far_weight: 0.45
   identity:
-  - path: overnight/char_3/refs/front.png
-    view: front
   - path: overnight/char_3/refs/side.png
     view: side
   - path: overnight/char_3/refs/rear.png
     view: rear
   - path: overnight/char_3/refs/side_right.png
     view: 270
+  - path: /Users/personal_jk/pixel/library/refs/111.png
+    view: front
+    weight: 1
   style: []
   pose: []
   palette:
