@@ -122,6 +122,36 @@ test('snapToAnatomy still repairs a mangled pose', () => {
   assert.ok(Math.abs(dist3(out.l_elbow, out.l_wrist) - want) < 1e-6);
 });
 
+/* `$` and `$$` are not word characters, so \b never matches them, and `$$(`
+ * contains `$(` - both need an explicit boundary rather than \b. */
+const DOM_HELPERS = ['$', '$$', 'el', 'escapeHtml'];
+
+const bodyOf = (src) => src.replace(/^import \{[^}]*\} from [^\n]*\n/gm, '');
+
+function importedNames(src) {
+  const out = new Set();
+  for (const m of src.matchAll(/^import \{([^}]+)\} from/gm)) {
+    for (const raw of m[1].split(',')) {
+      const name = raw.trim().split(/\s+as\s+/).pop().trim();
+      if (name) out.add(name);
+    }
+  }
+  return out;
+}
+
+// core/dom.js declares these rather than importing them, and so may anything else.
+function declares(body, name) {
+  const esc = name.replace(/[$]/g, '\\$');
+  return new RegExp(`(?:const|let|var|function)\\s+${esc}[\\s=(]`).test(body);
+}
+
+function usesOf(name, body) {
+  const pattern = name === '$' ? /(?<![\w$])\$(?=\s*\()/g
+    : name === '$$' ? /(?<![\w$])\$\$(?=\s*\()/g
+    : new RegExp(`(?<![\\w.$])${name}\\b`, 'g');
+  return [...body.matchAll(pattern)].length;
+}
+
 console.log('\nstatic checks across every module');
 // Recursive: the views moved into folders, and a top-level readdir quietly
 // stopped checking two thirds of the code.
@@ -141,18 +171,22 @@ for (const file of allModules) {
     }
   });
   test(`${file}: every import is used`, () => {
-    for (const m of src.matchAll(/^import \{([^}]+)\} from/gm)) {
-      for (const raw of m[1].split(',')) {
-        const name = raw.trim().split(/\s+as\s+/).pop().trim();
-        if (!name) continue;
-        // `$` and `$$` are not word characters, so \b never matches them.
-        const esc = name.replace(/[$]/g, '\\$');
-        const pattern = /^[A-Za-z_]/.test(name)
-          ? new RegExp(`\\b${esc}\\b`, 'g')
-          : new RegExp(`${esc}(?=\\s*\\()`, 'g');
-        const uses = [...src.matchAll(pattern)].length;
-        assert.ok(uses > 1, `${name} imported but unused`);
-      }
+    // Counted in the body, not the whole file. `uses > 1` stood in for "once in
+    // the import line, once for real", which a name that is not a word
+    // character never satisfies: `$` is followed by a comma in the import, so
+    // it scored zero there and could not pass however often it was called.
+    for (const name of importedNames(src)) {
+      assert.ok(usesOf(name, bodyOf(src)) > 0, `${name} imported but unused`);
+    }
+  });
+  test(`${file}: every dom helper used is imported`, () => {
+    // The inverse, and the one that was missing: store.js called `$` with no
+    // import, so every toast threw and a started run looked like a dead button.
+    const imported = importedNames(src);
+    const body = bodyOf(src);
+    for (const name of DOM_HELPERS) {
+      if (imported.has(name) || declares(body, name) || !usesOf(name, body)) continue;
+      assert.fail(`${name} is called but never imported from core/dom.js`);
     }
   });
 }
@@ -565,6 +599,32 @@ test('update() swaps in place using replaceWith, not children.indexOf', () => {
   card.update({ title: 'after' });
   assert.equal(grid.children.length, 1);
   assert.equal(grid.querySelector('.ui-card-title').textContent, 'after');
+});
+
+console.log('\nchrome');
+/* toast is the one function every other failure path reports through, so a
+ * throw inside it hides the message it was called to show. */
+const store = await import(join(JS, 'store.js'));
+test('toast renders the message it was given', () => {
+  store.toast('Started 20260908_215455_char_3');
+  const host = document.querySelector('#toasts');
+  assert.ok(host, 'no #toasts host was created');
+  assert.equal(host.children.at(-1).textContent, 'Started 20260908_215455_char_3');
+});
+test('a second toast reuses the one host', () => {
+  store.toast('again');
+  assert.equal(document.querySelectorAll('#toasts').length, 1);
+  assert.equal(document.querySelector('#toasts').children.length, 2);
+});
+test('toast never throws, whatever it is handed', () => {
+  store.toast(undefined);
+  store.toast({ nope: 1 }, 'error');
+});
+test('confirmDialog and lightbox open without throwing', () => {
+  store.confirmDialog({ title: 't', body: 'b', rememberKey: 'k' });
+  assert.ok(document.querySelector('.modal'));
+  store.lightbox('/api/file?path=x.png', 'cap');
+  assert.ok(document.querySelector('.lightbox'));
 });
 
 console.log('\nview slots');

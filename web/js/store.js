@@ -3,12 +3,11 @@
  * `draft` is the wizard's cached form: the Back button has to return you to
  * edits you already made, so pending changes live here rather than in the DOM.
  *
- * DOM helpers moved to core/dom.js. They are re-exported here so no call site
- * had to change in the commit that moved them.
+ * DOM helpers live in core/dom.js and are imported, not re-exported.
  */
 
 import { api } from './api.js';
-import { el } from './core/dom.js';
+import { $, el } from './core/dom.js';
 
 export const state = {
   schema: null,
@@ -100,12 +99,19 @@ export async function loadConfig(name) {
   state.dirty = false;
 }
 
+// The reporter is the one function that must not throw: when it does, a working
+// action looks like a dead button and the real message is never seen.
 export function toast(message, kind = 'info') {
-  const host = $('#toasts') || document.body.appendChild(el('div', { id: 'toasts' }));
-  const node = el('div', { className: `toast ${kind}`, textContent: message });
-  host.append(node);
-  setTimeout(() => node.classList.add('out'), 4200);
-  setTimeout(() => node.remove(), 4800);
+  const text = String(message ?? '');
+  try {
+    const host = $('#toasts') || document.body.appendChild(el('div', { id: 'toasts' }));
+    const node = el('div', { className: `toast ${kind}`, textContent: text });
+    host.append(node);
+    setTimeout(() => node.classList.add('out'), 4200);
+    setTimeout(() => node.remove(), 4800);
+  } catch (e) {
+    console.error(`toast could not be shown: ${text}`, e);
+  }
 }
 
 /** Promise-based confirm with an optional "don't ask again" checkbox. */

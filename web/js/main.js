@@ -21,7 +21,7 @@ import { configsFor, indexConfigModules, renderRail } from './rail.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';
 import { poll } from './listeners/poll.js';
-import { draft, loadConfig, state } from './store.js';
+import { draft, loadConfig, state, toast } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
 
@@ -216,6 +216,16 @@ async function boot() {
     return undefined;
   }, { every: 4000, immediate: false });
 }
+
+// mount() catches a view that throws while rendering and poll() catches its own
+// tick, but an async click handler rejects into nowhere - which is how a run that
+// started looked like a button that did nothing.
+window.addEventListener('unhandledrejection', (e) => {
+  toast(e.reason?.message || String(e.reason ?? 'Something went wrong'), 'error');
+});
+window.addEventListener('error', (e) => {
+  toast(e.message || 'Something went wrong', 'error');
+});
 
 boot().catch((e) => {
   document.body.replaceChildren(

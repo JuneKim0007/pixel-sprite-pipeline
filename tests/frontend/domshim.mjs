@@ -75,6 +75,7 @@ class Node {
   }
   replaceChildren(...kids) { this.children = []; this.append(...kids); }
 
+  focus() { this.focused = true; }
   setAttribute(k, v) { this.attributes[k] = String(v); }
   getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; }
   addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }
@@ -136,7 +137,11 @@ export function installDom() {
   doc.createElement = (tag) => new Node(tag);
   doc.createTextNode = (v) => new Text(v);
   doc.body = new Node('body');
+  // Appended, not only assigned: document.querySelector reaches into body in a
+  // browser, and a shim where it does not lets a lookup that returns null pass.
+  doc.append(doc.body);
   globalThis.document = doc;
+  globalThis.window = doc;
   globalThis.Node = Node;
   return doc;
 }

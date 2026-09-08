@@ -88,7 +88,8 @@ lint:
 	@# Importing each file is the check that matches how the browser loads them.
 	@# Compiling as a module - not importing it - because main.js runs boot() on
 	@# import and would need a DOM. Compilation is the step that catches what
-	@# --check missed, and it needs no environment.
+	@# --check missed, and it needs no environment. Compilation does not see an
+	@# undefined name; `make test` does, in "every dom helper used is imported".
 	@for f in $$(find web/js tests -name '*.js' -o -name '*.mjs'); do \
 	  node --experimental-vm-modules -e " \
 	    const {SourceTextModule} = require('node:vm'); \
@@ -100,7 +101,8 @@ lint:
 	@$(PY) tools/check_failures.py pipeline \
 	  || { printf '  \033[31munnamed failures on a user-reachable path\033[0m\n'; exit 1; }
 	@printf '  \033[32mevery user-reachable failure named\033[0m\n'
-	@printf '  \033[32mno undefined names\033[0m\n'
+	@printf '  \033[32mno undefined names in python\033[0m\n'
+	@printf '  \033[32mevery web module compiles\033[0m\n'
 
 # The api suite starts its own server on a free port, so `make test` needs
 # nothing running. Narrow it with T=, e.g. `make test T=tests/unit/test_rigs.py`
