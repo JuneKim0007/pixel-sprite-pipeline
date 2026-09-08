@@ -224,7 +224,7 @@ def layer(
         return config, {"styles": [], "vocabulary": {}, "exemplars": []}
 
     chain = _chain(root, names)
-    module = config.get("module", "animation")
+    module = config.get("module", settings.DEFAULT_MODULE)
     vocabulary = resolve_vocabulary(chain, picks)
 
     base: dict[str, Any] = {}
@@ -263,7 +263,7 @@ def layer(
 def preview(root: Path, config: dict[str, Any], picks: dict[str, Any] | None = None) -> dict:
     """What the pipeline would actually send, without running anything."""
     merged, record = layer(root, config, picks=picks)
-    module = config.get("module", "animation")
+    module = config.get("module", settings.DEFAULT_MODULE)
 
     subject = merged.get("subject", "")
     style_text = merged.get("style", "")

@@ -1161,3 +1161,7 @@ input.wide { width: 100%; max-width: 420px; }
   box-shadow: 0 0 0 1px var(--warn) inset;
 }
 .btn.wants::after { content: ' •'; color: var(--warn); }
+
+.pickerrow { display: flex; gap: 6px; align-items: stretch; }
+.pickerrow .select { flex: 1; min-width: 0; }
+.pickerrow .btn { padding: 0 10px; line-height: 1; }

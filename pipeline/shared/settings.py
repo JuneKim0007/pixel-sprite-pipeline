@@ -11,6 +11,10 @@ from . import paths
 
 GLOBAL_NAME = "_global"
 
+# The asset type a config that names none is. Was spelled as a literal in six
+# modules; moves to shared/modules.py when asset types become a registry.
+DEFAULT_MODULE = "animation"
+
 DEFAULT_GLOBAL: dict[str, Any] = {
     "paths": {
         "input_dir": "library/refs",

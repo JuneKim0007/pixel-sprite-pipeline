@@ -123,7 +123,7 @@ function submitForm(refresh) {
   const box = el('details', { className: 'submitbox' });
   box.append(el('summary', { textContent: 'Queue a job' }));
 
-  const config = Select(state.configs || [], { value: state.current });
+  const config = Select((state.configs || []).map((c) => c.name), { value: state.current });
   const priority = Num(50, { min: 0, max: 9999 });
   const matrix = el('textarea', { rows: 4, placeholder:
     '{"canonical.seed": [1, 2, 3], "pose.view": ["front", "side"]}' });

@@ -17,7 +17,7 @@ import { renderStyles } from './views/styles/styles.js';
 import { renderQueue } from './views/queue/queue.js';
 import { renderEditor } from './views/editor/editor.js';
 import { renderOverview } from './views/overview/overview.js';
-import { configsFor, indexConfigModules, renderRail } from './rail.js';
+import { configsFor, newPipelineDialog, renderRail } from './rail.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';
 import { poll } from './listeners/poll.js';
@@ -144,8 +144,7 @@ async function refreshRuns() {
 async function refreshConfigs(select = null) {
   const { configs } = await api.configs();
   state.configs = configs;
-  await indexConfigModules();
-  const pick = select || state.current || configs[0];
+  const pick = select || state.current || configs[0]?.name;
   if (pick) await loadConfig(pick);
   renderConfigPicker();
 }
@@ -157,12 +156,21 @@ function renderConfigPicker() {
   const sel = $('#configPicker');
   sel.replaceChildren(...mine.map((c) =>
     el('option', { value: c, textContent: c, selected: c === state.current })));
-  sel.disabled = mine.length < 2;
+  // One pipeline is still a choice now that a second can be made from here.
+  sel.disabled = !mine.length;
+
+  const add = $('#configNew');
+  add.onclick = async () => {
+    const meta = state.schema?.modules?.[state.module];
+    const made = await newPipelineDialog(state.module, meta);
+    if (made) await refreshConfigs(made);
+  };
 }
 
 function renderRailBar() {
   renderRail($('#railbar'), {
     onSwitch: () => { renderConfigPicker(); render(); },
+    onCreated: (name) => refreshConfigs(name),
   });
 }
 

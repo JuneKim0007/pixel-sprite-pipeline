@@ -54,7 +54,7 @@ def wanted(config: dict) -> bool:
     explicit = config.get("props_enabled")
     if explicit is not None:
         return bool(explicit)
-    return config.get("module", "animation") != "character_sheet"
+    return config.get("module", settings.DEFAULT_MODULE) != "character_sheet"
 
 
 def registry(root) -> Registry[dict]:

@@ -601,6 +601,47 @@ test('update() swaps in place using replaceWith, not children.indexOf', () => {
   assert.equal(grid.querySelector('.ui-card-title').textContent, 'after');
 });
 
+console.log('\nrail and pipeline creation');
+const rail = await import(join(JS, 'rail.js'));
+const railState = (await import(join(JS, 'store.js'))).state;
+test('configsFor filters by the module the index carries', () => {
+  railState.configs = [
+    { name: 'knight_attack', module: 'animation', error: '' },
+    { name: 'archer', module: 'character_sheet', error: '' },
+    { name: 'monster_anim', module: 'animation', error: '' },
+  ];
+  assert.deepEqual(rail.configsFor('animation'), ['knight_attack', 'monster_anim']);
+  assert.deepEqual(rail.configsFor('character_sheet'), ['archer']);
+  assert.deepEqual(rail.configsFor('tileset'), []);
+});
+test('configsFor returns names, so the picker needs no second lookup', () => {
+  assert.ok(rail.configsFor('animation').every((c) => typeof c === 'string'));
+});
+test('a starter config declares its workspace and its stage order', () => {
+  const cfg = rail.starterConfig('my_portrait', 'character_sheet', ['pose', 'export']);
+  assert.equal(cfg.module, 'character_sheet');
+  assert.equal(cfg.name, 'my_portrait');
+  assert.deepEqual(cfg.pipeline.stages, ['pose', 'export']);
+});
+test('the blank order the dialog offers is one the server would accept', async () => {
+  // The dialog fills pipeline.stages with autoOrder over every registered
+  // stage, so what it proposes has to survive the same check save_config runs.
+  const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
+  const stages = [
+    { name: 'pose', needs: ['rig'], gives: ['skeletons', 'pose_frames'] },
+    { name: 'depth', needs: ['pose_frames'], gives: ['depthmaps'] },
+    { name: 'canonical', needs: [], optional: ['depthmaps'], gives: ['canonical'] },
+    { name: 'frames', needs: ['skeletons', 'canonical'], optional: ['depthmaps'], gives: ['frames'] },
+    { name: 'palette', needs: ['frames', 'canonical'], gives: ['palette', 'pixel_frames'] },
+    { name: 'export', needs: ['pixel_frames'], gives: ['sheet'] },
+  ];
+  const ordered = autoOrder(stages.map((s) => s.name), stages);
+  assert.deepEqual(orderProblems(ordered, stages, ['rig']), [],
+                   `blank order does not validate: ${ordered}`);
+  assert.ok(ordered.indexOf('depth') < ordered.indexOf('canonical'),
+            'a soft producer must still be placed first');
+});
+
 console.log('\nchrome');
 /* toast is the one function every other failure path reports through, so a
  * throw inside it hides the message it was called to show. */

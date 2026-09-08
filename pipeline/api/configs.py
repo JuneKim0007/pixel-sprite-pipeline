@@ -92,9 +92,24 @@ class Configs(BaseRouter):
     @get("/configs", "every config, with the module each declares",
          returns=Shape(configs=list))
     def index(self, req):
+        # The module travels with the name. The rail used to learn it by
+        # fetching every config in full - raw text, effective merge and style
+        # record - once per config, on every boot, to read one word.
         CONFIGS.mkdir(exist_ok=True)
-        found = sorted(p.stem for p in CONFIGS.glob("*.yaml")
-                       if not p.stem.startswith("_"))
+        found = []
+        for path in sorted(CONFIGS.glob("*.yaml")):
+            if path.stem.startswith("_"):
+                continue
+            entry = {"name": path.stem, "module": settings.DEFAULT_MODULE,
+                     "error": ""}
+            try:
+                entry["module"] = (settings.read_yaml(path) or {}).get(
+                    "module") or settings.DEFAULT_MODULE
+            except (OSError, yaml.YAMLError) as e:
+                # Listed anyway: a config that vanishes from the picker the day
+                # it stops parsing is a config nobody can find to repair.
+                entry["error"] = str(e)
+            found.append(entry)
         return {"configs": found}
 
     @get("/config", "one config, and what it resolves to with styles applied",
@@ -107,7 +122,7 @@ class Configs(BaseRouter):
         effective, record = styles.effective(ROOT, own)
         return {
             "name": name,
-            "module": own.get("module", "animation"),
+            "module": own.get("module", settings.DEFAULT_MODULE),
             "raw": path.read_text(),
             "config": own,
             "effective": effective,

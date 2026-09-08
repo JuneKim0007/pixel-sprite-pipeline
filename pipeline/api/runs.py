@@ -134,7 +134,7 @@ def run_audit(run_dir: Path) -> dict:
         break
 
     return {
-        "protocol": cfg.get("module", "animation"),
+        "protocol": cfg.get("module", settings.DEFAULT_MODULE),
         "rig_source": rig_source,
         "annotated_from": Path(annotated).name if annotated else "",
         "proportions": cfg.get("proportions") or {},

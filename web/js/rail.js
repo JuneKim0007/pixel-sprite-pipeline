@@ -26,6 +26,7 @@
  */
 
 import { api } from './api.js';
+import { autoOrder } from './fields.js';
 import { el } from './core/dom.js';
 import { loadConfig, state, toast } from './store.js';
 
@@ -47,13 +48,12 @@ function cell(key, meta, { active, onPick }) {
   return btn;
 }
 
-/** Configs belonging to one workspace, by the `module` each declares. */
+/** The names of the configs belonging to one workspace. */
 export function configsFor(module) {
-  return (state.configs || []).filter((c) =>
-    (typeof c === 'string' ? state.configModules?.[c] : c.module) === module);
+  return (state.configs || []).filter((c) => c.module === module).map((c) => c.name);
 }
 
-export function renderRail(host, { onSwitch }) {
+export function renderRail(host, { onSwitch, onCreated }) {
   const modules = state.schema?.modules || {};
   host.replaceChildren();
 
@@ -61,15 +61,18 @@ export function renderRail(host, { onSwitch }) {
     if (key === state.module) return;
     lastConfig[state.module] = state.current;
 
-    // A workspace is only usable if a pipeline exists for it. Say which is
-    // missing rather than switching to an empty screen.
+    // A workspace with no pipeline used to be a dead end - it said which was
+    // missing and refused to move. Offering to make one is what turns the rail
+    // into somewhere a new kind of thing can start.
     const mine = configsFor(key);
     const target = lastConfig[key] || mine[0];
     if (!target) {
-      toast(`No pipeline is set to ${modules[key].label.toLowerCase()} yet`, 'error');
-      return;
+      const made = await newPipelineDialog(key, modules[key]);
+      if (!made) return;
+      await onCreated?.(made);
+    } else {
+      await loadConfig(target);
     }
-    await loadConfig(target);
     onSwitch?.(key);
   };
 
@@ -80,17 +83,87 @@ export function renderRail(host, { onSwitch }) {
   host.append(strip);
 }
 
-/** The module each config declares, so the rail can filter without a fetch. */
-export async function indexConfigModules() {
-  const out = {};
-  await Promise.all((state.configs || []).map(async (name) => {
-    try {
-      const data = await api.config(name);
-      out[name] = data.module || 'animation';
-    } catch {
-      out[name] = 'animation';
-    }
-  }));
-  state.configModules = out;
-  return out;
+/* Creating a pipeline, which the UI could not do at all.
+ *
+ * `PUT /api/config` already writes a new file when the target is absent, so
+ * this is a form over a route that existed. Blank starts from every registered
+ * stage in dependency order; copying takes another pipeline's own keys and
+ * re-points the name and the workspace. */
+
+const NAME_RULE = /^[A-Za-z0-9_-]+$/;
+
+export function starterConfig(name, module, stages) {
+  return { name, module, pipeline: { stages } };
+}
+
+export function newPipelineDialog(module, meta) {
+  return new Promise((resolve) => {
+    const taken = new Set((state.configs || []).map((c) => c.name));
+    const siblings = configsFor(module);
+
+    const name = el('input', { type: 'text', className: 'wide', placeholder: `my_${module}` });
+    const from = el('select', { className: 'select' },
+      el('option', { value: '', textContent: 'Blank — every stage, in dependency order' }));
+    for (const c of siblings) from.append(el('option', { value: c, textContent: `Copy of ${c}` }));
+
+    const why = el('p', { className: 'help' });
+    const create = el('button', { className: 'btn primary', textContent: 'Create' });
+    const cancel = el('button', { className: 'btn ghost', textContent: 'Cancel' });
+
+    const check = () => {
+      const v = name.value.trim();
+      why.textContent = !v ? ''
+        : !NAME_RULE.test(v) ? 'Letters, digits, dash and underscore only.'
+        : taken.has(v) ? `'${v}' already exists.` : '';
+      create.disabled = !v || !!why.textContent;
+    };
+    name.addEventListener('input', check);
+    check();
+
+    const dialog = el('div', { className: 'modal' },
+      el('div', { className: 'modal-card' },
+        el('h2', { textContent: `New ${(meta?.label || module).toLowerCase()} pipeline` }),
+        el('div', { className: 'fields' },
+          el('div', { className: 'field' },
+            el('div', { className: 'field-top stacked' },
+              el('div', {}, el('label', { textContent: 'Name' }),
+                el('div', { className: 'path', textContent: 'library/configs/<name>.yaml' })),
+              el('div', { className: 'control-wrap' }, name)),
+            why),
+          el('div', { className: 'field' },
+            el('div', { className: 'field-top stacked' },
+              el('div', {}, el('label', { textContent: 'Start from' })),
+              el('div', { className: 'control-wrap' }, from)),
+            el('p', { className: 'help', textContent:
+              'Settings → Pipeline can reorder the stages afterwards; the order is validated before any run.' }))),
+        el('div', { className: 'modal-actions' }, cancel, create)));
+
+    const close = (value) => { dialog.remove(); resolve(value); };
+    cancel.onclick = () => close(null);
+    dialog.onclick = (e) => { if (e.target === dialog) close(null); };
+
+    create.onclick = async () => {
+      const chosen = name.value.trim();
+      create.disabled = true;
+      try {
+        let body;
+        if (from.value) {
+          const source = await api.config(from.value);
+          body = { ...(source.config || {}), name: chosen, module };
+        } else {
+          body = starterConfig(chosen, module,
+                               autoOrder(state.schema.stages.map((s) => s.name)));
+        }
+        await api.saveConfig(chosen, { config: body });
+        toast(`Created ${chosen}`);
+        close(chosen);
+      } catch (e) {
+        why.textContent = e.message;
+        create.disabled = false;
+      }
+    };
+
+    document.body.append(dialog);
+    name.focus();
+  });
 }

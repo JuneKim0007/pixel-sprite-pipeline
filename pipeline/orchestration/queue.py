@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-from ..shared import files, paths
+from ..shared import files, paths, settings
 
 
 import itertools
@@ -31,7 +31,7 @@ class Job:
 
     @property
     def module(self) -> str:
-        return self.data.get("module", "animation")
+        return self.data.get("module", settings.DEFAULT_MODULE)
 
     @property
     def config(self) -> str:
@@ -169,7 +169,6 @@ def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
 
     from ..generation import schema
     from ..looks import styles
-    from ..shared import settings
 
     try:
         raw = settings.read_yaml(cfg_path)
@@ -222,8 +221,6 @@ def _check_references(root: Path, merged: dict) -> list[str]:
 
 
 def _await_source_run(root: Path, merged: dict) -> list[str]:
-    from ..shared import settings
-
     from_run = (merged.get("references") or {}).get("from_run")
     if not from_run:
         return []
