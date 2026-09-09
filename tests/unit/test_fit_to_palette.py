@@ -1,0 +1,114 @@
+"""What `fit_to_palette` produces today, pinned byte for byte.
+
+The layer stretches an image's value range onto the palette's before snapping,
+which is the difference between a sprite using 11 of 32 entries and using 26.
+These pin the output exactly, so a change to how the arithmetic is scheduled
+can be proved to leave the picture alone.
+"""
+
+from __future__ import annotations
+
+import hashlib
+
+import numpy as np
+import pytest
+
+from pipeline.definitive.pixelize import MATCH_METHODS, fit_to_palette
+
+PALETTE = [(0, 0, 0), (34, 32, 52), (69, 40, 60), (102, 57, 49),
+           (143, 86, 59), (223, 113, 38), (217, 160, 102), (238, 195, 154)]
+
+
+def _image(edge: int, seed: int = 0) -> np.ndarray:
+    """A narrow-range subject, which is the case the stretch exists for."""
+    rng = np.random.default_rng(seed)
+    ramp = np.linspace(86, 170, edge, dtype=np.float32)
+    field = (ramp[None, :] * 0.5 + ramp[:, None] * 0.5)[..., None] * np.array(
+        [1.0, 0.8, 0.6])
+    return np.clip(field + rng.normal(0, 4, (edge, edge, 3)), 0, 255).astype(np.uint8)
+
+
+def _digest(arr: np.ndarray) -> str:
+    return hashlib.blake2b(np.ascontiguousarray(arr).tobytes(),
+                           digest_size=8).hexdigest()
+
+
+def test_the_stretch_widens_the_range_it_was_given():
+    """The reason the layer exists: without it the snapped image keeps the
+    subject's own narrow band instead of reaching the palette's ends."""
+    image = _image(64)
+    from pipeline.definitive.pixelize import apply_fixed_palette
+
+    plain = apply_fixed_palette(image, PALETTE)
+    fitted = fit_to_palette(image, PALETTE)
+
+    assert len(np.unique(fitted.reshape(-1, 3), axis=0)) >= \
+        len(np.unique(plain.reshape(-1, 3), axis=0)), \
+        "fitting used no more of the palette than plain snapping"
+
+
+@pytest.mark.parametrize("method", sorted(MATCH_METHODS))
+def test_each_matching_method_is_pinned(method):
+    """Byte-exact. A scheduling change must not move a single pixel."""
+    expected = {
+        "lab": "b8bd5b5ce13214c1",
+        "luma": "7f3b2eaa5623544e",
+        "rgb": "d8a934282fa48e4c",
+        "weighted": "6e00c16888d14158",
+    }
+    got = _digest(fit_to_palette(_image(48), PALETTE, method=method))
+    assert got == expected[method], (
+        f"{method} produced {got}, pinned as {expected[method]}")
+
+
+def test_strength_below_one_interpolates_back():
+    image = _image(32)
+    full = fit_to_palette(image, PALETTE, strength=1.0)
+    none = fit_to_palette(image, PALETTE, strength=0.0)
+    half = fit_to_palette(image, PALETTE, strength=0.5)
+    assert not np.array_equal(full, none), "strength had no effect"
+    assert half.shape == image.shape and half.dtype == np.uint8
+
+
+def test_an_alpha_mask_measures_the_subject_not_the_backdrop():
+    """The range is taken from opaque pixels, so a backdrop cannot widen it."""
+    image = _image(32)
+    image[:8, :] = 255
+    alpha = np.full(image.shape[:2], 255, np.uint8)
+    alpha[:8, :] = 0
+    masked = fit_to_palette(image, PALETTE, alpha=alpha)
+    whole = fit_to_palette(image, PALETTE, alpha=None)
+    assert not np.array_equal(masked, whole), "the mask was ignored"
+
+
+def test_an_empty_palette_returns_the_image_untouched():
+    image = _image(16)
+    assert fit_to_palette(image, []) is image
+
+
+def test_a_flat_image_falls_back_to_plain_snapping():
+    """A span of nothing cannot be stretched onto anything."""
+    from pipeline.definitive.pixelize import apply_fixed_palette
+
+    flat = np.full((16, 16, 3), 120, np.uint8)
+    assert np.array_equal(fit_to_palette(flat, PALETTE),
+                          apply_fixed_palette(flat, PALETTE))
+
+
+def test_a_fully_transparent_mask_still_produces_a_picture():
+    image = _image(16)
+    out = fit_to_palette(image, PALETTE, alpha=np.zeros((16, 16), np.uint8))
+    assert out.shape == image.shape and out.dtype == np.uint8
+
+
+def test_the_result_is_always_drawn_from_the_palette():
+    out = fit_to_palette(_image(40), PALETTE)
+    used = {tuple(int(v) for v in c) for c in np.unique(out.reshape(-1, 3), axis=0)}
+    assert used <= set(PALETTE), f"{used - set(PALETTE)} is not in the palette"
+
+
+@pytest.mark.parametrize("edge", (16, 33, 64))
+def test_shape_and_dtype_survive_every_size(edge):
+    out = fit_to_palette(_image(edge), PALETTE)
+    assert out.shape == (edge, edge, 3)
+    assert out.dtype == np.uint8
