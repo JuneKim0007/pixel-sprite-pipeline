@@ -86,3 +86,25 @@ def test_a_factor_larger_than_the_image_is_refused_by_name():
 def test_the_answer_does_not_drift_between_calls():
     image = _cases()["noise_rgba"]
     assert find_phase(image, 8) == find_phase(image, 8)
+
+
+def test_the_search_no_longer_costs_the_factor_squared():
+    """What the integral images bought. Scanning every candidate made factor 16
+    sixteen times the work of factor 4; four lookups per block makes it about
+    the same work, because both are one pass over the image."""
+    import time
+
+    rng = np.random.default_rng(0)
+    image = rng.integers(0, 255, (256, 256, 4)).astype(np.uint8)
+
+    def best_of(factor, rounds=3):
+        def once():
+            start = time.perf_counter()
+            find_phase(image, factor)
+            return time.perf_counter() - start
+        return min(once() for _ in range(rounds))
+
+    small, large = best_of(4), best_of(16)
+    assert large < small * 4, (
+        f"factor 16 took {large / small:.1f}x factor 4; the search is scaling "
+        f"with the candidate count again")
