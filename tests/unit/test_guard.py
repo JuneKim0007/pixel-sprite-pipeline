@@ -178,3 +178,21 @@ def test_adopt_reads_the_pidfiles_ctl_sh_writes(tmp_path, monkeypatch):
 
     assert adopted == [f"comfy:{os.getpid()}"]
     assert guard_mod.GUARD.watched[os.getpid()].expected_large is True
+
+
+def test_a_failed_reading_does_not_disarm_the_guard(monkeypatch, victim):
+    """`ps` failing means no information, not that every process exited.
+
+    Spawning `ps` is what fails first under the memory pressure this guard
+    exists to survive, so a failed reading that forgot every watched process
+    would disarm the guard at exactly the moment it is needed.
+    """
+    guard = Guard()
+    guard.watch(victim.pid, "victim")
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("nope")))
+
+    guard.check()
+
+    assert victim.pid in guard.watched, "one failed ps call disarmed the guard"
+    assert guard.kills == []

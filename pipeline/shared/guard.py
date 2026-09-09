@@ -64,8 +64,13 @@ class Guard:
             return PRESSURE_NORMAL
 
     @staticmethod
-    def rss(pids: list[int]) -> dict[int, int]:
-        """Resident bytes per pid, in one call rather than one call each."""
+    def rss(pids: list[int]) -> dict[int, int] | None:
+        """Resident bytes per pid, in one call rather than one call each.
+
+        None means the question could not be asked; an empty dict means it was
+        asked and every process is gone. A caller that treats those alike
+        forgets every watched process the first time `ps` fails to spawn.
+        """
         if not pids:
             return {}
         try:
@@ -73,7 +78,7 @@ class Guard:
                 ["ps", "-o", "pid=,rss=", "-p", ",".join(str(p) for p in pids)],
                 capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.SubprocessError):
-            return {}
+            return None
         found: dict[int, int] = {}
         for line in out.stdout.splitlines():
             parts = line.split()
@@ -110,11 +115,19 @@ class Guard:
             targets = list(self.watched.values())
         alive = {t.pid: t for t in targets}
         usage = self.rss(list(alive))
+        ceiling = limits.get("rss_bytes")
+
+        if usage is None:
+            log.warning("guard: could not read memory for %d watched process"
+                        "(es); keeping all of them and deciding nothing",
+                        len(alive))
+            return {"pressure": PRESSURE_NORMAL, "readable": False,
+                    "critical_streak": self.critical_streak,
+                    "watched": {t.name: -1 for t in targets},
+                    "ceiling": ceiling}
 
         for pid in set(alive) - set(usage):
             self.forget(pid)
-
-        ceiling = limits.get("rss_bytes")
         level = self.pressure()
         self.critical_streak = (self.critical_streak + 1
                                 if level >= PRESSURE_CRITICAL else 0)
