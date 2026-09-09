@@ -782,6 +782,177 @@ await atest('clicking a joint row aims at it without placing anything', async ()
   assert.equal(root.querySelectorAll('.jointrow.placed').length, 0);
 });
 
+console.log('\ndialogs');
+/* Characterisation: what these four render, what they resolve, and what they
+ * call. Written before the modal scaffolding was extracted, so the extraction
+ * has something to be measured against. */
+const dlgApi = (await import(join(JS, 'api.js'))).api;
+const dlg = await import(join(JS, 'ui/dialog.js'));
+const chrome = await import(join(JS, 'store.js'));
+
+const shed = () => document.querySelectorAll('.modal').forEach((m) => m.remove());
+const openModal = () => document.querySelector('.modal');
+const buttons = (m) => m.querySelectorAll('button').map((b) => b.textContent);
+
+await atest('browseDialog names its purpose and resolves the folder', async () => {
+  shed();
+  let asked = null;
+  dlgApi.browse = async (path, images) => {
+    asked = { path, images };
+    return { dir: '/root/here', parent: '/root', entries: [] };
+  };
+  const done = dlg.browseDialog('/root/here', false);
+  await new Promise((r) => setTimeout(r, 0));
+
+  const m = openModal();
+  assert.ok(m, 'no modal was opened');
+  assert.equal(m.querySelector('h2').textContent, 'Select a folder');
+  assert.deepEqual(buttons(m).slice(-2), ['Cancel', 'Use folder']);
+  assert.deepEqual(asked, { path: '/root/here', images: false });
+
+  m.querySelectorAll('button').find((b) => b.textContent === 'Use folder').onclick();
+  assert.equal(await done, '/root/here');
+  assert.equal(openModal(), null, 'the modal outlived its answer');
+});
+
+await atest('browseDialog in image mode resolves a list', async () => {
+  shed();
+  dlgApi.browse = async () => ({ dir: '/d', parent: '', entries: [] });
+  const done = dlg.browseDialog('/d', true);
+  await new Promise((r) => setTimeout(r, 0));
+  const m = openModal();
+  assert.equal(m.querySelector('h2').textContent, 'Select images');
+  assert.deepEqual(buttons(m).slice(-2), ['Cancel', 'Select']);
+  m.querySelectorAll('button').find((b) => b.textContent === 'Select').onclick();
+  assert.deepEqual(await done, []);
+});
+
+await atest('cancel and the backdrop both resolve null', async () => {
+  shed();
+  dlgApi.browse = async () => ({ dir: '/d', parent: '', entries: [] });
+  const byCancel = dlg.browseDialog('/d', false);
+  await new Promise((r) => setTimeout(r, 0));
+  let m = openModal();
+  m.querySelectorAll('button').find((b) => b.textContent === 'Cancel').onclick();
+  assert.equal(await byCancel, null);
+
+  const byBackdrop = dlg.browseDialog('/d', false);
+  await new Promise((r) => setTimeout(r, 0));
+  m = openModal();
+  m.onclick({ target: m });
+  assert.equal(await byBackdrop, null);
+  assert.equal(openModal(), null);
+});
+
+await atest('confirmDialog reports the answer and the remember box', async () => {
+  shed();
+  const done = chrome.confirmDialog({ title: 'Gate', body: 'b', rememberKey: 'k' });
+  const m = openModal();
+  assert.equal(m.querySelector('h2').textContent, 'Gate');
+  m.querySelector('.chk input').checked = true;
+  m.querySelectorAll('button').find((b) => b.textContent === 'Continue').onclick();
+  assert.deepEqual(await done, { ok: true, remember: true });
+});
+
+await atest('newPipelineDialog offers Blank plus every sibling', async () => {
+  shed();
+  railState.configs = [
+    { name: 'knight_attack', module: 'animation', error: '' },
+    { name: 'archer', module: 'character_sheet', error: '' },
+  ];
+  railState.schema = {
+    stages: [{ name: 'pose', needs: [], gives: ['skeletons'] },
+             { name: 'export', needs: ['skeletons'], gives: ['sheet'] }],
+    resources: [], modules: { animation: { label: 'Animation' } },
+  };
+  const done = rail.newPipelineDialog('animation', { label: 'Animation' });
+  const m = openModal();
+  const options = m.querySelector('select').children.map((o) => o.textContent);
+  assert.equal(options.length, 2, options);
+  assert.ok(options[0].startsWith('Blank'), options[0]);
+  assert.ok(options[1].includes('knight_attack'), options[1]);
+
+  m.querySelectorAll('button').find((b) => b.textContent === 'Cancel').onclick();
+  assert.equal(await done, null);
+});
+
+await atest('newPipelineDialog refuses a name that is taken or malformed', async () => {
+  shed();
+  const done = rail.newPipelineDialog('animation', { label: 'Animation' });
+  const m = openModal();
+  const name = m.querySelector('input[type=text]');
+  const create = m.querySelectorAll('button').find((b) => b.textContent === 'Create');
+  const why = () => m.querySelectorAll('.help')[0].textContent;
+
+  assert.ok(create.disabled, 'an empty name was accepted');
+  name.value = 'knight_attack';
+  name._listeners.input.forEach((f) => f());
+  assert.ok(why().includes('already exists'), why());
+  assert.ok(create.disabled);
+
+  name.value = 'has spaces';
+  name._listeners.input.forEach((f) => f());
+  assert.ok(why().includes('Letters'), why());
+
+  name.value = 'fresh_one';
+  name._listeners.input.forEach((f) => f());
+  assert.equal(why(), '');
+  assert.ok(!create.disabled, 'a valid name stayed refused');
+
+  m.querySelectorAll('button').find((b) => b.textContent === 'Cancel').onclick();
+  await done;
+});
+
+await atest('newTypeDialog saves the type it was filled in with', async () => {
+  shed();
+  railState.schema = {
+    stages: [{ name: 'pose', needs: [], gives: ['skeletons'] },
+             { name: 'export', needs: ['skeletons'], gives: ['sheet'] }],
+    resources: [],
+    modules: { animation: { key: 'animation', label: 'Animation' } },
+  };
+  let sent = null;
+  dlgApi.saveModule = async (key, body) => { sent = { key, body }; return { saved: key }; };
+
+  const done = rail.newTypeDialog();
+  const m = openModal();
+  const [key, label, detail] = m.querySelectorAll('input[type=text]');
+  const blurb = m.querySelector('textarea');
+  for (const [node, value] of [[key, 'portrait'], [label, 'Portraits'], [detail, 'faces']]) {
+    node.value = value;
+    node._listeners.input.forEach((f) => f());
+  }
+  blurb.value = 'A head, several ways.';
+  blurb._listeners.input.forEach((f) => f());
+
+  const create = m.querySelectorAll('button').find((b) => b.textContent === 'Create type');
+  assert.ok(!create.disabled, 'a complete form stayed refused');
+  await create.onclick();
+
+  assert.equal(await done, 'portrait');
+  assert.equal(sent.key, 'portrait');
+  assert.equal(sent.body.label, 'Portraits');
+  assert.deepEqual(sent.body.stages, ['pose', 'export']);
+});
+
+await atest('newTypeDialog warns about a stage nobody registers', async () => {
+  shed();
+  const done = rail.newTypeDialog();
+  const m = openModal();
+  const [key] = m.querySelectorAll('input[type=text]');
+  key.value = 'weather';
+  key._listeners.input.forEach((f) => f());
+  const extra = m.querySelectorAll('input[type=text]')[3];
+  extra.value = 'cloud_field';
+  extra._listeners.input.forEach((f) => f());
+
+  const said = m.querySelectorAll('.help').map((n) => n.textContent).join(' ');
+  assert.ok(said.includes('cloud_field'), said.slice(0, 200));
+  m.querySelectorAll('button').find((b) => b.textContent === 'Cancel').onclick();
+  await done;
+  shed();
+});
+
 console.log('\nchrome');
 /* toast is the one function every other failure path reports through, so a
  * throw inside it hides the message it was called to show. */
@@ -793,9 +964,10 @@ test('toast renders the message it was given', () => {
   assert.equal(host.children.at(-1).textContent, 'Started 20260908_215455_char_3');
 });
 test('a second toast reuses the one host', () => {
+  const before = document.querySelector('#toasts').children.length;
   store.toast('again');
   assert.equal(document.querySelectorAll('#toasts').length, 1);
-  assert.equal(document.querySelector('#toasts').children.length, 2);
+  assert.equal(document.querySelector('#toasts').children.length, before + 1);
 });
 test('toast never throws, whatever it is handed', () => {
   store.toast(undefined);

@@ -43,6 +43,10 @@ class Node {
     this._text = '';
     this._listeners = {};
     this.classList = new ClassList(this);
+    // A real form control reads back '' before anything is typed. Leaving it
+    // undefined makes `input.value.trim()` throw in a test and work in a
+    // browser, which is the wrong way round for a shim to be wrong.
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(this.tagName)) this.value = '';
   }
 
   append(...kids) {
@@ -108,7 +112,14 @@ class Node {
 
   /* One compound selector: '.class', 'tag', '#id', 'tag.class'. */
   _matchesOne(sel) {
-    for (const part of sel.trim().split(/(?=[.#])/)) {
+    let rest = sel.trim();
+    for (const m of rest.matchAll(/\[([\w-]+)=([^\]]+)\]/g)) {
+      const want = m[2].replace(/^["']|["']$/g, '');
+      const got = m[1] in this ? this[m[1]] : this.attributes[m[1]];
+      if (String(got) !== want) return false;
+    }
+    rest = rest.replace(/\[[^\]]*\]/g, '');
+    for (const part of rest.split(/(?=[.#])/)) {
       if (part.startsWith('.')) { if (!this.classList.contains(part.slice(1))) return false; }
       else if (part.startsWith('#')) { if (this.id !== part.slice(1)) return false; }
       else if (part && this.tagName !== part.toUpperCase()) return false;
