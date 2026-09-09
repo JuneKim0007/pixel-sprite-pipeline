@@ -212,3 +212,26 @@ def test_both_stages_read_a_blank_style_the_same_way(comfy_fake, stage_ctx, fram
 
     assert (vocabulary.DEFAULT_STYLE in canonical_prompt) is \
            (vocabulary.DEFAULT_STYLE in comfy_fake.prompt())
+
+
+def test_the_clip_vision_weight_is_the_configured_one(comfy_fake, frames_ctx):
+    """`models.clip_vision` had no way to reach the graph.
+
+    apply_ipadapter built CLIPVisionLoader from DEFAULT_GLOBAL directly while
+    taking `ipadapter` as a parameter, so the setting was declared, documented
+    and ignored — and a form field for it would have changed nothing.
+    """
+    get("frames")().run(
+        frames_ctx(1, models={"clip_vision": "my-clip.safetensors"}), {})
+    loaded = [i["clip_name"] for i in comfy_fake.inputs_of("CLIPVisionLoader")]
+    assert loaded, "no CLIPVisionLoader in the graph"
+    assert set(loaded) == {"my-clip.safetensors"}, loaded
+
+
+def test_an_unset_weight_still_falls_back_to_the_default(comfy_fake, frames_ctx):
+    get("frames")().run(
+        frames_ctx(1, models={"ipadapter": "my-ip.safetensors"}), {})
+    clip = [i["clip_name"] for i in comfy_fake.inputs_of("CLIPVisionLoader")]
+    ip = [i["ipadapter_file"] for i in comfy_fake.inputs_of("IPAdapterModelLoader")]
+    assert set(clip) == {"CLIP-ViT-H-14.safetensors"}, clip
+    assert set(ip) == {"my-ip.safetensors"}, ip

@@ -61,7 +61,7 @@ class _AnchorGraph:
             weight=float(opt(self.from_ref, "weight", chosen.base_weight)),
             weight_type=opt(self.from_ref, "weight_type", "linear"),
             start_at=0.0, end_at=1.0,
-            ipadapter=self.ctx.settings("models.ipadapter"),
+            models=self.ctx.settings("models"),
         )
 
     def _with_style(self, g, model):
@@ -71,7 +71,7 @@ class _AnchorGraph:
                 weight=refs_mod.style_weight([exemplar], self.cfg.get("style_weight")),
                 weight_type="style transfer",
                 start_at=0.0, end_at=0.8,
-                ipadapter=self.ctx.settings("models.ipadapter"),
+                models=self.ctx.settings("models"),
             )
         return model
 

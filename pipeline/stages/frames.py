@@ -181,7 +181,7 @@ class FramesStage(Stage):
                     weight=a_weight,
                     weight_type=ip["anchor_weight_type"],
                     start_at=0.0, end_at=float(ip["anchor_end_at"]),
-                    ipadapter=models.get("ipadapter"),
+                    models=models,
                 )
 
             ref = comfy.load_image(g, client.upload_image(chosen.path))
@@ -191,7 +191,7 @@ class FramesStage(Stage):
                 weight_type=ip["weight_type"],
                 start_at=ip["start_at"],
                 end_at=ip["end_at"],
-                ipadapter=models.get("ipadapter"),
+                models=models,
             )
 
             for exemplar in style_refs:
@@ -201,7 +201,7 @@ class FramesStage(Stage):
                     weight=refs_mod.style_weight([exemplar], cfg.get("style_weight")),
                     weight_type="style transfer",
                     start_at=0.0, end_at=0.8,
-                    ipadapter=models.get("ipadapter"),
+                    models=models,
                 )
 
             channel = opt(cn, "union_type", None) or rig.skeleton_control

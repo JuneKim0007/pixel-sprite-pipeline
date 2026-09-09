@@ -118,13 +118,13 @@ in `views/run/run.js`.
 **What actually has none.** `ui.suppress_overwrite_confirm` (declared, and read
 by nothing), `models.lcm_lora`, and `models.clip_vision`.
 
-**And one of those a `ConfigField` would not fix.** `generation/comfy.py:242`
-builds `CLIPVisionLoader` from `DEFAULT_GLOBAL["models"]["clip_vision"]`
-directly, not from the run's `models` block — unlike the `ipadapter` beside it,
-which `apply_ipadapter` takes as a parameter. So setting `models.clip_vision` in
-`_global.yaml` is ignored today, and adding a form field for it would offer a
-control that changes nothing. The fix is a parameter, matching `ipadapter`;
-the graph is byte-compared in tests, so the default keeps those green.
+**`models.clip_vision` was unreachable, and now is not.** Fixed 2026-09-09.
+`apply_ipadapter` built `CLIPVisionLoader` from `DEFAULT_GLOBAL` directly while
+taking `ipadapter` as a parameter, so the setting was declared, documented and
+ignored — a form field for it would have changed nothing. It now takes the
+whole `models` block and resolves both weights through `model_name`, which is
+what `base_graph` beside it already did. Setting it in `_global.yaml` reaches
+the graph; it still has no `ConfigField`, which is the product decision below.
 
 **Why the rest are not done.** Inventing controls for them is a product
 decision, not a cleanup.

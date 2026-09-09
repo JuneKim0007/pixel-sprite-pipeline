@@ -235,11 +235,13 @@ def base_graph(
 def apply_ipadapter(
     g: Graph, model: Link, reference_image: Link, *, weight: float,
     weight_type: str, start_at: float, end_at: float,
-    ipadapter: str | None = None,
+    models: dict | None = None,
 ) -> Link:
+    models = models or {}
     ip_model = g.add("IPAdapterModelLoader",
-                     ipadapter_file=ipadapter or DEFAULT_GLOBAL["models"]["ipadapter"])
-    clip_vision = g.add("CLIPVisionLoader", clip_name=DEFAULT_GLOBAL["models"]["clip_vision"])
+                     ipadapter_file=model_name(models, "ipadapter"))
+    clip_vision = g.add("CLIPVisionLoader",
+                        clip_name=model_name(models, "clip_vision"))
     node = g.add(
         "IPAdapterAdvanced",
         model=model,
