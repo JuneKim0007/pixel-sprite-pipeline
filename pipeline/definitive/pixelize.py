@@ -28,13 +28,31 @@ def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
     return cropped.reshape(bh, factor, bw, factor, c).swapaxes(1, 2)
 
 
-def _integral(x: np.ndarray) -> np.ndarray:
+def _running_totals(x: np.ndarray, into: np.ndarray) -> np.ndarray:
     """Running totals with a zero row and column, so any rectangle is four
-    lookups instead of a pass over its pixels."""
-    out = np.zeros((x.shape[0] + 1, x.shape[1] + 1, x.shape[2]), dtype=np.int64)
-    np.cumsum(np.cumsum(x, axis=0, dtype=np.int64), axis=1, dtype=np.int64,
-              out=out[1:, 1:])
-    return out
+    lookups instead of a pass over its pixels.
+
+    Written through the destination rather than into a fresh array: cumsum over
+    a whole image is the size of the table itself, and holding one while
+    building the other doubled the peak for no reason.
+    """
+    into[1:, 1:] = x
+    np.cumsum(into[1:, 1:], axis=0, out=into[1:, 1:])
+    np.cumsum(into[1:, 1:], axis=1, out=into[1:, 1:])
+    return into
+
+
+def _phases(height: int, width: int, factor: int):
+    """Every origin worth trying, and how many whole blocks it leaves."""
+    for oy in range(factor):
+        rows = (height - oy) // factor
+        if rows < 1:
+            continue
+        for ox in range(factor):
+            columns = (width - ox) // factor
+            if columns < 1:
+                continue
+            yield oy, ox, rows, columns
 
 
 def _rects(table: np.ndarray, top: np.ndarray, bottom: np.ndarray,
@@ -50,41 +68,41 @@ def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
     Scanning each candidate cost a pass over the whole image, so the search was
     the image times the factor squared - 730 ms at factor 16 on a 384 px
     preview. The sum of within-block variances is
-    `total(x**2)/f**2 - sum(blockSum**2)/f**4`, and both terms come from two
-    integral images, so a candidate costs one lookup per block instead of a
-    pass. Measured 23 ms for the same case, and the same phase on 105 of 105
-    image-and-factor pairs.
+    `total(x**2)/f**2 - sum(blockSum**2)/f**4`, and both terms are rectangle
+    sums, so a candidate costs one lookup per block instead of a pass.
+
+    The two terms are taken in turn over one table rather than together over
+    two. The squared term needs a single rectangle per candidate, so those are
+    read first and kept as a handful of numbers; the table is then rebuilt for
+    the block sums. One table alive instead of two, which is the difference
+    between ten times the image and forty.
 
     The sums are integers and stay exact, where the scan accumulated in
     float32; the arrangement is what changes, not the answer.
     """
     _blocks(arr, factor, 0, 0)      # the size refusal, on the same terms as before
-    values = arr.astype(np.int64)
-    totals, squares = _integral(values), _integral(values * values)
-    height, width = arr.shape[:2]
+    height, width, channels = arr.shape
+    table = np.zeros((height + 1, width + 1, channels), dtype=np.int64)
 
+    _running_totals(np.multiply(arr, arr, dtype=np.uint16), table)
+    spread = {}
+    for oy, ox, rows, columns in _phases(height, width, factor):
+        bottom, right = oy + rows * factor, ox + columns * factor
+        spread[(oy, ox)] = (table[bottom, right] - table[oy, right]
+                            - table[bottom, ox] + table[oy, ox]).astype(np.float64)
+
+    table[:] = 0
+    _running_totals(arr, table)
     best, best_cost = (0, 0), float("inf")
-    for oy in range(factor):
-        rows = (height - oy) // factor
-        if rows < 1:
-            continue
+    for oy, ox, rows, columns in _phases(height, width, factor):
         top = oy + factor * np.arange(rows)
-        bottom = top + factor
-        for ox in range(factor):
-            columns = (width - ox) // factor
-            if columns < 1:
-                continue
-            left = ox + factor * np.arange(columns)
-            right = left + factor
-            block = _rects(totals, top, bottom, left, right).astype(np.float64)
-            spread = (squares[oy + rows * factor, ox + columns * factor]
-                      - squares[oy, ox + columns * factor]
-                      - squares[oy + rows * factor, ox]
-                      + squares[oy, ox])
-            cost = float((spread / factor ** 2
-                          - (block * block).sum(axis=(0, 1)) / factor ** 4).sum())
-            if cost < best_cost:
-                best, best_cost = (ox, oy), cost
+        left = ox + factor * np.arange(columns)
+        block = _rects(table, top, top + factor,
+                       left, left + factor).astype(np.float64)
+        cost = float((spread[(oy, ox)] / factor ** 2
+                      - (block * block).sum(axis=(0, 1)) / factor ** 4).sum())
+        if cost < best_cost:
+            best, best_cost = (ox, oy), cost
     return best
 
 
