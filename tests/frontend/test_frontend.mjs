@@ -695,6 +695,93 @@ test('an unavailable cell cannot be clicked, and New type always can', () => {
   assert.ok(add && !add.disabled, 'no way to define a type');
 });
 
+console.log('\nannotator');
+const annotMod = await import(join(JS, 'views/run/annotate.js'));
+const apiMod = await import(join(JS, 'api.js'));
+
+const RIG = {
+  name: 'humanoid', label: 'Humanoid', root: 'neck',
+  joints: ['neck', 'nose', 'l_shoulder', 'r_shoulder'],
+  tree: {}, limbs: [], bones: [['neck', 'nose', 1]], neutral: {},
+  face_joints: ['nose'], colors: [[120, 140, 255]],
+  pose: { neck: [0, 0, 0.22], nose: [0, 0.03, 0.14],
+          l_shoulder: [0.055, 0, 0.24], r_shoulder: [-0.055, 0, 0.24] },
+};
+
+async function mountAnnotator(existing = { exists: false, points: {} }) {
+  apiMod.api.rigPose = async () => structuredClone(RIG);
+  apiMod.api.annotation = async () => structuredClone(existing);
+  apiMod.api.fileUrl = () => 'ref.png';
+  const root = annotMod.annotator({ imagePath: 'ref.png', rigName: 'humanoid' });
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  return root;
+}
+
+const press = (canvas, x, y) =>
+  canvas.onpointerdown({ clientX: x, clientY: y, pointerId: 1 });
+
+await atest('every joint is listed, not only the placed ones', async () => {
+  const root = await mountAnnotator();
+  const rows = root.querySelectorAll('.jointrow');
+  assert.equal(rows.length, RIG.joints.length, 'unplaced joints are unreachable');
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 0);
+});
+
+await atest('removing a point aims at it, so a click puts it back', async () => {
+  // The bug: delete changed `points` and left `next` wherever advance() had
+  // moved on to, so the following click landed on an unrelated joint.
+  const root = await mountAnnotator();
+  const canvas = root.querySelector('.annotcanvas');
+
+  press(canvas, 100, 100);            // places the first joint in PRIORITY order
+  let placed = root.querySelectorAll('.jointrow.placed');
+  assert.equal(placed.length, 1, 'nothing was placed');
+  const first = placed[0].querySelector('.jointname').textContent;
+
+  press(canvas, 300, 200);            // places the second
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 2);
+
+  const row = root.querySelectorAll('.jointrow')
+    .find((r) => r.querySelector('.jointname').textContent === first);
+  row.querySelector('.x').onclick({ stopPropagation() {} });
+
+  const aimed = root.querySelector('.jointrow.aimed .jointname').textContent;
+  assert.equal(aimed, first, `after removing ${first} the aim moved to ${aimed}`);
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 1);
+
+  press(canvas, 120, 120);            // the click that puts it back
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 2,
+               'the removed joint was not restorable by clicking');
+});
+
+await atest('a dot already on the canvas can be grabbed and moved', async () => {
+  const root = await mountAnnotator({
+    exists: true, points: { neck: [0.5, 0.5] }, placed: 1,
+  });
+  const canvas = root.querySelector('.annotcanvas');
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 1);
+
+  // 640x640 canvas, no image loaded, so image space spans the whole canvas.
+  press(canvas, 320, 320);                                   // grab neck
+  assert.equal(root.querySelector('.jointrow.aimed .jointname').textContent, 'neck');
+  canvas.onpointermove({ clientX: 160, clientY: 96, pointerId: 1 });
+  canvas.onpointerup({ pointerId: 1 });
+
+  // Still one joint: a drag moves a dot, it does not create another.
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 1);
+});
+
+await atest('clicking a joint row aims at it without placing anything', async () => {
+  const root = await mountAnnotator();
+  const rows = root.querySelectorAll('.jointrow');
+  const last = rows[rows.length - 1];
+  last.onclick();
+  assert.equal(root.querySelector('.jointrow.aimed .jointname').textContent,
+               last.querySelector('.jointname').textContent);
+  assert.equal(root.querySelectorAll('.jointrow.placed').length, 0);
+});
+
 console.log('\nchrome');
 /* toast is the one function every other failure path reports through, so a
  * throw inside it hides the message it was called to show. */

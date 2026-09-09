@@ -7,13 +7,19 @@
  * and with no bone-length rules, because foreshortening genuinely shortens a
  * limb on screen.
  *
- * Click-to-place rather than drag-to-correct: a seated, cropped reference has
- * nothing in common with a standing skeleton, so starting from one and
- * dragging every joint into place is slower than placing the five that matter.
+ * Click-to-place, AND drag-to-correct. This used to argue for the first alone,
+ * on the grounds that dragging a standing skeleton onto a seated figure is
+ * slower than placing the five joints that matter. Half of that still holds and
+ * the sparse path is untouched — but Auto-fit already seeds all eighteen from
+ * the image, and without dragging there was no way to nudge one of them. So a
+ * dot is grabbable wherever it came from, and the joint list addresses every
+ * joint rather than only the placed ones: removing a point used to leave the
+ * click target pointing somewhere else with nothing on screen saying so.
  */
 
 import { api } from '../../api.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
+import { projectPoint } from '../../features/pose.js';
 import { el } from '../../core/dom.js';
 import { toast } from '../../store.js';
 
@@ -42,6 +48,8 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
   let next = null;
   let dirty = false;
   let showGuide = true;
+  let drag = null;      // the joint under the pointer while the button is down
+  let hover = null;     // the joint the pointer is over, named on the canvas
 
   const jointSel = el('select', { className: 'select' });
   const placedList = el('div', { className: 'placedlist' });
@@ -94,13 +102,27 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
     for (const [joint, p] of Object.entries(points)) {
       const [x, y] = at(p);
-      ctx.fillStyle = joint === next ? '#fff' : '#7c8cff';
+      const lit = joint === drag || joint === hover;
+      ctx.fillStyle = joint === next ? '#fff' : lit ? '#b9c4ff' : '#7c8cff';
       ctx.beginPath();
-      ctx.arc(x, y, DOT, 0, Math.PI * 2);
+      ctx.arc(x, y, lit ? DOT + 2 : DOT, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,.65)';
       ctx.lineWidth = 2;
       ctx.stroke();
+    }
+
+    // A dot with no name is what made this editor unreadable: eighteen
+    // identical circles, and no way to tell which one you were about to move.
+    const named = drag || hover;
+    if (named && points[named]) {
+      const [x, y] = at(points[named]);
+      ctx.font = '600 13px ui-monospace, monospace';
+      const w = ctx.measureText(named).width + 12;
+      ctx.fillStyle = 'rgba(12,14,20,.88)';
+      ctx.fillRect(x + 12, y - 24, w, 20);
+      ctx.fillStyle = '#e8ecff';
+      ctx.fillText(named, x + 18, y - 10);
     }
 
     counter.textContent = rigDef
@@ -110,20 +132,64 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
   /* --------------------------------------------------------- interaction */
 
-  canvas.onclick = (e) => {
-    if (!next) return;
+  /** Where a pointer event lands, in image space. Null outside the picture. */
+  function pointerAt(e) {
     const r = canvas.getBoundingClientRect();
     const box = fit();
     const x = ((e.clientX - r.left) * (canvas.width / r.width) - box.x) / box.w;
     const y = ((e.clientY - r.top) * (canvas.height / r.height) - box.y) / box.h;
-    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    return x < 0 || x > 1 || y < 0 || y > 1 ? null : [x, y];
+  }
 
-    points[next] = [Number(x.toFixed(4)), Number(y.toFixed(4))];
+  const GRAB = 0.035;   // image-space radius, so the target scales with the image
+
+  function nearest(pos) {
+    let best = null, bestD = GRAB;
+    for (const [joint, q] of Object.entries(points)) {
+      const d = Math.hypot(q[0] - pos[0], q[1] - pos[1]);
+      if (d < bestD) { bestD = d; best = joint; }
+    }
+    return best;
+  }
+
+  const mark = (joint, pos) => {
+    points[joint] = [Number(pos[0].toFixed(4)), Number(pos[1].toFixed(4))];
     dirty = true;
     saveBtn.disabled = false;
+  };
+
+  canvas.onpointerdown = (e) => {
+    const pos = pointerAt(e);
+    if (!pos) return;
+    const under = nearest(pos);
+    if (under) {
+      // Grabbing an existing dot, wherever it came from - a click you placed,
+      // an Auto-fit proposal, or a seeded T-pose.
+      drag = under;
+      next = under;
+      jointSel.value = under;
+      canvas.setPointerCapture?.(e.pointerId);
+      render();
+      return;
+    }
+    if (!next) return;
+    mark(next, pos);
     advance();
     render();
   };
+
+  canvas.onpointermove = (e) => {
+    const pos = pointerAt(e);
+    if (drag && pos) { mark(drag, pos); render(); return; }
+    const over = pos ? nearest(pos) : null;
+    if (over !== hover) { hover = over; draw(); }
+    canvas.style.cursor = over ? 'grab' : (next ? 'crosshair' : 'default');
+  };
+
+  const release = () => { if (drag) { drag = null; render(); } };
+  canvas.onpointerup = release;
+  canvas.onpointercancel = release;
+  canvas.onpointerleave = () => { hover = null; release(); draw(); };
 
   /** Step to the next unplaced joint, so a run of clicks needs no menu trips. */
   function advance() {
@@ -135,23 +201,47 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     jointSel.value = next || '';
   }
 
+  /** Aim the next click at one joint, whether or not it is already placed. */
+  function target(joint) {
+    next = joint;
+    jointSel.value = joint;
+    render();
+  }
+
+  /* Every joint, not only the placed ones.
+   *
+   * The list used to hold a chip per placed joint, so an unplaced joint was
+   * reachable only through the dropdown. Removing a point then left `next`
+   * pointing at whatever advance() had moved on to, and nothing on screen said
+   * which joint the next click would land on. Listing all of them makes the
+   * target visible and every joint one click away, so a removal is undone by
+   * clicking again rather than by hunting through a menu. */
   function render() {
     placedList.replaceChildren();
-    for (const joint of Object.keys(points)) {
-      const chip = el('span', { className: 'placedchip' },
-        joint,
-        el('button', { className: 'x', textContent: '✕', title: 'Remove' }));
-      chip.querySelector('button').onclick = () => {
-        delete points[joint];
-        dirty = true;
-        saveBtn.disabled = false;
-        render();
-      };
-      placedList.append(chip);
-    }
-    if (!Object.keys(points).length) {
-      placedList.append(el('span', { className: 'mini',
-        textContent: 'Nothing placed yet. Five or six landmarks is usually plenty.' }));
+    for (const joint of orderJoints(rigDef?.joints || [])) {
+      const placed = !!points[joint];
+      const row = el('div', {
+        className: `jointrow ${placed ? 'placed' : ''} ${joint === next ? 'aimed' : ''}`,
+      },
+        el('span', { className: 'dotmark' }),
+        el('span', { className: 'jointname', textContent: joint }));
+      row.onclick = () => target(joint);
+
+      if (placed) {
+        const drop = el('button', { className: 'x', textContent: '✕',
+                                    title: `Remove ${joint} and aim here` });
+        drop.onclick = (e) => {
+          e.stopPropagation();
+          delete points[joint];
+          dirty = true;
+          saveBtn.disabled = false;
+          // Aim at what was just removed. Without this the next click landed on
+          // an unrelated joint, which is what made a deletion feel permanent.
+          target(joint);
+        };
+        row.append(drop);
+      }
+      placedList.append(row);
     }
     draw();
   }
@@ -250,6 +340,27 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     auto.textContent = 'Auto-fit';
   };
 
+  /* Dots to drag, for when there is nothing to aim at yet.
+   *
+   * The rig already carries a neutral pose in body space and `projectPoint`
+   * already flattens it, so this is two things that exist rather than a new
+   * layout. Front-on, because a reference sheet usually is; anything else is a
+   * drag away, which is the point. */
+  const tpose = el('button', { className: 'btn ghost', textContent: 'T-pose',
+                               title: 'Place every joint in a neutral pose to drag from' });
+  tpose.onclick = () => {
+    if (!rigDef?.pose) { toast('this rig carries no neutral pose', 'warn'); return; }
+    for (const [joint, p3] of Object.entries(rigDef.pose)) {
+      if (points[joint]) continue;          // never overwrite your own work
+      const [x, y] = projectPoint(p3, 0);
+      points[joint] = [Number(x.toFixed(4)), Number(y.toFixed(4))];
+    }
+    dirty = true;
+    saveBtn.disabled = false;
+    toast('Neutral pose placed — drag each joint onto the figure');
+    render();
+  };
+
   const clear = el('button', { className: 'btn ghost', textContent: 'Clear' });
   clear.onclick = () => {
     points = {};
@@ -265,15 +376,16 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       el('span', { className: 'mini', textContent: 'Place' }), jointSel,
       counter,
       guideToggle,
-      el('span', { className: 'sep' }), auto, clear, saveBtn),
+      el('span', { className: 'sep' }), auto, tpose, clear, saveBtn),
     el('p', { className: 'help', textContent:
-      'Click where each part is in this image. Skip anything cropped or hidden — '
-      + 'absent is a real answer, and a partial skeleton tells the model what is '
-      + 'known while leaving the rest to it.' }),
+      'Click where each part is in this image, or drag a dot that is already '
+      + 'there. Skip anything cropped or hidden — absent is a real answer, and a '
+      + 'partial skeleton tells the model what is known while leaving the rest '
+      + 'to it.' }),
     el('div', { className: 'annotmain' },
       canvas,
       el('div', { className: 'annotside' },
-        el('h3', { textContent: 'Placed' }), placedList,
+        el('h3', { textContent: 'Joints' }), placedList,
         el('h3', { textContent: 'What this implies' }), derived,
         el('h3', { textContent: 'Head construction' }), legend)));
 

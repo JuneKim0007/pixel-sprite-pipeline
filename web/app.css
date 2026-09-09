@@ -595,18 +595,27 @@ input.wide { width: 100%; max-width: 420px; }
   color: var(--ink-dim); margin: 0 0 8px;
 }
 .annotside h3 + * { margin-bottom: 14px; }
-.placedlist { display: flex; flex-wrap: wrap; gap: 5px; }
-.placedchip {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 999px; padding: 3px 5px 3px 10px; font-size: 11.5px;
-  font-family: var(--mono);
+.placedlist { display: flex; flex-direction: column; gap: 1px; }
+.jointrow {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 3px 6px; border-radius: 4px; font-size: 11.5px;
+  font-family: var(--mono); color: var(--ink-faint);
 }
-.placedchip .x {
+.jointrow:hover { background: var(--panel); }
+.jointrow .jointname { flex: 1; }
+.jointrow .dotmark {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  border: 1px solid var(--line);
+}
+.jointrow.placed { color: var(--ink); }
+.jointrow.placed .dotmark { background: #7c8cff; border-color: #7c8cff; }
+.jointrow.aimed { background: var(--panel); box-shadow: inset 2px 0 0 #fff; }
+.jointrow.aimed .jointname { color: #fff; }
+.jointrow .x {
   border: 0; background: none; color: var(--ink-faint);
   cursor: pointer; font-size: 11px; padding: 0 3px;
 }
-.placedchip .x:hover { color: var(--bad); }
+.jointrow .x:hover { color: var(--bad); }
 .derivedrow {
   display: flex; justify-content: space-between; gap: 10px;
   font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed var(--line);

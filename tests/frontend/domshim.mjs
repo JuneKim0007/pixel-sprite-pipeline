@@ -76,6 +76,24 @@ class Node {
   replaceChildren(...kids) { this.children = []; this.append(...kids); }
 
   focus() { this.focused = true; }
+  getBoundingClientRect() {
+    return { left: 0, top: 0, width: this.width || 0, height: this.height || 0,
+             right: this.width || 0, bottom: this.height || 0 };
+  }
+  setPointerCapture() {}
+  releasePointerCapture() {}
+  /* Enough 2D context to let a component that draws be mounted at all. Every
+   * call is a no-op except measureText, which returns a width because callers
+   * lay out against it — a stub returning undefined there throws on arithmetic
+   * rather than drawing something wrong, which is the wrong kind of failure. */
+  getContext() {
+    if (this.tagName !== 'CANVAS') return null;
+    const noop = () => {};
+    return new Proxy({ measureText: (t) => ({ width: String(t).length * 7 }) }, {
+      get: (t, k) => (k in t ? t[k] : noop),
+      set: () => true,
+    });
+  }
   setAttribute(k, v) { this.attributes[k] = String(v); }
   getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; }
   addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }
@@ -142,6 +160,14 @@ export function installDom() {
   doc.append(doc.body);
   globalThis.document = doc;
   globalThis.window = doc;
+  // Components that draw an image hold one; `complete` stays false so a test
+  // exercises the same branch a browser takes before the file has loaded.
+  globalThis.Image = class {
+    constructor() {
+      this.naturalWidth = 0; this.naturalHeight = 0;
+      this.complete = false; this.src = ''; this.onload = null;
+    }
+  };
   globalThis.Node = Node;
   return doc;
 }
