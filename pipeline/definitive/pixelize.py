@@ -389,44 +389,76 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
     return out or [tuple(int(v) for v in pixels[0])]
 
 
+def _luminance_range(source: np.ndarray, mask: np.ndarray | None,
+                     chunk: int) -> tuple[float, float]:
+    """The darkest and brightest the subject gets, read a block at a time.
+
+    Reading it rather than keeping it: min and max do not care what order they
+    see values in, so the span costs one pass and no full-length array.
+    """
+    lo, hi = float("inf"), float("-inf")
+    for start, stop in _spans(len(source), chunk):
+        lum = source[start:stop].astype(np.float32) @ LUMA
+        if mask is not None:
+            lum = lum[mask[start:stop]]
+        if len(lum):
+            lo, hi = min(lo, float(lum.min())), max(hi, float(lum.max()))
+    return lo, hi
+
+
+def _stretched(block: np.ndarray, lum: np.ndarray,
+               target: np.ndarray) -> np.ndarray:
+    """One block moved onto its target luminance.
+
+    Darkening scales toward black, which a multiply does correctly. Brightening
+    cannot - a multiply drives a channel past 255 and clips it to a different
+    hue - so it walks each channel toward white by the share of the headroom
+    the target asks for.
+    """
+    floor = np.maximum(lum, 1e-6)
+    ceiling = np.maximum(255.0 - lum, 1e-6)
+    scaled = block * (target[:, None] / floor[:, None])
+    headroom = np.clip((255.0 - lum) / ceiling, 0, 1)[:, None]
+    lighten = block + (255.0 - block) * np.clip(
+        ((target - lum) / ceiling)[:, None], 0, 1) * headroom
+    return np.where((target > floor)[:, None], lighten, scaled)
+
+
 def fit_to_palette(rgb: np.ndarray, palette: list[tuple[int, int, int]],
                    *, method: str = "weighted",
                    alpha: np.ndarray | None = None,
-                   strength: float = 1.0) -> np.ndarray:
-    
+                   strength: float = 1.0,
+                   chunk: int | None = None) -> np.ndarray:
+
     if not palette:
         return rgb
 
     pal = np.asarray(palette, dtype=np.float32)
-    flat = rgb.reshape(-1, 3).astype(np.float32)
-    mask = None if alpha is None else (alpha.reshape(-1) > 0)
-    sample = flat[mask] if mask is not None and mask.any() else flat
+    source = rgb.reshape(-1, 3)
+    chunk = palette_chunk(chunk)
 
-    src_l = sample @ LUMA
+    mask = None if alpha is None else (alpha.reshape(-1) > 0)
+    if mask is not None and not mask.any():
+        mask = None
+
+    lo_s, hi_s = _luminance_range(source, mask, chunk)
     dst_l = pal @ LUMA
-    lo_s, hi_s = float(src_l.min()), float(src_l.max())
     lo_d, hi_d = float(dst_l.min()), float(dst_l.max())
     span = hi_s - lo_s
-    if span < 1e-6:
+    if not span >= 1e-6:
         return apply_fixed_palette(rgb, palette, method=method)
 
     gain = (hi_d - lo_d) / span
-    lum = flat @ LUMA
-    target = lo_d + (lum - lo_s) * gain
-    if strength < 1.0:
-        target = lum + (target - lum) * float(strength)
+    out = np.empty((len(source), 3), dtype=np.uint8)
+    for start, stop in _spans(len(source), chunk):
+        block = source[start:stop].astype(np.float32)
+        lum = block @ LUMA
+        target = lo_d + (lum - lo_s) * gain
+        if strength < 1.0:
+            target = lum + (target - lum) * float(strength)
+        out[start:stop] = np.clip(_stretched(block, lum, target),
+                                  0.0, 255.0).astype(np.uint8)
 
-
-    out = np.empty_like(flat)
-    safe = np.maximum(lum, 1e-6)[:, None]
-    scaled = flat * (target[:, None] / safe)
-    over = target > np.maximum(lum, 1e-6)
-    headroom = np.clip((255.0 - lum) / np.maximum(255.0 - lum, 1e-6), 0, 1)[:, None]
-    lighten = flat + (255.0 - flat) * np.clip(
-        ((target - lum) / np.maximum(255.0 - lum, 1e-6))[:, None], 0, 1) * headroom
-    out[:] = np.where(over[:, None], lighten, scaled)
-
-    out = np.clip(out, 0.0, 255.0).astype(np.uint8)
     return apply_fixed_palette(out.reshape(rgb.shape), palette, method=method)
 
 

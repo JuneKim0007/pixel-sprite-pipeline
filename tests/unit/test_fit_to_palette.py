@@ -112,3 +112,41 @@ def test_shape_and_dtype_survive_every_size(edge):
     out = fit_to_palette(_image(edge), PALETTE)
     assert out.shape == (edge, edge, 3)
     assert out.dtype == np.uint8
+
+
+def _peak(fn):
+    import gc
+    import tracemalloc
+
+    gc.collect()
+    tracemalloc.start()
+    try:
+        fn()
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+        gc.collect()
+    return peak
+
+
+def test_every_chunk_size_produces_the_same_picture():
+    """Splitting the work must not split the answer."""
+    image = _image(96)
+    digests = {_digest(fit_to_palette(image, PALETTE, chunk=c))
+               for c in (256, 1000, 4096, 1 << 20)}
+    assert len(digests) == 1, f"chunk size changed the picture: {digests}"
+
+
+def test_the_stretch_costs_no_more_than_the_snap_beneath_it():
+    """The stretch used to hold nine full-size float arrays at once. Bounded,
+    it should cost about what the snap it wraps already costs - so the two
+    peaks land together rather than the stretch dominating."""
+    from pipeline.definitive.pixelize import apply_fixed_palette
+
+    image = _image(256)
+    stretch = _peak(lambda: fit_to_palette(image, PALETTE))
+    snap = _peak(lambda: apply_fixed_palette(image, PALETTE))
+
+    assert stretch < snap * 1.5, (
+        f"fitting peaked at {stretch / 1e6:.2f}MB against the snap's "
+        f"{snap / 1e6:.2f}MB - the stretch is still holding the whole image")
