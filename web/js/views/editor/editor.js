@@ -120,9 +120,36 @@ export function renderEditor(host) {
   const head = (label) => el('h4', {}, 'Result',
     el('span', { className: `enginetag ${engine}`, textContent: label }));
 
+  /* Both ways the live preview can decline used to be a bare `return false`,
+   * and a silent return from a slider reads as a freeze rather than a refusal.
+   * Said once per reason: repeating it on every drag would be its own noise. */
+  let toldReason = '';
+  function explainNoPreview() {
+    const reason = !gpu.supported()
+      ? 'Live preview needs WebGPU, which this browser does not offer.'
+      : 'That image could not be decoded for the live preview.';
+    if (reason === toldReason) return;
+    toldReason = reason;
+    toast(`${reason} Generate preview still works.`, 'warn');
+  }
+
+  /* One way in for a source, so no path can set `source` and leave the shader
+   * without the bitmap it needs. */
+  async function useSource(path) {
+    source = path;
+    bitmap = null;
+    toldReason = '';
+    if (!path) return;
+    try {
+      bitmap = await decode(path);
+    } catch (e) {
+      toast(`Could not decode ${path.split('/').pop()}: ${e.message}`, 'warn');
+    }
+  }
+
   /* The fast path. Approximate, and labelled as such. */
   async function drawPreview() {
-    if (!bitmap || !gpu.supported()) return false;
+    if (!gpu.supported() || !bitmap) { explainNoPreview(); return false; }
     // One at a time. Nothing serialised this, so a slider drag stacked calls
     // that each allocated the whole working set before the last had freed it.
     if (drawing) { queued = true; return false; }
@@ -238,11 +265,7 @@ export function renderEditor(host) {
   const sourceSel = el('select', { className: 'select wide' });
   sourceSel.append(el('option', { value: '', textContent: 'pick an image' }));
   sourceSel.onchange = async () => {
-    source = sourceSel.value;
-    bitmap = null;
-    if (source) {
-      try { bitmap = await decode(source); } catch { bitmap = null; }
-    }
+    await useSource(sourceSel.value);
     // A different image has a different block size, so let Grid measure again.
     const grid = stack.find((s) => s.layer === 'grid');
     if (grid) grid.config.factor = 0;
@@ -256,8 +279,7 @@ export function renderEditor(host) {
     if (!upload.files.length) return;
     try {
       const { saved } = await api.upload(upload.files);
-      source = saved[0].path;
-      bitmap = await decode(source);
+      await useSource(saved[0].path);
       sourceSel.append(el('option', { value: source, textContent: source.split('/').pop(),
                                       selected: true }));
       drawSource();
@@ -383,6 +405,9 @@ export function renderEditor(host) {
       }
     } catch { /* the picker is a convenience, not a requirement */ }
 
+    // A restored source arrives without ever passing through the picker, so
+    // the shader has no bitmap until someone re-picks the image by hand.
+    if (source && !bitmap) await useSource(source);
     if (source) markStale();
   })();
 }

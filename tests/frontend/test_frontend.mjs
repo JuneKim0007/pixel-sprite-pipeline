@@ -350,6 +350,34 @@ test('the editor decodes at the budget and runs one preview at a time', () => {
   assert.ok(/if \(drawing\)/.test(src), 'drawPreview is not serialised');
 });
 
+test('the editor says why the live preview declined, instead of just stopping', () => {
+  // Both refusals used to be a bare `return false`. Moving a slider then did
+  // nothing at all, with no error anywhere, which reads as a freeze.
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  const guard = src.match(/if \(!gpu\.supported\(\) \|\| !bitmap\) \{([^}]*)\}/);
+  assert.ok(guard, 'drawPreview no longer guards on support and bitmap together');
+  assert.ok(/explainNoPreview\(\)/.test(guard[1]),
+            'drawPreview still declines silently');
+  assert.ok(/WebGPU/.test(src) && /could not be decoded/.test(src),
+            'the two reasons are not told apart');
+});
+
+test('every source reaches the shader through one decode', () => {
+  // `source` set without `bitmap` decoded is what left the live preview dead
+  // until the image was re-picked by hand.
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  const body = src.slice(src.indexOf('export function renderEditor'));
+  const inUseSource = body.slice(body.indexOf('async function useSource('),
+                                 body.indexOf('/* The fast path'));
+  const all = [...body.matchAll(/(?<![.\w])source = /g)].length;
+  const mine = [...inUseSource.matchAll(/(?<![.\w])source = /g)].length;
+  assert.equal(all - mine, 0,
+               'something assigns `source` outside useSource()');
+  assert.equal(mine, 1, 'useSource() no longer owns the assignment');
+  assert.ok(/if \(source && !bitmap\) await useSource\(source\)/.test(body),
+            'a restored source is never decoded on mount');
+});
+
 console.log('\nfeatures');
 test('features/ never touches the DOM', () => {
   // The rule that makes this folder testable without a shim. A module that
