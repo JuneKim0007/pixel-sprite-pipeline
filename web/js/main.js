@@ -17,7 +17,8 @@ import { renderStyles } from './views/styles/styles.js';
 import { renderQueue } from './views/queue/queue.js';
 import { renderEditor } from './views/editor/editor.js';
 import { renderOverview } from './views/overview/overview.js';
-import { configsFor, newPipelineDialog, renderRail } from './rail.js';
+import { configsFor, renderRail } from './rail.js';
+import { newPipelineDialog, newTypeDialog } from './library.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';
 import { poll } from './listeners/poll.js';
@@ -170,16 +171,25 @@ function renderConfigPicker() {
 function renderRailBar() {
   renderRail($('#railbar'), {
     onSwitch: () => { renderConfigPicker(); render(); },
-    onCreated: (name) => refreshConfigs(name),
+
+    onEmpty: async (key, meta) => {
+      const made = await newPipelineDialog(key, meta);
+      if (made) await refreshConfigs(made);
+      return made;
+    },
+
     // A new type has no pipeline, and the rail cannot open a workspace without
     // one, so making the type offers to make its first pipeline too.
-    onTypeCreated: async (key) => {
+    onNewType: async () => {
+      const key = await newTypeDialog();
+      if (!key) return;
       state.schema = await api.schema(state.module);
-      const meta = state.schema.modules?.[key];
       renderRailBar();
-      if (!meta?.available) { render(); return; }
-      const made = await newPipelineDialog(key, meta);
-      if (made) { await refreshConfigs(made); renderRailBar(); }
+      const meta = state.schema.modules?.[key];
+      if (meta?.available) {
+        const made = await newPipelineDialog(key, meta);
+        if (made) { await refreshConfigs(made); renderRailBar(); }
+      }
       render();
     },
   });

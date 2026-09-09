@@ -8,7 +8,8 @@
 
 import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
-import { confirmDialog, lightbox, state, toast } from '../../store.js';
+import { state, toast } from '../../store.js';
+import { confirmDialog, lightbox } from '../../ui/dialog.js';
 import { browseDialog } from '../../ui/dialog.js';
 
 const STAGE_LABEL = {

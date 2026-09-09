@@ -233,13 +233,7 @@ WHY: dict[str, str] = {
 
 
 def validate_order(stack: list[dict]) -> None:
-    """Refuse an arrangement that would produce a silently wrong picture.
 
-    The advisory half is `check_order`. This half is the same walk the pipeline
-    runner makes over stages, in `shared/plan.py` — the difference is only that
-    a layer need nothing gives at all is consistent, so the walk runs in its
-    ordering mode rather than its strict one.
-    """
     enabled = [REGISTRY.get(s.get("layer")) for s in stack
                if s.get("enabled", True)]
     problems = plan.unmet([n for n in enabled if n is not None], strict=False)

@@ -623,6 +623,7 @@ test('update() swaps in place using replaceWith, not children.indexOf', () => {
 
 console.log('\nrail and pipeline creation');
 const rail = await import(join(JS, 'rail.js'));
+const library = await import(join(JS, 'library.js'));
 const railState = (await import(join(JS, 'store.js'))).state;
 test('configsFor filters by the module the index carries', () => {
   railState.configs = [
@@ -638,7 +639,7 @@ test('configsFor returns names, so the picker needs no second lookup', () => {
   assert.ok(rail.configsFor('animation').every((c) => typeof c === 'string'));
 });
 test('a starter config declares its workspace and its stage order', () => {
-  const cfg = rail.starterConfig('my_portrait', 'character_sheet', ['pose', 'export']);
+  const cfg = library.starterConfig('my_portrait', 'character_sheet', ['pose', 'export']);
   assert.equal(cfg.module, 'character_sheet');
   assert.equal(cfg.name, 'my_portrait');
   assert.deepEqual(cfg.pipeline.stages, ['pose', 'export']);
@@ -788,7 +789,6 @@ console.log('\ndialogs');
  * has something to be measured against. */
 const dlgApi = (await import(join(JS, 'api.js'))).api;
 const dlg = await import(join(JS, 'ui/dialog.js'));
-const chrome = await import(join(JS, 'store.js'));
 
 const shed = () => document.querySelectorAll('.modal').forEach((m) => m.remove());
 const openModal = () => document.querySelector('.modal');
@@ -846,7 +846,7 @@ await atest('cancel and the backdrop both resolve null', async () => {
 
 await atest('confirmDialog reports the answer and the remember box', async () => {
   shed();
-  const done = chrome.confirmDialog({ title: 'Gate', body: 'b', rememberKey: 'k' });
+  const done = dlg.confirmDialog({ title: 'Gate', body: 'b', rememberKey: 'k' });
   const m = openModal();
   assert.equal(m.querySelector('h2').textContent, 'Gate');
   m.querySelector('.chk input').checked = true;
@@ -865,7 +865,7 @@ await atest('newPipelineDialog offers Blank plus every sibling', async () => {
              { name: 'export', needs: ['skeletons'], gives: ['sheet'] }],
     resources: [], modules: { animation: { label: 'Animation' } },
   };
-  const done = rail.newPipelineDialog('animation', { label: 'Animation' });
+  const done = library.newPipelineDialog('animation', { label: 'Animation' });
   const m = openModal();
   const options = m.querySelector('select').children.map((o) => o.textContent);
   assert.equal(options.length, 2, options);
@@ -878,7 +878,7 @@ await atest('newPipelineDialog offers Blank plus every sibling', async () => {
 
 await atest('newPipelineDialog refuses a name that is taken or malformed', async () => {
   shed();
-  const done = rail.newPipelineDialog('animation', { label: 'Animation' });
+  const done = library.newPipelineDialog('animation', { label: 'Animation' });
   const m = openModal();
   const name = m.querySelector('input[type=text]');
   const create = m.querySelectorAll('button').find((b) => b.textContent === 'Create');
@@ -914,7 +914,7 @@ await atest('newTypeDialog saves the type it was filled in with', async () => {
   let sent = null;
   dlgApi.saveModule = async (key, body) => { sent = { key, body }; return { saved: key }; };
 
-  const done = rail.newTypeDialog();
+  const done = library.newTypeDialog();
   const m = openModal();
   const [key, label, detail] = m.querySelectorAll('input[type=text]');
   const blurb = m.querySelector('textarea');
@@ -937,7 +937,7 @@ await atest('newTypeDialog saves the type it was filled in with', async () => {
 
 await atest('newTypeDialog warns about a stage nobody registers', async () => {
   shed();
-  const done = rail.newTypeDialog();
+  const done = library.newTypeDialog();
   const m = openModal();
   const [key] = m.querySelectorAll('input[type=text]');
   key.value = 'weather';
@@ -974,9 +974,9 @@ test('toast never throws, whatever it is handed', () => {
   store.toast({ nope: 1 }, 'error');
 });
 test('confirmDialog and lightbox open without throwing', () => {
-  store.confirmDialog({ title: 't', body: 'b', rememberKey: 'k' });
+  dlg.confirmDialog({ title: 't', body: 'b', rememberKey: 'k' });
   assert.ok(document.querySelector('.modal'));
-  store.lightbox('/api/file?path=x.png', 'cap');
+  dlg.lightbox('/api/file?path=x.png', 'cap');
   assert.ok(document.querySelector('.lightbox'));
 });
 
