@@ -261,49 +261,131 @@ def curves(rgb: np.ndarray, *, brightness: float = 0.0, contrast: float = 1.0,
     return (np.clip(a, 0.0, 1.0) * 255.0).round().astype(np.uint8)
 
 
+def palette_chunk(chunk: int | None = None) -> int:
+    """Rows of pixels the palette compares against every centre at once."""
+    from ..shared import limits
+
+    return max(256, int(chunk or limits.get("colour_chunk")))
+
+
+def working_bytes(chunk: int, colours: int, width: int = 3) -> int:
+    """Peak temporary of one assignment block, in bytes.
+
+    The distance tensor is `chunk x colours x width` float32, and the reduction
+    that follows it is `chunk x colours` float32. Both are bounded by `chunk`,
+    so this is the whole working set whatever the image measures.
+    """
+    return chunk * colours * width * 4 + chunk * colours * 4
+
+
+def _spans(total: int, chunk: int):
+    for start in range(0, total, chunk):
+        yield start, min(start + chunk, total)
+
+
+def _distinct(pixels: np.ndarray) -> int:
+    """How many colours the image actually has.
+
+    Packing to one 24-bit integer sorts a third of the bytes that a row-wise
+    unique does, and answers the same question.
+    """
+    packed = (pixels[:, 0].astype(np.uint32) << 16
+              | pixels[:, 1].astype(np.uint32) << 8
+              | pixels[:, 2].astype(np.uint32))
+    return int(len(np.unique(packed)))
+
+
+def _nearest(feats: np.ndarray, centres: np.ndarray, chunk: int):
+    """Each row's nearest centre, one bounded block at a time."""
+    for start, stop in _spans(len(feats), chunk):
+        block = feats[start:stop]
+        yield start, stop, ((block[:, None, :] - centres[None, :, :]) ** 2
+                            ).sum(axis=2).argmin(axis=1)
+
+
+def _sq_dist(feats: np.ndarray, point: np.ndarray, chunk: int,
+             into: np.ndarray | None = None) -> np.ndarray:
+    """Squared distance from every row to one point.
+
+    Given `into`, keeps the smaller of the two in place, so the seeding walk
+    never holds two full-length distance arrays at once.
+    """
+    out = np.empty(len(feats), dtype=np.float32) if into is None else into
+    for start, stop in _spans(len(feats), chunk):
+        block = ((feats[start:stop] - point) ** 2).sum(axis=1)
+        if into is None:
+            out[start:stop] = block
+        else:
+            np.minimum(out[start:stop], block, out=out[start:stop])
+    return out
+
+
+def _cluster_totals(rows: np.ndarray, feats: np.ndarray, centres: np.ndarray,
+                    chunk: int) -> tuple[np.ndarray, np.ndarray]:
+    """Per-cluster sums of `rows`, and member counts, in one bounded pass.
+
+    Accumulating instead of indexing is what removes the N-long label array:
+    a block's labels are spent on its own bincount and then dropped. The
+    accumulator is float64 because a float32 running total drifts over
+    millions of rows, and it costs `colours x width` either way.
+    """
+    count, width = len(centres), rows.shape[1]
+    sums = np.zeros((count, width), dtype=np.float64)
+    members = np.zeros(count, dtype=np.int64)
+    for start, stop, labels in _nearest(feats, centres, chunk):
+        members += np.bincount(labels, minlength=count)
+        block = rows[start:stop]
+        for axis in range(width):
+            sums[:, axis] += np.bincount(labels, weights=block[:, axis],
+                                         minlength=count)
+    return sums, members
+
+
 def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
                      iterations: int = 12,
-                     alpha: np.ndarray | None = None) -> list[tuple[int, int, int]]:
+                     alpha: np.ndarray | None = None,
+                     chunk: int | None = None) -> list[tuple[int, int, int]]:
 
     pixels = rgb.reshape(-1, 3)
     if alpha is not None:
         pixels = pixels[alpha.reshape(-1) > 0]
     if len(pixels) == 0:
         raise ValueError("no opaque pixels to build a palette from")
-    colours = max(1, min(int(colours), len(np.unique(pixels, axis=0))))
+    colours = max(1, min(int(colours), _distinct(pixels)))
+    chunk = palette_chunk(chunk)
 
     feats = project(pixels, method)
     rng = np.random.default_rng(0)
 
     centres = [int(rng.integers(len(feats)))]
-    d2 = ((feats - feats[centres[0]]) ** 2).sum(axis=1)
+    d2 = _sq_dist(feats, feats[centres[0]], chunk)
     for _ in range(colours - 1):
         total = d2.sum()
         if total <= 0:
             centres.append(int(rng.integers(len(feats))))
         else:
             centres.append(int(rng.choice(len(feats), p=d2 / total)))
-        d2 = np.minimum(d2, ((feats - feats[centres[-1]]) ** 2).sum(axis=1))
+        _sq_dist(feats, feats[centres[-1]], chunk, into=d2)
 
     c = feats[centres].copy()
-    labels = np.zeros(len(feats), dtype=np.int64)
+    # The palette is built from the assignment the last pass actually made, so
+    # the centres that produced it are what the closing pass has to reuse.
+    assigned = c.copy()
     for _ in range(iterations):
-        labels = ((feats[:, None, :] - c[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
+        assigned = c.copy()
+        sums, members = _cluster_totals(feats, feats, assigned, chunk)
         moved = False
         for k in range(len(c)):
-            members = feats[labels == k]
-            if len(members):
-                nxt = members.mean(axis=0)
+            if members[k]:
+                nxt = (sums[k] / members[k]).astype(np.float32)
                 moved |= not np.allclose(nxt, c[k])
                 c[k] = nxt
         if not moved:
             break
 
-    out = []
-    for k in range(len(c)):
-        members = pixels[labels == k]
-        if len(members):
-            out.append(tuple(int(v) for v in members.mean(axis=0).round()))
+    sums, members = _cluster_totals(pixels, feats, assigned, chunk)
+    out = [tuple(int(v) for v in (sums[k] / members[k]).round())
+           for k in range(len(c)) if members[k]]
     return out or [tuple(int(v) for v in pixels[0])]
 
 
