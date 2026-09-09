@@ -289,6 +289,41 @@ def predict_gb(layer_key: str, image: np.ndarray, cfg: dict) -> float:
     return n * image.shape[2] * 8 / (1 << 30)
 
 
+def settle(log: Log, seconds: float, why: str) -> None:
+    """Stand still long enough for the sampler to see a resting level.
+
+    Layers run in milliseconds, so back to back their costs land inside one
+    sampling interval and read as a single figure. A pause between them puts
+    a flat stretch on either side of each step, which is what makes a rise
+    attributable to the layer that caused it.
+    """
+    if seconds <= 0:
+        return
+    time.sleep(seconds)
+    log.event(f"settled {seconds:.2f}s ({why})")
+
+
+def cache_state() -> str:
+    from pipeline.definitive import cache
+
+    return (f"prepare={cache.CACHE.stats()['entries']}"
+            f"/{cache.CACHE.stats()['bytes'] / 1e6:.2f}MB "
+            f"snapshots={cache.SNAPSHOTS.stats()['entries']}"
+            f"/{cache.SNAPSHOTS.stats()['bytes'] / 1e6:.2f}MB")
+
+
+def drop_caches(log: Log) -> None:
+    """Empty both caches, so the next layer carries nothing from the last."""
+    from pipeline.definitive import cache
+
+    before = cache_state()
+    cache.CACHE.clear()
+    cache.SNAPSHOTS.clear()
+    freed = gc.collect()
+    log.line(f"{_stamp()}   caches popped: {before} -> {cache_state()} "
+             f"(gc freed {freed})")
+
+
 def run_layer(spec, image: np.ndarray, cfg: dict, log: Log,
               outdir: Path, args) -> np.ndarray:
     key = spec.key
@@ -315,7 +350,11 @@ def run_layer(spec, image: np.ndarray, cfg: dict, log: Log,
         t = time.perf_counter()
         try:
             with Alarm(MAX_LAYER_SECONDS, f"{key}.prepare"):
-                prep = spec.prepare(inputs, cfg)
+                if args.use_cache:
+                    from pipeline.definitive.run import prepare_for
+                    prep = prepare_for(spec, inputs, cfg, use_cache=True)
+                else:
+                    prep = spec.prepare(inputs, cfg)
         except Exception as e:                                  # noqa: BLE001
             log.line(f"{_stamp()}   prepare RAISED {type(e).__name__}: {e}")
             return image
@@ -346,6 +385,7 @@ def run_layer(spec, image: np.ndarray, cfg: dict, log: Log,
              f"{out.nbytes/1e6:.2f}MB ({growth:.2f}x)")
 
     log.event(f"layer '{key}' AFTER")
+    log.line(f"{_stamp()}   caches: {cache_state()}")
 
     # --- intermediate to disk, not held in RAM ---------------------------
     if args.save_intermediates:
@@ -384,6 +424,17 @@ def main() -> int:
     p.add_argument("--json", type=Path, help="write samples as JSON")
     p.add_argument("--force", action="store_true",
                    help="DANGEROUS: run past the predicted-cost refusal")
+    p.add_argument("--use-cache", action="store_true",
+                   help="prepare through the same cache apply_stack uses, so "
+                        "the cache columns and --drop-caches mean something. "
+                        "Off by default: a direct call is what isolates a "
+                        "layer's own cost")
+    p.add_argument("--pace", type=float, default=0.0, metavar="SECONDS",
+                   help="stand still this long after each layer, and again "
+                        "after popping caches (try 0.5)")
+    p.add_argument("--drop-caches", action="store_true",
+                   help="empty the prepare and snapshot caches between layers, "
+                        "so nothing a layer measured is reused by the next")
     p.add_argument("--set", action="append", default=[], metavar="LAYER.KEY=VAL",
                    help="override one layer setting, e.g. --set palette.fit=true "
                         "or --set grid.enabled=false. Repeatable.")
@@ -476,6 +527,13 @@ def main() -> int:
                     del image
                     gc.collect()
                 image = nxt
+
+                # one layer, settle, pop, settle - so each step's cost is read
+                # against a flat line rather than against the next step
+                settle(log, args.pace, f"after '{spec.key}'")
+                if args.drop_caches:
+                    drop_caches(log)
+                    settle(log, args.pace, "after popping caches")
 
             log.line("")
             log.event("all layers complete")

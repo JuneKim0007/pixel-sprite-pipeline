@@ -13,7 +13,28 @@ tools/definitive_trace.py --list
 tools/definitive_trace.py --layer palette --size 512 --colours 24
 tools/definitive_trace.py --all --input library/refs/knight_front.png --size 512
 tools/definitive_trace.py --all --size 64 --log run.log --json run.json
+tools/definitive_trace.py --all --size 128 --pace 0.5 --drop-caches --use-cache
 ```
+
+## Stepping the stack instead of running it
+
+Layers run in milliseconds. Back to back, their costs land inside one sampling
+interval and read as a single figure, so a rise cannot be attributed to the
+layer that caused it. `--pace SECONDS` stands still after each layer, and again
+after popping caches, which puts a flat stretch on either side of every step.
+
+`--drop-caches` empties the prepare and snapshot caches between layers, so
+nothing one layer measured is reused by the next. On its own that pops an empty
+cache: `run_layer` calls `prepare` directly, which is what isolates a layer's
+own cost but is not the path production takes. `--use-cache` routes the prepare
+through the same `prepare_for` that `apply_stack` uses, so the cache fills and
+the popping means something.
+
+The cache's byte column reads 0.00MB even when it holds entries. That is not
+the harness: `Cache._size` counts any dict as 64 bytes regardless of contents,
+and prepare results are dicts. The entry count is real; the byte figure is not.
+Prepare results are small today, so the 8 MB byte cap has never bound - only
+the 64-entry cap has.
 
 ## Why it is shaped this way
 
@@ -48,7 +69,10 @@ unclean restart, and it is the reason the harness writes a log at all.
 Host: Mac16,1, Apple M4, 10 cores, 16 GB unified, macOS 15.5 (24F74).
 Single-threaded throughout; no subprocess was created by any run.
 
-### Palette memory and time are linear in pixels x colours
+### Palette memory and time were linear in pixels x colours
+
+Measured before 1601d89 chunked it. Kept because it is the evidence that
+justified the change, not a description of what the code does now.
 
 512x512 = 262,144 px, palette alone:
 
@@ -71,8 +95,13 @@ labels = ((feats[:, None, :] - c[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
 ```
 
 `feats` is every pixel, not every unique colour, and the k-means loop runs it
-twelve times. `apply_fixed_palette`, two functions below, chunks the same shape
-of work through `limits.get("colour_chunk")`. This call site does not.
+twelve times. `apply_fixed_palette`, two functions below, chunked the same shape
+of work through `limits.get("colour_chunk")`; this call site did not.
+
+Since 1601d89 it does. The assignment runs a bounded block at a time and the
+cost stopped following the colour count: measured peak 2.36 MB at K=8 and
+2.37 MB at K=128, where unchunked the same sweep went 8.39 MB to 134.22 MB.
+What remains is a flat ~36 bytes per pixel of genuinely O(N) work.
 
 `admit()` cannot see it: the palette layer declares no `magnify`, so its
 projected growth is 1.0. `BYTES_PER_OUTPUT_PIXEL = 24` budgets six live copies
@@ -110,9 +139,12 @@ Full stack, `archer_dynamic.png` centre-cropped to 512x512, K=24, factor 1:
 Peak traced 110.26 MB, peak RSS 198.6 MB, 3.58 s wall.
 
 `background` is a Python-level flood fill (`_flood`), so its cost is interpreter
-time holding the GIL rather than native work. `find_phase` inside grid is
-O(factor^2 x pixels) and was the dominant cost on synthetic content at factor
-16 (1.937 s), though it is cheap at the factor 1-3 real images measure.
+time holding the GIL rather than native work.
+
+`find_phase` inside grid was O(factor^2 x pixels) and the dominant cost on
+synthetic content at factor 16 - 763 ms at the 384 px preview size. fbaaa79
+replaced the scan with integral images and 758823c brought its memory back in
+line; it is now 16.7 ms at that factor and no longer follows the factor at all.
 
 ### Extrapolation, not measurement
 
@@ -124,10 +156,21 @@ allows and the harness refuses to run:
 | 4096x4096, K=64 | 17.2 GB | 192 s |
 | 35.79 MP ceiling, K=24 | 13.7 GB | 154 s |
 
-Both exceed 16 GB of physical memory or come close to it, and both exceed the
-120-second userspace watchdog threshold in a single layer while holding the GIL.
-These figures are arithmetic from measured laws. They have not been executed and
-should not be.
+Both exceed 16 GB of physical memory or come close to it. These figures are
+arithmetic from measured laws. They have not been executed and should not be.
+
+They no longer describe the shipped code: since 1601d89 the palette layer's
+peak does not follow the colour count, so the K=64 and K=256 rows are history.
+
+An earlier version of this section also said the runtimes exceed the
+120-second userspace watchdog threshold "while holding the GIL", and drew a
+causal line from that to the host restarting. That line is withdrawn. The
+watchdog monitors WindowServer's check-ins, not Python's runtime, and the GIL
+is process-local - it serialises threads inside one interpreter and cannot
+deprive another process of CPU. How long a layer runs and how long WindowServer
+misses check-ins are unrelated quantities. The reported failures cluster on idle
+and sleep rather than load, which matches this host's own stackshot
+(`displayState: OFF`, mid sleep-cycle) and does not match compute.
 
 ## What has not been established
 
