@@ -378,6 +378,20 @@ test('every source reaches the shader through one decode', () => {
             'a restored source is never decoded on mount');
 });
 
+test('a new source always re-measures the block size', () => {
+  // The picker reset Grid's factor and the upload did not, so a factor
+  // measured from a large image was carried onto a small one and divided what
+  // was no longer there - 16 turns a 32px upload into a single pixel.
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  const body = src.slice(src.indexOf('export function renderEditor'));
+  const resets = [...body.matchAll(/config\.factor = 0/g)].length;
+  assert.equal(resets, 1, 'the factor reset is duplicated or missing');
+  const inUseSource = body.slice(body.indexOf('async function useSource('),
+                                 body.indexOf('/* The fast path'));
+  assert.ok(/config\.factor = 0/.test(inUseSource),
+            'the reset does not live with the source it belongs to');
+});
+
 console.log('\nfeatures');
 test('features/ never touches the DOM', () => {
   // The rule that makes this folder testable without a shim. A module that

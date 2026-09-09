@@ -134,11 +134,17 @@ export function renderEditor(host) {
   }
 
   /* One way in for a source, so no path can set `source` and leave the shader
-   * without the bitmap it needs. */
+   * without the bitmap it needs, or leave Grid measuring the last image.
+   *
+   * A block size belongs to the picture it was measured from. Carried onto a
+   * smaller one it divides what is no longer there: factor 16 turns a 32 px
+   * upload into a single pixel. */
   async function useSource(path) {
     source = path;
     bitmap = null;
     toldReason = '';
+    const grid = stack.find((s) => s.layer === 'grid');
+    if (grid) grid.config.factor = 0;
     if (!path) return;
     try {
       bitmap = await decode(path);
@@ -266,9 +272,6 @@ export function renderEditor(host) {
   sourceSel.append(el('option', { value: '', textContent: 'pick an image' }));
   sourceSel.onchange = async () => {
     await useSource(sourceSel.value);
-    // A different image has a different block size, so let Grid measure again.
-    const grid = stack.find((s) => s.layer === 'grid');
-    if (grid) grid.config.factor = 0;
     drawSource();
     renderForm();
     markStale();
@@ -283,6 +286,7 @@ export function renderEditor(host) {
       sourceSel.append(el('option', { value: source, textContent: source.split('/').pop(),
                                       selected: true }));
       drawSource();
+      renderForm();
       markStale();
     } catch (e) { toast(e.message, 'error'); }
   };
