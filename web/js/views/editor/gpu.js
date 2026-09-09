@@ -187,13 +187,17 @@ export function uniformsFrom(stack, { palette = [] } = {}) {
 const MAX_PIXELS = 1 << 20;      // 1 megapixel
 
 export async function render(bitmap, u) {
-  await init();
+  // Before init(), not after: the ceiling is arithmetic, and a machine with no
+  // WebGPU used to report that instead of the oversized bitmap that was the
+  // actual fault. Refusing first also means the guard never pays for a device
+  // it is about to refuse work on.
   const pixels = bitmap.width * bitmap.height;
   if (pixels > MAX_PIXELS) {
     throw new Error(
       `${(pixels / 1e6).toFixed(1)} Mpx is past the ${(MAX_PIXELS / 1e6).toFixed(1)} Mpx `
       + 'preview ceiling; decode the source smaller');
   }
+  await init();
   const outW = Math.max(1, Math.floor((bitmap.width - u.phase[0]) / u.factor));
   const outH = Math.max(1, Math.floor((bitmap.height - u.phase[1]) / u.factor));
 

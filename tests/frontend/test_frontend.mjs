@@ -26,9 +26,29 @@ const {
 } = await import(join(JS, 'features/pose.js'));
 
 let pass = 0, fail = 0;
+
+const ok = (name) => { console.log(`  ok    ${name}`); pass++; };
+const bad = (name, e) => { console.log(`  FAIL  ${name}\n        ${e.message}`); fail++; };
+
+/* `test` refuses an async body rather than running it.
+ *
+ * It used to call fn() inside try/catch and report ok on return. An async body
+ * returns a promise there, so its assertions settled after the catch had been
+ * passed: fourteen async tests reported ok whatever they asserted, and the
+ * suite exited 0 with a deliberately broken one among them. Detecting the
+ * thenable makes the mistake impossible instead of documented. */
 const test = (name, fn) => {
-  try { fn(); console.log(`  ok    ${name}`); pass++; }
-  catch (e) { console.log(`  FAIL  ${name}\n        ${e.message}`); fail++; }
+  try {
+    const r = fn();
+    if (r && typeof r.then === 'function') {
+      throw new Error('async body passed to test(); use `await atest(...)`');
+    }
+    ok(name);
+  } catch (e) { bad(name, e); }
+};
+
+const atest = async (name, fn) => {
+  try { await fn(); ok(name); } catch (e) { bad(name, e); }
 };
 
 const NEUTRAL = {
@@ -305,7 +325,7 @@ test('querySelector finds by class and by tag.class', () => {
 });
 
 console.log('\neditor cost');
-test('the shader refuses an image bigger than its ceiling', async () => {
+await atest('the shader refuses an image bigger than its ceiling', async () => {
   // A 12 Mpx upload made three 49 MB GPU allocations plus a 12 Mpx dispatch,
   // per call, and nothing serialised the calls. On Apple Silicon that memory
   // is the display's memory.
@@ -342,7 +362,7 @@ test('features/ never touches the DOM', () => {
   }
 });
 
-test('stage ordering is decidable without a schema global', async () => {
+await atest('stage ordering is decidable without a schema global', async () => {
   const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
   const stages = [
     { name: 'pose', needs: [], gives: ['skeletons'] },
@@ -381,7 +401,7 @@ test('stage ordering is decidable without a schema global', async () => {
 });
 
 console.log('\npartial rendering');
-test('a field change only rebuilds the form when it gates another field', async () => {
+await atest('a field change only rebuilds the form when it gates another field', async () => {
   const { layerForm } = await import(join(JS, 'views/editor/stack.js'));
   const spec = {
     key: 'grid', label: 'Grid', summary: '',
@@ -407,7 +427,7 @@ test('a field change only rebuilds the form when it gates another field', async 
 });
 
 console.log('\nlisteners and lifecycle');
-test('a subscription fires once per set, whatever else changed with it', async () => {
+await atest('a subscription fires once per set, whatever else changed with it', async () => {
   const { subscribe, notify, listenerCount } = await import(join(JS, 'core/subscribe.js'));
   let hits = 0;
   const stop = subscribe(['runs', 'queue'], () => { hits += 1; });
@@ -423,7 +443,7 @@ test('a subscription fires once per set, whatever else changed with it', async (
   assert.equal(listenerCount(), 0);
 });
 
-test('one failing subscriber does not stop the others', async () => {
+await atest('one failing subscriber does not stop the others', async () => {
   const { subscribe, notify } = await import(join(JS, 'core/subscribe.js'));
   let reached = false;
   const a = subscribe(['x'], () => { throw new Error('boom'); });
@@ -433,7 +453,7 @@ test('one failing subscriber does not stop the others', async () => {
   a(); b();
 });
 
-test('a poll stops, and does not stack ticks on a slow one', async () => {
+await atest('a poll stops, and does not stack ticks on a slow one', async () => {
   const { poll } = await import(join(JS, 'listeners/poll.js'));
   let started = 0, finished = 0;
   const stop = poll(async () => {
@@ -449,7 +469,7 @@ test('a poll stops, and does not stack ticks on a slow one', async () => {
   assert.equal(started, at, 'the poll kept running after stop()');
 });
 
-test('mounting a view tears down the last one', async () => {
+await atest('mounting a view tears down the last one', async () => {
   const { mount, unmount, mounted } = await import(join(JS, 'listeners/lifecycle.js'));
   const host = el('div', {});
   let cleaned = 0;
@@ -462,7 +482,7 @@ test('mounting a view tears down the last one', async () => {
   assert.equal(mounted(), null);
 });
 
-test('a view that throws shows the failure in place, with a retry', async () => {
+await atest('a view that throws shows the failure in place, with a retry', async () => {
   const { mount } = await import(join(JS, 'listeners/lifecycle.js'));
   const host = el('div', {});
   mount('editor', host, () => { throw new Error('no catalogue'); });
@@ -623,7 +643,7 @@ test('a starter config declares its workspace and its stage order', () => {
   assert.equal(cfg.name, 'my_portrait');
   assert.deepEqual(cfg.pipeline.stages, ['pose', 'export']);
 });
-test('the blank order the dialog offers is one the server would accept', async () => {
+await atest('the blank order the dialog offers is one the server would accept', async () => {
   // The dialog fills pipeline.stages with autoOrder over every registered
   // stage, so what it proposes has to survive the same check save_config runs.
   const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
@@ -723,11 +743,14 @@ test('adding to a slot replaces that view rather than stacking', () => {
 });
 
 console.log('\nschema coverage');
-test('every schema field carries help, so no (?) is ever empty', async () => {
+await atest('every schema field carries help, so no (?) is ever empty', async () => {
   // The BaseField marker makes a missing explanation visible rather than
   // invisible; this keeps the count from growing quietly.
   const src = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
-  const paths = [...src.matchAll(/\{"path":\s*"([^"]+)"/g)].map((m) => m[1]);
+  // ConfigField declarations, not the dict literals FIELDS used to be. This
+  // matched `{"path": ...}` and found zero after that migration, which the
+  // runner hid because the body is async.
+  const paths = [...src.matchAll(/\bkey="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(paths.length > 100, `only found ${paths.length} schema paths`);
 });
 
