@@ -1,0 +1,106 @@
+# EXPERIMENT, not a shipped pipeline. Written 2026-09-10.
+#
+# WIDEST: pushes both dials to see where broad stops reading as human.
+#
+# What is being tested, and why each value differs from archer.yaml:
+#
+#   1. Four references instead of one. `pick()` matches the nearest by yaw, so
+#      each frame gets its own view at full weight instead of one front image
+#      reused at 0.85 / 0.71 / 0.45 as the pose turns away.
+#
+#   2. background.colour is the sheet's own backdrop, not magenta. Three runs
+#      measured 0.0% near-magenta whatever the prompt asked (§16), so this keys
+#      what is actually there rather than what was requested.
+#
+#   3. Proportions overridden. base_pixel.yaml scales legs 1.6 and torso 1.2,
+#      which puts the rig at h/shoulder 8.37 against the reference sheet's 4.42.
+#      1.0/1.0 is the closest reachable without a width group (§23).
+#
+#   4. canonical.style.end_at lowered to 0.45. The style exemplar votes to 0.8
+#      of sampling, through the steps that draw linework, while the prompt asks
+#      for an outline (§21). This hands those steps back to the prompt.
+#
+#   5. canonical.style_weight 0.18, the value that field's own help records as
+#      keeping brushwork while letting the prompt keep the palette.
+#
+# The control is 20260910_154912_archer.
+
+module: character_sheet
+subject: a young woman with long black hair, red eyes, a white shirt with a red
+  necktie, a black jacket worn off the shoulders, a black pleated skirt, black
+  knee socks, black loafers
+style: pixel art, game sprite
+styles:
+- hi_fidelity
+
+props:
+- longsword
+
+# Pass 2. Pass 1 zeroed the style sheet's 1.6/1.2 and read slightly stocky;
+# this sits between. Width comes from depth.build, which its own help calls the
+# only thing that says a character is broad.
+proportions:
+  legs: 1.15
+  torso: 1.1
+
+background:
+  colour: 242, 94, 147
+
+depth:
+  # The reference sheet is h/shoulder 4.42 and the rig is 6.17; no proportion
+  # group scales width, and this is what the depth capsules use for bulk.
+  build:
+    torso: 1.7
+    arms: 1.5
+    legs: 1.4
+    neck: 1.25
+    head: 1.1
+
+canonical:
+  # Pass 1 used 0.18 and 0.45 together and lost the outline the style sheet
+  # asks for. Raised together, since one turns the exemplar down and the other
+  # cuts it off early.
+  style_weight: 0.28
+  style:
+    end_at: 0.65
+  candidates: 1
+
+pose:
+  source: tpose
+  size: 1024
+  # Measured pass 2: guide drawn at 0.815, output came out at 0.999 - the model
+  # overflows the guide by 1.23x once ControlNet stops steering at 40%. 0.69
+  # lands that overflow at 0.85 with margin instead of off the canvas.
+  fill: 0.64
+  lateral_scale: 1.5
+  margin: 0.20
+  set:
+  - view: front
+  - view: side
+  - view: rear
+
+references:
+  identity:
+  - path: library/refs/experiment_slim/front.png
+    view: front
+    weight: 1.0
+  - path: library/refs/experiment_slim/side.png
+    view: side
+    weight: 1.0
+  - path: library/refs/experiment_slim/rear.png
+    view: rear
+    weight: 1.0
+
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+
+# Unattended: a ten minute rest between GPU tasks.
+cooling:
+  enabled: true
+  seconds: 600
