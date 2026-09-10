@@ -417,32 +417,30 @@ and the annotation autosave continuously, so on-screen and saved are the same
 thing, and settings models it with dirty and Save.
 
 
-## 18. A character sheet has no channel for a held object but the subject line
+## 18. A held object is named once, and attached only where it can be
 
-**Half done 2026-09-10, and the other half is a real gap rather than a tidy-up.**
+**Done 2026-09-10.** The reported bow was in `archer.yaml`'s subject line, and
+moving it to `props` first deleted it, which is what found the real fault.
 
-The report was that a bow appears where no prop was annotated. It is in the
-subject: `archer.yaml` says "a quiver of arrows, holding a curved black bow", so
-the model draws what it was asked for.
+One flag governed two different things. `props: False` on `character_sheet`
+means "do not attach a prop", because a socket cannot be placed on a static
+multi-angle render - an argument about geometry. `frames.py` gated the prompt
+words on the same flag, so a sheet could not name a bow either, and the only
+remaining channel was `subject`, asserted identically in all four views
+including the rear.
 
-Two of the four configs carrying an object clause were animations declaring no
-props at all, and the sword moved to `props: [longsword]`, which places it at a
-socket and says "holding a longsword" once. A test refuses a word appearing in
-both `subject` and `props`.
+`wanted` is now geometry and `named` is words. A type that declines a socket
+still names what the character carries; only an explicit `props_enabled: false`
+or `props: {enabled: false}` silences both, because that is the config saying
+no rather than the type saying it cannot.
 
-The other two could not move, and finding out why is the finding. `archer` is a
-character_sheet, `ModuleSpec` sets `props: False` for that type, and
-`frames.py:73` gates `prompt_terms` on `props_mod.wanted` - so for a sheet,
-props contribute neither geometry nor words. Moving the bow out of `subject`
-deletes it. Reverted before it shipped.
+The four configs carrying an object clause are clean: two animations moved a
+sword to `props: [longsword]`, and the two archers dropped a clause that
+`props: [bow, quiver]` already produced. A test refuses a weapon word appearing
+in both `subject` and `props` across every shipped config.
 
-**So the gap.** A sheet is one pose from several angles, and there is nowhere to
-say "carries a bow" except a field asserted identically in all four views,
-including the rear where the body is what matters. Either character_sheet should
-take the prompt half of props while still declining the geometry, or a sheet
-needs a per-view held slot. The first is smaller and probably right: the reason
-props are off for a sheet is that a socket cannot be placed on a static
-multi-angle render, which is an argument about geometry, not about words.
+**Not yet measured.** Whether a sheet's rear view is better for it. The run
+started 2026-09-10 12:22 is the first with both this and the named backdrop.
 
 
 ## 19. The emphasis map is authored and not yet consumed

@@ -72,7 +72,7 @@ def _base_prompt(ctx: Context, cfg: dict) -> tuple[str, str | None]:
     """The prompt every frame starts from, and the backdrop it was built with."""
     held = props_mod.prompt_terms(
         props_mod.load(ctx.config.get("props"), root=ctx.root)
-        if props_mod.wanted(ctx.config, ctx.root) else [])
+        if props_mod.named(ctx.config) else [])
     backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
     prompt = cfg.get("prompt") or vocabulary.prompt_for(
         ctx.config.get("subject") or vocabulary.DEFAULT_SUBJECT,

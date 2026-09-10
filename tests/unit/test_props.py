@@ -106,20 +106,46 @@ class TestObjectsBelongInProps:
                     assert word not in (cfg.get("subject") or ""), (
                         f"{name}: '{word}' is in both subject and props")
 
-    def test_a_sheet_keeps_its_objects_in_the_subject(self):
-        """character_sheet sets props: False, so the prompt is the only channel.
+    def test_a_sheet_names_a_prop_it_cannot_attach(self):
+        """Declining a socket is a claim about geometry, not about words.
 
-        frames.py gates prompt_terms on props_mod.wanted, which is false for a
-        sheet, so moving a bow out of `subject` there removes it entirely.
+        character_sheet sets props: False because there is no frame to place a
+        socket on. The prompt is not geometry, and a sheet of an archer holding
+        nothing is not what was asked for.
         """
         from pathlib import Path
 
         from pipeline.geometry import props as props_mod
         from pipeline.shared import modules
 
+        sheet = {"module": "character_sheet", "props": ["bow"]}
         assert not modules.wants_props(Path("."), "character_sheet")
+        assert not props_mod.wanted(sheet, Path(".")), "a sheet attached a prop"
+        assert props_mod.named(sheet), "a sheet stopped naming its prop"
+
+    def test_an_explicit_refusal_silences_both(self):
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+
+        for cfg in ({"module": "animation", "props_enabled": False,
+                     "props": ["longsword"]},
+                    {"module": "animation",
+                     "props": {"enabled": False, "items": ["longsword"]}}):
+            assert not props_mod.wanted(cfg, Path("."))
+            assert not props_mod.named(cfg), "saying no left the words in"
+
+    def test_no_shipped_config_names_its_object_twice(self):
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
 
         for name, cfg in self._configs():
-            if cfg.get("module") != "character_sheet":
+            listed = cfg.get("props") or []
+            if not listed or not props_mod.named(cfg):
                 continue
-            assert not props_mod.wanted(cfg, Path(".")), name
+            terms = props_mod.prompt_terms(props_mod.load(listed, root=Path(".")))
+            for word in ("sword", "bow", "quiver", "staff", "spear", "dagger"):
+                if word in terms:
+                    assert word not in (cfg.get("subject") or ""), (
+                        f"{name}: '{word}' is in both subject and props")

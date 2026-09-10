@@ -43,18 +43,38 @@ DIRNAME = "props"
 _REGISTRIES: dict[Path, Registry] = {}
 
 
-def wanted(config: dict, root: Path) -> bool:
+def _explicit(config: dict) -> bool | None:
+    """What the config itself says about props, or None if it does not say."""
     from ..shared.config import opt
 
     block = config.get("props")
     if isinstance(block, dict):
-        explicit = opt(block, "enabled", None)
-        if explicit is not None:
-            return bool(explicit)
-    explicit = config.get("props_enabled")
-    if explicit is not None:
-        return bool(explicit)
+        said = opt(block, "enabled", None)
+        if said is not None:
+            return bool(said)
+    said = config.get("props_enabled")
+    return None if said is None else bool(said)
+
+
+def wanted(config: dict, root: Path) -> bool:
+    """Whether a prop is ATTACHED: drawn into the skeleton and the depth map."""
+    said = _explicit(config)
+    if said is not None:
+        return said
     return modules.wants_props(root, config.get("module"))
+
+
+def named(config: dict) -> bool:
+    """Whether a listed prop is NAMED in the prompt.
+
+    A type declines props when a socket cannot be placed on what it renders - a
+    character sheet is one pose from several angles, so there is no frame to
+    attach to. That is an argument about geometry. The words are not geometry,
+    and a sheet of an archer holding nothing is not what was asked for, so only
+    an explicit refusal silences them.
+    """
+    said = _explicit(config)
+    return True if said is None else said
 
 
 def registry(root) -> Registry[dict]:
