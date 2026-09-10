@@ -45,9 +45,9 @@ def backdrop_colour(settings: dict | None) -> str | None:
     """The colour to key against, or None when the background is part of the art."""
     from ..shared.config import opt
 
-    if opt(settings, "enabled", True) is False:
+    if opt(settings or {}, "enabled", True) is False:
         return None
-    return opt(settings, "colour", BACKDROP)
+    return opt(settings or {}, "colour", BACKDROP)
 
 
 def prompt_for(subject: str, hint: str, style: str, backdrop: str | None,
@@ -59,7 +59,9 @@ def prompt_for(subject: str, hint: str, style: str, backdrop: str | None,
 
 
 def backdrop_prompt(colour: str | None) -> str:
-    return BACKDROP_TERMS.format(colour=colour or BACKDROP)
+    from ..shared.colour import name_for
+
+    return BACKDROP_TERMS.format(colour=name_for(colour or BACKDROP))
 
 
 def negative_for(base: str, *, backdrop: bool = False, pose_control: bool = False,

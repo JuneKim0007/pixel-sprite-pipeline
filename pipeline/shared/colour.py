@@ -13,6 +13,29 @@ BACKDROP_PRESETS: tuple[tuple[str, str], ...] = (
     ("#7F7F7F", "Neutral grey, for saturated subjects"),
 )
 
+# What to call a backdrop in a prompt. CLIP was trained on captions and reads a
+# hex code as punctuation and digits, so "#FF00FF" asks for nothing: measured
+# 2026-09-10, a run whose prompt said "solid flat #FF00FF chroma key background"
+# produced a pale blue-grey backdrop with zero magenta pixels in it.
+COLOUR_NAMES: tuple[tuple[tuple[int, int, int], str], ...] = (
+    ((255, 0, 255), "magenta"),
+    ((0, 177, 64), "bright green"),
+    ((0, 71, 187), "deep blue"),
+    ((127, 127, 127), "mid grey"),
+    ((255, 0, 0), "red"),
+    ((255, 255, 0), "yellow"),
+    ((0, 255, 255), "cyan"),
+    ((255, 255, 255), "white"),
+    ((0, 0, 0), "black"),
+)
+
+
+def name_for(raw) -> str:
+    """The nearest colour a caption would use, for a prompt CLIP can read."""
+    rgb = parse_colour(raw) or parse_colour(BACKDROP)
+    return min(COLOUR_NAMES,
+               key=lambda entry: sum((a - b) ** 2 for a, b in zip(entry[0], rgb)))[1]
+
 _HEX = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 _RGB = re.compile(r"^(?:rgb\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*\)?$")
 

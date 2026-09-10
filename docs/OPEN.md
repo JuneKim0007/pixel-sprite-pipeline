@@ -355,30 +355,34 @@ third dialect cannot accumulate quietly. Verified by adding a dead rule and
 watching it fail.
 
 
-## 16. The backdrop is keyed after the model has already guessed
+## 16. The backdrop was asked for in a language the encoder does not read
 
-**Not started, requested 2026-09-10.** `background.colour` reaches the prompt in
-`canonical` and `frames` as words - "solid flat #FF00FF chroma key background" -
-and the keyer runs in `palette`, several stages later. So the model is asked for
-a backdrop and only checked much later, and where the subject ends is a guess
-the rig constrains but does not decide.
+**Diagnosed and half fixed 2026-09-10.** The report was that the model confuses
+which area is background even with a rig, and asked for a brush to paint the
+answer. Measured on real output first, and the cause is upstream of any mask.
 
-**The request.** Paint the area that is backdrop, with a brush, and have that be
-authoritative rather than advisory.
+`out/runs/20260910_102428_archer/02_canonical/canonical.png` was generated from
+a prompt containing "solid flat #FF00FF chroma key background". It contains
+**zero** near-magenta pixels; its backdrop is a pale blue-grey, (188, 217, 225)
+at every corner. CLIP was trained on captions and reads a hex code as
+punctuation and digits, so the request asked for nothing at all and the keyer
+was left flooding from whatever the corners happened to be - 78% removed, by
+luck rather than by key.
 
-**What has to be established first.** Whether the mask should reach the model or
-only the keyer. These are different mechanisms and the second is nearly free:
+`name_for` now maps a colour to the nearest name a caption would use and the
+prompt says "solid flat magenta chroma key background". The hex is unchanged
+where it matters: the keyer still matches the exact value.
 
-- As a keyer input, a painted mask is exact and cannot confuse anything. It is
-  the same shape `annotate.py` already stores per image, and `background_to_alpha`
-  already accepts a `key=` colour, so the layer to change is small.
-- As a model input it is inpainting or a ControlNet mask, which changes what
-  `canonical` submits to ComfyUI, and a mask that disagrees with the prompt is a
-  real way to make output worse rather than better.
+**Not yet established.** Whether a named colour is enough. SDXL may still ignore
+it, and the next generated frame is the measurement - count near-magenta pixels
+in the canonical, as above. Only if that fails is a mask worth building, and
+then as a keyer input rather than a model input: it is exact, cannot confuse
+anything, and `background_to_alpha` already takes a key.
 
-Websearch and measurement both required. Do not implement from the request
-alone - the ordering that looks wrong may be deliberate, and DECISIONS.md should
-be read for the backdrop wording before anything moves.
+Fixed while here: `backdrop_colour(None)` raised AttributeError. The stage path
+passes a merged dict so nothing hit it, but a config with no `background:` block
+crashes anything calling it directly.
+
 
 ## 17. Three editors keep only the state that is on screen
 

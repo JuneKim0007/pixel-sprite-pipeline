@@ -190,3 +190,37 @@ class TestBackdropColour:
         with pytest.raises(Invalid) as caught:
             parse_colour("chartreuse")
         assert caught.value.detail["field"] == "colour"
+
+
+class TestBackdropNaming:
+    """A prompt CLIP can read, and a hex the keyer can match."""
+
+    def test_the_prompt_names_the_colour_rather_than_coding_it(self):
+        from pipeline.looks import vocabulary
+
+        said = vocabulary.backdrop_prompt("#FF00FF")
+        assert "magenta" in said
+        assert "#FF00FF" not in said, "a hex code reaches CLIP as digits"
+
+    def test_every_preset_has_a_name(self):
+        from pipeline.shared.colour import BACKDROP_PRESETS, name_for
+
+        for hex_value, _ in BACKDROP_PRESETS:
+            assert name_for(hex_value).strip()
+
+    def test_a_custom_colour_takes_its_nearest_name(self):
+        from pipeline.shared.colour import name_for
+
+        assert name_for("#fe02f0") == "magenta"
+        assert name_for("12, 200, 60") == "bright green"
+
+    def test_the_keyer_still_gets_the_exact_hex(self):
+        """The prompt is approximate on purpose; the key must not be."""
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_colour({"colour": "#00B140"}) == "#00B140"
+
+    def test_no_background_block_is_not_a_crash(self):
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_colour(None) == vocabulary.BACKDROP

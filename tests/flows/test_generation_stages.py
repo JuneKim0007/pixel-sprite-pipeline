@@ -16,6 +16,7 @@ import pytest
 from pipeline.generation.comfy import ComfyError
 from pipeline.generation.stage import get
 from pipeline.looks import vocabulary
+from pipeline.shared import colour as colour_mod
 
 
 # --------------------------------------------------------------- canonical
@@ -35,7 +36,10 @@ def test_canonical_prompts_with_subject_hint_style_and_backdrop(comfy_fake, stag
 
     assert prompt.startswith("a wolf")
     assert "woodcut" in prompt
-    assert vocabulary.BACKDROP in prompt, "the backdrop colour reaches the prompt"
+    # The name, not the hex: CLIP reads "#FF00FF" as punctuation and digits.
+    assert colour_mod.name_for(vocabulary.BACKDROP) in prompt, \
+        "the backdrop colour reaches the prompt"
+    assert vocabulary.BACKDROP not in prompt, "a hex code reached the encoder"
 
 
 def test_canonical_drops_the_backdrop_when_it_is_off(comfy_fake, stage_ctx):
@@ -171,7 +175,7 @@ def test_both_stages_build_the_same_prompt_from_the_same_config(comfy_fake, stag
         frames_ctx(1, subject="a wolf", style="woodcut"), {})
     frames_prompt = comfy_fake.prompt()
 
-    for term in ("a wolf", "woodcut", vocabulary.BACKDROP):
+    for term in ("a wolf", "woodcut", colour_mod.name_for(vocabulary.BACKDROP)):
         assert term in canonical_prompt and term in frames_prompt, term
 
 
