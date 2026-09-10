@@ -11,7 +11,7 @@ from .context import CONFIGS, ROOT
 from .contracts import Shape
 from .routing import BaseRouter, get, post
 from .context import runs_dir
-from ..shared import errors
+from ..shared import errors, guard
 
 
 _AUTOPILOT: dict[str, Any] = {"proc": None, "started": None}
@@ -115,6 +115,7 @@ def autopilot(action: str, args: dict | None = None) -> dict:
         log = open(runs_dir().parent / AUTOPILOT_LOG, "a")
         started = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
                                    stderr=subprocess.STDOUT)
+        guard.GUARD.watch(started.pid, "autopilot")
         _AUTOPILOT.update(proc=started,
                           started=time.strftime("%Y-%m-%d %H:%M:%S"))
         return {"running": True, "started": _AUTOPILOT["started"]}

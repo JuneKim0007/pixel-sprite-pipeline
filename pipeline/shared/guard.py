@@ -65,30 +65,70 @@ class Guard:
 
     @staticmethod
     def rss(pids: list[int]) -> dict[int, int] | None:
-        """Resident bytes per pid, in one call rather than one call each.
+        """Resident bytes per pid, counting the descendants it is responsible for.
 
         None means the question could not be asked; an empty dict means it was
         asked and every process is gone. A caller that treats those alike
         forgets every watched process the first time `ps` fails to spawn.
+
+        A descendant that is watched in its own right is left out, so the two
+        readings do not both claim the same bytes.
         """
         if not pids:
             return {}
         try:
-            out = subprocess.run(
-                ["ps", "-o", "pid=,rss=", "-p", ",".join(str(p) for p in pids)],
-                capture_output=True, text=True, timeout=5)
+            out = subprocess.run(["ps", "-axo", "pid=,ppid=,rss="],
+                                 capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.SubprocessError):
             return None
-        found: dict[int, int] = {}
+
+        own: dict[int, int] = {}
+        children: dict[int, list[int]] = {}
         for line in out.stdout.splitlines():
             parts = line.split()
-            if len(parts) == 2:
-                try:
-                    found[int(parts[0])] = int(parts[1]) * 1024
-                except ValueError:
-                    pass
+            if len(parts) != 3:
+                continue
+            try:
+                pid, parent, kilobytes = int(parts[0]), int(parts[1]), int(parts[2])
+            except ValueError:
+                continue
+            own[pid] = kilobytes * 1024
+            children.setdefault(parent, []).append(pid)
+
+        watched = set(pids)
+        found: dict[int, int] = {}
+        for pid in watched:
+            if pid not in own:
+                continue
+            total, seen, pending = 0, {pid}, [pid]
+            while pending:
+                current = pending.pop()
+                total += own.get(current, 0)
+                for child in children.get(current, ()):
+                    if child in seen or child in watched:
+                        continue
+                    seen.add(child)
+                    pending.append(child)
+            found[pid] = total
         return found
 
+
+    @staticmethod
+    def _signal(pid: int) -> None:
+        """Kill the service, not just the process that speaks for it.
+
+        Each service is started in its own process group, and the memory the
+        reading measured usually sits in a worker rather than in the leader.
+        The guard's own group is never signalled that way: it holds the caller.
+        """
+        try:
+            group = os.getpgid(pid)
+        except (ProcessLookupError, PermissionError):
+            group = None
+        if group is not None and group != os.getpgrp():
+            os.killpg(group, signal.SIGKILL)
+            return
+        os.kill(pid, signal.SIGKILL)
 
     def _kill(self, target: Watched, why: str, rss: int) -> None:
         log.error("guard: killing %s (pid %d, %.2f GB) - %s",
@@ -96,7 +136,7 @@ class Guard:
         self.kills.append({"pid": target.pid, "name": target.name,
                            "rss": rss, "why": why, "at": time.time()})
         try:
-            os.kill(target.pid, signal.SIGKILL)
+            self._signal(target.pid)
         except ProcessLookupError:
             pass
         except PermissionError:
@@ -195,7 +235,7 @@ class Guard:
 GUARD = Guard()
 
 
-EXPECTED_LARGE = {"comfy"}
+EXPECTED_LARGE = {"comfy", "ollama"}
 
 
 def adopt_pidfiles(run_dir) -> list[str]:

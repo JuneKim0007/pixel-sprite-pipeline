@@ -473,6 +473,35 @@ fixes. ComfyUI is marked `expected_large` and is exempt from the per-process
 ceiling: holding a diffusion model resident is its job, and at that point being
 the biggest is exactly what makes it the right one to kill.
 
+### The process that answers is not the process that grows
+
+The reading was `ps -o rss= -p <pid>` against the pid in the pidfile, and every
+service this guard watches puts its memory somewhere else. `ollama serve` is a
+supervisor: it stays around 15 MB whatever model is loaded, because the weights
+live in a runner it spawns. Measured 2026-09-10 with two models cached, the
+supervisor was 14.9 MB. The guard was reading the one number in the system that
+could not move, and its per-process ceiling had therefore never fired on the
+service most able to exhaust the machine.
+
+`rss` now walks each watched pid's descendants and sums them, and `_kill`
+signals the process group rather than the leader — a reading that counts the
+worker and a kill that leaves it running would reclaim nothing. `ctl.sh` already
+starts each service in its own group for `down`, so the group is exactly the
+service. The guard's own group is never signalled that way, because it contains
+the caller.
+
+Summing descendants makes the UI server's reading include anything it spawned,
+and it spawns the pipeline run — the largest allocation in the system. So the
+run and the autopilot are now watched in their own right, and a watched
+descendant is excluded from its parent's total: two readings must not both claim
+the same bytes. That leaves the pipeline run under the per-process ceiling
+rather than hidden underneath the 13 MB process that started it.
+
+`ollama` joins `comfy` as `expected_large` for the same reason comfy is: a model
+server holding a model is not a runaway. Neither exemption covers the pressure
+path — sustained critical pressure still kills the largest watched process,
+exempt or not, which is the case where being biggest is the point.
+
 macOS has no cgroups, and `RLIMIT_AS` is unreliable under Metal — MPS reserves
 address space far beyond its resident set, so a limit low enough to matter
 refuses allocations that would have been fine. Polling RSS from outside is cruder

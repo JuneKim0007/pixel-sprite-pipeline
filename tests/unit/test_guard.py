@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import time
 
@@ -196,3 +197,58 @@ def test_a_failed_reading_does_not_disarm_the_guard(monkeypatch, victim):
 
     assert victim.pid in guard.watched, "one failed ps call disarmed the guard"
     assert guard.kills == []
+
+
+@pytest.fixture
+def family():
+    """A leader with a worker under it, in its own group as ctl.sh starts one."""
+    proc = subprocess.Popen(["/bin/sh", "-c", "/bin/sleep 30 & wait"],
+                            start_new_session=True)
+    deadline = time.time() + 3.0
+    while time.time() < deadline and not _children(proc.pid):
+        time.sleep(0.05)
+    yield proc
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        if proc.poll() is None:
+            proc.kill()
+    proc.wait(timeout=5)
+
+
+def _children(pid):
+    out = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True)
+    return [int(p) for p in out.stdout.split()]
+
+
+def test_a_worker_s_memory_counts_against_the_service_that_spawned_it(family):
+    """`ollama serve` is 15 MB whatever model is loaded; the runner holds it."""
+    worker = _children(family.pid)
+    assert worker, "the fixture never spawned a child"
+
+    whole = Guard().rss([family.pid])
+    leader_only = sum(Guard().rss([family.pid, w])[w] for w in worker)
+
+    assert whole[family.pid] > leader_only, "the worker was not counted"
+
+
+def test_a_worker_watched_in_its_own_right_is_not_counted_twice(family):
+    worker = _children(family.pid)
+    assert worker, "the fixture never spawned a child"
+
+    tree = Guard().rss([family.pid])[family.pid]
+    split = Guard().rss([family.pid, *worker])
+
+    assert split[family.pid] < tree, "the worker was counted on both readings"
+    assert all(split[w] > 0 for w in worker)
+
+
+def test_a_model_server_is_adopted_as_expected_to_be_large(tmp_path, monkeypatch):
+    from pipeline.shared import guard as guard_mod
+
+    (tmp_path / "ollama.pid").write_text(f"{os.getpid()}\n")
+    monkeypatch.setattr(guard_mod, "GUARD", Guard())
+
+    adopt_pidfiles(tmp_path)
+
+    assert guard_mod.GUARD.watched[os.getpid()].expected_large is True

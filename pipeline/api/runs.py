@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from ..generation import comfy, runner
-from ..shared import settings
+from ..shared import guard, settings
 from ..shared.errors import NotFound
 from .context import CONFIGS, ROOT, runs_dir
 from .contracts import Shape
@@ -203,6 +203,7 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
 
     log = (out / "run.log").open(log_mode)
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    guard.GUARD.watch(proc.pid, f"run:{run_id}")
     with _LOCK:
         _ACTIVE[run_id] = proc
     return run_id
