@@ -92,7 +92,7 @@ def render_depth(
     )
     screen = {
         joint: (kp[0] * width, kp[1] * height)
-        for joint, kp in zip(rig.joints, keypoints)
+        for joint, kp in zip(rig.all_joints, keypoints)
         if kp is not None
     }
     depths = view_depth(fitted, yaw_deg)

@@ -16,7 +16,7 @@ HUMANOIDS = ["humanoid", "humanoid_4arm", "humanoid_6arm", "humanoid_tailed"]
 @pytest.mark.parametrize("name", ALL)
 def test_declared_joints_cover_tree_and_bones(name):
     rig = rigs.REGISTRY[name]
-    joints = set(rig.joints)
+    joints = set(rig.all_joints)
     for parent, kids in rig.tree.items():
         assert parent in joints, f"tree parent {parent} undeclared"
         assert not set(kids) - joints, f"tree children {set(kids) - joints} undeclared"
@@ -34,14 +34,14 @@ def test_every_joint_is_reachable_from_root(name):
             if kid not in seen:
                 seen.add(kid)
                 stack.append(kid)
-    assert not set(rig.joints) - seen
+    assert not set(rig.all_joints) - seen
 
 
 @pytest.mark.parametrize("name", ALL)
 def test_both_control_channels_render(name):
     rig = rigs.REGISTRY[name]
     kp = bs.project(rig.neutral, 40, rig=rig)
-    assert len(kp) == len(rig.joints)
+    assert len(kp) == len(rig.all_joints)
     if rig.skeleton_control:
         render(kp, 64, 64, rig=rig)
     render_depth(rig.neutral, 40, 64, 64, rig=rig)
@@ -54,6 +54,8 @@ def test_only_humanoid_claims_openpose():
 
     assert len(rigs.HUMANOID.joints) == 18, "OpenPose wants 18 joints"
     assert rigs.HUMANOID.joints[0] == "nose", "COCO order broken"
+    assert not set(rigs.HUMANOID.extra) & set(rigs.HUMANOID.joints), \
+        "a depth-only joint reached the protocol list"
 
 
 def test_rig_none_has_no_geometry():

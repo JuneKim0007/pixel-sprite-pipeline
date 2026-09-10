@@ -28,6 +28,11 @@ class Rig:
     skeleton_control: str | None
     depth_control: str = "depth"
     face_joints: tuple[str, ...] = ()
+    # Joints the depth map draws and the skeleton does not. The 18-point order
+    # in `joints` is the OpenPose protocol its ControlNet was trained on, so a
+    # foot cannot be added there; without one the ankle is a leaf and the depth
+    # map ends the leg in a sphere, which is what stretches a foot.
+    extra: tuple[str, ...] = ()
     head_joint: str = ""
     head_radius: float = 0.062
     prompt_hint: str = ""
@@ -37,8 +42,15 @@ class Rig:
         return self.joints.index(joint)
 
     @property
+    def all_joints(self) -> tuple[str, ...]:
+        return self.joints + self.extra
+
+    @property
     def limb_pairs(self) -> tuple[tuple[int, int], ...]:
-        return tuple((self.index(a), self.index(b)) for a, b, _ in self.bones)
+        """Only the bones the skeleton protocol can name; extras are depth-only."""
+        drawn = set(self.joints)
+        return tuple((self.index(a), self.index(b)) for a, b, _ in self.bones
+                     if a in drawn and b in drawn)
 
     @property
     def thickness(self) -> dict[tuple[str, str], float]:
@@ -71,8 +83,8 @@ HUMANOID = Rig(
         "neck": ("nose", "r_shoulder", "l_shoulder", "r_hip", "l_hip"),
         "r_shoulder": ("r_elbow",), "r_elbow": ("r_wrist",),
         "l_shoulder": ("l_elbow",), "l_elbow": ("l_wrist",),
-        "r_hip": ("r_knee",), "r_knee": ("r_ankle",),
-        "l_hip": ("l_knee",), "l_knee": ("l_ankle",),
+        "r_hip": ("r_knee",), "r_knee": ("r_ankle",), "r_ankle": ("r_toe",),
+        "l_hip": ("l_knee",), "l_knee": ("l_ankle",), "l_ankle": ("l_toe",),
         "nose": ("r_eye", "l_eye", "r_ear", "l_ear"),
     },
     neutral={
@@ -94,6 +106,8 @@ HUMANOID = Rig(
         "l_eye":      (0.014, 0.026, 0.136),
         "r_ear":      (-0.030, -0.004, 0.142),
         "l_ear":      (0.030, -0.004, 0.142),
+        "r_toe":      (-0.040000, 0.034090, 0.825534),
+        "l_toe":      (0.040000, 0.034090, 0.825534),
     },
     bones=(
         ("neck", "r_hip", 0.115), ("neck", "l_hip", 0.115),
@@ -103,9 +117,11 @@ HUMANOID = Rig(
         ("r_hip", "r_knee", 0.055), ("l_hip", "l_knee", 0.055),
         ("r_knee", "r_ankle", 0.042), ("l_knee", "l_ankle", 0.042),
         ("neck", "nose", 0.070),
+        ("r_ankle", "r_toe", 0.030), ("l_ankle", "l_toe", 0.030),
     ),
     skeleton_control="openpose",
     face_joints=("nose", "r_eye", "l_eye"),
+    extra=("r_toe", "l_toe"),
     head_joint="nose",
     prompt_hint="",
     note="The only rig with a matching ControlNet. Uses openpose + depth.",
@@ -294,6 +310,7 @@ def humanoid(arms: int = 2, *, name: str = "", label: str = "", tail: bool = Fal
         bones=tuple(bones),
         skeleton_control="hed/pidi/scribble/ted",
         face_joints=("nose", "r_eye", "l_eye"),
+        extra=HUMANOID.extra,
         head_joint="nose",
         prompt_hint=(f"{arms} arms, " if arms > 2 else "") + ("long tail" if tail else ""),
         note="Non-standard limb count, so the skeleton goes out as a scribble.",
@@ -715,6 +732,15 @@ def _swing(pose: dict[str, list[float]], root_joint: str,
         ]
 
 
+def _below(rig: Rig, joint: str) -> list[str]:
+    out, stack = [], list(rig.tree.get(joint, ()))
+    while stack:
+        here = stack.pop()
+        out.append(here)
+        stack.extend(rig.tree.get(here, ()))
+    return out
+
+
 STANCE_DEGREES = 6.0
 
 A_POSE_DEGREES = 40.0
@@ -741,11 +767,16 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
         return pose
 
     # Assigning the ankle's x directly stretched the shin: 0.1600 to 0.1607.
-    for hip, knee, ankle in (("l_hip", "l_knee", "l_ankle"),
-                             ("r_hip", "r_knee", "r_ankle")):
-        if hip in pose and ankle in pose:
-            side = 1 if hip.startswith("l_") else -1
-            _swing(pose, hip, tuple(j for j in (knee, ankle) if j in pose),
-                   STANCE_DEGREES, side)
+    # Everything BELOW the hip swings with it, from the tree rather than a
+    # list: naming knee and ankle left the toe where it was and stretched the
+    # foot to 0.042 against a bone declared 0.030.
+    for hip in ("l_hip", "r_hip"):
+        if hip not in pose:
+            continue
+        below = [j for j in _below(rig, hip) if j in pose]
+        if not below:
+            continue
+        side = 1 if hip.startswith("l_") else -1
+        _swing(pose, hip, tuple(below), STANCE_DEGREES, side)
     return pose
 

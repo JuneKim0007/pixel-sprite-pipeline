@@ -65,11 +65,13 @@ def render(
 
     rig = rig if rig is not None else _rigs.HUMANOID
     limbs = rig.limb_pairs
-    if len(keypoints) != len(rig.joints):
+    if len(keypoints) not in (len(rig.joints), len(rig.all_joints)):
         raise Invalid(
             f"{rig.name}: expected {len(rig.joints)} keypoints, got {len(keypoints)}",
             field="keypoints",
         )
+    # A depth-only joint has no colour in the protocol, so it is not drawn here.
+    keypoints = keypoints[:len(rig.joints)]
 
     # OpenPose's reference stick is 4px on a 368px canvas; scale from that.
     stick = thickness if thickness is not None else max(2.0, 4.0 * min(width, height) / 368)

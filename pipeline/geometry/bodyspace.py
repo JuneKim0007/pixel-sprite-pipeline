@@ -114,7 +114,7 @@ def project(
     sin_y, cos_y = math.sin(yaw), math.cos(yaw)
 
     out: list[list[float] | None] = []
-    for joint in rig.joints:
+    for joint in rig.all_joints:
         if joint not in pose or not visible(joint, yaw_deg, rig):
             out.append(None)
             continue
