@@ -436,7 +436,7 @@ Supersedes the earlier reading of this entry, which assumed the annotation was
 too weak. It was not. Related to §16 only in that both wanted a way to say "not
 this"; this one does not need one.
 
-## 18. The emphasis map is authored and not yet consumed
+## 19. The emphasis map is authored and not yet consumed
 
 **Half done 2026-09-10.** A weight map can be painted on a reference image and
 is stored beside it as `<image>.weight.png`. Nothing reads it yet.
