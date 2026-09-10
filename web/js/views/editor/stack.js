@@ -22,9 +22,16 @@ import { BaseField, ColourPicker } from '../../ui/index.js';
  * input element is. Everything below is one `control()` each.
  */
 class Control extends BaseField {
-  constructor(spec, value, onChange) {
-    super({ field: { path: spec.key, label: spec.label, help: spec.help, type: spec.kind },
-            value, on: { change: (_p, v) => onChange(spec.key, v) } });
+  constructor(spec, value, onChange, onReset) {
+    super({
+      field: { path: spec.key, label: spec.label, help: spec.help,
+               type: spec.kind, default: spec.default },
+      value,
+      on: {
+        change: (_p, v) => onChange(spec.key, v),
+        reset: onReset ? () => onReset(spec.key) : null,
+      },
+    });
     this.spec = spec;
   }
 
@@ -83,12 +90,12 @@ function visible(spec, config) {
 }
 
 /** The form for one layer, from its declaration. */
-export function layerForm(spec, config, onChange) {
+export function layerForm(spec, config, onChange, onReset) {
   const host = el('div', { className: 'layerform' });
   for (const f of spec.fields) {
     if (!visible(f, config)) continue;
     const value = config[f.key] ?? f.default;
-    host.append(new Control(f, value, onChange).render());
+    host.append(new Control(f, value, onChange, onReset).render());
   }
   return host;
 }

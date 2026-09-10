@@ -36,6 +36,13 @@ export class BaseField {
   /* Subclasses that show a live value (a range's number) override this. */
   readout() { return null; }
 
+  /** Whether this field is holding something other than its declared default. */
+  changed() {
+    const fallback = this.field.default;
+    if (fallback === undefined || fallback === null) return false;
+    return String(this.value) !== String(fallback);
+  }
+
   commit(value) {
     this.value = value;
     if (this.on.change) this.on.change(this.field.path, value);
@@ -53,8 +60,18 @@ export class BaseField {
       title: 'No explanation recorded for this setting', disabled: true,
     });
 
-    return { row: el('div', { className: 'ui-label-row' }, label, marker),
-             body: tip ? tip.body : null };
+    const row = el('div', { className: 'ui-label-row' }, label, marker);
+    // Offered only when the value differs from the default, so the control is
+    // both an action and the answer to "have I changed this".
+    if (this.on.reset && this.changed()) {
+      const back = el('button', {
+        className: 'linkbtn', type: 'button', textContent: 'reset',
+        title: 'Back to this layer\u2019s default',
+      });
+      back.onclick = () => this.on.reset(this.field.path);
+      row.append(back);
+    }
+    return { row, body: tip ? tip.body : null };
   }
 
   render() {

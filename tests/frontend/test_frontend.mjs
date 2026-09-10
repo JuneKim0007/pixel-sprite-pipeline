@@ -1663,5 +1663,42 @@ await atest('the map is sized to the grid the sampler uses', async () => {
   assert.match(py, /EDGE = 128/, 'the two ends disagree on the grid size');
 });
 
+console.log('\nback to a default');
+await atest('a layer field offers a reset once it differs', async () => {
+  // The rig can reset a joint and settings can drop an override; the layer
+  // stack had no way back at all - f.default was read when a layer was added
+  // and never again.
+  const { BaseField } = await import(join(JS, 'ui/index.js'));
+
+  const make = (value) => new BaseField({
+    field: { path: 'gamma', label: 'Gamma', type: 'float', default: 1 },
+    value, on: { change() {}, reset() {} },
+  });
+
+  assert.equal(make(1).changed(), false, 'a default value offered a reset');
+  assert.equal(make(1.4).changed(), true);
+  assert.ok(make(1.4).render().textContent.includes('reset'));
+  assert.ok(!make(1).render().textContent.includes('reset'),
+    'the control is shown when there is nothing to undo');
+});
+
+await atest('a field with no declared default cannot offer one', async () => {
+  const { BaseField } = await import(join(JS, 'ui/index.js'));
+  const f = new BaseField({
+    field: { path: 'name', label: 'Name', type: 'text' },
+    value: 'anything', on: { change() {}, reset() {} },
+  });
+  assert.equal(f.changed(), false, 'reset would clear it to undefined');
+});
+
+await atest('the editor puts the field back to its declared default', async () => {
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  assert.match(src, /entry\.config\[key\] = field\?\.default;/,
+    'reset does something other than restore the default');
+  const stack = readFileSync(join(JS, 'views/editor/stack.js'), 'utf8');
+  assert.match(stack, /default: spec\.default/,
+    'the control never learns what its default is');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

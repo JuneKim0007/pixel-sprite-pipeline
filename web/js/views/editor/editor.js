@@ -364,6 +364,11 @@ export function renderEditor(host) {
         // Rebuilding on every keystroke is what loses focus mid-word.
         if (spec.fields.some((f) => key in (f.when || {}))) renderForm();
         markStale();
+      }, (key) => {
+        const field = spec.fields.find((f) => f.key === key);
+        entry.config[key] = field?.default;
+        renderForm();
+        markStale();
       }));
   }
 

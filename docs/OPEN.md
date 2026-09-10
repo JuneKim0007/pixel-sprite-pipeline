@@ -384,27 +384,29 @@ passes a merged dict so nothing hit it, but a config with no `background:` block
 crashes anything calling it directly.
 
 
-## 17. Three editors keep only the state that is on screen
+## 17. Four editors, four meanings of reset, and no shared base
 
-**Half done 2026-09-10.** The rig's reference pose now comes from the rig
-(`rigDef.neutral`) rather than from frame 0, so Reset returns a joint to the
-rest position and `dragJoint` snaps bone lengths against the right reference.
-Measured: neutral and the T-pose differ on 4 of 18 joints, so the two were
-never interchangeable.
+**Closed 2026-09-10 by fixing the one real gap and not building the base.**
 
-**What is left, and it is the wider shape.** Every editable set here has three
-states - what the rig or schema defines, what was last saved, and what is on
-screen - and only the third is modelled. The rig editor now has the first;
-annotations, the layer stack and the settings form still have none, so each
-answers "reset" differently or not at all.
+The entry proposed a base naming `defaults()` and `saved()` for all four
+editors. Surveying them first, as it said to, argues against it - they are four
+different questions wearing one word:
 
-A base naming `defaults()` and `saved()`, with reset meaning "back to saved, or
-to defaults when never saved", would serve all four. `ui/BaseField` and
-`ui/BaseCard` are the precedent for putting that in one place, and `BaseCard` is
-still unused, so the shape is available rather than absent.
+- the rig resets one joint to the rig's rest pose
+- settings drops an override so the value falls back through own, global, schema
+- the annotator's Clear empties it, and empty is a real answer there, not a
+  default
+- the layer stack had nothing at all
 
-Do not generalise from the one case that is fixed. Look at whether the other
-three want the same base first.
+Only the last is a gap. `f.default` was read when a layer was added and never
+again, so a dragged slider had no way back. `BaseField` now takes an optional
+`on.reset` and shows it only when the value differs from the declared default,
+which makes the control both the action and the answer to "have I changed this".
+Settings already had that idiom per field; this is the same one, not a new one.
+
+None of the four gained a notion of "back to saved", and none needs one: the rig
+and the annotation autosave continuously, so on-screen and saved are the same
+thing, and settings models it with dirty and Save.
 
 
 ## 18. The subject line asks for the weapon it is being blamed for
