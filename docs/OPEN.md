@@ -342,22 +342,31 @@ Do not build the base first. Fix the one-line source of `neutral`, then look at
 whether the other three editors want the same base before generalising from a
 single case.
 
-## 18. An annotation guides the model but does not bind it
+## 18. The subject line asks for the weapon it is being blamed for
 
-**Not started, reported 2026-09-10.** With `pose.source: annotation` the output
-still contains things the annotation does not describe - a weapon appears where
-no prop was annotated.
+**Diagnosed 2026-09-10, not started.** The reported symptom was that an
+annotation does not stop a weapon appearing. The cause is upstream of the
+annotation. `library/configs/archer.yaml:12` ends:
 
-**Why that is expected rather than broken.** An annotation becomes a skeleton
-image handed to ControlNet, which constrains where the parts go. It is not a
-mask and it does not say what may not exist, so anything the prompt or the
-identity references imply can still be drawn. The subject text and the style
-sheet both carry vocabulary; `POSE_NEGATIVE` in vocabulary.py already exists for
-exactly this class of problem and lists what a pose guide must not become.
+    ... chunky black boots, a quiver of arrows, holding a curved black bow
 
-**What to establish before changing anything.** Whether the weapon is coming
-from the prompt, from an identity reference that has one, or from the LoRA. Each
-has a different fix and strengthening the wrong one degrades output: raising
-ControlNet weight to suppress a prop stiffens every pose, which is a real cost
-paid for an unrelated symptom. Related to §17, which asks the same question for
-the backdrop - both want a way to say "not this" that is stronger than words.
+The model is drawing what it was asked for. No amount of ControlNet weight
+fixes a prompt, and raising it to suppress a prop stiffens every pose - a real
+cost paid for a symptom it does not cause.
+
+**What the field is for.** `subject` is identity: who the character is, and what
+they wear, held constant across every view of a sheet. A held object is not
+identity - it is per-frame, which is why `prompt_for` takes `held` as its own
+argument and why `props:` exists in the config. A bow in `subject` is asserted
+in all four views including the rear, where a character sheet wants the body.
+
+**What it would take.** Sweep the shipped configs for object clauses that belong
+in `props` or `held` rather than `subject`, and say so where the field is
+described - `schema.py`'s help for `subject` does not currently distinguish
+identity from what a character happens to be carrying. A validator that refuses
+"holding ..." in `subject` is the stronger version and should wait until the
+sweep shows how common it is.
+
+Supersedes the earlier reading of this entry, which assumed the annotation was
+too weak. It was not. Related to §16 only in that both wanted a way to say "not
+this"; this one does not need one.
