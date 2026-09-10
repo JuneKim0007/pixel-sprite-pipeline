@@ -51,6 +51,8 @@ def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
     depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
     if depthmaps and len(depthmaps) != len(skeletons):
         raise RuntimeError(
+            # not-a-message: both lists are written one file per pose entry, so a
+            # mismatch is a partial write or a version skew, not a config fault.
             f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
             f"they must correspond one to one.")
     return skeletons, ctx.require("canonical"), depthmaps

@@ -23,7 +23,7 @@ class Source(Generic[T]):
     """Where a registry's entries come from."""
 
     def load(self) -> tuple[dict[str, T], list[Broken]]:
-        raise NotImplementedError  # a Source that did not define load()
+        raise NotImplementedError  # not-a-message: a Source was built without defining load()
 
     def signature(self) -> Any:
         return None

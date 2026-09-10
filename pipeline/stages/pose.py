@@ -269,6 +269,8 @@ class PoseStage(Stage):
             issues = validate_pose(f, llm_cfg["tolerance"])
             if issues:
                 raise RuntimeError(
+                    # not-a-message: generate_pose() returns only frames that already
+                    # passed this check, so a failure means one was mutated after.
                     f"frame {i} failed validation after accept: {issues}"
                 )
 

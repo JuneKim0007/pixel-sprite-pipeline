@@ -2088,5 +2088,24 @@ test('undo keys are scoped to a panel, never to the document', () => {
   }
 });
 
+test('no source file carries an unresolved merge', () => {
+  // node --check does NOT catch this: markers nested inside a function parse
+  // clean and exit 0. One shipped to master on 2026-09-10 because of that.
+  const marker = /^(<{7}|={7}|>{7})(\s|$)/m;
+  const roots = [join(ROOT, 'web'), join(ROOT, 'pipeline'), join(ROOT, 'tests')];
+  const seen = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === '__pycache__' || entry.name.startsWith('.')) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(js|mjs|css|py|json|yaml)$/.test(entry.name)) continue;
+      if (marker.test(readFileSync(full, 'utf8'))) seen.push(full);
+    }
+  };
+  for (const r of roots) walk(r);
+  assert.deepEqual(seen, [], `unresolved merge in ${seen.join(', ')}`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

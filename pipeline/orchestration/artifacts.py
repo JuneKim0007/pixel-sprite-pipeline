@@ -25,6 +25,7 @@ def _encode(value: Any) -> dict:
         return {"type": "json", "value": value}
     except TypeError as e:
         raise TypeError(
+            # not-a-message: save() strips scratch keys first, so this is a defect upstream.
             f"artifact {type(value).__name__} cannot be persisted, so the run "
             f"would not be resumable. Prefix the key with '_' if it is scratch."
             + (f" Contents: {sorted(type(v).__name__ for v in value.values())}."
