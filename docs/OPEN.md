@@ -439,8 +439,16 @@ sword to `props: [longsword]`, and the two archers dropped a clause that
 `props: [bow, quiver]` already produced. A test refuses a weapon word appearing
 in both `subject` and `props` across every shipped config.
 
-**Not yet measured.** Whether a sheet's rear view is better for it. The run
-started 2026-09-10 12:22 is the first with both this and the named backdrop.
+A run now says so at the top when a config names the same object twice. That
+came out of the 12:22 run, whose config.yaml was snapshotted before the archers
+were cleaned: it carries the old subject clause and the props words, so its
+prompt asks for the bow twice. Shipped configs are clean and a test keeps them
+that way, but nothing stopped a config from doing it, and asking for a prop
+twice is how a model comes to insist on one.
+
+**Not yet measured.** Whether a sheet's rear view is better for it. The 12:22 run
+does not answer it - the doubled prompt makes it the wrong control - so the next
+clean run is the one to look at.
 
 
 ## 19. The emphasis map is authored and not yet consumed

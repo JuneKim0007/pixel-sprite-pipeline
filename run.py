@@ -157,6 +157,13 @@ def main() -> int:
     if gate:
         print(f"gate: will stop after '{gate}'")
 
+    from pipeline.geometry import props as props_mod
+
+    doubled = props_mod.said_twice(cfg, ROOT)
+    if doubled:
+        print(f"note: {', '.join(doubled)} named in both subject and props; "
+              f"the prompt asks for each twice")
+
     try:
         runner.run(built, ctx, stop_after=gate, skip=already)
     finally:

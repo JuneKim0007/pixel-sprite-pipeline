@@ -258,3 +258,24 @@ def describe(props: Sequence[Prop]) -> str:
         + (f" flex {p.flex:g}" if p.flex else "")
         for p in props
     )
+
+
+def said_twice(config: dict, root: Path) -> list[str]:
+    """Objects a config both lists as props and spells out in its subject.
+
+    The prompt then names the same thing twice, which is how a model comes to
+    insist on a prop nobody asked it to emphasise.
+    """
+    if not named(config):
+        return []
+    listed = config.get("props") or []
+    subject = (config.get("subject") or "").lower()
+    if not listed or not subject:
+        return []
+
+    doubled = []
+    for spec in load(listed, root=root):
+        name = getattr(spec, "name", "")
+        if name and name.lower() in subject:
+            doubled.append(name)
+    return doubled

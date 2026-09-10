@@ -149,3 +149,47 @@ class TestObjectsBelongInProps:
                 if word in terms:
                     assert word not in (cfg.get("subject") or ""), (
                         f"{name}: '{word}' is in both subject and props")
+
+
+class TestSaidTwice:
+    """The same object in subject and props reaches the prompt twice."""
+
+    def test_it_names_what_is_doubled(self, tmp_path):
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+
+        cfg = {"module": "animation", "props": ["longsword"],
+               "subject": "a knight holding a longsword"}
+        assert props_mod.said_twice(cfg, Path(".")) == ["longsword"]
+
+    def test_a_clean_config_is_quiet(self):
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+
+        cfg = {"module": "animation", "props": ["longsword"],
+               "subject": "a knight in steel armor"}
+        assert props_mod.said_twice(cfg, Path(".")) == []
+
+    def test_props_the_config_refused_are_not_doubled(self):
+        """Refused props contribute no words, so the subject is the only mention."""
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+
+        cfg = {"module": "animation", "props_enabled": False,
+               "props": ["longsword"], "subject": "a knight holding a longsword"}
+        assert props_mod.said_twice(cfg, Path(".")) == []
+
+    def test_no_shipped_config_is_doubled(self):
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+        from pipeline.shared import settings
+
+        for path in sorted(Path("library/configs").glob("*.yaml")):
+            if path.stem == "_global":
+                continue
+            cfg = settings.read_yaml(path)
+            assert props_mod.said_twice(cfg, Path(".")) == [], path.stem
