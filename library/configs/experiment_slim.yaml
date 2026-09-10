@@ -34,22 +34,41 @@ styles:
 props:
 - longsword
 
+# Pass 2. Pass 1 zeroed the style sheet's 1.6/1.2 and read slightly stocky;
+# this sits between. Width comes from depth.build, which its own help calls the
+# only thing that says a character is broad.
 proportions:
-  legs: 1.0
-  torso: 1.0
+  legs: 1.15
+  torso: 1.1
 
 background:
   colour: 242, 94, 147
 
+depth:
+  # The reference sheet is h/shoulder 4.42 and the rig is 6.17; no proportion
+  # group scales width, and this is what the depth capsules use for bulk.
+  build:
+    torso: 1.35
+    arms: 1.25
+    legs: 1.15
+    neck: 1.1
+
 canonical:
-  style_weight: 0.18
+  # Pass 1 used 0.18 and 0.45 together and lost the outline the style sheet
+  # asks for. Raised together, since one turns the exemplar down and the other
+  # cuts it off early.
+  style_weight: 0.28
   style:
-    end_at: 0.45
+    end_at: 0.65
   candidates: 1
 
 pose:
   source: tpose
   size: 1024
+  # Pass 1 had fill 0 and the head touched the top edge: the skeleton had 53px
+  # clearance and the model overflowed it after ControlNet stopped steering at
+  # 40%. A smaller guide leaves room to overflow into.
+  fill: 0.8
   set:
   - view: front
   - view: side

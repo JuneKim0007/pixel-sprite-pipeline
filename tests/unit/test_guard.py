@@ -16,8 +16,15 @@ from pipeline.shared.guard import (PRESSURE_CRITICAL, PRESSURE_NORMAL, Guard,
 
 @pytest.fixture
 def victim():
-    """A real process the guard is allowed to kill."""
-    proc = subprocess.Popen(["/bin/sleep", "30"])
+    """A real process the guard is allowed to kill, in its own process group.
+
+    `_signal` kills the group, because the memory a reading measured is usually
+    in a worker rather than the leader, and ctl.sh starts every service in its
+    own group for exactly that reason. A victim sharing pytest's group takes
+    the test runner down with it - measured as exit 137 partway through the
+    suite.
+    """
+    proc = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
     yield proc
     if proc.poll() is None:
         proc.kill()
@@ -105,13 +112,47 @@ def test_an_expected_large_process_is_exempt_from_the_per_process_cap(
 
 
 def test_sustained_critical_pressure_kills_the_largest(monkeypatch, victim):
+    """A /bin/sleep is a few MB, so its size is faked to make it a candidate.
+
+    The floor exists because killing a small process frees nothing: measured
+    2026-09-10, the guard killed comfy at 0.05 GB and then the UI at 0.02 GB,
+    which is the process it runs inside.
+    """
     guard = Guard()
     guard.watch(victim.pid, "victim", expected_large=True)
     monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
+    monkeypatch.setattr(Guard, "rss",
+                        staticmethod(lambda pids: {p: 4 << 30 for p in pids}))
     for _ in range(6):
         guard.check()
     assert _settled(victim), "survived sustained critical memory pressure"
     assert "pressure critical" in guard.kills[0]["why"]
+
+
+def test_a_small_process_is_not_what_the_machine_is_short_of(monkeypatch, victim):
+    from pipeline.shared.guard import PRESSURE_FLOOR
+
+    guard = Guard()
+    guard.watch(victim.pid, "victim", expected_large=True)
+    monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
+    monkeypatch.setattr(Guard, "rss",
+                        staticmethod(lambda pids: {p: PRESSURE_FLOOR // 20 for p in pids}))
+    for _ in range(6):
+        guard.check()
+    assert victim.poll() is None, "killed a process too small to be the cause"
+    assert guard.kills == []
+
+
+def test_the_guard_does_not_kill_the_process_it_runs_in(monkeypatch):
+    """It killed the UI at 0.02 GB, and then could not guard anything."""
+    guard = Guard()
+    guard.watch(os.getpid(), "ui")
+    monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
+    monkeypatch.setattr(Guard, "rss",
+                        staticmethod(lambda pids: {p: 8 << 30 for p in pids}))
+    for _ in range(6):
+        guard.check()
+    assert guard.kills == [], "the guard killed its own host"
 
 
 def test_a_pressure_spike_is_not_sustained_pressure(monkeypatch, victim):

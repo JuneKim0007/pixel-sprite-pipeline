@@ -20,6 +20,12 @@ PRESSURE_NORMAL, PRESSURE_WARN, PRESSURE_CRITICAL = 1, 2, 4
 
 CRITICAL_TICKS = 5
 
+PRESSURE_FLOOR = 1 << 30
+
+
+def _killable(pid: int) -> bool:
+    return pid != os.getpid()
+
 
 @dataclass
 class Watched:
@@ -108,6 +114,9 @@ class Guard:
     @staticmethod
     def _signal(pid: int) -> None:
         """SIGKILL the whole process group, never the guard's own."""
+        if pid == os.getpid():
+            log.error("guard: refusing to kill the process it runs in")
+            return
         try:
             group = os.getpgid(pid)
         except (ProcessLookupError, PermissionError):
@@ -161,7 +170,7 @@ class Guard:
 
         for pid, rss in usage.items():
             target = alive[pid]
-            if target.expected_large or rss <= ceiling:
+            if not _killable(pid) or target.expected_large or rss <= ceiling:
                 target.strikes = 0
                 continue
             target.strikes += 1
@@ -172,11 +181,18 @@ class Guard:
 
         if self.critical_streak >= CRITICAL_TICKS and usage:
             with self._lock:
-                still = {p: t for p, t in self.watched.items() if p in usage}
+                still = {p: t for p, t in self.watched.items()
+                         if p in usage and _killable(p)
+                         and usage[p] >= PRESSURE_FLOOR}
             if still:
                 pid = max(still, key=lambda p: usage[p])
                 self._kill(still[pid], f"system memory pressure critical for "
                                        f"{self.critical_streak}s", usage[pid])
+                self.critical_streak = 0
+            else:
+                log.warning("guard: pressure critical for %ds and nothing "
+                            "watched is over %.2f GB; killing none of them",
+                            self.critical_streak, PRESSURE_FLOOR / (1 << 30))
                 self.critical_streak = 0
 
         return {"pressure": level, "critical_streak": self.critical_streak,
