@@ -159,3 +159,21 @@ export function ColourPicker(value, { presets = [], fallback = '#FF00FF', onChan
   set(current);
   return wrap;
 }
+
+export function Disclosure(title, { open = true, note = '', actions = null, onToggle } = {}) {
+  const box = el('details', { className: 'disclosure' });
+  box.open = open;
+  const head = el('summary', { className: 'disclosure-head' },
+    el('span', { className: 'disclosure-title', textContent: title }));
+  if (note) head.append(el('span', { className: 'headnote', textContent: note }));
+  if (actions) {
+    const bar = el('span', { className: 'disclosure-actions' }, ...[].concat(actions));
+    bar.onclick = (e) => e.preventDefault();
+    head.append(bar);
+  }
+  const body = el('div', { className: 'disclosure-body' });
+  box.append(head, body);
+  if (onToggle) box.ontoggle = () => onToggle(box.open);
+  box.body = body;
+  return box;
+}

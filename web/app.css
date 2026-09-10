@@ -460,8 +460,6 @@ pre.log {
 
 /* ---------------------------------------------------------- result */
 
-.stagesection h2 { display: flex; align-items: center; gap: 10px; }
-.stagesection h2 .seg { margin-left: auto; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
 .segbtn {
   border: 0; background: var(--panel); color: var(--ink-dim);
@@ -1058,7 +1056,7 @@ input.wide { width: 100%; max-width: 420px; }
 }
 .histblank { display: grid; place-items: center; color: var(--ink-faint); }
 .histmeta { display: grid; gap: 1px; margin-top: 5px; }
-.histproto { font-size: 11px; }
+.histname + .mini { display: block; }
 .histbadge {
   position: absolute; top: 4px; right: 6px; font-size: 9px; line-height: 1;
 }
@@ -1271,3 +1269,23 @@ input.wide { width: 100%; max-width: 420px; }
 }
 .viewerror h2 { margin: 0 0 10px; font-size: 15px; }
 .viewerror .joberror { margin: 0 0 14px; }
+
+.disclosure { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 14px; }
+.disclosure-head {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 12px 15px; list-style: none; font-size: 13px; font-weight: 600;
+}
+.disclosure-head::-webkit-details-marker { display: none; }
+.disclosure-head::before {
+  content: '\25B8'; color: var(--ink-faint); transition: transform .12s;
+}
+.disclosure[open] > .disclosure-head::before { transform: rotate(90deg); }
+.disclosure-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.disclosure-body { padding: 0 15px 14px; }
+.consumed { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.consumed img {
+  width: 46px; height: 46px; object-fit: contain; image-rendering: pixelated;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+
+.histname { font-weight: 600; font-size: 11px; color: var(--ink); }

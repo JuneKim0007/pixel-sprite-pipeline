@@ -251,24 +251,8 @@ every run that uses that image. Moving annotations into `out/runs/<id>/` would
 copy them per run and break that reuse, so the split stays. What is missing is
 anything on screen saying which of the two outlives the run.
 
-## 14. The result view is a flat grid with no structure and no inputs
 
-**Not started.** Each stage's PNGs render as one undifferentiated grid. Two
-things are missing and they are the same fix: the stages do not collapse, so a
-run with six of them is a wall; and nothing shows an input as the machine
-consumed it - a skeleton over the reference it was fitted to, a depth map
-against its frame - which is what makes a bad pose obvious.
-
-The history strip has the same gap. A run is identified by a timestamped id, so
-telling two apart means opening both; the reference image a run was built from
-would identify it at a glance, and `run_audit` already reads
-`references.identity` out of the run's own config.
-
-**Unblocked 2026-09-10.** Every run had failed on a moved reference path until
-then, so there was nothing to lay out. `20260910_102525_char_3` has four
-skeletons and four depth maps.
-
-## 15. Bone lengths are fixed, and a rig cannot be made to fit a body
+## 14. Bone lengths are fixed, and a rig cannot be made to fit a body
 
 **Not started.** The rig editor drags joints but cannot change a bone's length,
 so a rig can be posed and not proportioned. Fitting a long-legged character
@@ -285,25 +269,24 @@ already names the pairing.
 **Not as large as it sounds.** No whole-rig recalculation. A bone length is the
 distance between two joints and the subtree is already computed.
 
-## 16. The UI has no written layout rules, so every view invented its own
+## 15. The ui/ primitives are written and not adopted
 
-**Not started.** Nothing says when a thing is a box, when boxes nest, what a
-panel's ratio or minimum is, or where an action belongs. Each view answered
-separately and the answers disagree: `.card`, `.pane`, `.stackpanel`,
-`.stackform`, `.group`, `.histbox` and `.auditbox` are all a bordered container
-with a heading, with different padding, radius and border rules.
+**Half done 2026-09-10.** `docs/UI.md` now states the rules, the radius scale
+collapsed from 13 values to 4 tokens over 83 rules, and `ColourPicker` and
+`Disclosure` are shared primitives with two callers each.
 
-The editor's four cards became one shell with dividers on 2026-09-10, which
-fixed one view and widened the gap with the rest.
+**What is left.** Ten primitives are still used by no view - `Section`,
+`Subsection`, `Heading`, `PanelHead`, `Fact`, `FactGrid`, `BaseCard`, `Check`,
+`Mono`, `Range` - and every view still hand-rolls its heading row as
+`el('div', {className: 'ovhead'}, el('h2', ...))`. Their CSS (`.ui-section`,
+`.ui-h1/h2/h3`, the two body rules) still matches nothing.
 
-**What it would take.** Probe the elements and name the responsibilities that
-are actually present, write the rules down, then reduce the classes to them. The
-document is the deliverable; the refactor follows it.
+Eight views, roughly 2,800 lines, and no visual regression test to catch a
+mistake, so it is one view at a time and each conversion deletes the
+hand-rolled classes it replaces rather than leaving both.
 
-**Why before more UI work.** §9 and §14 both add layout. Adding it without rules
-means two more dialects.
 
-## 17. The backdrop is keyed after the model has already guessed
+## 16. The backdrop is keyed after the model has already guessed
 
 **Not started, requested 2026-09-10.** `background.colour` reaches the prompt in
 `canonical` and `frames` as words - "solid flat #FF00FF chroma key background" -
@@ -327,3 +310,54 @@ only the keyer. These are different mechanisms and the second is nearly free:
 Websearch and measurement both required. Do not implement from the request
 alone - the ordering that looks wrong may be deliberate, and DECISIONS.md should
 be read for the backdrop wording before anything moves.
+
+## 17. "Reset joint" restores frame 0, not the rig's rest position
+
+**Not started, found 2026-09-10.** `rig.js:380` sets the reference pose from
+whatever was loaded first:
+
+    neutral = entries[0] ? structuredClone(entries[0].pose) : null;
+
+So Reset returns a joint to where it was in the first frame of the current set,
+which is only the rest position by coincidence. The same variable is the
+reference `dragJoint` snaps bone lengths against, so a bent starting frame makes
+every later drag snap to the wrong proportions.
+
+The real one is already on the wire. `/api/rigpose` returns `neutral` beside
+`pose` (`poses.py:46` and `:187`), 18 joints, and it differs from the T-pose on
+4 of them - so the two are not interchangeable and the client is discarding the
+one it needs. Nothing needs caching or re-importing; the payload is already
+there and the client overwrites it.
+
+**The wider shape.** Every editable set in this app has the same three states:
+what the rig defines, what was saved, and what is on screen. Only the third is
+modelled. A base that names the other two - `defaults()` and `saved()`, with
+reset meaning "back to saved, or to defaults when never saved" - would apply to
+poses, annotations, layer stacks and the settings form alike, all of which
+currently hand-roll their own answer or lack one. `ui/BaseField` and
+`ui/BaseCard` are the existing precedent for putting that in one place, and
+`BaseCard` is unused, so the shape is available rather than absent.
+
+Do not build the base first. Fix the one-line source of `neutral`, then look at
+whether the other three editors want the same base before generalising from a
+single case.
+
+## 18. An annotation guides the model but does not bind it
+
+**Not started, reported 2026-09-10.** With `pose.source: annotation` the output
+still contains things the annotation does not describe - a weapon appears where
+no prop was annotated.
+
+**Why that is expected rather than broken.** An annotation becomes a skeleton
+image handed to ControlNet, which constrains where the parts go. It is not a
+mask and it does not say what may not exist, so anything the prompt or the
+identity references imply can still be drawn. The subject text and the style
+sheet both carry vocabulary; `POSE_NEGATIVE` in vocabulary.py already exists for
+exactly this class of problem and lists what a pose guide must not become.
+
+**What to establish before changing anything.** Whether the weapon is coming
+from the prompt, from an identity reference that has one, or from the LoRA. Each
+has a different fix and strengthening the wrong one degrades output: raising
+ControlNet weight to suppress a prop stiffens every pose, which is a real cost
+paid for an unrelated symptom. Related to §17, which asks the same question for
+the backdrop - both want a way to say "not this" that is stronger than words.

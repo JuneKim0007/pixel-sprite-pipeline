@@ -45,7 +45,10 @@ references:
   - path: library/refs/archer_dynamic.png
     view: front
     weight: 1.0
-  style: []
+  style:
+  - path: /Users/personal_jk/pixel/library/refs/char2.png
+    view: front
+    weight: 1
   pose: []
   palette: []
 styles:

@@ -10,6 +10,7 @@ import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
+import { Disclosure } from '../../ui/index.js';
 import { browseDialog } from '../../ui/dialog.js';
 
 const STAGE_LABEL = {
@@ -26,7 +27,8 @@ const STAGE_NOTE = {
   palette: 'One shared palette imposed on every frame.',
 };
 
-const viewModes = new Map();   // stage dir -> 'grid' | 'anim' | 'sheet'
+const viewModes = new Map();   // stage dir -> 'grid' | 'anim' | 'strip'
+const openStages = new Map();  // stage dir -> whether its panel is open
 
 /* ------------------------------------------------------------- history
  *
@@ -66,12 +68,16 @@ function historyCard(run, { selected, onPick }) {
   card.onclick = () => onPick(run.id);
 
   const thumb = runThumb(run);
+  // The config name, not the asset type: every character_sheet run read
+  // "Sheet", which is the one thing they all have in common.
+  const name = run.id.replace(/^\d{8}_\d{6}_/, '') || run.id;
   card.append(
     thumb ? el('img', { src: api.fileUrl(thumb), loading: 'lazy', className: 'pixel' })
           : el('div', { className: 'histblank', textContent: '·' }),
     el('div', { className: 'histmeta' },
-      el('span', { className: 'histproto' }, `${proto.icon} ${proto.label}`),
+      el('span', { className: 'histname', textContent: name, title: run.audit?.subject || '' }),
       el('span', { className: 'mini', textContent: run.modified.replace('T', ' ').slice(5, 16) })));
+  card.title = `${name}${run.audit?.subject ? ` — ${run.audit.subject}` : ''}\n${proto.label}`;
 
   if (run.running) card.append(el('span', { className: 'histbadge run', textContent: '●' }));
   else if (run.stopped_at) card.append(el('span', { className: 'histbadge gate', textContent: '⏸' }));
@@ -220,7 +226,7 @@ function animation(runId, stage, stops) {
 }
 
 /** Joined sheet, drawn client-side so any stage can be viewed this way. */
-function sheet(runId, stage) {
+function strip(runId, stage) {
   const canvas = el('canvas', { className: 'sheetcanvas' });
   const srcs = stage.images.map((n) => api.fileUrl(`${state.runDir}/${stage.dir}/${n}`));
   if (!srcs.length) return el('p', { className: 'empty', textContent: 'Nothing to join.' });
@@ -383,10 +389,10 @@ export function renderResult(host, { runId, detail, onPick }) {
     const mode = viewModes.get(stage.dir) || 'grid';
     const body = el('div', { className: 'stagebody' });
 
-    const buttons = ['grid', 'anim', 'sheet'].map((m) => {
+    const buttons = ['grid', 'anim', 'strip'].map((m) => {
       const btn = el('button', {
         className: `segbtn ${mode === m ? 'on' : ''}`,
-        textContent: { grid: 'Grid', anim: 'Animation', sheet: 'Sheet' }[m],
+        textContent: { grid: 'Grid', anim: 'Animation', strip: 'Strip' }[m],
       });
       btn.onclick = () => {
         viewModes.set(stage.dir, m);
@@ -401,18 +407,34 @@ export function renderResult(host, { runId, detail, onPick }) {
     body.append(
       mode === 'grid' ? grid(runId, stage)
       : mode === 'anim' ? animation(runId, stage, stops)
-      : sheet(runId, stage));
+      : strip(runId, stage));
 
-    host.append(el('section', { className: 'group stagesection' },
-      el('h2', {},
-        STAGE_LABEL[stage.name] || stage.name,
-        el('span', { className: 'headnote', textContent: `${stage.dir} · ${stage.images.length} file(s)` }),
-        el('span', { className: 'seg' }, ...buttons),
-        dl),
-      STAGE_NOTE[stage.name]
-        ? el('p', { className: 'help stagehelp', textContent: STAGE_NOTE[stage.name] })
-        : null,
-      body));
+    const fed = (detail.consumed || {})[stage.name] || [];
+    const open = openStages.get(stage.dir) ?? true;
+    const panel = Disclosure(STAGE_LABEL[stage.name] || stage.name, {
+      open,
+      note: `${stage.dir} · ${stage.images.length} file(s)`,
+      actions: [el('span', { className: 'seg' }, ...buttons), dl],
+      onToggle: (v) => openStages.set(stage.dir, v),
+    });
+
+    if (STAGE_NOTE[stage.name]) {
+      panel.body.append(el('p', { className: 'help stagehelp', textContent: STAGE_NOTE[stage.name] }));
+    }
+    if (fed.length) {
+      const strip = el('div', { className: 'consumed' });
+      for (const path of fed.slice(0, 12)) {
+        strip.append(el('img', {
+          src: api.fileUrl(path), loading: 'lazy',
+          title: path.split('/').pop(),
+        }));
+      }
+      panel.body.append(
+        el('p', { className: 'mini', textContent: `Consumed ${fed.length} file(s) from an earlier stage` }),
+        strip);
+    }
+    panel.body.append(body);
+    host.append(panel);
   }
 
   host.append(el('section', { className: 'group' },

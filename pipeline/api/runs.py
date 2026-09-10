@@ -157,6 +157,39 @@ def run_audit(run_dir: Path) -> dict:
     }
 
 
+def _consumed(run: Path, stage_names: list[str]) -> dict[str, list[str]]:
+    """What each stage was handed, from the declared graph and the manifest."""
+    import pipeline.stages  # noqa: F401  - registers the stages
+
+    from ..generation import runner
+
+    try:
+        stages = runner.build(list(stage_names))
+    except Exception:                                   # noqa: BLE001
+        return {}
+
+    manifest = run / "artifacts.json"
+    if not manifest.exists():
+        return {}
+    try:
+        stored = json.loads(manifest.read_text()).get("artifacts", {})
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    paths = {k: v.get("value") for k, v in stored.items()
+             if isinstance(v, dict) and v.get("type") == "paths"}
+
+    out: dict[str, list[str]] = {}
+    for spec in stages:
+        got = []
+        for need in sorted(spec.needs):
+            for one in paths.get(need) or []:
+                got.append(str(one))
+        if got:
+            out[spec.name] = got
+    return out
+
+
 def run_detail(run_id: str) -> dict:
     d = runs_dir() / run_id
     if not d.is_dir():
@@ -168,6 +201,7 @@ def run_detail(run_id: str) -> dict:
     info["config"] = cfg.read_text() if cfg.exists() else ""
     info["dir"] = str(d)
     info["audit"] = run_audit(d)
+    info["consumed"] = _consumed(d, info["audit"].get("stages") or [])
     return info
 
 

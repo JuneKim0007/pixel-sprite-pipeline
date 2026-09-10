@@ -1367,5 +1367,44 @@ await atest('the way out lives outside every view host', async () => {
   assert.match(life, /goBack\(\)/, 'the failure card still only offers Try again');
 });
 
+console.log('\nresult view');
+await atest('what fed a stage comes from the declared graph', async () => {
+  // Each stage declares needs/gives and the manifest stores paths, so
+  // provenance is derived. A hand-written map in the view would be a second
+  // copy of the dependency graph, drifting from the one that runs.
+  const src = readFileSync(join(ROOT, 'pipeline/api/runs.py'), 'utf8');
+  assert.match(src, /def _consumed/);
+  assert.match(src, /spec\.needs/, 'provenance is not read off the stage graph');
+  assert.doesNotMatch(src, /"pose": \[|'pose': \[/,
+    'a hand-written stage-to-input map crept in');
+});
+
+await atest('stages collapse through the shared primitive', async () => {
+  const kit = readFileSync(join(JS, 'ui/kit.js'), 'utf8');
+  assert.match(kit, /export function Disclosure/);
+  assert.match(kit, /el\('details'/, 'a hand-rolled toggle instead of <details>');
+
+  const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
+  assert.match(view, /Disclosure\(/);
+  assert.doesNotMatch(view, /group stagesection/, 'the old flat section survived');
+});
+
+await atest('a run is named by what it is, not by its type', async () => {
+  // Every character_sheet run rendered "Sheet", which is the one thing they
+  // all share, so the strip could not tell two runs apart.
+  const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
+  assert.match(view, /replace\(\/\^\\d\{8\}_\\d\{6\}_\//,
+    'the run id is not reduced to its config name');
+  assert.match(view, /histname/);
+});
+
+await atest('the filmstrip mode is not called a sheet', async () => {
+  // "Sheet" already means the exported sprite sheet and the asset type. A
+  // third meaning on a view-mode button is the collision.
+  const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
+  assert.doesNotMatch(view, /anim', 'sheet'/, 'the view mode is still called sheet');
+  assert.match(view, /'grid', 'anim', 'strip'/);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
