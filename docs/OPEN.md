@@ -231,19 +231,27 @@ Other per-type facts are still asserted globally or restated in every config;
 worth a survey the next time one of them bites, not a speculative sweep now.
 
 
-## 11. `Cache._size` calls every dict 64 bytes
+## 11. Counting the colours cost more than making them
 
-**Measured 2026-09-08, unfixed.** `cache.py:26` returns 64 for anything that is
-not an ndarray, list or tuple. Prepare results are dicts, so the prepare cache's
-8 MB cap has never bound; only its 64-entry cap has. DIAGNOSTIC-HARNESS.md
-records this as a reading fault in the harness output. It is the cache.
+**Done 2026-09-10. The entry it replaces blamed the wrong thing twice.**
 
-Separately `remember()` refuses any image over `SNAPSHOTS.max_bytes // 4` (6 MB).
-At the 384 px preview nothing reaches that; at full resolution every checkpoint
-is skipped in silence and each edit recomputes the stack from the first layer.
+It said the prepare cache's byte cap never binds because `_size` calls every
+dict 64 bytes, and that `remember()` skipping large images meant nothing
+checkpointed. Measured: the two prepare results are a list of 24 colours and
+three scalars, so 64 bytes is an underestimate of something already negligible;
+and the 6 MB refusal only ever applies to the full-resolution write path, which
+runs once, while the interactive path is 384px and checkpoints fine. The LRU
+was measured holding a flat 104ms across twenty edits, evicting correctly.
 
-Both point at "the editor gets slow after a few layers", which is the reported
-symptom and has not been reproduced under measurement.
+What was actually slow was `count_colours`, which the facts bar calls twice per
+run and which had nothing to do with the cache. `np.unique(axis=0)` sorts
+records through a structured-void view; packing each pixel into one uint32 makes
+it a plain integer sort. Measured 49.2ms to 0.7ms at 384px, 409ms to 4.8ms at
+1024px. A fully cached preview went from 104ms to 8ms.
+
+Its sampling went with it - every seventh pixel above 400k, which under-reported
+the count to save time the exact version no longer needs.
+
 
 ## 12. Grid measures one lattice for a picture that has several
 

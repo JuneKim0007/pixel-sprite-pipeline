@@ -148,3 +148,51 @@ def test_the_default_stack_does_not_broadcast_over_a_whole_image():
     assert peak < unchunked / 4, (
         f"peak {peak / 1e6:.1f}MB approaches the {unchunked / 1e6:.1f}MB an "
         f"N x K x D broadcast would have cost")
+
+
+class TestCountColours:
+    """The facts bar's colour count, which every preview pays for twice."""
+
+    def test_it_is_exact_across_shapes(self):
+        import numpy as np
+
+        from pipeline.definitive.cache import count_colours
+
+        rng = np.random.default_rng(0)
+        for edge, k, channels in [(64, 7, 3), (64, 7, 4), (128, 300, 3)]:
+            palette = rng.integers(0, 255, (k, 3), dtype=np.uint8)
+            image = palette[rng.integers(0, k, (edge, edge))]
+            if channels == 4:
+                image = np.dstack([image, np.full((edge, edge), 255, np.uint8)])
+            want = len(np.unique(image.reshape(-1, image.shape[2])[:, :3], axis=0))
+            assert count_colours(image) == want
+
+    def test_alpha_is_not_a_colour(self):
+        import numpy as np
+
+        from pipeline.definitive.cache import count_colours
+
+        rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+        varied = np.dstack([rgb, np.arange(64, dtype=np.uint8).reshape(8, 8)])
+        assert count_colours(varied) == 1
+
+    def test_it_does_not_sample(self):
+        """It used to take every seventh pixel over 400k and under-report."""
+        import numpy as np
+
+        from pipeline.definitive.cache import count_colours
+
+        # 700k pixels, every one a different colour in the low bits.
+        n = 700_000
+        values = np.arange(n, dtype=np.uint32)
+        flat = np.stack([(values >> 16) & 255, (values >> 8) & 255, values & 255],
+                        axis=1).astype(np.uint8)
+        image = flat.reshape(-1, 1, 3)
+        assert count_colours(image) == n
+
+    def test_a_flat_image_is_one_colour(self):
+        import numpy as np
+
+        from pipeline.definitive.cache import count_colours
+
+        assert count_colours(np.full((32, 32, 3), 7, dtype=np.uint8)) == 1

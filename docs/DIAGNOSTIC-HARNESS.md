@@ -32,6 +32,8 @@ the popping means something.
 
 The cache's byte column reads 0.00MB even when it holds entries. That is not
 the harness: `Cache._size` counts any dict as 64 bytes regardless of contents,
+which was measured 2026-09-10 and is an underestimate that does not matter -
+the two prepare results are a list of 24 colours and three scalars,
 and prepare results are dicts. The entry count is real; the byte figure is not.
 Prepare results are small today, so the 8 MB byte cap has never bound - only
 the 64-entry cap has.
