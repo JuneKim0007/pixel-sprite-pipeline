@@ -302,3 +302,28 @@ document is the deliverable; the refactor follows it.
 
 **Why before more UI work.** §9 and §14 both add layout. Adding it without rules
 means two more dialects.
+
+## 17. The backdrop is keyed after the model has already guessed
+
+**Not started, requested 2026-09-10.** `background.colour` reaches the prompt in
+`canonical` and `frames` as words - "solid flat #FF00FF chroma key background" -
+and the keyer runs in `palette`, several stages later. So the model is asked for
+a backdrop and only checked much later, and where the subject ends is a guess
+the rig constrains but does not decide.
+
+**The request.** Paint the area that is backdrop, with a brush, and have that be
+authoritative rather than advisory.
+
+**What has to be established first.** Whether the mask should reach the model or
+only the keyer. These are different mechanisms and the second is nearly free:
+
+- As a keyer input, a painted mask is exact and cannot confuse anything. It is
+  the same shape `annotate.py` already stores per image, and `background_to_alpha`
+  already accepts a `key=` colour, so the layer to change is small.
+- As a model input it is inpainting or a ControlNet mask, which changes what
+  `canonical` submits to ComfyUI, and a mask that disagrees with the prompt is a
+  real way to make output worse rather than better.
+
+Websearch and measurement both required. Do not implement from the request
+alone - the ordering that looks wrong may be deliberate, and DECISIONS.md should
+be read for the backdrop wording before anything moves.

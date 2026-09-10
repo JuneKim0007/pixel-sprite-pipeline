@@ -14,7 +14,7 @@
  */
 
 import { el } from '../../core/dom.js';
-import { BaseField } from '../../ui/index.js';
+import { BaseField, ColourPicker } from '../../ui/index.js';
 
 /* A control built from a Field declaration.
  *
@@ -42,6 +42,13 @@ class Control extends BaseField {
       }
       sel.onchange = () => this.commit(sel.value);
       return sel;
+    }
+    if (s.kind === 'colour') {
+      return ColourPicker(this.value, {
+        presets: s.options || [],
+        fallback: s.default || '#FF00FF',
+        onChange: (hex) => this.commit(hex),
+      });
     }
     if (s.kind === 'text') {
       const input = el('input', { type: 'text', className: 'input', id: this.id,

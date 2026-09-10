@@ -10,9 +10,8 @@
 import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
-import { normaliseColour } from './core/colour.js';
+import { ColourPicker, HelpTip } from './ui/index.js';
 import { autoOrder as orderOf, orderProblems as problemsOf } from './features/stages.js';
-import { HelpTip } from './ui/index.js';
 import { VIEW_OPTIONS } from './features/pose.js';
 
 /* ------------------------------------------------------------- primitives */
@@ -102,40 +101,11 @@ export function control(field, value, onChange) {
   }
 
   if (field.type === 'colour') {
-    const fallback = field.default || '#FF00FF';
-    let current = normaliseColour(value) || fallback;
-
-    const swatches = el('div', { className: 'swatchrow' });
-    const picker = el('input', { type: 'color', className: 'swatchpick', value: current });
-    const text = el('input', { type: 'text', className: 'num mono', value: value ?? current });
-
-    const set = (next, from) => {
-      const hex = normaliseColour(next);
-      if (!hex) return false;
-      current = hex;
-      picker.value = hex;
-      if (from !== 'text') text.value = hex;
-      for (const chip of swatches.children) {
-        chip.classList.toggle('on', chip.dataset.hex.toLowerCase() === hex.toLowerCase());
-      }
-      onChange(hex);
-      return true;
-    };
-
-    const presets = (field.options || []).map((o) => (Array.isArray(o) ? o : [o, o]));
-    for (const [hex, label] of presets) {
-      const chip = el('button', {
-        type: 'button', className: 'swatch', title: label, style: `background:${hex}`,
-      });
-      chip.dataset.hex = hex;
-      chip.onclick = () => set(hex);
-      swatches.append(chip);
-    }
-
-    picker.oninput = () => set(picker.value);    text.onchange = () => { if (!set(text.value, 'text')) text.value = current; };
-
-    wrap.append(swatches, picker, text);
-    set(current);
+    wrap.append(ColourPicker(value, {
+      presets: field.options || [],
+      fallback: field.default || '#FF00FF',
+      onChange,
+    }));
     return wrap;
   }
 

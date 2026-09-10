@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 from ..shared.contracts import ConfigField
-from ..looks import vocabulary
+from ..shared import colour as colour_mod
 
 
 FIELDS: list[ConfigField] = [
@@ -299,8 +299,8 @@ FIELDS: list[ConfigField] = [
      help="Blank uses one per core. Frames are independent."),
 
     ConfigField(key="background.colour", label="Backdrop colour", kind="colour",
-     default=vocabulary.BACKDROP, group="Palette",
-     options=[list(o) for o in vocabulary.BACKDROP_PRESETS],
+     default=colour_mod.BACKDROP, group="Palette",
+     options=[list(o) for o in colour_mod.BACKDROP_PRESETS],
      help="Named in the prompt and removed by the keyer, so the two agree. "
              "Asking for a 'plain' background gets a lit studio card with a "
              "cast shadow, because that is what the words describe. Magenta "

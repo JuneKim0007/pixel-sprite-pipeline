@@ -13,7 +13,7 @@
  */
 
 export {
-  Button, Check, Empty, Fact, FactGrid, Fields, Head, Mini, Mono, Note, Num, Ok,
+  Button, Check, ColourPicker, Empty, Fact, FactGrid, Fields, Head, Mini, Mono, Note, Num, Ok,
   PanelHead, Range, Row, Segmented, Select, Warn,
 } from './kit.js';
 export { Heading, HelpTip, LabelWithTip, Section, Subsection } from './primitives.js';

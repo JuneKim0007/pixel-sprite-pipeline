@@ -1,6 +1,7 @@
 /* Widgets the views used to rebuild by hand: btn in 12 files, mini in 11,
  * empty in 10. A caller names what a thing is, never a class string. */
 import { el } from '../core/dom.js';
+import { normaliseColour } from '../core/colour.js';
 
 /* ------------------------------------------------------------------ text */
 
@@ -119,3 +120,42 @@ export const Fact = (label, value, tone = '') =>
 
 export const FactGrid = (...facts) =>
   el('div', { className: 'factsgrid' }, ...facts.filter(Boolean));
+
+export function ColourPicker(value, { presets = [], fallback = '#FF00FF', onChange } = {}) {
+  const wrap = el('div', { className: 'colourctl' });
+  let current = normaliseColour(value) || fallback;
+
+  const swatches = el('div', { className: 'swatchrow' });
+  const picker = el('input', { type: 'color', className: 'swatchpick', value: current });
+  const text = el('input', { type: 'text', className: 'num mono', value: value ?? current });
+
+  const set = (next, from) => {
+    const hex = normaliseColour(next);
+    if (!hex) return false;
+    current = hex;
+    picker.value = hex;
+    if (from !== 'text') text.value = hex;
+    for (const chip of swatches.children) {
+      chip.classList.toggle('on', chip.dataset.hex.toLowerCase() === hex.toLowerCase());
+    }
+    if (onChange) onChange(hex);
+    return true;
+  };
+
+  for (const opt of presets) {
+    const [hex, label] = Array.isArray(opt) ? opt : [opt, opt];
+    const chip = el('button', {
+      type: 'button', className: 'swatch', title: label, style: `background:${hex}`,
+    });
+    chip.dataset.hex = hex;
+    chip.onclick = () => set(hex);
+    swatches.append(chip);
+  }
+
+  picker.oninput = () => set(picker.value);
+  text.onchange = () => { if (!set(text.value, 'text')) text.value = current; };
+
+  wrap.append(swatches, picker, text);
+  set(current);
+  return wrap;
+}

@@ -316,11 +316,28 @@
         "default": "",
         "help": "RGB as '12, 34, 56' or hex as '#0a1b2c', if you know what the backdrop is. Then the keyer removes that exact hue instead of flooding from a corner and guessing, which also reaches a gap enclosed by the character that a flood cannot. Leave it blank to flood.",
         "key": "colour",
-        "kind": "text",
+        "kind": "colour",
         "label": "Backdrop colour",
         "max": null,
         "min": null,
-        "options": [],
+        "options": [
+          [
+            "#FF00FF",
+            "Magenta, furthest from skin and cloth"
+          ],
+          [
+            "#00B140",
+            "Chroma green, bleeds into skin tones"
+          ],
+          [
+            "#0047BB",
+            "Chroma blue, for green or yellow subjects"
+          ],
+          [
+            "#7F7F7F",
+            "Neutral grey, for saturated subjects"
+          ]
+        ],
         "step": null,
         "when": {
           "enabled": true

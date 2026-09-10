@@ -1192,7 +1192,7 @@ await atest('the presets lead with magenta and green carries its cost', async ()
   // Green is the film industry default and the wrong default here: it sits
   // close to skin and cloth, and every pixel it bleeds into costs a palette
   // entry. It is offered, labelled, and not first.
-  const src = readFileSync(join(ROOT, 'pipeline/looks/vocabulary.py'), 'utf8');
+  const src = readFileSync(join(ROOT, 'pipeline/shared/colour.py'), 'utf8');
   const block = /BACKDROP_PRESETS[^=]*=\s*\(([\s\S]*?)\n\)/.exec(src)[1];
   const hexes = [...block.matchAll(/"(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
 
@@ -1201,16 +1201,24 @@ await atest('the presets lead with magenta and green carries its cost', async ()
   assert.match(block, /bleeds into skin/, 'green is offered without its trade-off');
 });
 
-await atest('the settings form knows how to draw a colour', async () => {
-  const src = readFileSync(join(JS, 'fields.js'), 'utf8');
-  assert.match(src, /field\.type === 'colour'/);
-  assert.match(src, /type: 'color'/, 'no native picker, so no choosing by eye');
-  assert.match(src, /swatchrow/, 'no presets, so every choice needs research');
-  // A text box that reformats mid-word cannot be typed into.
-  assert.match(src, /text\.onchange =/);
-  assert.doesNotMatch(src, /text\.oninput =/);
-  // One parser, not a third.
-  assert.doesNotMatch(src, /0-9a-f\]\{3\}/, 'fields.js grew its own colour regex');
+await atest('one colour control, used by both forms', async () => {
+  // The settings form and the definitive layer form are the same question
+  // asked twice. They rendered it two ways: a picker in one, a bare text box
+  // in the other, because only the schema side was upgraded.
+  const kit = readFileSync(join(JS, 'ui/kit.js'), 'utf8');
+  assert.match(kit, /export function ColourPicker/);
+  assert.match(kit, /type: 'color'/, 'no native picker, so no choosing by eye');
+  assert.match(kit, /swatchrow/, 'no presets, so every choice needs research');
+  assert.match(kit, /text\.onchange =/);
+  assert.doesNotMatch(kit, /text\.oninput =/,
+    'reformatting on every keystroke makes the box impossible to type into');
+
+  for (const view of ['fields.js', 'views/editor/stack.js']) {
+    const src = readFileSync(join(JS, view), 'utf8');
+    assert.match(src, /ColourPicker\(/, `${view} does not use the shared control`);
+    assert.doesNotMatch(src, /type: 'color'/, `${view} builds its own picker`);
+    assert.doesNotMatch(src, /0-9a-f\]\{3\}/, `${view} grew its own colour regex`);
+  }
 });
 
 console.log('\nsettings list editors');

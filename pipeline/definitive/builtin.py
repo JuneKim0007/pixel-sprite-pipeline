@@ -1,12 +1,12 @@
 
 from __future__ import annotations
 
-import re
 
 import numpy as np
 
 from . import pixelize as px
 from .layers import Field, layer
+from ..shared.colour import BACKDROP_PRESETS, parse_colour
 from ..shared.errors import Invalid
 
 REDUCERS = [
@@ -15,34 +15,6 @@ REDUCERS = [
     ("mode", "Mode, the most common exact colour"),
     ("mean", "Mean, smooth and most likely to invent a colour"),
 ]
-_HEX = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
-_RGB = re.compile(r"^(?:rgb\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*\)?$")
-
-
-def parse_colour(raw) -> tuple[int, int, int] | None:
-    """A backdrop colour as RGB or hex, in the forms someone actually types."""
-    text = str(raw or "").strip()
-    if not text:
-        return None
-
-    hex_match = _HEX.match(text)
-    if hex_match:
-        digits = hex_match.group(1)
-        if len(digits) == 3:
-            digits = "".join(d * 2 for d in digits)
-        return tuple(int(digits[i:i + 2], 16) for i in (0, 2, 4))
-
-    rgb_match = _RGB.match(text)
-    if rgb_match:
-        channels = tuple(int(g) for g in rgb_match.groups())
-        if all(0 <= c <= 255 for c in channels):
-            return channels
-        raise Invalid(f"'{text}' has a channel outside 0-255", field="colour")
-
-    raise Invalid(f"'{text}' is not a colour", field="colour",
-                  hint="RGB as '12, 34, 56' or hex as '#0a1b2c'.")
-
-
 MATCHERS = [
     ("weighted", "Weighted, luminance-weighted RGB"),
     ("luma", "Luma, brightness first"),
@@ -247,7 +219,8 @@ def _palette(inputs, cfg, prep):
                    "background. Raise it when a two-tone backdrop survives, "
                    "lower it when the sprite starts losing its own dark "
                    "edges."),
-        Field("colour", "Backdrop colour", "text", default="",
+        Field("colour", "Backdrop colour", "colour", default="",
+              options=[(h, l) for h, l in BACKDROP_PRESETS],
               when={"enabled": True},
               help="RGB as '12, 34, 56' or hex as '#0a1b2c', if you know what "
                    "the backdrop is. Then the keyer removes that exact hue "
