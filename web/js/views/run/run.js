@@ -193,32 +193,17 @@ function summary(label, value) {
       el('span', { className: 'mono summaryval', textContent: String(value) })));
 }
 
-/* Bone lengths, where you are looking at the bones.
- *
- * rigs.scale already stretches named groups and carries everything below - the
- * same nine fields the settings form shows under Proportions. Rendering them
- * here is the schema's own group, not a second control writing the same paths. */
 function proportionsPanel(rerender) {
   const cfg = draftConfig();
   return Disclosure('Proportions', {
     open: false,
     note: 'bone lengths, both sides together',
   },
-    el('p', { className: 'help', textContent:
-      'Scales a group of bones and everything below it. Left and right move '
-      + 'together. Applied to the rig every pose is derived from, so it '
-      + 'changes the body rather than one frame.' }),
     renderGroup('Proportions', cfg, {
       onChange: (path, value) => { draft()[path] = value; rerender(); },
     }));
 }
 
-/* What competes with the prompt, beside the thing it competes over.
- *
- * The prompt asks for a thick dark outline and the style exemplar votes until
- * 80% of sampling, which is through the steps that draw linework. Both are
- * schema fields; this renders those four rather than sending anyone to
- * Settings, and writes the same config paths the settings form writes. */
 const CONDITIONING = [
   'canonical.from_reference.weight',
   'canonical.from_reference.end_at',
@@ -235,11 +220,6 @@ function conditioningPanel(rerender) {
     open: false,
     note: 'reference, style and pose against the prompt',
   },
-    el('p', { className: 'help', textContent:
-      'Each of these votes on every sampling step. A weight is how loudly; a '
-      + 'start and end are when. Diffusion settles layout early and texture '
-      + 'late, so something holding to 80% is still voting while the outline '
-      + 'is drawn.' }),
     renderGroup('Canonical', cfg, {
       only: CONDITIONING,
       onChange: (path, value) => { draft()[path] = value; rerender(); },

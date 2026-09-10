@@ -1816,5 +1816,18 @@ await atest('the conditioning paths are real schema fields', async () => {
   }
 });
 
+await atest('a panel does not restate what the (?) already says', async () => {
+  // renderGroup builds HelpTip(field.help) for every field it renders, so a
+  // paragraph above a rendered group is the schema's own help said twice, in a
+  // place that cannot be kept in sync with it.
+  const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  for (const name of ['proportionsPanel', 'conditioningPanel']) {
+    const fn = new RegExp(`function ${name}[\\s\\S]*?\\n\\}`).exec(src)[0];
+    assert.match(fn, /renderGroup\(/, `${name} stopped using the schema group`);
+    assert.doesNotMatch(fn, /className: 'help'/,
+      `${name} explains fields the (?) already explains`);
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

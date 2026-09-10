@@ -948,7 +948,7 @@
     },
     {
       "group": "Proportions",
-      "help": "Below 1.0 gives a stubby, chibi stance.",
+      "help": "Below 1.0 gives a stubby, chibi stance. Like every group here it scales both sides together and carries what hangs below, so longer legs move the ankles rather than detaching them.",
       "label": "Leg length",
       "max": 3.0,
       "min": 0.3,
@@ -2301,7 +2301,7 @@
     },
     {
       "group": "Proportions",
-      "help": "Below 1.0 gives a stubby, chibi stance.",
+      "help": "Below 1.0 gives a stubby, chibi stance. Like every group here it scales both sides together and carries what hangs below, so longer legs move the ankles rather than detaching them.",
       "label": "Leg length",
       "max": 3.0,
       "min": 0.3,
@@ -3797,7 +3797,7 @@
     },
     {
       "group": "Proportions",
-      "help": "Below 1.0 gives a stubby, chibi stance.",
+      "help": "Below 1.0 gives a stubby, chibi stance. Like every group here it scales both sides together and carries what hangs below, so longer legs move the ankles rather than detaching them.",
       "label": "Leg length",
       "max": 3.0,
       "min": 0.3,
@@ -5116,7 +5116,7 @@
     },
     {
       "group": "Proportions",
-      "help": "Below 1.0 gives a stubby, chibi stance.",
+      "help": "Below 1.0 gives a stubby, chibi stance. Like every group here it scales both sides together and carries what hangs below, so longer legs move the ankles rather than detaching them.",
       "label": "Leg length",
       "max": 3.0,
       "min": 0.3,
@@ -6435,7 +6435,7 @@
     },
     {
       "group": "Proportions",
-      "help": "Below 1.0 gives a stubby, chibi stance.",
+      "help": "Below 1.0 gives a stubby, chibi stance. Like every group here it scales both sides together and carries what hangs below, so longer legs move the ankles rather than detaching them.",
       "label": "Leg length",
       "max": 3.0,
       "min": 0.3,

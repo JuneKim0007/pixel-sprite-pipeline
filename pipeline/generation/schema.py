@@ -466,7 +466,9 @@ FIELDS: list[ConfigField] = [
      help="Long-armed apes, short-armed brawlers."),
     ConfigField(key="proportions.legs", label="Leg length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
-     help="Below 1.0 gives a stubby, chibi stance."),
+     help="Below 1.0 gives a stubby, chibi stance. Like every group here it "
+             "scales both sides together and carries what hangs below, so "
+             "longer legs move the ankles rather than detaching them."),
     ConfigField(key="proportions.tail", label="Tail length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="Ignored by rigs with no tail."),
