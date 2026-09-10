@@ -19,6 +19,18 @@ from pipeline.orchestration import queue as q
 from pipeline.shared import paths
 
 
+@pytest.fixture(autouse=True)
+def _no_run_in_flight(monkeypatch):
+    """The queue holds a job while a run is going, so a real one would hold these.
+
+    Whether the machine happens to be generating is not what any of these tests
+    are about, and without this the suite passes or fails depending on it.
+    """
+    from pipeline.shared import guard
+
+    monkeypatch.setattr(guard, "run_in_flight", lambda: None)
+
+
 @pytest.fixture
 def home(root, tmp_path, monkeypatch):
     """A queue root with real configs, wired so autopilot works against it."""

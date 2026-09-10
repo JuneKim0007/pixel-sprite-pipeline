@@ -31,7 +31,7 @@ import { state, toast } from '../../store.js';
 import { layerForm, stackList } from './stack.js';
 import { clampFraction, fractionAt, loadRatios, saveRatios, splitter } from './panes.js';
 import { lightbox } from '../../ui/dialog.js';
-import { PanelHead } from '../../ui/index.js';
+import { Fact, FactGrid, PanelHead } from '../../ui/index.js';
 import * as gpu from './gpu.js';
 
 let catalogue = [];
@@ -70,11 +70,8 @@ async function decode(path) {
 function factsBar() {
   if (!facts) return el('p', { className: 'mini', textContent: 'No preview yet.' });
   const b = facts.before, a = facts.after;
-  const box = el('div', { className: 'factsgrid' });
-  const add = (k, v, tone = '') => box.append(
-    el('div', { className: `fact ${tone}` },
-      el('span', { className: 'mini', textContent: k }),
-      el('b', { textContent: v })));
+  const rows = [];
+  const add = (k, v, tone = '') => rows.push(Fact(k, v, tone));
 
   if (facts.measured_block !== undefined) {
     add('measured block', `${facts.measured_block}px`, 'measured');
@@ -94,7 +91,7 @@ function factsBar() {
   if (facts.palette_size) add('palette', `${facts.palette_size} entries`);
   if (facts.kept !== undefined) add('subject', `${Math.round(facts.kept * 100)}%`);
 
-  const host = el('div', {}, box);
+  const host = el('div', {}, FactGrid(...rows));
   for (const w of facts.warnings || []) {
     host.append(el('p', { className: 'warnline', textContent: `! ${w}` }));
   }

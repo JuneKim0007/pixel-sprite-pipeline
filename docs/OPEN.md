@@ -338,29 +338,31 @@ now: exact ratio, symmetry, downward carry, other groups untouched, an unknown
 group refused by name.
 
 
-## 15. Seven primitives still have no caller, and each needs its own look
+## 15. Five primitives with no caller, and each was checked one at a time
 
-**Half done 2026-09-10, and the earlier framing was wrong.**
+**Two adopted 2026-09-10, five examined and left.**
 
-This said the primitives were written and simply not adopted. Three of them did
-not fit. `.ui-section` was `margin: 0 0 1.5rem` where `.group` is a surface -
-background, 1px border, radius, styled heading bar - so adopting `Section` would
-have removed a border from every panel. `docs/UI.md` had documented it as the
-bordered container, asserted from the name rather than read from the CSS.
+`Fact` and `FactGrid` matched the editor's hand-rolled facts bar exactly - same
+classes, same structure, same output - so the editor calls them and no view
+builds a `.factsgrid` by hand any more.
 
-`Section`, `Subsection`, `Heading` and eleven unmatched `.ui-*` rules are gone.
-`PanelHead` already produced exactly what five views hand-rolled and now has
-five callers. Their tests went with them - they had exercised the abstraction
-nothing consumed, which is confidence in code no user could reach.
+The rest were checked individually, which is what §15 asked for, and the answer
+is not "adopt them":
 
-**What is left.** `Fact`, `FactGrid`, `BaseCard`, `Check`, `Mono`, `Range`,
-`LabelWithTip`. Each needs the check `Section` failed before it is adopted or
-deleted: does its CSS match what a view actually needs. Not as a batch - a batch
-is how `Section` got documented as something it was not.
+- `Range` returns a `.control` wrapper with its own readout. All nine hand-rolled
+  sliders need the bare input: the frame scrubber is driven by a timer, the
+  weight painter puts its label inline, `fields.js` pairs its range with a number
+  box. Converting them would fight the shape rather than share it.
+- `Mono` takes its text at construction and all three candidate spans are live
+  readouts mutated later. It would work and it would not remove anything.
+- `Note`, `Check`, `LabelWithTip` are the same story at smaller scale.
+- `BaseCard` has no caller and nothing resembling one; whether views want a card
+  base is a question about a view that does not exist yet.
 
-A test now refuses any CSS rule that matches nothing in js, html or python, so a
-third dialect cannot accumulate quietly. Verified by adding a dead rule and
-watching it fail.
+**What is left is a decision, not a task.** A primitive nothing needs is not
+half-finished work. `Range` and `Mono` should either grow to fit what views
+actually build, or be deleted; both are product calls and neither is urgent. The
+dead-CSS test already stops the rules from drifting again.
 
 
 ## 16. The prompt asked for two different backgrounds
