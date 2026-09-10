@@ -66,39 +66,48 @@ capture() {
   } > "$out.summary.txt" 2>&1
   echo "wrote    $out.summary.txt"
 
-  log show --start "$start" --end "$end" --info --debug --style compact \
-    > "$out.log.txt" 2>&1
+  # Compressed as it is produced. Four minutes of a busy machine came to 248 MB
+  # of text, and writing that out only to read it back and gzip it is where
+  # this stalled long enough to look hung.
+  log show --start "$start" --end "$end" --info --debug --style compact 2>&1 \
+    | gzip -c > "$out.log.txt.gz"
   local lines
-  lines="$(wc -l < "$out.log.txt" | tr -d ' ')"
+  lines="$(gzcat "$out.log.txt.gz" | LC_ALL=C wc -l | tr -d ' ')"
   if [[ "$lines" -lt 10 ]]; then
-    echo "wrote    $out.log.txt ($lines lines)"
+    echo "wrote    $out.log.txt.gz ($lines lines)"
     echo "         empty - logging was not persisting when this happened, and a"
     echo "         reboot clears what was never written down."
     echo "         sudo log config --mode \"persist:info\""
     return 0
   fi
 
-  # Four minutes of everything is ~80 MB and nobody reads it. The lines that
-  # said something last time were WindowServer's own errors and the second the
-  # log rate changed, so those are extracted and the rest is compressed.
-  # Everything after the kill is thousands of apps reconnecting, which says
-  # nothing about why. The minutes BEFORE it are the whole point.
-  local clock="${stamp#* }"
+  # Everything after the kill is thousands of clients reconnecting and says
+  # nothing about why; the minutes BEFORE it are the point. LC_ALL=C throughout
+  # because the log carries bytes that are not valid UTF-8 and both sort and
+  # awk abort on them.
+  local clock="${stamp#* }" dead
+  # The report is stamped a few seconds AFTER the kill, so a plain time filter
+  # picks up the REPLACEMENT WindowServer starting rather than the one that
+  # died. Pin the pid the report names.
+  dead="$(sed -nE 's/^PID: +([0-9]+).*/\1/p' "$spin" | head -1)"
   {
     echo "--- WindowServer / watchdogd errors, up to the kill at $clock ---"
-    grep -E "WindowServer|watchdogd" "$out.log.txt" \
-      | awk -v t="$clock" '($3=="E"||$3=="F") && $2<t'
+    gzcat "$out.log.txt.gz" | LC_ALL=C grep -aE "WindowServer|watchdogd" \
+      | LC_ALL=C awk -v t="$clock" '($3=="E"||$3=="F") && $2<t'
     echo
     echo "--- unresponsive clients and timed-out transactions, before the kill ---"
-    grep -E "connectionIsUnres|transaction .* timed out|synchronize timed out" \
-      "$out.log.txt" | awk -v t="$clock" '$2<t'
+    gzcat "$out.log.txt.gz" \
+      | LC_ALL=C grep -aE "connectionIsUnres|transaction .* timed out|synchronize timed out" \
+      | LC_ALL=C awk -v t="$clock" '$2<t'
+    echo
+    echo "--- the last thing WindowServer[$dead] logged before it went silent ---"
+    gzcat "$out.log.txt.gz" | LC_ALL=C grep -a "WindowServer\[$dead:" | tail -8
     echo
     echo "--- log lines per second (a stalled machine shows up as a gap) ---"
-    awk '{print substr($2,1,8)}' "$out.log.txt" | LC_ALL=C sort | uniq -c
+    gzcat "$out.log.txt.gz" | LC_ALL=C awk '{print substr($2,1,8)}' \
+      | LC_ALL=C sort | uniq -c
   } > "$out.signal.txt" 2>&1
   echo "wrote    $out.signal.txt   <- read this one"
-
-  gzip -f "$out.log.txt"
   echo "wrote    $out.log.txt.gz ($lines lines, full detail)"
 
   sysctl -n kern.memorystatus_vm_pressure_level vm.swapusage > "$out.memory.txt" 2>&1
