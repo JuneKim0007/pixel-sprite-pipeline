@@ -72,6 +72,7 @@ export const api = {
   rigPose:  (rig) => call(`/api/rigpose?rig=${encodeURIComponent(rig)}`),
   annotation: (image, rig = 'humanoid') =>
     call(`/api/annotation?image=${encodeURIComponent(image)}&rig=${encodeURIComponent(rig)}`),
+  progress: (id) => call(`/api/progress${id ? `?id=${encodeURIComponent(id)}` : ''}`),
   weightmap: (image) => call(`/api/weightmap?image=${encodeURIComponent(image)}`),
   saveWeightmap: (image, values, edge) =>
     json('POST', '/api/weightmap', { image, values, edge }),

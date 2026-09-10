@@ -1724,5 +1724,62 @@ await atest('starting a run cannot outrun a run already going', async () => {
   assert.match(g, /--run-id/, 'the live run is not found by its command line');
 });
 
+console.log('\nprogress feeds');
+await atest('both feeds share one shape and one scheduler', async () => {
+  const { ProgressFeed, GpuProgress, RunProgress } =
+    await import(join(JS, 'features/progress.js'));
+
+  assert.ok(GpuProgress.prototype instanceof ProgressFeed);
+  assert.ok(RunProgress.prototype instanceof ProgressFeed);
+
+  // The base must not know which kind it is: a switch on a kind string is the
+  // factory this deliberately does not have.
+  const src = readFileSync(join(JS, 'features/progress.js'), 'utf8');
+  const base = /export class ProgressFeed[\s\S]*?\n\}/.exec(src)[0];
+  assert.doesNotMatch(base, /gpu|run\b/i, 'the base knows about its subclasses');
+  assert.match(base, /poll\(/, 'a feed schedules itself instead of using poll');
+});
+
+await atest('a feed stops when there is nothing left to watch', async () => {
+  const { GpuProgress } = await import(join(JS, 'features/progress.js'));
+  let reads = 0;
+  const api = { progress: async () => {
+    reads++;
+    return { gpu: { reachable: true, busy: false, queue_remaining: 0 },
+             run: { running: false, images: { total: 4, made: 4 } } };
+  } };
+  const seen = [];
+  const feed = new GpuProgress(api, (s) => seen.push(s));
+  feed.start();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(seen[0].idle, true, 'an idle GPU did not report idle');
+  assert.equal(reads, 1, `polled ${reads} times with nothing running`);
+  feed.end();
+});
+
+await atest('a busy GPU keeps the feed alive', async () => {
+  const { GpuProgress } = await import(join(JS, 'features/progress.js'));
+  const api = { progress: async () => ({
+    gpu: { reachable: true, busy: true, queue_remaining: 2 },
+    run: { running: true, images: { total: 12, made: 3 } },
+  }) };
+  const feed = new GpuProgress(api, () => {});
+  feed.start();
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(feed.last.idle, false);
+  assert.equal(feed.last.done, 3);
+  assert.equal(feed.last.total, 12);
+  feed.end();
+});
+
+await atest('the two feeds do not share a cadence', async () => {
+  const { GpuProgress, RunProgress } = await import(join(JS, 'features/progress.js'));
+  const api = { progress: async () => ({ gpu: {}, run: {} }) };
+  const now = new GpuProgress(api, () => {});
+  const overall = new RunProgress(api, () => {});
+  assert.ok(now.every < overall.every,
+    'the live reading polls no faster than the background one');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

@@ -10,7 +10,8 @@ import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
-import { Disclosure, PanelHead } from '../../ui/index.js';
+import { Disclosure, Meter, PanelHead } from '../../ui/index.js';
+import { GpuProgress, RunProgress } from '../../features/progress.js';
 import { browseDialog } from '../../ui/dialog.js';
 
 const STAGE_LABEL = {
@@ -373,6 +374,22 @@ export function renderResult(host, { runId, detail, onPick }) {
     host.append(el('p', { className: 'empty', textContent: 'No output yet. Start a run.' }));
     return;
   }
+
+  /* Two questions with two lifetimes: what the GPU is doing now, and how far
+   * the run has come. Both stop themselves when there is nothing left to
+   * watch, so a finished run costs no requests. */
+  const gpuBox = el('div', {});
+  const runBox = el('div', {});
+  const feeds = [
+    new GpuProgress(api, (s) => gpuBox.replaceChildren(Meter(s))),
+    new RunProgress(api, (s) => runBox.replaceChildren(Meter(s))),
+  ];
+  for (const feed of feeds) feed.start();
+  stops.push(() => { for (const feed of feeds) feed.end(); });
+
+  host.append(el('section', { className: 'group' },
+    PanelHead('Progress'),
+    el('div', { className: 'fields progressbox' }, gpuBox, runBox)));
 
   host.append(el('section', { className: 'auditbox' },
     PanelHead(runId, { note: detail.dir }),

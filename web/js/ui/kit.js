@@ -159,3 +159,16 @@ export function ColourPicker(value, { presets = [], fallback = '#FF00FF', onChan
   set(current);
   return wrap;
 }
+
+export function Meter(shape) {
+  const { label = '', total = 0, done = 0, detail = '' } = shape || {};
+  const share = total ? Math.min(1, done / total) : 0;
+  const fill = el('span', { className: 'meterfill' });
+  fill.style.width = `${(share * 100).toFixed(1)}%`;
+  return el('div', { className: 'meter' },
+    el('div', { className: 'meterhead' },
+      el('span', { textContent: label }),
+      Mini(total ? `${done}/${total}` : '-')),
+    el('div', { className: 'metertrack' }, fill),
+    detail ? Mini(detail) : null);
+}

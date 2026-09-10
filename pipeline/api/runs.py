@@ -212,6 +212,40 @@ def _in_flight() -> str | None:
     return guard.run_in_flight()
 
 
+def run_progress(run_id: str = "") -> dict:
+    """Two answers: what the GPU is doing now, and how far the run has come.
+
+    They are different questions with different lifetimes - one is a live
+    reading off ComfyUI, the other is arithmetic over a directory - so they are
+    derived separately and returned together rather than blended into a
+    percentage that means neither.
+    """
+    from ..generation import comfy
+    from ..orchestration import progress as progress_mod
+
+    host = (settings.load_global(ROOT).get("comfy") or {}).get(
+        "host", "http://127.0.0.1:8188")
+    remaining = comfy.Client(host).pending()
+    gpu = {"reachable": remaining is not None,
+           "queue_remaining": remaining or 0,
+           "busy": bool(remaining)}
+
+    run_id = run_id or guard.run_in_flight() or ""
+    out = {"gpu": gpu, "run": {"id": run_id}}
+    if not run_id:
+        return out
+
+    d = runs_dir() / run_id
+    if not d.is_dir():
+        return out
+
+    cfg_path = d / "config.yaml"
+    cfg = settings.read_yaml(cfg_path) if cfg_path.exists() else {}
+    out["run"] = {"id": run_id, "running": guard.run_in_flight() == run_id,
+                  **progress_mod.of_run(d, cfg, _completed(d))}
+    return out
+
+
 def start_run(config_name: str, overrides: dict | None, resume: str | None,
               style_picks: dict | None = None) -> str:
     # One at a time. Two SDXL subprocesses on one GPU do not halve each other's
@@ -267,6 +301,11 @@ class Runs(BaseRouter):
     @get("/runs", "every run, newest first", returns=Shape(runs=list))
     def index(self, req):
         return {"runs": list_runs()}
+
+    @get("/progress", "how far the machine is through what it was asked for",
+         returns=Shape(gpu=dict, run=dict))
+    def progress(self, req):
+        return run_progress(req.query("id", ""))
 
     @get("/run", "one run in detail, with an audit of what produced it",
          returns=Shape(id=str, dir=str, log=str, config=str, audit=dict))

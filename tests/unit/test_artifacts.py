@@ -88,3 +88,70 @@ def test_a_queued_job_waits_for_the_machine_rather_than_failing(monkeypatch):
 
     monkeypatch.setattr(guard, "run_in_flight", lambda: None)
     assert q._await_free_gpu(Path(".")) == []
+
+
+class TestRunProgress:
+    """The total is derived, because every number in it is configurable."""
+
+    @staticmethod
+    def _run(tmp_path, entries=4, made=0):
+        import json
+
+        (tmp_path / "00_pose").mkdir()
+        (tmp_path / "00_pose" / "pose.json").write_text(
+            json.dumps({"entries": [{} for _ in range(entries)]}))
+        stage = tmp_path / "02_canonical"
+        stage.mkdir()
+        for i in range(made):
+            (stage / f"c{i}.png").write_bytes(b"")
+        return tmp_path
+
+    def test_candidates_move_the_total(self, tmp_path):
+        from pipeline.orchestration import progress
+
+        run = self._run(tmp_path)
+        cfg = {"pipeline": {"stages": ["canonical", "frames"]},
+               "canonical": {"candidates": 3, "batch_candidates": True}}
+        plan = progress.planned(cfg, run)
+        assert plan["canonical"]["images"] == 12      # 4 views x 3
+        assert plan["canonical"]["jobs"] == 4         # batched: one per view
+
+    def test_unbatched_candidates_are_one_job_each(self, tmp_path):
+        from pipeline.orchestration import progress
+
+        run = self._run(tmp_path)
+        cfg = {"pipeline": {"stages": ["canonical"]},
+               "canonical": {"candidates": 3, "batch_candidates": False}}
+        assert progress.planned(cfg, run)["canonical"]["jobs"] == 12
+
+    def test_pose_frames_move_the_frame_count(self, tmp_path):
+        from pipeline.orchestration import progress
+
+        run = self._run(tmp_path, entries=7)
+        cfg = {"pipeline": {"stages": ["frames"]}, "canonical": {}}
+        assert progress.planned(cfg, run)["frames"]["images"] == 7
+
+    def test_a_stage_not_in_the_pipeline_is_not_planned(self, tmp_path):
+        from pipeline.orchestration import progress
+
+        run = self._run(tmp_path)
+        cfg = {"pipeline": {"stages": ["pose", "depth"]}, "canonical": {}}
+        assert progress.planned(cfg, run) == {}
+
+    def test_a_started_stage_is_not_a_finished_one(self, tmp_path):
+        """A directory exists as soon as a stage begins; jobs come from images."""
+        from pipeline.orchestration import progress
+
+        run = self._run(tmp_path, entries=4, made=1)
+        cfg = {"pipeline": {"stages": ["canonical", "frames"]},
+               "canonical": {"candidates": 1, "batch_candidates": True}}
+        seen = progress.of_run(run, cfg, [])
+        assert seen["images"]["made"] == 1
+        assert seen["jobs"]["done"] < seen["jobs"]["total"]
+
+    def test_progress_survives_a_run_with_no_pose_yet(self, tmp_path):
+        from pipeline.orchestration import progress
+
+        cfg = {"pipeline": {"stages": ["canonical"]}, "canonical": {}}
+        seen = progress.of_run(tmp_path, cfg, [])
+        assert seen["jobs"]["total"] >= 1

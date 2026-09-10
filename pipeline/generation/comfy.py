@@ -46,6 +46,14 @@ class Client:
         with urllib.request.urlopen(f"{self.host}{path}", timeout=timeout) as r:
             return json.loads(r.read())
 
+    def pending(self) -> int | None:
+        """Prompts queued or running, or None if ComfyUI cannot be reached."""
+        try:
+            info = self._get("/prompt", timeout=3) or {}
+            return int((info.get("exec_info") or {}).get("queue_remaining", 0))
+        except Exception:                              # noqa: BLE001
+            return None
+
     def alive(self) -> bool:
         try:
             self._get("/system_stats", timeout=5)

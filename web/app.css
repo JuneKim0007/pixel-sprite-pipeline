@@ -1291,3 +1291,12 @@ input.wide { width: 100%; max-width: 420px; }
   border: 1px solid var(--line); border-radius: var(--r-md);
   background: var(--panel-2); cursor: crosshair; image-rendering: pixelated;
 }
+
+.meter { display: grid; gap: 4px; }
+.meterhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.metertrack {
+  height: 5px; border-radius: var(--r-pill); overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.meterfill { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.progressbox { display: grid; gap: 12px; }
