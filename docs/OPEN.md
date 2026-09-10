@@ -396,3 +396,42 @@ multiplier. Same fix reaches the missing clamp, since the range is what makes
 
 The control is also a bare `<input type=range>` rather than the `Range`
 primitive, so it is one of the stragglers from the slider sweep.
+
+## 20. The overview's queue panel prints `null`
+
+**Found 2026-09-10 from a screenshot.** Under the four counters (pending,
+running, held, failed) the overview renders a bare `null`. Something reaches
+that panel undefined and is written out rather than tested for. Cheap to find:
+the panel is the middle column of the overview view.
+
+## 21. The latest output is shown but is not part of the history
+
+**Asked 2026-09-10.** The overview's third column shows the newest run's frames
+under "LATEST OUTPUT" with a "Refine in editor" button, and the styles view has
+a History tab. The newest output does not appear in that history, so the one
+view that answers "what did this produce" and the one that answers "what has
+this produced over time" do not share a source. Whether that is one feed with a
+newest-first cursor or two genuinely different questions is the thing to decide
+before writing either.
+
+## 22. Terms cannot be weighted in a prompt
+
+**Asked 2026-09-10, unanswered.** Whether "gender = girl" or a skin term can be
+made to count for more than the fragments around it. SDXL through ComfyUI
+accepts `(term:1.3)` attention syntax in `CLIPTextEncode`, but whether this
+graph's encoder path preserves it, and whether a weighted term survives the
+IPAdapter and ControlNet conditioning that follow, is unmeasured. The style
+vocabulary is a flat list of equals today.
+
+## 23. Five segmented controls, and one primitive none of them use
+
+**Enumerated 2026-09-10, not converted.** `Segmented` exists in `ui/kit.js:141`.
+Five controls build the same thing by hand: `queue.js` states, `result.js`
+Grid/Anim/Strip, `run.js` Author/Annotate, `styles.js` tabs, `settings.js`
+scope. A sixth appeared since: the reference role tabs in `input.js`.
+
+Deliberately excluded, with reasons: `rail-cell`, `nav li`, `subnav-item` and
+`step` look the same but are navigation, not a value control - they change what
+is shown rather than what is set, and collapsing them would put a form
+primitive in the chrome. `.seg` and `.segmented` also carry two different
+radius tokens, which is the part worth settling first.
