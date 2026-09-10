@@ -1289,3 +1289,8 @@ input.wide { width: 100%; max-width: 420px; }
 }
 
 .histname { font-weight: 600; font-size: 11px; color: var(--ink); }
+
+.wizardtarget {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 12px; font-size: 13px;
+}

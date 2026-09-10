@@ -1468,5 +1468,29 @@ await atest('reset returns a joint to the rig, not to frame 0', async () => {
     'the old assignment survived');
 });
 
+console.log('\nnavigation labels');
+await atest('the two Runs are not both called Run', async () => {
+  // The nav item is a verb, start one; the sidebar select is a noun, this
+  // existing one. Adjacent and identically labelled, they read as the same
+  // thing, which is how a Result tab looked like it was about to re-run.
+  const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
+  const nav = /<li data-view="run">.*?<\/li>/s.exec(html)[0];
+  const picker = /<label class="sidelabel" for="runPicker">([^<]*)<\/label>/.exec(html)[1];
+
+  assert.doesNotMatch(nav.replace(/<[^>]*>/g, '').trim(), /^Run$/,
+    'the nav item is still the bare word Run');
+  assert.notEqual(picker.trim(), 'Run', 'the sidebar label is still the bare word Run');
+  assert.notEqual(nav.replace(/<[^>]*>/g, '').trim(), picker.trim(),
+    'both chrome labels still say the same word');
+});
+
+await atest('the wizard says what it will act on', async () => {
+  const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  assert.match(src, /wizardtarget/, 'the wizard never names its target');
+  // rigStep edits state.selectedRun, so the wizard has to say which run that
+  // is before the step that does it.
+  assert.match(src, /rig edits apply to/);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

@@ -380,6 +380,16 @@ export function renderRun(host, { onStarted, goTo }) {
     }
   };
 
+  // What this wizard will act on. The rig step edits the SELECTED run's poses
+  // and said so only once you reached it, three steps in.
+  const target = state.runs.find((r) => r.id === state.selectedRun);
+  host.append(el('div', { className: 'wizardtarget' },
+    el('span', { className: 'mini', textContent: 'Starting a new run of' }),
+    el('b', { textContent: state.current || '(no pipeline)' }),
+    target
+      ? el('span', { className: 'mini',
+                     textContent: `· rig edits apply to ${target.id}` })
+      : null));
   host.append(stepper(go));
 
   const step = STEPS[state.wizardStep].key;

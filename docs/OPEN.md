@@ -192,21 +192,23 @@ The entries below were opened 2026-09-10, from one session of using the editor
 and the run wizard. Several are things the code does that nobody asked it to;
 those say so rather than being written up as features.
 
-## 9. The Run tab does two unrelated jobs under one name
+## 9. Two things called Run, and one of them was a verb
 
-**Not started.** `renderRun` configures and starts something new. The sidebar
-`RUN` selector beside it picks an existing run to inspect and resume. Both are
-called Run, and the selector sits in global chrome, so a freshly-chosen config
-shows a run id next to it and reads as though that run is about to be re-run.
-Autopilot has an API (`api/jobs.py`) and no mode of its own, which puts a third
-job in the same place.
+**Done 2026-09-10 as a naming fix, and the entry it replaces was wrong.**
 
-**What it would take.** Split the nav: New, and Runs. Move the run selector out
-of the sidebar. `STEPS`, `reviewStep`, `confirmStep`, `gateBanner` and the
-resume path in `result.js` already exist; this is re-routing, not rewriting.
+This used to say autopilot had no mode of its own and the run selector should
+move out of the sidebar into a new Runs tab. Both were false. Autopilot has
+lived in the Queue tab since it was written - `autopilotBar` in queue.js, and
+main.js's own header says so. And `state.selectedRun` is not a Result concern:
+`run.js` reads it because the rig editor inside the wizard edits that run's
+poses. Moving the picker would have broken that to fix a problem that was not
+structural.
 
-**Why not yet.** Every other UI entry sits inside the surface it moves, so it is
-worth doing first or last, never in the middle. §16 should precede it.
+The defect was one word meaning two things, adjacent. The nav item was a verb -
+start one - and the sidebar label a noun - this existing one. They now read
+"New run" and "Viewing", and the wizard states which pipeline it will start and
+which run its rig step will edit, rather than mentioning it three steps in.
+
 
 ## 10. The pose default is `library/idle`, not a rest pose
 

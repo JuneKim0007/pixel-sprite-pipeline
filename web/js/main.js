@@ -1,7 +1,7 @@
 /* Shell: six tabs, shared polling, boot.
  *
  *   Input    what to make this time
- *   Run      the guided flow, with the rig editor inside it
+ *   New run  the guided flow, with the rig editor inside it
  *   Result   what came out, per stage
  *   Styles   the looks, their context, and what has been done to them
  *   Queue    jobs on disk and the autopilot that drains them
