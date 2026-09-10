@@ -1,3 +1,5 @@
+import { boundedStack } from './undo.js';
+
 export const COORDS = [
   'tab', 'settingsSection', 'scope', 'wizardStep', 'selectedRun', 'module',
 ];
@@ -16,35 +18,22 @@ export function same(a, b) {
 }
 
 export function createHistory({ limit = LIMIT } = {}) {
-  const past = [];
+  const past = boundedStack({ entries: limit });
 
   return {
     push(where) {
-      if (!where) return;
-      if (same(past[past.length - 1], where)) return;
+      if (!where || same(past.peek(), where)) return;
       past.push(where);
-      if (past.length > limit) past.shift();
     },
 
     forget(where) {
-      while (past.length && same(past[past.length - 1], where)) past.pop();
+      past.dropWhile((seen) => same(seen, where));
     },
 
-    pop() {
-      return past.pop() || null;
-    },
-
-    canGoBack() {
-      return past.length > 0;
-    },
-
-    depth() {
-      return past.length;
-    },
-
-    clear() {
-      past.length = 0;
-    },
+    pop: () => past.pop(),
+    canGoBack: () => past.depth() > 0,
+    depth: past.depth,
+    clear: past.clear,
   };
 }
 

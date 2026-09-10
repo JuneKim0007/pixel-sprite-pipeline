@@ -1937,5 +1937,127 @@ await atest('the forms that keep their own element say why', async () => {
   assert.equal(hand, 5, `${hand} hand-rolled ranges; the sweep left five with reasons`);
 });
 
+const { boundedStack, undoController } = await import(join(JS, 'core/undo.js'));
+
+// Float32Array holds 0.8 as 0.800000011920929, so these compare to the storage.
+const near = (got, want, why) =>
+  assert.ok(Math.abs(got - want) < 1e-6, `${why}: ${got} is not ${want}`);
+const {
+  EDGE, NEUTRAL: UNPAINTED, BRUSH, flat, paint, fill, lassoMask,
+  invertMask, maskCount, stats,
+} = await import(join(JS, 'views/run/weights.js'));
+
+test('a lasso selects the cells its outline encloses', () => {
+  const square = [[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
+  const mask = lassoMask(square, EDGE);
+  const side = EDGE / 2;
+  assert.ok(Math.abs(maskCount(mask) - side * side) <= EDGE * 2,
+            `${maskCount(mask)} cells for a quarter-area square`);
+  assert.equal(mask[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.5)], 1);
+  assert.equal(mask[Math.floor(EDGE * 0.1) * EDGE + Math.floor(EDGE * 0.1)], 0);
+});
+
+test('a concave outline does not fill its notch', () => {
+  // Even-odd matters here: a bounding-box fill would report the notch selected.
+  const cShape = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.35], [0.4, 0.35],
+                  [0.4, 0.65], [0.8, 0.65], [0.8, 0.8], [0.2, 0.8]];
+  const mask = lassoMask(cShape, EDGE);
+  const at = (x, y) => mask[Math.floor(EDGE * y) * EDGE + Math.floor(EDGE * x)];
+  assert.equal(at(0.3, 0.5), 1, 'the spine of the C is inside');
+  assert.equal(at(0.6, 0.5), 0, 'the notch is outside');
+});
+
+test('a selection confines the brush to itself', () => {
+  const mask = lassoMask([[0.0, 0.0], [0.4, 0.0], [0.4, 1.0], [0.0, 1.0]], EDGE);
+  const values = flat();
+  paint(values, { x: 0.8, y: 0.5, radius: 0.4, amount: 0.5, mask });
+  const outside = values[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.8)];
+  near(outside, UNPAINTED, 'painted outside the selection');
+  paint(values, { x: 0.2, y: 0.5, radius: 0.2, amount: 0.5, mask });
+  assert.ok(values[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.2)] > UNPAINTED);
+});
+
+test('inverting a selection swaps exactly which cells are in it', () => {
+  const mask = lassoMask([[0.2, 0.2], [0.6, 0.2], [0.6, 0.6], [0.2, 0.6]], EDGE);
+  const flipped = invertMask(mask);
+  assert.equal(maskCount(mask) + maskCount(flipped), EDGE * EDGE);
+});
+
+test('fill respects a selection and leaves the rest alone', () => {
+  const mask = lassoMask([[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5]], EDGE);
+  const values = fill(flat(), 0.1, mask);
+  near(values[0], 0.1, 'the selected half was not filled');
+  near(values[values.length - 1], UNPAINTED, 'the unselected half was touched');
+});
+
+test('the brush reaches below the old five-pixel floor', () => {
+  // 0.04 of a 128 grid was a 5px minimum, which could not touch a face.
+  assert.ok(BRUSH.min * EDGE < 2.5, `${BRUSH.min * EDGE}px is still coarse`);
+});
+
+test('a stack drops its oldest entry once the byte cap is passed', () => {
+  const stack = boundedStack({ entries: 100, bytes: 300, sizeOf: () => 100 });
+  for (let i = 0; i < 6; i++) stack.push(i);
+  assert.equal(stack.depth(), 3);
+  assert.equal(stack.pop(), 5, 'the newest entry survived');
+});
+
+test('a stack keeps one entry even when a single one exceeds the cap', () => {
+  const stack = boundedStack({ bytes: 10, sizeOf: (v) => v.length });
+  stack.push('an entry far larger than the cap');
+  assert.equal(stack.depth(), 1, 'trimming to nothing loses the only state there is');
+});
+
+test('undo returns the value held before the edit, and redo puts it back', () => {
+  let state = 'a';
+  const history = undoController({ read: () => state, write: (v) => { state = v; } });
+  history.record(() => { state = 'b'; });
+  history.record(() => { state = 'c'; });
+  assert.equal(history.undo(), true);
+  assert.equal(state, 'b');
+  history.undo();
+  assert.equal(state, 'a');
+  assert.equal(history.undo(), false, 'undo past the start invented a state');
+  history.redo();
+  assert.equal(state, 'b');
+});
+
+test('a drag is one undo step, not one per pointer event', () => {
+  let state = 0;
+  const history = undoController({ read: () => state, write: (v) => { state = v; } });
+  history.begin();
+  for (let i = 1; i <= 20; i++) state = i;
+  history.commit();
+  assert.equal(history.depth().undo, 1, 'a stroke pushed more than one entry');
+  history.undo();
+  assert.equal(state, 0);
+});
+
+test('a new edit discards the redo branch', () => {
+  let state = 'a';
+  const history = undoController({ read: () => state, write: (v) => { state = v; } });
+  history.record(() => { state = 'b'; });
+  history.undo();
+  history.record(() => { state = 'z'; });
+  assert.equal(history.canRedo(), false, 'redo still offered a branch that was left');
+});
+
+test('the emphasis map is the reason the cap is bytes and not entries', () => {
+  const one = flat();
+  assert.equal(one.byteLength, EDGE * EDGE * 4);
+  const stack = boundedStack({ entries: 1000, bytes: 8 << 20,
+                               sizeOf: (v) => v.byteLength });
+  for (let i = 0; i < 1000; i++) stack.push(flat());
+  assert.ok(stack.depth() < 1000, 'an entry cap alone would hold 64 MB of maps');
+  assert.ok(stack.bytes() <= 8 << 20);
+});
+
+test('painting is still pure and headless', () => {
+  const values = flat();
+  const before = stats(values);
+  paint(values, { x: 0.5, y: 0.5, radius: 0.1, amount: 0.2 });
+  assert.ok(stats(values).max > before.max);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
