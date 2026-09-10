@@ -109,6 +109,50 @@ function auditPanel(detail) {
     a.subject ? el('p', { className: 'auditsubject', textContent: a.subject }) : null);
 }
 
+/* Why a run produced nothing.
+ *
+ * A run that dies in its first stage leaves the directory it was going to fill
+ * and no files in it, so the view rendered an empty gallery and said nothing.
+ * Every run on this machine had failed the same way for two days - a reference
+ * path that moved - and the log saying so was already in the payload, three
+ * screens down, under a heading nobody scrolls to when the page looks empty.
+ *
+ * The last non-empty line of a Python traceback is the exception, which is the
+ * one line worth promoting to the top. */
+export function failureFrom(log) {
+  if (!log || !/Traceback \(most recent call last\)/.test(log)) return null;
+
+  const lines = log.trimEnd().split('\n');
+  let where = '';
+  for (const line of lines) {
+    const at = /pipeline\/stages\/(\w+)\.py/.exec(line);
+    if (at) where = at[1];
+  }
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const named = /^(?:[\w.]+\.)?([A-Za-z_]\w*):\s*(.+)$/.exec(line);
+    return named
+      ? { kind: named[1], message: named[2], where }
+      : { kind: 'Failed', message: line, where };
+  }
+  return null;
+}
+
+function failureBanner(failure, onShowLog) {
+  const what = failure.where
+    ? `This run failed in ${failure.where}` : 'This run failed';
+  const box = el('div', { className: 'banner err failed' },
+    el('div', {},
+      el('b', { textContent: `${what} — ${failure.kind}` }),
+      el('p', { className: 'mini', textContent: failure.message })));
+  const jump = el('button', { className: 'btn ghost', textContent: 'Log' });
+  jump.onclick = onShowLog;
+  box.append(jump);
+  return box;
+}
+
 function grid(runId, stage) {
   const box = el('div', { className: 'thumbs' });
   for (const name of stage.images) {
@@ -330,9 +374,21 @@ export function renderResult(host, { runId, detail, onPick }) {
 
   state.runDir = detail.dir;
 
+  const logPanel = el('pre', { className: 'log', textContent: detail.log || '(no log)' });
+  const failure = failureFrom(detail.log);
+  const produced = (detail.stages || []).some((s) => s.images?.length);
+
   if (detail.running) {
     host.append(el('div', { className: 'banner' },
       'Running — output appears as each stage finishes.'));
+  } else if (failure && !produced) {
+    // Only when it produced nothing. A run that failed after writing frames
+    // still has output worth looking at, and a red banner over it would read
+    // as "these images are wrong" rather than "it stopped early".
+    host.append(failureBanner(failure, () => {
+      logPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      logPanel.scrollTop = logPanel.scrollHeight;
+    }));
   } else if (detail.stopped_at) {
     host.append(gateBanner(runId, detail));
   }
@@ -373,11 +429,10 @@ export function renderResult(host, { runId, detail, onPick }) {
       body));
   }
 
-  const log = el('pre', { className: 'log', textContent: detail.log || '(no log)' });
   host.append(el('section', { className: 'group' },
     el('h2', { textContent: 'Log' }),
-    el('div', { className: 'fields' }, log)));
-  log.scrollTop = log.scrollHeight;
+    el('div', { className: 'fields' }, logPanel)));
+  logPanel.scrollTop = logPanel.scrollHeight;
 
   return () => { for (const stop of stops) stop(); };
 }

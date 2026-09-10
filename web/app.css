@@ -149,6 +149,9 @@ textarea { font-family: var(--mono); font-size: 12.5px; }
   font-size: 13px;
 }
 .banner.err { background: rgba(194,55,44,.12); border-color: rgba(194,55,44,.4); }
+/* Reuses the error colours; adds only the layout a banner with an action needs. */
+.banner.failed { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.banner.failed p { margin: 4px 0 0; }
 .hidden { display: none !important; }
 
 /* --------------------------------------------------------------- forms */

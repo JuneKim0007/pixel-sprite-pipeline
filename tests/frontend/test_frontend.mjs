@@ -1139,5 +1139,41 @@ await atest('the editor is one shell, not four bordered cards', async () => {
   assert.match(css, /\.editorside \.stackpanel[^{]*\{[^}]*border: 0/);
 });
 
+console.log('\nrun failure reporting');
+await atest('a run that produced nothing says why, from its own log', async () => {
+  const { failureFrom } = await import(join(JS, 'views/result/result.js'));
+
+  // The real log off disk. Every run on this machine failed this way for two
+  // days while the view said "No output yet. Start a run."
+  const real = [
+    'Traceback (most recent call last):',
+    '  File "/x/pipeline/stages/pose.py", line 105, in run',
+    '    rig = ctx.need("rig")',
+    '  File "/x/pipeline/refs/references.py", line 77, in _one',
+    '    raise NotFound("reference image", entry["path"])',
+    "pipeline.shared.errors.NotFound: no reference image 'overnight/char_3/refs/side.png'",
+  ].join('\n');
+
+  const got = failureFrom(real);
+  assert.equal(got.kind, 'NotFound');
+  assert.equal(got.where, 'pose', 'the failing stage was not identified');
+  assert.match(got.message, /no reference image/);
+});
+
+await atest('a clean log is not reported as a failure', async () => {
+  const { failureFrom } = await import(join(JS, 'views/result/result.js'));
+  assert.equal(failureFrom(''), null);
+  assert.equal(failureFrom(null), null);
+  assert.equal(failureFrom('stage pose ok\nstage depth ok\n'), null,
+    'a successful run was reported as failed');
+});
+
+await atest('an unrecognised last line still reports something', async () => {
+  const { failureFrom } = await import(join(JS, 'views/result/result.js'));
+  const got = failureFrom('Traceback (most recent call last):\n  ...\nKilled');
+  assert.equal(got.kind, 'Failed');
+  assert.equal(got.message, 'Killed', 'a SIGKILL left the banner with nothing to say');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
