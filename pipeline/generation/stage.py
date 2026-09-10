@@ -63,14 +63,29 @@ class Context:
             log.warning(note)
 
     def settings(self, path: str) -> Any:
-        """The value at one config path, its declared defaults already underneath."""
+        """The value at one config path: the config, then its asset type, then the field."""
         from .schema import SCHEMA, get_path
 
         here = get_path(self.config, path)
         field = SCHEMA.field(path)
         if field is not None:
-            return field.default if here is None else here
-        return deep_merge(defaults_for(path), _set(here or {}))
+            if here is not None:
+                return here
+            return self._module_default(path, field.default)
+        merged = deep_merge(defaults_for(path), _set(here or {}))
+        for key, value in self._module_defaults().items():
+            if key.startswith(f"{path}.") and get_path(self.config, key) is None:
+                _set_path(merged, key[len(path) + 1:], value)
+        return merged
+
+    def _module_defaults(self) -> dict[str, Any]:
+        from ..shared import modules
+
+        return modules.defaults_for(self.root, self.config.get("module"))
+
+    def _module_default(self, path: str, fallback: Any) -> Any:
+        found = self._module_defaults().get(path)
+        return fallback if found is None else found
 
     def resume_numbering(self) -> None:
         """Continue the NN_stage folder numbering instead of restarting at 00."""
@@ -154,6 +169,14 @@ def get(name: str) -> type[Stage]:
 
 def available() -> dict[str, type[Stage]]:
     return _REGISTRY.all()
+
+
+def _set_path(target: dict, path: str, value: Any) -> None:
+    node = target
+    parts = path.split(".")
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
 
 
 def defaults_for(path: str) -> dict[str, Any]:

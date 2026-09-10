@@ -74,3 +74,46 @@ def test_a_type_may_declare_a_stage_that_does_not_exist(types):
     """That is how tileset states the work it is waiting on."""
     write(types, "weather", stages=["cloud_field", "canonical"])
     assert modules.get(types, "weather").stages == ["cloud_field", "canonical"]
+
+
+class TestAssetTypeDefaults:
+    """What a type starts from, when a config does not say."""
+
+    def test_a_sheet_starts_from_the_rig_not_an_animation_frame(self, tmp_path):
+        from pipeline.shared import modules
+
+        assert modules.defaults_for(tmp_path, "character_sheet") == {
+            "pose.source": "tpose"}
+
+    def test_a_type_that_declares_none_gets_none(self, tmp_path):
+        from pipeline.shared import modules
+
+        assert modules.defaults_for(tmp_path, "animation") == {}
+
+    def test_an_unknown_type_is_not_an_error(self, tmp_path):
+        from pipeline.shared import modules
+
+        assert modules.defaults_for(tmp_path, "no_such_type") == {}
+
+    def test_a_config_that_names_its_own_wins(self, tmp_path):
+        """The type says what unset means; it never overrides what was said."""
+        from pipeline.generation.stage import Context
+
+        ctx = Context(root=tmp_path, config={"module": "character_sheet",
+                                             "pose": {"source": "library"}},
+                      run_id="r", outdir=tmp_path)
+        assert ctx.settings("pose.source") == "library"
+
+    def test_an_unset_field_takes_the_type_s_default(self, tmp_path):
+        from pipeline.generation.stage import Context
+
+        ctx = Context(root=tmp_path, config={"module": "character_sheet"},
+                      run_id="r", outdir=tmp_path)
+        assert ctx.settings("pose.source") == "tpose"
+
+    def test_another_type_still_takes_the_field_default(self, tmp_path):
+        from pipeline.generation.stage import Context
+
+        ctx = Context(root=tmp_path, config={"module": "animation"},
+                      run_id="r", outdir=tmp_path)
+        assert ctx.settings("pose.source") == "library"

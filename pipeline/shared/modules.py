@@ -38,11 +38,15 @@ class ModuleSpec:
     stages: list[str] = field(default_factory=list)
     extends: str = ""
     props: bool = True
+    # Settings this type starts from, as dotted paths. A config that names one
+    # itself still wins; this is what an unset field means for this type.
+    defaults: dict[str, Any] = field(default_factory=dict)
 
     def rendered(self) -> dict[str, Any]:
         return {"key": self.key, "label": self.label, "detail": self.detail,
                 "blurb": self.blurb, "stages": list(self.stages),
-                "extends": self.extends, "props": self.props}
+                "extends": self.extends, "props": self.props,
+                "defaults": dict(self.defaults)}
 
 
 BUILTIN: dict[str, dict[str, Any]] = {
@@ -53,6 +57,10 @@ BUILTIN: dict[str, dict[str, Any]] = {
                  "first thing you make, and the input to an animation.",
         "stages": ["pose", "depth", "canonical", "frames", "palette", "export"],
         "props": False,
+        # A sheet is one rest pose from several angles, so it starts from the
+        # rig rather than from an animation's first frame. Every shipped
+        # character_sheet config restated this; the type says it once.
+        "defaults": {"pose.source": "tpose"},
     },
     "animation": {
         "label": "Animation",
@@ -163,3 +171,18 @@ def wants_props(root: Path, key: str | None) -> bool:
     """Whether this type attaches props. Was a string compare in props.py."""
     spec = find(root, key)
     return True if spec is None else spec.props
+
+
+def defaults_for(root: Path, key: str | None) -> dict[str, Any]:
+    """The settings this asset type starts from, inherited types included."""
+    out: dict[str, Any] = {}
+    seen: set[str] = set()
+    while key and key not in seen:
+        seen.add(key)
+        spec = find(root, key)
+        if spec is None:
+            break
+        for path, value in spec.defaults.items():
+            out.setdefault(path, value)
+        key = spec.extends
+    return out

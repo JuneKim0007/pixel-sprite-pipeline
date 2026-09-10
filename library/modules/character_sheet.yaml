@@ -14,3 +14,8 @@ stages:
 - palette
 - export
 props: false
+# A sheet is one rest pose from several angles, so it starts from the rig
+# rather than from an animation's first frame. A config naming its own
+# pose.source still wins.
+defaults:
+  pose.source: tpose

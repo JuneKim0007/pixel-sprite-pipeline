@@ -846,11 +846,7 @@ class ConfigSchema:
             scope = field.modules
             if scope and module and not (mine & set(scope)):
                 continue
-            entry = _render(field)
-            override = (entry.pop("help_for", None) or {}).get(module or "")
-            if override:
-                entry["help"] = override
-            out.append(entry)
+            out.append(_render(field))
         return out
 
     def defaults_under(self, prefix: str) -> dict[str, Any]:

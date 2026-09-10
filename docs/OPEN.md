@@ -210,16 +210,26 @@ start one - and the sidebar label a noun - this existing one. They now read
 which run its rig step will edit, rather than mentioning it three steps in.
 
 
-## 10. The pose default is `library/idle`, not a rest pose
+## 10. An asset type can now say what its settings start from
 
-**Not started.** `pose.source` defaults to `'library'` with `pose.name: 'idle'`,
-so a new humanoid rig starts from a library animation rather than the neutral
-spread `rigs.tpose` produces. One default change, to `'tpose'`.
+**Done 2026-09-10, and the entry it replaces asked for the wrong fix.**
 
-**Not the same question as the angle.** `A_POSE_DEGREES = 40.0` was measured: 88
-degrees reads to the model as holding a weapon, and arms-down puts joint pairs
-within 4% of the canvas so the silhouette has no gap for ControlNet. The angle
-should become a setting before anyone changes it.
+It said `pose.source` should default to `tpose`. The survey says otherwise:
+every one of the ten shipped `character_sheet` configs sets `tpose`, and all
+three `animation` configs set `library`. Flipping the global default would have
+been right for ten and wrong for three, and a new animation config that omitted
+it would silently have got a still figure.
+
+`ModuleSpec` already carried per-type behaviour - `props: bool = True`, whose
+reader's docstring records that it exists because the same fact used to be a
+string compare at a call site. It now carries `defaults` too, and
+`character_sheet` declares `pose.source: tpose`. Precedence is config, then
+asset type, then field.
+
+**What is left.** Only `character_sheet` declares any, and only one setting.
+Other per-type facts are still asserted globally or restated in every config;
+worth a survey the next time one of them bites, not a speculative sweep now.
+
 
 ## 11. `Cache._size` calls every dict 64 bytes
 
