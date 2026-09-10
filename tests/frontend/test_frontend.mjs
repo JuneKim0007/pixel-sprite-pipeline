@@ -1213,5 +1213,55 @@ await atest('the settings form knows how to draw a colour', async () => {
   assert.doesNotMatch(src, /0-9a-f\]\{3\}/, 'fields.js grew its own colour regex');
 });
 
+console.log('\nsettings list editors');
+await atest('every function the settings form calls is defined', async () => {
+  // 197651b deleted subControl and left its call, so every list editor threw
+  // ReferenceError on render. Nothing caught it: the list editors are the one
+  // part of the settings form no test drives, and a call to a name that does
+  // not exist is only an error when the line actually runs.
+  const src = readFileSync(join(JS, 'fields.js'), 'utf8');
+
+  const defined = new Set([
+    // declarations, however they are spelled
+    ...[...src.matchAll(/(?:^|\s)function\s+(\w+)/g)].map((m) => m[1]),
+    ...[...src.matchAll(/(?:const|let|var)\s+(\w+)\s*=/g)].map((m) => m[1]),
+    // import bindings, under their LOCAL name when aliased
+    ...[...src.matchAll(/^import\s*\{([^}]*)\}/gm)]
+      .flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop())),
+    // parameters: a callback named onChange is defined where it is received
+    ...[...src.matchAll(/\(([^)(]*)\)\s*(?:=>|\{)/g)]
+      .flatMap((m) => m[1].split(',').map((s) => s.trim().replace(/[=:].*$/, '').trim()))
+      .filter((s) => /^\w+$/.test(s)),
+  ]);
+
+  const called = new Set([...src.matchAll(/(?<![.\w])([a-z]\w{3,})\(/g)].map((m) => m[1]));
+  const builtins = new Set([
+    'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function',
+    'parseFloat', 'parseInt', 'structuredClone', 'setTimeout', 'clearTimeout',
+    'encodeURIComponent', 'require', 'super', 'await', 'string', 'number',
+  ]);
+
+  const missing = [...called].filter((name) => !defined.has(name) && !builtins.has(name));
+  assert.deepEqual(missing, [], `fields.js calls undefined: ${missing.join(', ')}`);
+});
+
+await atest('list cards can render every field type their specs declare', async () => {
+  const src = readFileSync(join(JS, 'fields.js'), 'utf8');
+  const declared = new Set(
+    [...src.matchAll(/type: '(\w+)'/g)].map((m) => m[1]));
+  const sub = /function subControl[\s\S]*?\n\}/.exec(src)[0];
+  const control = /export function control[\s\S]*?\n\}\n\n/.exec(src)[0];
+
+  // vec3/vec2/image exist only on list cards; the rest fall through to control.
+  for (const shape of ['vec3', 'vec2', 'image']) {
+    assert.ok(declared.has(shape), `no spec declares ${shape} any more`);
+    assert.ok(sub.includes(`'${shape}'`), `subControl cannot render ${shape}`);
+  }
+  // A card spec says optionsFrom; a schema field says options_from.
+  assert.match(sub, /options_from: spec\.optionsFrom/,
+    'the two option vocabularies are no longer bridged');
+  assert.ok(control.length > 0);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

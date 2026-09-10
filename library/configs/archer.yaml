@@ -20,7 +20,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after:
+  stop_after: export
 comfy:
   host: http://127.0.0.1:8188
 pose:
@@ -53,3 +53,6 @@ styles:
 props:
 - bow
 - quiver
+cooling:
+  seconds: 30
+  enabled: true

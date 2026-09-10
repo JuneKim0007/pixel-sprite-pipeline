@@ -299,3 +299,24 @@ the frame it came from, which is what makes a bad pose obvious.
 **Now unblocked.** Every run in `out/runs` had failed on a moved reference path
 until 2026-09-10, so there was nothing to lay out. `20260910_102525_char_3` has
 four skeletons and four depth maps.
+
+## 17. Bone lengths are fixed, and a rig cannot be made to fit a body
+
+**Not started, requested 2026-09-10.** The rig editor drags joints but cannot
+change a bone's length, so a rig can be posed and not proportioned. Fitting a
+long-legged or short-torsoed character means editing `rigs.py`.
+
+**What it would take.** Lengthening a bone has to move everything below it or
+the skeleton comes apart, so the change is a downward traversal, not a point
+edit: `SKELETON_TREE` in `features/pose.js` already gives parent/child, and
+`subtree()` already walks it — both are used by `dragJoint`. Stretching
+`l_hip -> l_knee` translates the knee's whole subtree by the delta.
+
+Symmetry is the second half: limbs come in pairs and a rig with one long leg is
+a mistake far more often than an intention, so the pair should move together by
+default with an explicit way to break it. The `l_`/`r_` prefix already names the
+pairing.
+
+**Why it is not as large as it sounds.** No recalculation of the whole rig is
+required. A bone length is the distance between two joints; changing it is a
+translation applied to a subtree, and the subtree is already computed.

@@ -7,7 +7,7 @@
  * editors keyed by config path.
  */
 
-import { getPath } from './api.js';
+import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
 import { normaliseColour } from './core/colour.js';
@@ -329,6 +329,54 @@ const LIST_EDITORS = {
   },
 };
 
+
+/* The control for one field INSIDE a list card.
+ *
+ * Restored: 197651b deleted this and left the call below it, so every list
+ * editor in Settings - references, poses, props, softbody nodes - threw
+ * ReferenceError the moment it rendered. Nothing caught it because the list
+ * editors are the one part of the settings form no test drives.
+ *
+ * It is not `control` directly for two reasons. `vec3`, `vec2` and `image` are
+ * shapes only a list card uses, and a card spec says `optionsFrom` where a
+ * schema field says `options_from` - so this is also the adapter between the
+ * two vocabularies.
+ */
+function subControl(spec, value, onChange) {
+  if (spec.type === 'vec3' || spec.type === 'vec2') {
+    const size = spec.type === 'vec3' ? 3 : 2;
+    const current = Array.isArray(value) ? value : new Array(size).fill(0);
+    const row = el('div', { className: 'vec' });
+    for (let i = 0; i < size; i++) {
+      const box = el('input', {
+        type: 'number', step: 0.005, value: current[i] ?? 0, className: 'num tiny',
+      });
+      box.onchange = () => {
+        const next = [...current];
+        next[i] = parseFloat(box.value) || 0;
+        onChange(next);
+      };
+      row.append(box);
+    }
+    return row;
+  }
+
+  if (spec.type === 'image') {
+    const row = el('div', { className: 'control' });
+    const text = el('input', { type: 'text', value: value ?? '', placeholder: 'inputs/ref.png' });
+    text.onchange = () => onChange(text.value);
+    row.append(text);
+    if (value) row.append(el('img', { className: 'minithumb', src: api.fileUrl(value) }));
+    return row;
+  }
+
+  return control({
+    type: spec.type,
+    options: spec.options,
+    options_from: spec.optionsFrom,
+    min: spec.min, max: spec.max, step: spec.step,
+  }, value, onChange);
+}
 
 function listEditor(path, items, onChange) {
   const spec = LIST_EDITORS[path];
