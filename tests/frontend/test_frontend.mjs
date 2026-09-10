@@ -577,19 +577,28 @@ test('ui/ knows nothing about the domain', () => {
 });
 
 console.log('\nui primitives');
-test('Heading uses the tag matching its level', () => {
-  assert.ok(ui.Heading('T', { level: 3 }).querySelector('h3'));
-  assert.ok(ui.Heading('T', { level: 1 }).querySelector('h1'));
+test('PanelHead is the one section head, and every view uses it', () => {
+  // .ui-section was a margin where .group is a surface - background, border,
+  // radius, styled heading bar. Adopting Section would have removed a border
+  // from every panel. PanelHead already produced what the five sites built by
+  // hand, and was the primitive nothing called.
+  const head = ui.PanelHead('Layers', { note: 'drag to reorder' });
+  assert.equal(head.className, 'ovhead');
+  assert.ok(head.querySelector('h2'));
+  assert.ok(head.textContent.includes('drag to reorder'));
+
+  for (const view of ['views/result/result.js', 'views/editor/editor.js',
+                      'views/overview/overview.js']) {
+    const src = readFileSync(join(JS, view), 'utf8');
+    assert.doesNotMatch(src, /className: 'ovhead'/,
+      `${view} still builds its own section head`);
+  }
 });
-test('Section nests its children in a body', () => {
-  const s = ui.Section('Title', {}, el('p', { textContent: 'child' }));
-  assert.ok(s.querySelector('.ui-section-body'));
-  assert.ok(s.textContent.includes('child'));
-  assert.ok(s.textContent.includes('Title'));
-});
-test('Subsection is an h3, Section an h2', () => {
-  assert.ok(ui.Section('a', {}).querySelector('h2'));
-  assert.ok(ui.Subsection('a', {}).querySelector('h3'));
+
+test('the primitives that matched no CSS are gone', () => {
+  assert.equal(ui.Section, undefined, 'Section is back, and .ui-section is not');
+  assert.equal(ui.Subsection, undefined);
+  assert.equal(ui.Heading, undefined, 'a second heading dialect is back');
 });
 test('HelpTip summarises to the lead sentence in the title', () => {
   const tip = ui.HelpTip('Short lead. Then the long measured reasoning follows.');
@@ -1585,6 +1594,30 @@ await atest('bone lengths are editable where the bones are', async () => {
   // Two controls writing one config path is how they drift.
   assert.doesNotMatch(src, /proportions\.(legs|arms|torso)/,
     'a hardcoded proportion path crept in beside the schema');
+});
+
+await atest('no stylesheet rule matches nothing', async () => {
+  // Eleven .ui-* rules sat unmatched for weeks and got documented as if they
+  // were in use. A class named only in Python still counts: .actionpill.rescale
+  // reaches the DOM through a template literal from training.py.
+  const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
+  const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
+  const js = readdirSync(join(JS), { recursive: true })
+    .filter((f) => String(f).endsWith('.js'))
+    .map((f) => readFileSync(join(JS, String(f)), 'utf8')).join('\n');
+  const py = ['pipeline/looks/training.py', 'pipeline/looks/stylelog.py']
+    .map((f) => readFileSync(join(ROOT, f), 'utf8')).join('\n');
+  const haystack = `${js}\n${html}\n${py}`;
+
+  const defined = new Set();
+  for (const m of css.matchAll(/(^[^{}@]+)\{/gm)) {
+    for (const c of m[1].matchAll(/\.([a-zA-Z][\w-]*)/g)) defined.add(c[1]);
+  }
+  const known = new Set(['pane-split-x']);   // built as `pane-split-${axis}`
+  const dead = [...defined].filter((c) =>
+    !known.has(c) && !new RegExp(`(?<![\\w-])${c}(?![\\w-])`).test(haystack));
+
+  assert.deepEqual(dead, [], `CSS rules nothing matches: ${dead.join(', ')}`);
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

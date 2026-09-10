@@ -330,21 +330,29 @@ now: exact ratio, symmetry, downward carry, other groups untouched, an unknown
 group refused by name.
 
 
-## 15. The ui/ primitives are written and not adopted
+## 15. Seven primitives still have no caller, and each needs its own look
 
-**Half done 2026-09-10.** `docs/UI.md` now states the rules, the radius scale
-collapsed from 13 values to 4 tokens over 83 rules, and `ColourPicker` and
-`Disclosure` are shared primitives with two callers each.
+**Half done 2026-09-10, and the earlier framing was wrong.**
 
-**What is left.** Ten primitives are still used by no view - `Section`,
-`Subsection`, `Heading`, `PanelHead`, `Fact`, `FactGrid`, `BaseCard`, `Check`,
-`Mono`, `Range` - and every view still hand-rolls its heading row as
-`el('div', {className: 'ovhead'}, el('h2', ...))`. Their CSS (`.ui-section`,
-`.ui-h1/h2/h3`, the two body rules) still matches nothing.
+This said the primitives were written and simply not adopted. Three of them did
+not fit. `.ui-section` was `margin: 0 0 1.5rem` where `.group` is a surface -
+background, 1px border, radius, styled heading bar - so adopting `Section` would
+have removed a border from every panel. `docs/UI.md` had documented it as the
+bordered container, asserted from the name rather than read from the CSS.
 
-Eight views, roughly 2,800 lines, and no visual regression test to catch a
-mistake, so it is one view at a time and each conversion deletes the
-hand-rolled classes it replaces rather than leaving both.
+`Section`, `Subsection`, `Heading` and eleven unmatched `.ui-*` rules are gone.
+`PanelHead` already produced exactly what five views hand-rolled and now has
+five callers. Their tests went with them - they had exercised the abstraction
+nothing consumed, which is confidence in code no user could reach.
+
+**What is left.** `Fact`, `FactGrid`, `BaseCard`, `Check`, `Mono`, `Range`,
+`LabelWithTip`. Each needs the check `Section` failed before it is adopted or
+deleted: does its CSS match what a view actually needs. Not as a batch - a batch
+is how `Section` got documented as something it was not.
+
+A test now refuses any CSS rule that matches nothing in js, html or python, so a
+third dialect cannot accumulate quietly. Verified by adding a dead rule and
+watching it fail.
 
 
 ## 16. The backdrop is keyed after the model has already guessed

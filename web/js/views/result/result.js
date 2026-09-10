@@ -10,7 +10,7 @@ import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
-import { Disclosure } from '../../ui/index.js';
+import { Disclosure, PanelHead } from '../../ui/index.js';
 import { browseDialog } from '../../ui/dialog.js';
 
 const STAGE_LABEL = {
@@ -347,8 +347,7 @@ export function renderResult(host, { runId, detail, onPick }) {
 
   const history = el('div', { className: 'histstrip' });
   const historyBox = el('section', { className: 'histbox' },
-    el('div', { className: 'ovhead' },
-      el('h2', { textContent: 'History' })),
+    PanelHead('History'),
     history);
   host.append(historyBox);
 
@@ -376,9 +375,7 @@ export function renderResult(host, { runId, detail, onPick }) {
   }
 
   host.append(el('section', { className: 'auditbox' },
-    el('div', { className: 'ovhead' },
-      el('h2', { textContent: runId }),
-      el('span', { className: 'mini', textContent: detail.dir })),
+    PanelHead(runId, { note: detail.dir }),
     auditPanel(detail)));
 
   state.runDir = detail.dir;

@@ -10,20 +10,21 @@ across 369 classes, with `--radius` already defined and losing to a hardcoded
 
 ---
 
-## The system already exists, and was abandoned
+## Two dialects, and the unused one did not fit
 
-`web/js/ui/` exports 25 primitives. **12 are used by no view at all**:
-`Section`, `Subsection`, `Heading`, `PanelHead`, `Fact`, `FactGrid`, `BaseCard`,
-`Check`, `Mono`, `Note`, `Range`, `LabelWithTip`.
+An earlier draft of this file said the primitives were written and simply not
+adopted, and that `Section` was the bordered container. That was asserted from
+the names, not read from the CSS, and it was wrong.
 
-Their CSS, `.ui-section`, `.ui-subsection`, `.ui-section-body`,
-`.ui-subsection-body`, `.ui-h1`, `.ui-h2`, `.ui-h3`, has never matched an
-element in the DOM. Seven rules, zero users, since `125d429` ("Phase 0+A: a DOM
-to test against, and the ui/ primitives layer"). Phase B did not happen.
+`.ui-section` was `margin: 0 0 1.5rem` - no background, no border, no padding.
+`.group` is the surface: background, 1px border, radius, and a styled heading
+bar. Adopting `Section` would have removed a border from every panel in the app.
+They were unused because they did not fit, not because nobody got round to it,
+and the rem/px split says they were written apart from everything else.
 
-So the rules below are not new. They are what `ui/primitives.js` already
-encodes, written down so the next view can follow them instead of inventing a
-third dialect.
+Removed 2026-09-10: `Section`, `Subsection`, `Heading`, and the eleven `.ui-*`
+rules that matched nothing. `PanelHead` already produced exactly what five views
+were building by hand and now has five callers.
 
 ## Four responsibilities, and nothing else is a container
 
@@ -32,7 +33,7 @@ A container earns a border only if it is one of these.
 | Role | What it is | Border | Class |
 |---|---|---|---|
 | **Surface** | The page area a tab owns. One per view. | none | the view host |
-| **Section** | A titled block of related things. | 1px | `ui-section` |
+| **Section** | A titled block of related things. | 1px | `group` + `PanelHead` |
 | **Pane** | A region of a split surface, sized by the user. | divider only | `pane` |
 | **Item** | One repeated thing in a list or grid. | 1px | `card`, `listcard` |
 
@@ -95,14 +96,17 @@ performed by making the element larger.
 
 ## Headings
 
-`Heading(text, {level})` picks the tag so the document outline is real, and the
-look comes from `.ui-h{n}` rather than from the tag. Restyling a level must not
-silently restyle another. A view has one h1; a section an h2; a subsection an h3.
+`PanelHead(title, {note, action})` is the section head: an h2, an optional note,
+an optional action on the right. It is the only one - a second heading component
+existed, keyed off its own classes, and was deleted rather than reconciled.
 
 ## What is not settled
 
-Adoption. Twelve primitives are still unused and every view still hand-rolls
-its heading row as `el('div', {className: 'ovhead'}, el('h2', ...))`. Converting
-eight views is roughly 2,800 lines with no visual regression test to catch a
-mistake, so it is one view at a time, and each conversion deletes the
-hand-rolled classes it replaces rather than leaving both.
+Seven primitives still have no caller: `Fact`, `FactGrid`, `BaseCard`, `Check`,
+`Mono`, `Range`, `LabelWithTip`. Each needs the same check `Section` failed -
+does its CSS match what a view actually needs - before it is either adopted or
+deleted. Do not sweep them as a batch; that is how `Section` was documented as
+a bordered container without anyone reading the rule.
+
+A test refuses CSS that matches nothing, so a third dialect cannot accumulate
+quietly again.

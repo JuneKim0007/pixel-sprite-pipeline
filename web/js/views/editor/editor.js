@@ -31,6 +31,7 @@ import { state, toast } from '../../store.js';
 import { layerForm, stackList } from './stack.js';
 import { clampFraction, fractionAt, loadRatios, saveRatios, splitter } from './panes.js';
 import { lightbox } from '../../ui/dialog.js';
+import { PanelHead } from '../../ui/index.js';
 import * as gpu from './gpu.js';
 
 let catalogue = [];
@@ -320,9 +321,7 @@ export function renderEditor(host) {
 
   function renderStack() {
     listHost.replaceChildren(
-      el('div', { className: 'ovhead' },
-        el('h2', { textContent: 'Layers' }),
-        el('span', { className: 'mini', textContent: 'drag to reorder' })),
+      PanelHead('Layers', { note: 'drag to reorder' }),
       stackList(stack, catalogue, {
         selected,
         onSelect: (id) => { selected = id; renderForm(); },
@@ -358,9 +357,7 @@ export function renderEditor(host) {
     }
     const spec = catalogue.find((s) => s.key === entry.layer);
     formHost.replaceChildren(
-      el('div', { className: 'ovhead' },
-        el('h2', { textContent: spec.label }),
-        el('span', { className: 'mini', textContent: spec.summary })),
+      PanelHead(spec.label, { note: spec.summary }),
       layerForm(spec, entry.config, (key, value) => {
         entry.config[key] = value;
         // Only rebuild when this key gates another field's visibility.

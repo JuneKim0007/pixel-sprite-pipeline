@@ -16,16 +16,16 @@
 
 import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
+import { PanelHead } from '../../ui/index.js';
 import { state, toast } from '../../store.js';
 
 function card(title, { action, onAction } = {}) {
-  const head = el('div', { className: 'ovhead' }, el('h2', { textContent: title }));
+  let button = null;
   if (action) {
-    const b = el('button', { className: 'btn ghost', textContent: action });
-    b.onclick = onAction;
-    head.append(b);
+    button = el('button', { className: 'btn ghost', textContent: action });
+    button.onclick = onAction;
   }
-  return el('section', { className: 'ovcard' }, head);
+  return el('section', { className: 'ovcard' }, PanelHead(title, { action: button }));
 }
 
 function statLine(pairs) {

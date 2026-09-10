@@ -11,38 +11,6 @@
 
 import { el } from '../core/dom.js';
 
-/* Heading levels are semantic, not visual. `level` picks the tag so the
- * document outline is real; the class carries the look. A page has one h1,
- * a section an h2, a subsection an h3 — and CSS keys off .ui-h{n}, never off
- * the tag, so restyling one level cannot silently restyle another. */
-export function Heading(text, { level = 2, sub = null, actions = null } = {}) {
-  const tag = `h${Math.min(Math.max(level, 1), 6)}`;
-  const head = el('div', { className: `ui-heading ui-h${level}` },
-    el('div', { className: 'ui-heading-text' },
-      el(tag, { className: 'ui-title', textContent: text }),
-      sub ? el('p', { className: 'ui-sub', textContent: sub }) : null),
-    actions ? el('div', { className: 'ui-heading-actions' }, actions) : null);
-  return head;
-}
-
-/* A titled block. `Section` is the top level of a tab; `Subsection` nests
- * inside one. They differ only in heading level and class, which is exactly
- * the kind of variance that should not be two components. */
-function block(kind, level, title, opts, children) {
-  const { sub = null, actions = null, id = null } = opts;
-  const node = el('section', { className: `ui-${kind}` });
-  if (id) node.id = id;
-  if (title) node.append(Heading(title, { level, sub, actions }));
-  node.append(el('div', { className: `ui-${kind}-body` }, ...children));
-  return node;
-}
-
-export const Section = (title, opts = {}, ...children) =>
-  block('section', 2, title, opts, children);
-
-export const Subsection = (title, opts = {}, ...children) =>
-  block('subsection', 3, title, opts, children);
-
 /* The (?) next to a label.
  *
  * Replaces a paragraph of help under every control. The reasoning in this

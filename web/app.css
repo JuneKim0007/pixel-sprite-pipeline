@@ -1091,18 +1091,7 @@ input.wide { width: 100%; max-width: 420px; }
  * component, never to the tag, so the heading LEVEL is semantic and the look
  * is independent of it.
  */
-.ui-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-.ui-heading-text { min-width: 0; }
-.ui-title { margin: 0; font-weight: 600; line-height: 1.25; }
-.ui-h1 .ui-title { font-size: 1.35rem; }
-.ui-h2 .ui-title { font-size: 1.1rem; }
-.ui-h3 .ui-title { font-size: 0.95rem; }
-.ui-sub { margin: 0.15rem 0 0; font-size: 0.8rem; opacity: 0.7; }
-.ui-heading-actions { display: flex; gap: 0.4rem; flex: none; }
 
-.ui-section { margin: 0 0 1.5rem; }
-.ui-subsection { margin: 0 0 1rem; }
-.ui-section-body, .ui-subsection-body { margin-top: 0.6rem; }
 
 /* The (?) — small, quiet until asked. A missing explanation is shown as a
  * dimmed marker rather than omitted, so the gap is visible in the UI. */
