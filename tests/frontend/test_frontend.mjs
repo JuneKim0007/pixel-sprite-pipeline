@@ -1492,5 +1492,23 @@ await atest('the wizard says what it will act on', async () => {
   assert.match(src, /rig edits apply to/);
 });
 
+await atest('a result image cannot be stretched by its own attributes', async () => {
+  // Setting img.width and img.height as attributes under `max-width: 100%`
+  // clamps the width and leaves the height, which squashes horizontally and
+  // stretches vertically. That was the mirrored streaking on a sheet, and it
+  // was the display, not the pipeline: grid measures factor 1 on every real
+  // source and passes them through untouched.
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  const result = /const img = el\('img', \{ src: r\.image[\s\S]{0,400}/.exec(src)[0];
+  assert.doesNotMatch(result, /img\.width =/, 'the result image sizes itself again');
+  assert.doesNotMatch(result, /img\.height =/);
+
+  const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
+  const stage = /\.compare-stage img[^{]*\{([^}]*)\}/.exec(css)[1];
+  for (const rule of ['max-width', 'max-height', 'width: auto', 'height: auto']) {
+    assert.ok(stage.includes(rule), `.compare-stage img is missing ${rule}`);
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

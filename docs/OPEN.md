@@ -253,13 +253,28 @@ Its sampling went with it - every seventh pixel above 400k, which under-reported
 the count to save time the exact version no longer needs.
 
 
-## 12. Grid measures one lattice for a picture that has several
+## 12. The streaking on a sheet was the display, not the pipeline
 
-**Not started.** On a multi-panel character sheet the result is mirrored
-vertical streaking. `estimate_block_size` and `find_phase` assume one lattice
-over the whole image; a sheet is several drawings with their own. Either refuse
-a source whose measured block size has no agreement across regions, or measure
-per region. Refusing is smaller and honest.
+**Closed 2026-09-10 without a pipeline change; the entry was wrong.**
+
+It said `estimate_block_size` and `find_phase` assume one lattice over the whole
+image and mangle a multi-panel sheet. Measured on every real source to hand -
+`sheet.jpeg`, `_source_sheet.png`, `front.png` - the estimator returns factor
+1.0 and Grid passes the image through untouched, which is the correct answer and
+what DIAGNOSTIC-HARNESS.md already recorded for `archer_dynamic.png`. Running a
+sheet through the full stack, including the reordered stack from the report,
+produces a clean keyed result with the figures intact.
+
+What produced the streaking was `img.width`/`img.height` set as attributes on
+the result image under `max-width: 100%`. The width clamps to the panel and the
+height does not, so the picture squashes horizontally and stretches vertically.
+08e44a2 replaced that with a stage that constrains both axes; a test now pins it.
+
+**Still true and not a bug.** `background_to_alpha` removes 45% of that sheet -
+the page between the panels - and `keep_min` only refuses a flood that would
+leave under 4%. Correct here, and worth remembering as the thing to check first
+if a sheet ever does lose its figures.
+
 
 ## 13. The annotation still saves by hand, and nothing says which save is durable
 
