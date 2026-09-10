@@ -187,24 +187,36 @@ export function renderQueue(host) {
       Mini(data.dir));
   }
 
+  const moving = () => !!data && (data.autopilot.running || data.counts.running);
+
   async function load() {
     try {
       data = await api.queue();
       draw();
+      // Submitting a job or starting autopilot is what makes the queue move
+      // again, and both land here.
+      if (moving()) watch();
     } catch (e) {
       body.replaceChildren(Empty(e.message));
     }
   }
 
-  // Polling only while something is in motion. A queue at rest does not need a
-  // request every four seconds, and this view stays open for hours. `poll`
-  // skips a hidden tab and will not stack a tick on a slow one.
-  const stopPolling = poll(async () => {
-    await load();
-    return data && !(data.autopilot.running || data.counts.running);
-  }, { every: 4000 });
+  // A queue at rest does not need a request every four seconds, and this view
+  // stays open for hours. Stopping is only safe because `load` restarts it.
+  let stopPolling = null;
+  function watch() {
+    if (stopPolling) return;
+    stopPolling = poll(async () => {
+      await load();
+      if (moving()) return false;
+      stopPolling = null;
+      return true;
+    }, { every: 4000, immediate: false });
+  }
+
+  load();
 
   // The teardown the lifecycle calls before the next view mounts. Without it
   // this interval outlived the tab, which is what the old setTimeout did.
-  return stopPolling;
+  return () => { if (stopPolling) stopPolling(); };
 }

@@ -1420,5 +1420,41 @@ await atest('the filmstrip mode is not called a sheet', async () => {
   assert.match(view, /'grid', 'anim', 'strip'/);
 });
 
+console.log('\npolling');
+await atest('a tick that says it is done stops the timer', async () => {
+  // Both callers were written as though this worked. The return value was
+  // discarded, so a queue at rest kept asking for as long as the tab was open.
+  const src = readFileSync(join(JS, 'listeners/poll.js'), 'utf8');
+  assert.match(src, /await fn\(\) === true\) stop\(\)/,
+    'poll still discards what the tick tells it');
+});
+
+await atest('stopping when idle is paired with starting again', async () => {
+  // A poll that stops and cannot restart is worse than one that never stops:
+  // the view goes quietly stale instead of merely being wasteful.
+  const main = readFileSync(join(JS, 'main.js'), 'utf8');
+  assert.match(main, /function watchRuns\(\)/);
+  assert.match(main, /if \(stopWatching\) return;/, 'two timers can run at once');
+  const starts = main.match(/watchRuns\(\)/g) || [];
+  assert.ok(starts.length >= 4, `only ${starts.length} references; a start path is uncovered`);
+
+  const queue = readFileSync(join(JS, 'views/queue/queue.js'), 'utf8');
+  assert.match(queue, /if \(moving\(\)\) watch\(\);/,
+    'the queue stops polling and never restarts');
+});
+
+await atest('an unchanged payload does not rebuild the view', async () => {
+  const main = readFileSync(join(JS, 'main.js'), 'utf8');
+  assert.match(main, /function runsSignature/);
+  assert.match(main, /signature === lastSignature\) return;/,
+    'every tick still tears the view down');
+  // The signature has to move when anything visible moves.
+  for (const field of ['modified', 'running', 'stopped_at', 'completed', 'images.length']) {
+    assert.ok(main.includes(field.split('.')[0]),
+      `${field} is not part of the signature, so a change to it renders nothing`);
+  }
+  assert.match(main, /force = false/, 'a caller cannot force a redraw after acting');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

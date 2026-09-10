@@ -62,7 +62,7 @@ const VIEWS = {
     onContinue: () => setTab('run'),
   }),
   run: (host) => renderRun(host, {
-    onStarted: () => { setTab('result'); refreshRuns(); },
+    onStarted: () => { setTab('result'); refreshRuns({ force: true }); watchRuns(); },
     goTo: setTab,
   }),
   result: () => { renderResultTab(); return () => { if (stopResult) stopResult(); }; },
@@ -143,11 +143,49 @@ function renderRunPicker() {
   if (!state.runs.length) sel.append(el('option', { value: '', textContent: 'no runs yet' }));
 }
 
-async function refreshRuns() {
+/* What a refresh would change on screen, as one string.
+ *
+ * `renderResult` opens with `host.replaceChildren()`, which is right when a
+ * view mounts and wrong every four seconds: it takes scroll position, focus and
+ * image decode with it. Comparing first means an unchanged payload costs one
+ * request and no DOM at all. */
+function runsSignature(runs, selected) {
+  return runs.map((r) => [
+    r.id, r.modified, r.running ? 1 : 0, r.stopped_at || '',
+    (r.completed || []).join('.'),
+    (r.stages || []).map((s) => `${s.dir}:${s.images.length}`).join(','),
+  ].join('|')).join('\n') + `#${selected || ''}`;
+}
+
+let lastSignature = null;
+let stopWatching = null;
+
+/* Runs only while a run is running, and again when one starts.
+ *
+ * It used to run whenever the Result tab was merely open, which is a finished
+ * run being asked about every four seconds for as long as the tab stays open.
+ * Stopping when idle is only safe if starting is covered, so every path that
+ * begins or resumes a run calls this. */
+function watchRuns() {
+  if (stopWatching) return;
+  stopWatching = poll(async () => {
+    await refreshRuns();
+    if (state.runs.some((r) => r.running)) return false;
+    stopWatching = null;
+    return true;
+  }, { every: 4000, immediate: false });
+}
+
+async function refreshRuns({ force = false } = {}) {
   try {
     const { runs } = await api.runs();
-    state.runs = runs;
     if (!state.selectedRun && runs.length) state.selectedRun = runs[0].id;
+
+    const signature = runsSignature(runs, state.selectedRun);
+    if (!force && signature === lastSignature) return;
+    lastSignature = signature;
+
+    state.runs = runs;
     renderRunPicker();
     renderFlow();
     if (state.tab === 'result') await renderResultTab();
@@ -248,18 +286,12 @@ async function boot() {
   window.addEventListener('pipeline:resumed', (e) => {
     state.selectedRun = e.detail.runId;
     state.activeRun = e.detail.runId;
-    refreshRuns();
+    refreshRuns({ force: true });
+    watchRuns();
   });
 
   setTab('overview');
-
-  // Only while something is live, or the Result tab is open. `poll` skips a
-  // hidden tab and will not stack a tick on a slow one.
-  poll(() => {
-    const live = state.runs.some((r) => r.running);
-    if (live || state.tab === 'result') return refreshRuns();
-    return undefined;
-  }, { every: 4000, immediate: false });
+  if (state.runs.some((r) => r.running)) watchRuns();
 }
 
 // mount() catches a view that throws while rendering and poll() catches its own

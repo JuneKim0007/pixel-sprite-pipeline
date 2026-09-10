@@ -10,7 +10,11 @@ export function poll(fn, { every = 4000, immediate = true } = {}) {
     if (typeof document !== 'undefined' && document.hidden) return;
     running = true;
     try {
-      await fn();
+      // A tick that answers true has nothing left to watch. Both callers were
+      // already written as though this worked; the return value was discarded,
+      // so a queue at rest kept asking every four seconds for as long as the
+      // tab stayed open.
+      if (await fn() === true) stop();
     } catch (e) {
       // Usually the server restarting; the next tick retries.
       console.debug('poll failed:', e.message);
@@ -19,14 +23,15 @@ export function poll(fn, { every = 4000, immediate = true } = {}) {
     }
   };
 
-  if (immediate) tick();
-  timer = setInterval(tick, every);
-
-  return function stop() {
+  function stop() {
     stopped = true;
     clearInterval(timer);
     timer = null;
-  };
+  }
+
+  if (immediate) tick();
+  timer = setInterval(tick, every);
+  return stop;
 }
 
 /* Right for a cheap reaction to typing. Debouncing reduces how OFTEN
