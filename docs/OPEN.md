@@ -185,3 +185,117 @@ Down from 28. Each remaining one is either not a schema field (`props`,
 string and the LLM palette chooser deliberately passes an empty one.
 
 Reasoning: `docs/CONFIGURING.md`, "The four settings with no default".
+
+---
+
+The entries below were opened 2026-09-10, from one session of using the editor
+and the run wizard. Several are things the code does that nobody asked it to;
+those say so rather than being written up as features.
+
+## 9. The Run tab does two unrelated jobs under one name
+
+**Not started.** `renderRun` is a wizard that configures and starts something
+new. The sidebar `RUN` selector beside it picks an existing run to inspect and
+resume. Both are called Run, and the selector sits in global chrome, so a
+freshly-chosen config shows a run id next to it and reads as though that run is
+about to be re-run.
+
+Autopilot has an API (`api/jobs.py`) and no mode of its own, which puts a third
+job in the same place.
+
+**What it would take.** Split the nav: New (configure and start), Runs (inspect,
+resume, autopilot). Move the run selector out of the sidebar into Runs. The
+pieces exist — `STEPS`, `reviewStep`, `confirmStep`, `gateBanner`, and the
+resume path in `result.js:295`; this is re-routing, not rewriting.
+
+**Why not yet.** It is the largest of these and every other UI entry below sits
+inside the surface it moves, so it is worth doing first or last, not in the
+middle.
+
+## 10. Two dirty states, one vague warning
+
+**Not started.** `run.js:328` guards leaving the rig step on
+`STEPS[state.wizardStep].key === 'rig'` — the step, not which of the two
+editors was in use. The rig editor and the reference annotator share that step
+behind a segmented control and each keeps its own dirty flag; the dialog names
+neither. It says "You changed the rig" while the annotation panel may be what
+is on screen, and it never mentions unsaved annotations at all.
+
+**What it would take.** Name the editor in the message, and guard on the mode
+rather than the step.
+
+## 11. Saving a pose re-renders everything it can reach
+
+**Not started.** `save_poses` (`api/poses.py:61`) writes `pose.json`, then calls
+`pose_stage.render_entries` AND `depth_stage.render_entries`, then rewrites
+`artifacts.json`. So the Save button is not a write, it is a re-render of every
+skeleton and every depth map, which is why the button exists at all and why
+edits cannot simply persist as they are made.
+
+**What it would take.** Split it. `pose.json` is small and can be written on
+every edit with no button. Rendering moves to when it is needed — leaving the
+step, or the run itself. Autosaving the current call would re-render eight PNGs
+per mouse-up, which is the mistake the editor already made and documented.
+
+## 12. The pose default is `library/idle`, not a rest pose
+
+**Not started.** `pose.source` defaults to `'library'` with `pose.name: 'idle'`.
+A new humanoid rig therefore starts from a library animation rather than from
+the neutral spread `rigs.tpose` produces.
+
+**What it would take.** One default change, to `'tpose'`.
+
+**Not to be confused with the angle.** `A_POSE_DEGREES = 40.0` is a measured
+choice: 88 degrees (true T) reads to the model as holding a weapon, and
+arms-down puts joint pairs within 4% of the canvas so the silhouette has no gap
+for ControlNet to separate arm from torso. The angle should become a setting
+before anyone changes it, not be changed.
+
+## 13. `Cache._size` calls every dict 64 bytes
+
+**Measured 2026-09-08, unfixed.** `cache.py:26` returns 64 for anything that is
+not an ndarray, list or tuple. Prepare results are dicts, so the prepare cache's
+8 MB byte cap has never bound — only its 64-entry cap has. Recorded in
+DIAGNOSTIC-HARNESS.md as a reading fault in the harness output; it is the cache.
+
+Separately, `remember()` refuses any image over `SNAPSHOTS.max_bytes // 4`
+(6 MB). At the 384 px preview nothing reaches that, but at full resolution
+every checkpoint is skipped in silence, so each edit recomputes the whole stack
+from the first layer.
+
+**Why it matters.** Both point the same way as "the editor gets slow after a few
+layers", which is the reported symptom and has not been reproduced under
+measurement yet.
+
+## 14. Grid measures one lattice for a picture that has several
+
+**Not started.** On a multi-panel character sheet the result is mirrored
+vertical streaking. `estimate_block_size` and `find_phase` assume one lattice
+over the whole image; a sheet is several drawings with their own, and no single
+factor or phase fits. The editor offers the layer on any source without saying
+this.
+
+**What it would take.** Either refuse a source whose measured block size has no
+agreement across regions, or measure per region. Refusing is smaller and honest.
+
+## 15. Two dirty flags and two save buttons in one step
+
+**Not started, and a duplicate of neither half.** `annotate.js` keeps `dirty`
+and a `Save annotation` button; `run.js` keeps `rigDirty` and a `Save pose
+guides` button. They save to different places for good reason — a pose belongs
+to its run, an annotation belongs to the image and outlives every run that uses
+it — but nothing on screen says which of the two is durable.
+
+**Why the storage split should stay.** Moving annotations into
+`out/runs/<id>/` would copy them per run and break the reuse that makes them
+worth authoring. The divergence is correct; its invisibility is not.
+
+## 16. Inputs are not shown as the machine consumed them
+
+**Not started.** The result view shows each stage's PNGs as a flat grid. It does
+not show a skeleton over the reference it was fitted to, or a depth map against
+the frame it came from, which is what makes a bad pose obvious.
+
+**Now unblocked.** Every run in `out/runs` had failed on a moved reference path
+until 2026-09-10, so there was nothing to lay out. `20260910_102525_char_3` has
+four skeletons and four depth maps.
