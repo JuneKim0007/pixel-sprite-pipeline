@@ -3,6 +3,7 @@
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
 import { Button, Empty } from '../../ui/index.js';
+import { promptEditor } from '../../features/prompts.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 
@@ -90,11 +91,11 @@ function imagesPanel(detail) {
   return box;
 }
 
-function promptsPanel(detail) {
+function promptsPanel(detail, rerender) {
   const { vocabulary, notes, token } = detail.context.prompts;
   const groups = Object.entries(vocabulary || {});
 
-  const box = el('div', { className: 'ctxcol' },
+  const box = el('div', { className: 'ctxcol promptedit' },
     el('h3', {},
       el('span', { textContent: 'Prompts' }),
       el('span', { className: 'count', textContent: String(groups.length) })));
@@ -103,32 +104,16 @@ function promptsPanel(detail) {
     box.append(el('p', { className: 'mini', textContent: `trained token: ${token}` }));
   }
 
-  if (!groups.length) {
-    box.append(Empty('No vocabulary.'));
-  } else {
-    const list = el('div', { className: 'vocab' });
-    for (const [group, fragments] of groups) {
-      list.append(el('div', { className: 'vocabrow' },
-        el('span', { className: 'mini', textContent: group }),
-        el('span', {}, ...fragments.map((f) =>
-          el('span', { className: 'frag', textContent: f })))));
-    }
-    box.append(list);
-  }
-
-  box.append(el('h4', { textContent: 'Notes' }));
-  box.append(notes
-    ? el('pre', { className: 'notes', textContent: notes })
-    : el('p', { className: 'empty', textContent:
-        detail.foldered
-          ? `No notes. Write ${detail.home}/context/notes.md — the orchestrator reads it.`
-          : 'No notes.' }));
+  box.append(
+    promptEditor(detail, 'groups', vocabulary || {}, rerender),
+    el('h4', { textContent: 'Notes' }),
+    promptEditor(detail, 'lines', notes || '', rerender));
   return box;
 }
 
-function contextPanel(detail) {
+function contextPanel(detail, rerender) {
   const panel = el('div', { className: 'ctxsplit' },
-    imagesPanel(detail), promptsPanel(detail));
+    imagesPanel(detail), promptsPanel(detail, rerender));
 
   const t = detail.training;
   if (t.pending || t.archives.length || t.lora?.name) {
@@ -527,7 +512,7 @@ export function renderStyles(host, { onChanged }) {
                      textContent: detail.foldered ? 'folder' : 'single file' })),
       bar, panelHost);
 
-    if (tab === 'context') panelHost.append(contextPanel(detail));
+    if (tab === 'context') panelHost.append(contextPanel(detail, showDetail));
     else if (tab === 'training') panelHost.append(await trainingPanel(detail.name));
     else if (tab === 'history') panelHost.append(historyPanel(detail, showDetail));
     else panelHost.append(await resolvedPanel());

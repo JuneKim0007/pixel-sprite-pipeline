@@ -60,3 +60,49 @@ def test_source_annotation_refuses_when_no_annotation_was_made(root):
 def test_annotate_skip_measures_nothing(root):
     ctx = Context(root=root, outdir=root, config={"annotate": "skip"})
     assert resources.measured_proportions(ctx) == {}
+
+
+class TestEditingASheet:
+    """The route that saves a sheet's own words, which nothing drove until now."""
+
+    @pytest.fixture
+    def sandbox(self, tmp_path, monkeypatch):
+        from pipeline.api import looks
+
+        home = tmp_path / "library" / "styles" / "a_look"
+        (home / "context").mkdir(parents=True)
+        (home / "style.yaml").write_text(
+            "name: a_look\nlabel: A look\nnotes: the sheet's own half\n"
+            "vocabulary:\n  style: [bold outlines]\n")
+        (home / "context" / "notes.md").write_text("the sidecar half\n")
+        monkeypatch.setattr(looks, "ROOT", tmp_path)
+        return looks, home
+
+    def test_notes_read_back_as_they_were_saved(self, sandbox):
+        looks, home = sandbox
+        before = looks.style_detail("a_look")["context"]["prompts"]["notes"]
+        assert "the sidecar half" in before
+
+        looks.style_prompts("a_look", None, before)
+        after = looks.style_detail("a_look")["context"]["prompts"]["notes"]
+        assert after == before, "saving the notes shown doubled them on the way back"
+
+    def test_the_sheet_keeps_its_prose_in_one_place(self, sandbox):
+        looks, home = sandbox
+        looks.style_prompts("a_look", None, "only this")
+        assert "only this" in (home / "context" / "notes.md").read_text()
+        assert "notes:" not in (home / "style.yaml").read_text()
+
+    def test_a_fragment_survives_the_round_trip(self, sandbox):
+        looks, _ = sandbox
+        looks.style_prompts("a_look", {"mood": ["heroic", "grim"], "empty": []}, None)
+        back = looks.style_detail("a_look")["context"]["prompts"]["vocabulary"]
+        assert back["mood"] == ["heroic", "grim"]
+        assert "empty" not in back, "a group with no words was written anyway"
+
+    def test_a_list_is_required(self, sandbox):
+        from pipeline.shared.errors import Invalid
+
+        looks, _ = sandbox
+        with pytest.raises(Invalid):
+            looks.style_prompts("a_look", {"mood": "heroic"}, None)

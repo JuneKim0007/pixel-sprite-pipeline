@@ -120,12 +120,12 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
 
     sheet = _sheet(name)
     changed = []
+    doc = load_roundtrip(sheet.path) if vocabulary is not None or notes is not None else None
 
     if vocabulary is not None:
         if not isinstance(vocabulary, dict):
             raise Invalid("vocabulary must be an object of group -> list",
                           field="vocabulary")
-        doc = load_roundtrip(sheet.path)
         clean = {}
         for group, fragments in vocabulary.items():
             if not isinstance(fragments, list):
@@ -135,7 +135,6 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
             if kept:
                 clean[group] = kept
         doc["vocabulary"] = clean
-        dump_roundtrip(doc, sheet.path)
         changed.append(f"{len(clean)} vocabulary group(s)")
 
     if notes is not None:
@@ -146,7 +145,12 @@ def style_prompts(name: str, vocabulary: dict | None, notes: str | None) -> dict
         sidecar = sheet.home / "context" / "notes.md"
         sidecar.parent.mkdir(parents=True, exist_ok=True)
         sidecar.write_text(notes)
+        # Concatenated on read, so leaving the key behind reads the text back doubled.
+        doc.pop("notes", None)
         changed.append("notes")
+
+    if doc is not None:
+        dump_roundtrip(doc, sheet.path)
 
     if changed and sheet.foldered:
         stylelog.append(sheet.home, stylelog.context_event(
