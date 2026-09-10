@@ -51,9 +51,6 @@ def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
     depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
     if depthmaps and len(depthmaps) != len(skeletons):
         raise RuntimeError(
-            # not-a-message: render_entries() writes both lists one file per
-            # pose entry, so a mismatch is a partial write or a version skew,
-            # not a config the caller can fix.
             f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
             f"they must correspond one to one.")
     return skeletons, ctx.require("canonical"), depthmaps
@@ -211,7 +208,7 @@ class FramesStage(Stage):
                 control = comfy.load_image(g, pose_name)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-                    # Measured: 1.0 held to 0.8 makes the model trace the control image and return a stick figure.
+                    # Measured: 1.0 held to 0.8 returns a traced stick figure.
                     strength=cn["strength"],
                     start_percent=cn["start_percent"],
                     end_percent=cn["end_percent"],

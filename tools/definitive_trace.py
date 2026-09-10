@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal diagnostic harness for the Definitive Layer.
-
-Runs ONE image through ONE layer at a time, logging resource state before and
-after every operation. It does NOT run the sprite pipeline, does not touch
-ComfyUI, does not start the server, and never uses a process pool.
-
-The point is to find where resource usage CHANGES, not to make anything faster.
-Nothing here is optimised and nothing in the pipeline is modified.
-
-    python3 definitive_trace.py --list
-    python3 definitive_trace.py --layer grid --size 64
-    python3 definitive_trace.py --all --size 64 --json trace.json
-
-If the machine dies mid-run, DO NOT rerun. The log is flushed and fsynced after
-every line, so the last line in --log names the operation that was in flight.
-Read the "IF THE MACHINE DIES" section printed at startup.
-"""
+"""Minimal diagnostic harness for the Definitive Layer."""
 
 from __future__ import annotations
 
@@ -129,12 +113,7 @@ def system_free_mb() -> float:
 
 
 def retained_arrays() -> tuple[int, float]:
-    """What the interpreter is still holding.
-
-    Traced bytes, not an object count: numeric-dtype ndarrays are invisible to
-    gc.get_objects(), so a gc-based tally reads zero while megabytes are live.
-    The integer is live allocation blocks. See docs/DIAGNOSTIC-HARNESS.md.
-    """
+    """What the interpreter is still holding."""
     if not tracemalloc.is_tracing():
         return -1, -1.0
     current, _peak = tracemalloc.get_traced_memory()
@@ -234,12 +213,7 @@ class Alarm:
 
 
 def load_input(path: Path, size: int, log: Log) -> np.ndarray:
-    """One real image, centre-cropped to `size`.
-
-    Cropped and never resized: resampling rewrites the pixel lattice, and the
-    lattice is exactly what the grid layer measures. A resized sprite would
-    report a block size that the original does not have.
-    """
+    """One real image, centre-cropped to `size`."""
     with Image.open(path) as probe:
         w, h = probe.size
         log.line(f"{_stamp()} source file: {path.name} {w}x{h} mode={probe.mode}")
@@ -257,11 +231,7 @@ def load_input(path: Path, size: int, log: Log) -> np.ndarray:
 
 
 def make_input(size: int, log: Log) -> np.ndarray:
-    """One image. Synthetic and deterministic, so a rerun is comparable.
-
-    Anti-aliased content on purpose: it is the worst case for the palette
-    layer, because nearly every pixel is a distinct colour.
-    """
+    """One image."""
     if size > MAX_EDGE or size * size > MAX_PIXELS:
         raise SystemExit(f"REFUSED: {size}x{size} exceeds the harness limit "
                          f"({MAX_EDGE} per side / {MAX_PIXELS:,} px).")
@@ -290,13 +260,7 @@ def predict_gb(layer_key: str, image: np.ndarray, cfg: dict) -> float:
 
 
 def settle(log: Log, seconds: float, why: str) -> None:
-    """Stand still long enough for the sampler to see a resting level.
-
-    Layers run in milliseconds, so back to back their costs land inside one
-    sampling interval and read as a single figure. A pause between them puts
-    a flat stretch on either side of each step, which is what makes a rise
-    attributable to the layer that caused it.
-    """
+    """Stand still long enough for the sampler to see a resting level."""
     if seconds <= 0:
         return
     time.sleep(seconds)
@@ -528,8 +492,6 @@ def main() -> int:
                     gc.collect()
                 image = nxt
 
-                # one layer, settle, pop, settle - so each step's cost is read
-                # against a flat line rather than against the next step
                 settle(log, args.pace, f"after '{spec.key}'")
                 if args.drop_caches:
                     drop_caches(log)

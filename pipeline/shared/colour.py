@@ -13,10 +13,7 @@ BACKDROP_PRESETS: tuple[tuple[str, str], ...] = (
     ("#7F7F7F", "Neutral grey, for saturated subjects"),
 )
 
-# What to call a backdrop in a prompt. CLIP was trained on captions and reads a
-# hex code as punctuation and digits, so "#FF00FF" asks for nothing: measured
-# 2026-09-10, a run whose prompt said "solid flat #FF00FF chroma key background"
-# produced a pale blue-grey backdrop with zero magenta pixels in it.
+# What to call a backdrop in a prompt.
 COLOUR_NAMES: tuple[tuple[tuple[int, int, int], str], ...] = (
     ((255, 0, 255), "magenta"),
     ((242, 94, 147), "hot pink"),

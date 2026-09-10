@@ -11,8 +11,7 @@ from . import paths
 
 GLOBAL_NAME = "_global"
 
-# The asset type a config that names none is. Was spelled as a literal in six
-# modules; moves to shared/modules.py when asset types become a registry.
+# The asset type a config that names none is.
 DEFAULT_MODULE = "animation"
 
 DEFAULT_GLOBAL: dict[str, Any] = {
@@ -65,7 +64,7 @@ def load_global(root: Path) -> dict[str, Any]:
 
 
 def deep_merge(base: dict, over: dict) -> dict:
-    """Concatenating would make it impossible to shorten a list in an override — you could add a reference image but never remove one."""
+    """Lists replace: concatenating would let an override add but never remove."""
     out = dict(base)
     for key, value in (over or {}).items():
         if isinstance(value, dict) and isinstance(out.get(key), dict):
@@ -81,7 +80,7 @@ def effective(root: Path, pipeline_cfg: dict) -> dict:
 
 
 def overridden_paths(pipeline_cfg: dict, prefix: str = "") -> set[str]:
-    """A pipeline that sets cfg 7.0 when the global is also 7.0 is still pinned to 7.0 — so Reset must remove the key, and the UI must be able to show it as pinned."""
+    """A pipeline value equal to the global is still pinned, and shows as pinned."""
     out: set[str] = set()
     for key, value in (pipeline_cfg or {}).items():
         here = f"{prefix}.{key}" if prefix else key

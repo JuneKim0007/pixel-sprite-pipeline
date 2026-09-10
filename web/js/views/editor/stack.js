@@ -1,26 +1,9 @@
-/* The layer stack: reorderable, and the form under it is generated.
- *
- * Nothing here knows what a layer does. It knows there is a list, that the
- * list is the order, and that each entry declares its own fields. Adding a
- * layer to the editor is adding one to `pipeline/definitive/`; this file does
- * not change.
- *
- * That is also why every control has its (?) without anyone attaching one.
- * The form is built by `BaseField`, which cannot render a label row without a
- * tip - a field with no explanation shows a disabled marker, so the gap is
- * visible rather than looking like a control that needs none. Handing the
- * declaration to a builder is the only way "every setting is explained" stops
- * being a thing to remember.
- */
+// The layer stack: reorderable, and the form under it is generated.
 
 import { el } from '../../core/dom.js';
 import { BaseField, ColourPicker, Range } from '../../ui/index.js';
 
-/* A control built from a Field declaration.
- *
- * BaseField owns the label row and the tip; a subclass only says what the
- * input element is. Everything below is one `control()` each.
- */
+// A control built from a Field declaration.
 class Control extends BaseField {
   constructor(spec, value, onChange, onReset) {
     super({
@@ -63,8 +46,6 @@ class Control extends BaseField {
       input.onchange = () => this.commit(input.value);
       return input;
     }
-    // A bounded number is a slider with its value beside it: these are judged
-    // against the preview, not typed.
     if (s.min !== null && s.max !== null && s.kind === 'float') {
       return Range(this.value ?? s.default ?? 0, {
         min: s.min, max: s.max, step: s.step ?? 0.05,
@@ -129,8 +110,7 @@ export function stackList(stack, catalogue, { selected, onSelect, onReorder,
       power, drop);
     row.onclick = () => onSelect(entry.id);
 
-    // Reordering by drag, with no library. The dataTransfer payload is the
-    // index; the drop target computes the move.
+    // Reordering by drag, with no library.
     row.ondragstart = (e) => {
       e.dataTransfer.setData('text/plain', String(i));
       row.classList.add('dragging');

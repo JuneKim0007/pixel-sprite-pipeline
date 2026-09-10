@@ -1,10 +1,4 @@
-/* Result tab — per-stage sections, each viewable as a grid, an animation, or
- * a joined sheet.
- *
- * Sections rather than filter chips: the stages are a sequence, and seeing
- * skeleton → depth → frames → pixelized stacked in order is how you find where
- * something went wrong. A chip filter hides exactly the comparison you want.
- */
+// Result tab — per-stage sections, each viewable as a grid, an animation, or a joined sheet.
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -32,21 +26,6 @@ const STAGE_NOTE = {
 const viewModes = new Map();   // stage dir -> 'grid' | 'anim' | 'strip'
 const openStages = new Map();  // stage dir -> whether its panel is open
 
-/* ------------------------------------------------------------- history
- *
- * A banner of everything made, newest first, above the run it is showing.
- * The Result tab used to depend entirely on the sidebar's run picker, which
- * is a dropdown of timestamps — you cannot recognise a sprite by its
- * timestamp, and comparing two attempts meant switching, remembering, and
- * switching back.
- *
- * Each card carries a thumbnail and its protocol, because those are the two
- * things that distinguish one run from another at a glance: what it made and
- * what kind of thing it was. The audit strip beside the selection answers the
- * question that comes next — what was this actually run with — and it reads
- * the config the run recorded for itself, not the config file as it stands
- * today, so editing a pipeline cannot retroactively relabel its history.
- */
 
 const PROTOCOL = {
   character_sheet: { label: 'Sheet', icon: '▦' },
@@ -54,8 +33,6 @@ const PROTOCOL = {
 };
 
 function runThumb(run) {
-  // Prefer the latest stage that produced something: the pixelized frames if
-  // they exist, the raw frames otherwise, and the pose guides at worst.
   for (const stage of [...run.stages].reverse()) {
     if (stage.images.length) {
       return `${state.system?.paths?.output_dir || 'out/runs'}/${run.id}/${stage.dir}/${stage.images[0]}`;
@@ -70,8 +47,6 @@ function historyCard(run, { selected, onPick }) {
   card.onclick = () => onPick(run.id);
 
   const thumb = runThumb(run);
-  // The config name, not the asset type: every character_sheet run read
-  // "Sheet", which is the one thing they all have in common.
   const name = run.id.replace(/^\d{8}_\d{6}_/, '') || run.id;
   card.append(
     thumb ? el('img', { src: api.fileUrl(thumb), loading: 'lazy', className: 'pixel' })
@@ -223,8 +198,7 @@ function animation(runId, stage, stops) {
       el('span', { className: 'mini', textContent: 'frame' }), scrub,
       el('span', { className: 'mini', textContent: 'speed' }), fps, fpsLabel,
       el('label', { className: 'chk' }, loop, ' loop')));
-  // The view hands this to the lifecycle. Watching the whole document for
-  // this node's removal was the workaround for having no teardown.
+  // The view hands this to the lifecycle.
   stops.push(stop);
   return wrap;
 }
@@ -292,18 +266,11 @@ async function downloadStage(runId, stageName) {
     + (res.renamed.length ? `, ${res.renamed.length} renamed to avoid clobbering` : ''));
 }
 
-/* Which stages produce something a person can meaningfully edit before the
- * pipeline consumes it. A gate on a stage with no editable output only needs a
- * Continue button. */
 const EDITABLE = {
   pose: { label: 'Edit pose guides', tab: 'run', step: 1 },
 };
 
-/** The gate banner, with the actions inline.
- *
- * Telling someone to "continue from the Run tab" makes them navigate, find the
- * right step, and remember why they went — when the two things they might want
- * are known here and are one click each. */
+// The gate banner, with the actions inline.
 function gateBanner(runId, detail) {
   const stage = detail.stopped_at;
   const editable = EDITABLE[stage];
@@ -317,8 +284,6 @@ function gateBanner(runId, detail) {
       toast(`Resumed ${runId}`);
       window.dispatchEvent(new CustomEvent('pipeline:resumed', { detail: { runId } }));
     } catch (e) {
-      // The 409 from an already-running run lands here, and it is a refusal
-      // rather than a failure.
       showError(e);
       resume.disabled = false;
     }
@@ -378,9 +343,7 @@ export function renderResult(host, { runId, detail, onPick }) {
     return;
   }
 
-  /* Two questions with two lifetimes: what the GPU is doing now, and how far
-   * the run has come. Both stop themselves when there is nothing left to
-   * watch, so a finished run costs no requests. */
+  // Two questions with two lifetimes: what the GPU is doing now, and how far the run has come.
   const gpuBox = el('div', {});
   const runBox = el('div', {});
   const feeds = [
@@ -413,9 +376,7 @@ export function renderResult(host, { runId, detail, onPick }) {
     host.append(el('div', { className: 'banner' },
       'Running — output appears as each stage finishes.'));
   } else if (failure) {
-    // Shown whether or not earlier stages produced anything. Suppressing it
-    // when they did meant a resume that died in its first GPU stage looked
-    // exactly like the pause it started from - nothing said it had tried.
+    // Shown whether or not earlier stages produced anything.
     host.append(failureBanner(failure, toLog, produced));
     if (detail.stopped_at) host.append(gateBanner(runId, detail));
   } else if (detail.stopped_at) {

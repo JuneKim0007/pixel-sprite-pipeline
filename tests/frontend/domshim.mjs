@@ -102,8 +102,7 @@ class Node {
   getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; }
   addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }
 
-  /* Text is the concatenation of descendants, and assigning it replaces them —
-   * the same contract the real DOM has, because components rely on both. */
+  // The real DOM contract: descendants concatenated, and assigning replaces them.
   get textContent() {
     if (this.children.length === 0) return this._text;
     return this.children.map((c) => c.textContent).join('');

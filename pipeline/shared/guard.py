@@ -1,4 +1,5 @@
-"""Killing a process before it takes the machine with it - watches RSS and system memory pressure from outside; a python3.12 holding 14.94 GB of 16 GB once triggered a kernel panic with no exception raised in-process."""
+"""Kills a process before it takes the machine with it: 14.94 GB of 16 GB once
+panicked the kernel with no exception raised in-process."""
 
 from __future__ import annotations
 
@@ -261,11 +262,7 @@ def adopt_pidfiles(run_dir) -> list[str]:
 
 
 def run_in_flight() -> str | None:
-    """A live `run.py`, found by the --run-id it carries on its command line.
-
-    Discovery rather than bookkeeping: whoever started it may be gone, and both
-    the API and the queue need the same answer.
-    """
+    """A live `run.py`, found by the --run-id it carries on its command line."""
     try:
         out = subprocess.run(["ps", "-axo", "args="],
                              capture_output=True, text=True, timeout=5)

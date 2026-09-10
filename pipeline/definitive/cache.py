@@ -104,14 +104,14 @@ def resume_from(source: str, stack: list) -> tuple[int, Any]:
 
 
 def remember(source: str, stack: list, upto: int, image) -> None:
-    """One 1280 px RGBA frame is 6.5 MB and would evict the entire snapshot budget to save a step that only runs when someone presses Write - the opposite of the trade this is for."""
+    """One 1280px RGBA frame is 6.5 MB and would evict the whole snapshot budget."""
     if getattr(image, "nbytes", 0) > (SNAPSHOTS.max_bytes // 4):
         return
     SNAPSHOTS.put(prefix_key(source, stack, upto), image)
 
 
 def fingerprint(image: np.ndarray) -> str:
-    """A content hash cheap enough to take every call: a 7x5 stride still reads ~28,000 pixels of a 1280 canvas."""
+    """A content hash cheap enough for every call: 7x5 stride, ~28,000 pixels."""
     h = hashlib.blake2b(digest_size=16)
     h.update(f"{image.shape}{image.dtype}".encode())
     h.update(np.ascontiguousarray(image[::7, ::5]).tobytes())
@@ -123,14 +123,7 @@ def key(what: str, image: np.ndarray, params: Any = None) -> str:
 
 
 def count_colours(image: np.ndarray) -> int:
-    """Distinct colours, counted before upscaling: nearest-neighbour invents none, and costs 17x - measured.
-
-    One uint32 per pixel rather than a row of three uint8. `np.unique(axis=0)`
-    takes a structured-void sort over records; on a flat integer array it is a
-    plain sort, measured 49.2ms to 0.7ms at the 384px preview size and 409ms to
-    4.8ms at 1024px. It was 110ms of every preview, twice per run, and the whole
-    cost of one whose layers were all cached.
-    """
+    """Distinct colours, counted before upscaling: nearest-neighbour invents none, and."""
     flat = np.ascontiguousarray(image.reshape(-1, image.shape[2])[:, :3])
     packed = (flat[:, 0].astype(np.uint32) << 16
               | flat[:, 1].astype(np.uint32) << 8

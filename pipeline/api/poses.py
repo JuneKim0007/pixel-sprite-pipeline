@@ -86,7 +86,7 @@ def save_poses(body: dict) -> dict:
         if depth_dirs else None
     )
 
-    # Manifest must match the new frame count, or a resume hands stale skeleton paths to the frames stage.
+    # The manifest must match the new frame count, or a resume reads stale paths.
     manifest_state = "updated"
     try:
         arts, completed = artifacts_io.load(run)
@@ -96,7 +96,7 @@ def save_poses(body: dict) -> dict:
             arts["depthmaps"] = depthmaps
         artifacts_io.save(run, arts, completed)
     except (NotFound, Invalid, ValueError, OSError):
-        # Both are ours to catch here too, or the exact "no usable manifest" case this block exists for reaches the caller as a raw 400/500 instead of getting repaired.
+        # Caught here, or the "no usable manifest" case is never repaired.
         arts = {"skeletons": skeletons, "pose_frames": entries}
         if depthmaps:
             arts["depthmaps"] = depthmaps

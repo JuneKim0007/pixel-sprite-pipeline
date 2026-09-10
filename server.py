@@ -106,9 +106,6 @@ def main() -> int:
     input_dir()
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
-    # From outside the work, because the failure this catches is the machine
-    # dying rather than this process erring - see pipeline/shared/guard.py.
-    # Itself included: the editor is not exempt from its own limit.
     guard.GUARD.watch(os.getpid(), "ui")
     adopted = guard.adopt_pidfiles(ROOT / ".run")
     guard.GUARD.start()

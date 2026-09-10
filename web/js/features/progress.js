@@ -3,13 +3,7 @@ import { poll } from '../listeners/poll.js';
 const ON_DEMAND_MS = 4000;
 const BACKGROUND_MS = 60000;
 
-/* One shape, two producers.
- *
- * Both answers are "how far through", and both are read the same way by
- * whatever draws them, so they share a shape rather than a base with a switch:
- * { total, done, label, detail }. What differs is the question and the cadence,
- * and `poll` already owns cadence for everything else in this app.
- */
+// One shape, two producers.
 export class ProgressFeed {
   constructor({ every, onUpdate }) {
     this.every = every;

@@ -1,4 +1,5 @@
-"""How much of the machine the EDITOR (not the pipeline subprocess) may take, as shares of what it has. memory_share sizes one array, not the process - 14.9 GB python3.12 on 16 GB still obeyed it."""
+"""How much of the machine the EDITOR, not the pipeline subprocess, may take;
+memory_share sizes one array, not the process."""
 
 from __future__ import annotations
 
@@ -60,7 +61,7 @@ def threads() -> int:
 
 def colour_chunk() -> int:
     budget = memory_bytes() * float(_STATE["memory_share"])
-    # 256 palette entries is the maximum the editor allows; size for the worst case rather than the current palette, so the bound holds when it changes.
+    # 256 entries is the editor's maximum: size for it, not the current palette.
     per_colour = 256 * 3 * 4
     return int(max(1024, min(65536, budget / per_colour / 8)))
 
@@ -75,7 +76,7 @@ def rss_bytes() -> int:
 
 
 def preview_edge() -> int:
-    """Below 256 a preview stops showing what it is for; above 1024 there is nothing to gain because the source is rarely larger."""
+    """Below 256 a preview stops showing what it is for; above 1024 gains nothing."""
     bench = benchmark()
     budget_s = float(_STATE["preview_ms"]) / 1000.0
     megapixels = budget_s / max(bench["seconds_per_megapixel"], 1e-6)
@@ -105,7 +106,7 @@ def benchmark(force: bool = False) -> dict:
 
     import numpy as np
 
-    # Under noise every pixel is its own colour - a worst case that never occurs, and benchmarking it under-reported this machine badly enough to produce a 320 px preview.
+    # Under noise every pixel is its own colour: a worst case that never occurs.
     edge = 384
     rng = np.random.default_rng(0)
     ramp = np.linspace(0, 255, edge, dtype=np.float32)

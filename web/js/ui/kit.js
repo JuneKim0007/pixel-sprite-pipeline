@@ -1,5 +1,4 @@
-/* Widgets the views used to rebuild by hand: btn in 12 files, mini in 11,
- * empty in 10. A caller names what a thing is, never a class string. */
+// Shared widgets: a caller names what a thing is, never a class string.
 import { el } from '../core/dom.js';
 import { normaliseColour } from '../core/colour.js';
 
@@ -73,17 +72,7 @@ export function Check(label, { checked = false, onChange } = {}) {
 }
 
 /* Bounded numbers are judged against something on screen, not typed. */
-/* A bounded number, as a slider with the value beside it.
- *
- * `readout` picks what sits beside the track. A span shows the value and can
- * do nothing else; a box takes one typed exactly, which a slider cannot -
- * 0.18 on a 0-to-1.5 track is a pixel wide. Both were written twice by hand,
- * in fields.js and rig.js, each keeping the two inputs in sync on its own.
- *
- * `onInput` fires while dragging and `onChange` when it settles. A preview
- * wants the first and a save wants the second; passing only onChange is the
- * common case and the safe default.
- */
+// A bounded number, as a slider with the value beside it.
 export function Range(value, {
   min, max, step = 0.05, onChange, onInput, format,
   readout = 'text', placeholder = '', park = null,
@@ -107,8 +96,6 @@ export function Range(value, {
       if (Number.isNaN(n)) return null;
       return Math.min(max ?? n, Math.max(min ?? n, n));
     };
-    // Each input mirrors the other while it moves and commits when it settles,
-    // so a dragged slider and a typed number cannot disagree.
     node.oninput = () => { box.value = node.value; onInput?.(Number(node.value)); };
     node.onchange = () => onChange?.(Number(node.value));
     box.oninput = () => { const n = clamp(box.value); if (n != null) node.value = n; };

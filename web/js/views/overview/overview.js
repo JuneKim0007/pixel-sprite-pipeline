@@ -1,18 +1,4 @@
-/* Overview: the handful of things actually done every session, on one screen.
- *
- * The tab list grew to eight, and eight tabs is a menu you read rather than a
- * tool you reach for. Most sessions are the same four moves — check what the
- * machine is doing, look at the last thing it made, adjust the look, start
- * another — and those were spread across four views with no landing surface
- * that showed the state of any of them.
- *
- * So this is a dashboard, not a fifth place to configure things. Every card
- * shows live state and hands off to the view that owns the detail; nothing is
- * edited here that cannot be edited better elsewhere. The one exception is the
- * style context strip, which is here because adding a reference image is the
- * single most frequent edit and burying it three clicks deep made it feel like
- * an administrative act rather than part of drawing.
- */
+// Overview: the handful of things actually done every session, on one screen.
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -181,8 +167,7 @@ export function renderOverview(host, { goTo }) {
   runCard.append(el('p', { className: 'ovloading', textContent: 'loading…' }));
   grid.append(runCard);
 
-  // Adding an exemplar reloads this card, not the page. Rebuilding the view
-  // reset the queue and output cards for a change that touched neither.
+  // Adding an exemplar reloads this card, not the page.
   async function loadStyleCard() {
     const name = applied.at(-1);
     if (!name) {

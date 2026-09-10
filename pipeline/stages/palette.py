@@ -40,7 +40,7 @@ class PaletteStage(Stage):
         canonical: Path = ctx.require("canonical")
         key_colour = self._key_colour(ctx)
 
-        # Frames of a run share a grid — same model, same size — so searching per frame paid N times for one answer: measured 6/6 frames identical.
+        # Frames of a run share a grid: measured, 6/6 frames identical.
         arr = np.asarray(Image.open(canonical).convert("RGB"))
         phase = find_phase(arr, cfg["factor"])
         print(f"   grid phase {phase}, shared by every frame")
@@ -68,13 +68,7 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
-        """The colour to key, in the forms `parse_colour` accepts.
-
-        This took six hex digits and nothing else, so '12, 34, 56' and '#abc'
-        both read as "no colour named" and the stage fell back to flooding from
-        the corners. The Definitive editor's background layer has parsed both
-        since it was written; this is the same question asked twice.
-        """
+        """The colour to key, in the forms `parse_colour` accepts."""
         from ..shared.colour import parse_colour
 
         bg = ctx.settings("background")
@@ -121,7 +115,7 @@ class PaletteStage(Stage):
         arr, cfg: dict, *, phase: tuple[int, int],
         key_colour: tuple[int, int, int] | None = None,
     ) -> list[tuple[int, int, int]]:
-        """A sprite is roughly 15% of the canvas; extracting from the whole image spends the budget on backdrop."""
+        """A sprite is ~15% of the canvas; the whole image buys mostly backdrop."""
         size = cfg["size"]
         ox, oy = phase
         small = reduce_blocks(arr, cfg["factor"], ox, oy, cfg["reduce"],

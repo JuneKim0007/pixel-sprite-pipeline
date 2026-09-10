@@ -22,9 +22,6 @@ export function radial(centre = 0.9, rim = NEUTRAL, falloff = 1, edge = EDGE) {
   return out;
 }
 
-/* A round brush that eases to nothing at its rim, so overlapping strokes build
- * up instead of leaving a disc edge. `amount` is signed: painting and erasing
- * are the same stroke with the sign flipped. */
 export function paint(values, { x, y, radius, amount, edge = EDGE }) {
   const cx = x * (edge - 1);
   const cy = y * (edge - 1);
@@ -56,9 +53,7 @@ export function stats(values) {
   return { min, max, mean: sum / values.length };
 }
 
-/* Blue where the model is told to attend least, warm where most. Drawn under
- * the reference at low opacity, so what is painted is read against the picture
- * rather than beside it. */
+// Blue where the model is told to attend least, warm where most.
 export function toPixels(values, edge = EDGE) {
   const data = new Uint8ClampedArray(edge * edge * 4);
   for (let i = 0; i < values.length; i++) {
@@ -131,8 +126,6 @@ export function weightPainter({ imagePath, onChange, initial = null } = {}) {
     painting = true;
     canvas.setPointerCapture?.(e.pointerId);
     const p = at(e);
-    // Right button and shift both erase, so leaving a stroke does not mean
-    // reaching for a different tool.
     const sign = e.button === 2 || e.shiftKey ? -1 : 1;
     paint(values, { ...p, radius, amount: amount * sign });
     commit();
@@ -158,8 +151,6 @@ export function weightPainter({ imagePath, onChange, initial = null } = {}) {
     return b;
   };
 
-  // A brush size is judged against the stroke, so this reacts while dragging
-  // rather than on release.
   const slider = (label, min, max, step, value, set) =>
     el('label', { className: 'chk' }, `${label} `,
       Range(value, { min, max, step, onInput: set, format: (v) => String(v) }));

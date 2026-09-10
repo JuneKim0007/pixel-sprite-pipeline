@@ -213,13 +213,7 @@ def _in_flight() -> str | None:
 
 
 def run_progress(run_id: str = "") -> dict:
-    """Two answers: what the GPU is doing now, and how far the run has come.
-
-    They are different questions with different lifetimes - one is a live
-    reading off ComfyUI, the other is arithmetic over a directory - so they are
-    derived separately and returned together rather than blended into a
-    percentage that means neither.
-    """
+    """Two answers: what the GPU is doing now, and how far the run has come."""
     from ..generation import comfy
     from ..orchestration import progress as progress_mod
 
@@ -248,10 +242,7 @@ def run_progress(run_id: str = "") -> dict:
 
 def start_run(config_name: str, overrides: dict | None, resume: str | None,
               style_picks: dict | None = None) -> str:
-    # One at a time. Two SDXL subprocesses on one GPU do not halve each other's
-    # speed, they compete for the same VRAM, and resuming a run that is already
-    # running is worse than slow: both write the same stage directories and the
-    # same artifacts.json, so the manifest ends up describing neither.
+    # One at a time.
     busy = _in_flight()
     if busy:
         raise Conflict(

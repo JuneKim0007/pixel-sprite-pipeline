@@ -72,11 +72,7 @@ class Client:
             return False
 
     def upload_image(self, path: Path, subfolder: str = "pipeline") -> str:
-        """POST an image into ComfyUI's input area; returns its LoadImage name.
-
-        Memoised for the client's lifetime, which is one stage: a run sends the
-        same reference to every frame, and the file does not change underneath it.
-        """
+        """POST an image into ComfyUI's input area; returns its LoadImage name."""
         if path in self._uploaded:
             return self._uploaded[path]
         self._uploaded[path] = self._upload(path, subfolder)

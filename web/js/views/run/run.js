@@ -1,13 +1,4 @@
-/* Run tab — the guided flow, with the rig editor sitting inside it.
- *
- * Steps: Review → Rig → Check → Confirm. Pending edits live in the draft so
- * Back genuinely returns you to what you typed; nothing is written to disk
- * until you leave the Confirm step.
- *
- * The rig step is the reason gates exist. Editing skeletons is only useful
- * before the GPU stages consume them, so a configured `stop_after: pose` run
- * pauses there, you edit, and Resume continues with the edited files.
- */
+// Run tab — the guided flow, with the rig editor sitting inside it.
 
 import { api, getPath, setPath } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -45,24 +36,16 @@ function stepper(onGo) {
 
 /* ------------------------------------------------------------------ steps */
 
-/* What the run will spend resting, before it is started rather than after.
- *
- * A pause that only appears in the log is one people discover by watching a
- * run seem to hang. Editable here too: the reason to rest is thermal, and
- * whoever is at the machine is the one who knows whether it matters today. */
+// What the run will spend resting, before it is started rather than after.
 function coolingLine(cfg, rerender) {
   const on = getPath(cfg, 'cooling.enabled') !== false;
   const secs = Number(getPath(cfg, 'cooling.seconds') ?? 180);
   const stages = getPath(cfg, 'pipeline.stages') || [];
-  // `??` cannot sit beside `||` without parentheses - it is a syntax error,
-  // not a precedence subtlety, and `node --check` accepts the file anyway.
   const frames = Number(getPath(cfg, 'pose.frames')
     ?? ((getPath(cfg, 'pose.set') || []).length || 1));
   const candidates = Number(getPath(cfg, 'canonical.candidates') ?? 1);
   const batched = getPath(cfg, 'canonical.batch_candidates') !== false;
 
-  // Rests fall between GPU tasks: candidates inside the canonical (only when
-  // they are sequential), then frames, and never after the last one.
   let tasks = 0;
   if (stages.includes('canonical')) tasks += batched ? 1 : candidates;
   if (stages.includes('frames')) tasks += frames;
@@ -104,8 +87,6 @@ function reviewStep(rerender) {
   const gate = getPath(cfg, 'pipeline.stop_after') || '';
   const poseSource = getPath(cfg, 'pose.source') || 'library';
   const frames = getPath(cfg, 'pose.frames');
-  // Per role, because "3 references" hides the thing worth checking before a
-  // run: whether they are three identity images or three style exemplars.
   const refs = ROLES
     .map((r) => [r.label, (getPath(cfg, `references.${r.key}`) || []).length])
     .filter(([, n]) => n);
@@ -133,9 +114,7 @@ function reviewStep(rerender) {
     rerender();
   };
 
-  // Style chips: narrow a sheet's vocabulary for THIS run only. The sheet is
-  // the durable decision; a chip is a one-off adjustment, so toggling one must
-  // not write back to styles/.
+  // Style chips: narrow a sheet's vocabulary for THIS run only.
   const applied = getPath(cfg, 'styles') || [];
   if (applied.length) {
     const chips = el('div', { className: 'stylechips' });
@@ -230,16 +209,11 @@ function conditioningPanel(rerender) {
 function rigStep(rerender) {
   const runId = state.selectedRun;
   const box = el('div', { className: 'group' });
-  // Identity and pose references only. A palette swatch has no anatomy to
-  // mark up and a style exemplar is not this character, so neither belongs in
-  // an annotation picker. Matches annotate.gather() on the backend.
+  // Identity and pose references only.
   const refs = ['identity', 'pose'].flatMap((role) =>
     (getPath(state.effective || {}, `references.${role}`) || [])
       .map((r) => ({ ...r, role })));
 
-  // Two different jobs, so two modes rather than one confused editor:
-  // authoring a pose you intend to generate, versus marking up an image that
-  // already exists.
   const mode = state.rigMode || 'author';
   const seg = el('span', { className: 'seg' });
   for (const [key, label] of [['author', 'Author pose'], ['annotate', 'Annotate reference']]) {
@@ -386,10 +360,7 @@ export function renderRun(host, { onStarted, goTo }) {
     }
 
     try {
-      // Read the underscore-prefixed draft entries first. They are run-scoped
-      // rather than config-scoped, so committing the draft clears them — and
-      // reading them afterwards silently sent every run without its style
-      // picks.
+      // Read the underscore-prefixed draft entries first.
       const picks = draft()['_stylePicks'];
 
       // Commit pending edits, then start.
@@ -416,8 +387,7 @@ export function renderRun(host, { onStarted, goTo }) {
     }
   };
 
-  // What this wizard will act on. The rig step edits the SELECTED run's poses
-  // and said so only once you reached it, three steps in.
+  // What this wizard will act on.
   const target = state.runs.find((r) => r.id === state.selectedRun);
   host.append(el('div', { className: 'wizardtarget' },
     el('span', { className: 'mini', textContent: 'Starting a new run of' }),

@@ -43,7 +43,7 @@ def test_preflight_tells_broken_from_not_ready_yet(queue, tmp_path, label, spec,
 
 
 def test_a_dead_service_returns_a_verdict_instead_of_raising(root):
-    # [...] in about a millisecond, so a worker that treated that as a job error would empty a 200-job queue into failed/ faster than a person could read one line of the log
+    # A worker that treated a dead service as a job error would empty the queue.
     ok, why = q.services_up(root)
     assert isinstance(ok, bool)
     if not ok:

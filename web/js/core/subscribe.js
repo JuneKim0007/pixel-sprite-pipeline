@@ -1,5 +1,4 @@
-/* A view declares what it reads; set() notifies whoever reads it.
- * subscribe returns its own unsubscribe, so a listener cannot outlive its view. */
+// A view declares what it reads; set() notifies whoever reads it.
 const listeners = new Map();
 let nextId = 0;
 
@@ -10,8 +9,7 @@ export function subscribe(keys, fn) {
   return () => listeners.delete(id);
 }
 
-/* One call per listener however many of its keys changed.
- * A throwing listener must not take the others with it. */
+// One call per listener, however many of its keys changed.
 export function notify(...keys) {
   const touched = new Set(keys.flat());
   for (const { keys: watched, fn } of [...listeners.values()]) {

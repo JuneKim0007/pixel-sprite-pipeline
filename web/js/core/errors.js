@@ -1,17 +1,6 @@
 import { toast } from '../store.js';
 
-/* What each kind of refusal is, and how loudly to say it.
- *
- * The server already classifies: PixelError subclasses carry a `kind` and a
- * status, api.js keeps both on the Error, and every call site then threw them
- * away with `catch (e) { toast(e.message, 'error') }` - seventeen of them,
- * identical. So a 409 saying "that run is already going" looked the same as a
- * 500, and neither could be treated differently without editing each one.
- *
- * `tone` is what the toast shows. `expected` marks a refusal the user caused
- * and can act on, which is a warning rather than a failure - being told no is
- * not the same as something breaking.
- */
+// What each kind of refusal is, and how loudly to say it.
 export const KINDS = {
   invalid:     { tone: 'warn',  expected: true },
   not_found:   { tone: 'warn',  expected: true },

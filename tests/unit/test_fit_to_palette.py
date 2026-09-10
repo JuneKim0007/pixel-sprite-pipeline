@@ -1,10 +1,4 @@
-"""What `fit_to_palette` produces today, pinned byte for byte.
-
-The layer stretches an image's value range onto the palette's before snapping,
-which is the difference between a sprite using 11 of 32 entries and using 26.
-These pin the output exactly, so a change to how the arithmetic is scheduled
-can be proved to leave the picture alone.
-"""
+"""What `fit_to_palette` produces today, pinned byte for byte."""
 
 from __future__ import annotations
 
@@ -138,9 +132,7 @@ def test_every_chunk_size_produces_the_same_picture():
 
 
 def test_the_stretch_costs_no_more_than_the_snap_beneath_it():
-    """The stretch used to hold nine full-size float arrays at once. Bounded,
-    it should cost about what the snap it wraps already costs - so the two
-    peaks land together rather than the stretch dominating."""
+    """The stretch used to hold nine full-size float arrays at once."""
     from pipeline.definitive.pixelize import apply_fixed_palette
 
     image = _image(256)

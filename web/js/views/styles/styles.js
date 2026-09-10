@@ -1,31 +1,4 @@
-/* Style Manager: named looks, what applying one does, and what has been done to it.
- *
- * A style sheet is not only prompts — it can pin a palette, a LoRA strength, a
- * sampler, and carry exemplar images, because all of those carry a look. That
- * breadth is the point, and it is also the risk: applying one can quietly
- * change a setting you had chosen deliberately.
- *
- * The tab is master-detail: the sheets on the left, one sheet's detail on the
- * right, and the detail splits three ways because a look raises three separate
- * questions.
- *
- *   Context    what is true now, and editable. Split again into images and
- *              prompts, because they are edited differently — one is a folder
- *              you drop files into, the other is text in a document.
- *   History    what happened, and is not editable. An append-only audit trail.
- *   Resolved   what the pipeline would actually send, and what that overrides.
- *
- * Keeping Context and History apart is the whole design. Mixed together, the
- * current exemplars and the record of exemplars-since-removed read as one
- * ambiguous pile, and the question the history exists to answer — "what
- * changed, and when did this look get worse?" — becomes unanswerable.
- *
- * The history deliberately offers no restore. A `train` entry keeps the
- * dataset's manifest, not the dataset: names, sizes, hashes. That is evidence
- * that the training happened on those files, not a button that would re-run
- * it, and it is presented as evidence — archived, dimmed, inert — so nobody
- * mistakes the difference.
- */
+// Style Manager: named looks, what applying one does, and what has been done to it.
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -232,8 +205,7 @@ function eventDetail(event) {
       + (subjects.length ? ` across ${subjects.join(', ')}` : '')
       + (seeds.length ? ` · seeds ${seeds.join(', ')}` : '') }));
 
-    // A comparison whose variants had different seeds measured seed luck, not
-    // the setting. Saying so here is cheaper than discovering it later.
+    // A comparison whose variants had different seeds measured seed luck, not the setting.
     if (!seeds.length) {
       box.append(el('p', { className: 'warnline', textContent:
         '⚠ No seeds recorded, so this change is not evidence — variants that '
@@ -294,9 +266,7 @@ function historyPanel(detail, rerender) {
     counts[k] = events.filter((e) => e.kind === k).length;
   }
 
-  // Filtering swaps the chips and the timeline. It used to redraw the whole
-  // screen, which reloaded the sheet list and the detail panel for a change
-  // that touches neither.
+  // Filtering swaps the chips and the timeline.
   function draw() {
     chips.replaceChildren(...['all', ...Object.keys(KINDS)].map((key) => {
       const chip = el('button', {
@@ -360,13 +330,6 @@ function historyPanel(detail, rerender) {
   return panel;
 }
 
-/* -------------------------------------------------------------- training
- *
- * Guidance and a reading of what is actually staged, in one panel. Guidance
- * alone is a document nobody opens; a verdict alone does not say what to do
- * about it. The pairing is the point: the rule and the image that breaks it
- * sit on the same screen.
- */
 
 const BAND = {
   sprite: { label: 'sprite', tone: 'ok' },
@@ -415,8 +378,7 @@ function stagedRow(image) {
         `${image.width}×${image.height} · figure ${image.figure_height}px · `
         + `${image.colours?.toLocaleString()} colours` }),
       ...image.warnings.map((w) => el('p', { className: 'warnline', textContent: `⚠ ${w}` })),
-      // Notes are things that look alarming and are not. Saying so beats
-      // leaving them out, because the next person measures the same number.
+      // Notes are things that look alarming and are not.
       ...(image.notes || []).map((n) => el('p', { className: 'mini soft', textContent: `· ${n}` }))));
   return row;
 }
@@ -439,9 +401,6 @@ async function trainingPanel(name) {
     ...v.problems.map((p) => el('p', { className: 'warnline', textContent: `✗ ${p}` })),
     ...v.notes.map((n) => el('p', { className: 'mini', textContent: `· ${n}` }))));
 
-  // The plan is the actionable half of the verdict: not "these disagree" but
-  // "reduce this one by 2". Feature scale is measured, so the factor is known
-  // rather than guessed.
   const plan = data.plan || { steps: [] };
   if (plan.steps.length || plan.clean) {
     const box = el('div', { className: 'planbox' },

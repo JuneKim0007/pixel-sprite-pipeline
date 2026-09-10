@@ -1,5 +1,4 @@
-/* An interval that owns its stop, skips a hidden tab, and never stacks ticks.
- * Two setIntervals used to outlive the views that started them. */
+// An interval that owns its stop, skips a hidden tab, and never stacks ticks.
 export function poll(fn, { every = 4000, immediate = true } = {}) {
   let stopped = false;
   let running = false;
@@ -10,10 +9,7 @@ export function poll(fn, { every = 4000, immediate = true } = {}) {
     if (typeof document !== 'undefined' && document.hidden) return;
     running = true;
     try {
-      // A tick that answers true has nothing left to watch. Both callers were
-      // already written as though this worked; the return value was discarded,
-      // so a queue at rest kept asking every four seconds for as long as the
-      // tab stayed open.
+      // A tick that answers true has nothing left to watch.
       if (await fn() === true) stop();
     } catch (e) {
       // Usually the server restarting; the next tick retries.
@@ -34,8 +30,7 @@ export function poll(fn, { every = 4000, immediate = true } = {}) {
   return stop;
 }
 
-/* Right for a cheap reaction to typing. Debouncing reduces how OFTEN
- * something runs and nothing about what one costs. */
+// Debouncing changes how often something runs, never what one run costs.
 export function debounce(fn, wait = 250) {
   let timer = null;
   const call = (...args) => {

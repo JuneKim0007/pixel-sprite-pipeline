@@ -1,10 +1,4 @@
-"""What `queue_act` does to one job, and in what order it refuses.
-
-Three refusals share this function — a running job, an unknown action, an
-unknown job — and which one a caller sees depends on the order they are
-checked in. That order is the part a restructure could quietly reverse, so it
-is what these tests pin.
-"""
+"""What `queue_act` does to one job, and in what order it refuses."""
 
 from __future__ import annotations
 

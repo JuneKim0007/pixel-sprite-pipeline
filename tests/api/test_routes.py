@@ -7,9 +7,7 @@ from pipeline.generation.schema import FIELDS
 from pipeline.shared import paths
 from pipeline.shared.contracts import Field
 
-# What a GET route needs before it can answer at all. A route missing an entry
-# is called bare, which is a 400 and proves nothing about its shape — so this
-# table is what decides whether the contract test actually exercises a route.
+# What a GET route needs before it can answer at all.
 ARGS = {
     "/api/config": "?name=char_1",
     "/api/rigpose": "?rig=humanoid",
@@ -35,7 +33,7 @@ def test_every_declared_get_route_answers(http, path):
 
 @pytest.mark.parametrize("path", sorted(p for p in GETS if p not in NEEDS_ARG))
 def test_a_response_matches_the_contract_its_route_declares(http, path):
-    # /api/config returned four of seven keys once and every route still answered 200; the only symptom was the whole UI failing to start. GET /api/annotation was worse — it called annotate.load with three arguments where it takes one, so every real call was a 500, and nothing noticed because the bare call 400s before it gets there.
+    # /api/config once returned four of seven keys and every route still answered 200.
     contract = ROUTES[path]["returns"]
     body = http.raw(path + ARGS.get(path, ""))
     faults = contract.check(body)
@@ -43,13 +41,13 @@ def test_a_response_matches_the_contract_its_route_declares(http, path):
 
 
 def test_a_side_effect_free_post_honours_its_contract_too(http):
-    # The `http` fixture checks every call against its route's contract, so a POST is covered by whatever already exercises it. Only three POSTs can be called without leaving something behind; the rest are declared and checked at import, not against a live body.
+    # The `http` fixture checks every call against its route's contract.
     http.send("/api/queue/autopilot", {"action": "stop"})
 
 
 @pytest.fixture
 def a_run():
-    """A minimal run on disk, with one stage directory and one PNG in it. It has to live under the real runs_dir(): the server under test runs in this process's ROOT, so a tmp_path is invisible to it — and runs_dir() is inside allowed_roots(), which the write routes check."""
+    """A minimal run under the real runs_dir(): a tmp_path is invisible to the server."""
     import json
     import shutil
 
@@ -73,7 +71,7 @@ def a_run():
 
 
 def _writes(home):
-    """The write routes that can be called without leaving anything behind. Everything they touch is inside `home`, which the fixture removes."""
+    """The write routes that can be called without leaving anything behind."""
     image = str(home / "03_pose" / "skeleton_000.png")
     return [
         ("/api/download/plan", {"run_id": home.name}),
@@ -87,7 +85,7 @@ def _writes(home):
 
 @pytest.mark.parametrize("index", range(5))
 def test_a_write_route_honours_its_contract(http, a_run, index):
-    # Declaring a contract at import proves only that one exists. These five are every POST that can be driven without a subprocess, a network fetch, or an edit to a file the repository tracks — the other twelve are named in the spec with the reason each cannot be called.
+    # Declaring a contract at import proves only that one exists.
     path, payload = _writes(a_run)[index]
     http.send(path, payload)          # the fixture asserts the contract
 
@@ -97,7 +95,7 @@ def test_a_write_route_honours_its_contract(http, a_run, index):
     ("/api/run/poses", "?run={run}"),
 ])
 def test_a_run_scoped_route_honours_its_contract(http, a_run, path, query):
-    # These three could only be called bare, which 400s in the argument check and proves nothing about the body — the same blind spot that hid a TypeError in /api/annotation for as long as that route existed.
+    # Called bare, they 400 in the argument check and prove nothing about the body.
     body = http.raw(path + query.format(run=a_run.name))
     faults = ROUTES[path]["returns"].check(body)
     assert not faults, "; ".join(faults)
@@ -185,7 +183,7 @@ def test_every_layer_field_carries_an_explanation(http, spec):
 
 @pytest.mark.parametrize("group", sorted({f.group or "-" for f in FIELDS}))
 def test_every_config_field_carries_an_explanation(http, group):
-    # The layer fields have had this since they were written; the 137 config fields never did, and twenty of them shipped a (?) that opened onto the word TODO.
+    # Twenty config fields shipped a (?) that opened onto the word TODO.
     served = [f for f in http.get("/api/schema")["fields"]
               if (f.get("group") or "-") == group]
     assert served, f"group '{group}' serves no field"
@@ -196,7 +194,7 @@ def test_every_config_field_carries_an_explanation(http, group):
 
 
 def test_a_missing_run_is_a_404_that_names_it(http):
-    # — the detail route, which read runs_dir() and raised a bare FileNotFoundError that reached the client as a 500.
+    # The detail route once raised a bare FileNotFoundError: a 500 to the client.
     code, body = http.failure("/api/run?id=does_not_exist")
     assert code == 404
     assert body["kind"] == "not_found"
@@ -236,14 +234,7 @@ def test_an_in_range_save_still_succeeds(http, config_file):
 
 
 def test_a_key_the_schema_does_not_declare_is_refused(http, config_file):
-    """900833f let these through because the schema was not exhaustive.
-
-    It is now: pose.thickness, pose.llm.keep_alive, depth.view and
-    canonical.from_reference were all read by code and declared nowhere, which
-    is the same fault this check exists to catch - a value that saves cleanly
-    and does nothing forever. Every shipped config passes, so the reason for
-    the exemption is gone and an unknown key is a typo.
-    """
+    """900833f let these through because the schema was not exhaustive."""
     code = http.status(
         "/api/config?name=knight_attack",
         {"config": {"canonical": {"totally_unknown_key": 5}}}, "PUT")

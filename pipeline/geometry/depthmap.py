@@ -52,7 +52,7 @@ def _capsule(
 
 
 def _bulk(build: float | dict | None, parent: str, child: str) -> float:
-    """How much to thicken one bone. A dict does it per proportion group, which is what a pot-bellied character with thin arms needs: {torso: 1.6, arms: 0.9}."""
+    """How much to thicken one bone; a dict does it per proportion group."""
     if build is None:
         return 1.0
     if isinstance(build, dict):

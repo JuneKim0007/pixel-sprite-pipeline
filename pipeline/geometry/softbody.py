@@ -89,7 +89,7 @@ def simulate(
     for _pass in range(passes):
         frame_offsets: list[tuple[float, float]] = []
         for ax, ay in anchors:
-            # Substep the integration: a stiff spring at 12fps is unstable with one Euler step per frame and will oscillate out of control.
+            # A stiff spring at 12fps is unstable with one Euler step per frame.
             for _ in range(substeps):
                 fx = k * (ax - px) - c * vx
                 fy = k * (ay - py) - c * vy

@@ -873,7 +873,7 @@ def _render(field: ConfigField) -> dict:
     base["group"] = base.pop("group")
     base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
                         for o in field.options]
-    # `del` unconditionally is why no field could carry its own default: a value declared beside the bounds it obeys was dropped before the form ever saw it, and only Stage.DEFAULTS could supply one — which reaches nothing nested, since _declared_default stops at one dot.
+    # `del` unconditionally is why no field can carry its own default.
     if base["default"] is None:
         del base["default"]
     for key, empty in (("min", None), ("max", None), ("step", None),
@@ -897,9 +897,7 @@ class ConfigSchema:
 
     def fields_for(self, module: str | None,
                    inherits: Iterable[str] = ()) -> list[dict[str, Any]]:
-        """`inherits` is the type and everything it extends, so a new asset type
-        declaring `extends: animation` shows animation's scoped fields instead of
-        only the 124 that no module scopes."""
+        """`inherits` is the type and everything it extends, so a new asset type."""
         mine = {module, *inherits} - {None}
         out = []
         for field in self.fields:
@@ -924,7 +922,7 @@ class ConfigSchema:
         return out
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
-        """The settings surface. Stages are not in it: this module describes fields, and reaching for the stage registry to list them is what made `schema` and `stage` import each other."""
+        """The settings surface; stages are not in it, to keep the import one-way."""
         from ..shared import modules as modules_mod
 
         return {
@@ -946,13 +944,7 @@ class ConfigSchema:
         return None
 
     def check(self, cfg: dict, _path: str = "") -> None:
-        """Every declared value in range, and no value at a path nobody declared.
-
-        The second half is why `canonical.from_reference` could be read by
-        canonical.py, declared nowhere, and do nothing for as long as it
-        existed: an undeclared scalar was simply skipped, so a typo saved
-        cleanly and was silent forever.
-        """
+        """Every declared value in range, and no value at a path nobody declared."""
         for key, value in (cfg or {}).items():
             here = f"{_path}.{key}" if _path else key
             f = self.field(here)
@@ -988,13 +980,9 @@ class ConfigSchema:
                 self._clamp_into(value, notes, here)
 
 
-# Paths that carry structure rather than a value: lists the list editors own,
-# and the keys that say what a config IS. A scalar anywhere else is a typo.
 STRUCTURAL: frozenset[str] = frozenset({
     "module", "subject", "style", "styles", "prompt", "props", "style_picks",
     "paths", "models", "proportions",
-    # DEFAULT_GLOBAL's own namespace: _global.yaml carries these and the
-    # pipeline schema does not describe them.
     "ui", "compute", "cooling.note",
     "pose.set", "softbody.nodes",
     "references.identity", "references.style", "references.pose",

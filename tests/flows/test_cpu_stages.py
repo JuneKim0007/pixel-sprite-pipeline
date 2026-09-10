@@ -1,9 +1,4 @@
-"""What the four CPU stage bodies decide.
-
-depth, softbody, palette and export need no GPU and no ComfyUI — they compute
-from files on disk — and none of them had a test executing `run`. That gap was
-recorded as a GPU problem in docs/OPEN.md section 1; it was never one.
-"""
+"""What the four CPU stage bodies decide."""
 
 from __future__ import annotations
 
@@ -58,9 +53,7 @@ def test_softbody_passes_frames_through_when_no_nodes_are_configured(stage_ctx, 
 
 
 def test_softbody_writes_a_frame_per_input_with_a_node_configured(stage_ctx, frames, pose_entries, png):
-    """The warp itself is not asserted: it needs the anchor to move faster than
-    the spring tracks it, and at the default stiffness a two-frame pose that
-    does that could not be constructed here. What is asserted is the shape."""
+    """The warp itself is not asserted: it needs the anchor to move faster than the."""
     ctx = stage_ctx(softbody={"nodes": [{"name": "belly", "anchor": "neck",
                                        "max_displacement": 0.3,
                                        "influence": 1.0}]})

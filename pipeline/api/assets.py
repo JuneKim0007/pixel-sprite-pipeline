@@ -41,9 +41,7 @@ def save_module(name: str, body: dict) -> dict:
         if extends not in modules.all(ROOT):
             raise Invalid(f"no asset type called '{extends}'", field="extends")
 
-    # An order can only be checked once every stage in it exists. A type is
-    # allowed to name one that does not - that is how `tileset` states the work
-    # it is waiting on - so a missing stage is reported, never refused.
+    # An order can only be checked once every stage in it exists.
     known = set(available())
     missing = [s for s in stages if s not in known]
     if not missing:

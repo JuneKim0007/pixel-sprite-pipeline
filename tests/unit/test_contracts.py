@@ -31,7 +31,7 @@ def test_clamp_corrects_silently(sent, want):
 
 @pytest.mark.parametrize("sent", [400, 0, -1])
 def test_check_refuses_instead_of_correcting(sent):
-    # Rewriting `steps: 400` to 150 on save means the file no longer says what they typed, which is a different act from clamping a slider that has no error surface.
+    # Rewriting `steps: 400` to 150 on save is not the same act as clamping.
     with pytest.raises(Invalid) as caught:
         _field().check(sent)
     assert caught.value.status == 400
@@ -53,7 +53,7 @@ def test_a_select_only_accepts_its_options():
 
 
 def test_a_field_cannot_exist_without_an_explanation():
-    # definitive.Field has enforced this from the start and a test asserts it; 20 config fields reached the settings form with an empty (?) because nothing enforced the [...]
+    # Twenty config fields reached the settings form with an empty (?).
     with pytest.raises(ValueError, match="help"):
         _field(help="")
 
@@ -109,13 +109,7 @@ def test_config_field_has_no_wire_format_opinion_either():
 
 
 def test_every_config_field_is_a_config_field():
-    """The count guarded a migration, not a ceiling.
-
-    137 was how many dicts became declarations. Pinning it forever means every
-    genuinely new field arrives as a failing test, which teaches the next person
-    to edit the number rather than read it. What is worth holding is that the
-    list only grows and holds nothing else.
-    """
+    """The count guarded a migration, not a ceiling."""
     from pipeline.generation import schema
     from pipeline.shared.contracts import ConfigField
 
@@ -134,8 +128,6 @@ def test_the_settings_form_is_unchanged_by_the_migration():
 
     from pipeline.shared import modules
 
-    # The builtin keys rather than whatever is on disk: a type someone adds to
-    # library/modules/ must not move this golden.
     want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
     got = json.loads(json.dumps(
         {("null" if m is None else m): schema.fields_for(m)

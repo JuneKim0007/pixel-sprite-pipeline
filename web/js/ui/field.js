@@ -1,16 +1,4 @@
-/* BaseField — a labelled control that CANNOT be built without its (?).
- *
- * The guarantee is the point. Help text is currently rendered by whoever
- * happens to render the control, so a new control added anywhere can ship with
- * no explanation and nothing notices. Here the label row is assembled by the
- * base and always carries the tip, so "every configurable value has a (?)
- * next to its name" is structural rather than a convention someone has to
- * remember.
- *
- * Schema fields carry `help`; a field whose schema entry has none renders the
- * tip disabled rather than absent, so a missing explanation is VISIBLE instead
- * of looking like a control that needs none.
- */
+// BaseField — a labelled control that CANNOT be built without its (?).
 
 import { el } from '../core/dom.js';
 import { HelpTip } from './primitives.js';
@@ -61,8 +49,6 @@ export class BaseField {
     });
 
     const row = el('div', { className: 'ui-label-row' }, label, marker);
-    // Offered only when the value differs from the default, so the control is
-    // both an action and the answer to "have I changed this".
     if (this.on.reset && this.changed()) {
       const back = el('button', {
         className: 'linkbtn', type: 'button', textContent: 'reset',

@@ -1,5 +1,4 @@
-/* Whether a stage order can work, and the nearest one that can.
- * The Python twin is pipeline/generation/runner.py's validate and build. */
+// Whether a stage order can work; the twin is pipeline/generation/runner.py.
 export function orderProblems(active, stages, resources = []) {
   const meta = Object.fromEntries(stages.map((s) => [s.name, s]));
   const producers = {};
@@ -12,10 +11,6 @@ export function orderProblems(active, stages, resources = []) {
     const soft = new Set(meta[name]?.optional || []);
     const hard = (meta[name]?.needs || []).filter((n) => !soft.has(n));
     for (const need of [...hard, ...soft]) {
-      /* A stage declares one set of needs; the run answers some of them, so a
-       * name the resolvers cover is not a missing artifact. A soft need absent
-       * altogether is fine — produced LATER is the same mistake as a hard one,
-       * because the stage then runs without an input that was available. */
       if (have.has(need) || supplied.has(need)) continue;
       const owner = producers[need];
       if (owner) {

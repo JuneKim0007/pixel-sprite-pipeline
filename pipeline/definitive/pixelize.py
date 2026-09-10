@@ -29,13 +29,7 @@ def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
 
 
 def _running_totals(x: np.ndarray, into: np.ndarray) -> np.ndarray:
-    """Running totals with a zero row and column, so any rectangle is four
-    lookups instead of a pass over its pixels.
-
-    Written through the destination rather than into a fresh array: cumsum over
-    a whole image is the size of the table itself, and holding one while
-    building the other doubled the peak for no reason.
-    """
+    """Running totals with a zero row and column, so any rectangle is four lookups."""
     into[1:, 1:] = x
     np.cumsum(into[1:, 1:], axis=0, out=into[1:, 1:])
     np.cumsum(into[1:, 1:], axis=1, out=into[1:, 1:])
@@ -63,23 +57,7 @@ def _rects(table: np.ndarray, top: np.ndarray, bottom: np.ndarray,
 
 
 def find_phase(arr: np.ndarray, factor: int) -> tuple[int, int]:
-    """Where the lattice starts: the origin whose blocks are most uniform.
-
-    Scanning each candidate cost a pass over the whole image, so the search was
-    the image times the factor squared - 730 ms at factor 16 on a 384 px
-    preview. The sum of within-block variances is
-    `total(x**2)/f**2 - sum(blockSum**2)/f**4`, and both terms are rectangle
-    sums, so a candidate costs one lookup per block instead of a pass.
-
-    The two terms are taken in turn over one table rather than together over
-    two. The squared term needs a single rectangle per candidate, so those are
-    read first and kept as a handful of numbers; the table is then rebuilt for
-    the block sums. One table alive instead of two, which is the difference
-    between ten times the image and forty.
-
-    The sums are integers and stay exact, where the scan accumulated in
-    float32; the arrangement is what changes, not the answer.
-    """
+    """Where the lattice starts: the origin whose blocks are most uniform."""
     _blocks(arr, factor, 0, 0)      # the size refusal, on the same terms as before
     height, width, channels = arr.shape
     table = np.zeros((height + 1, width + 1, channels), dtype=np.int64)
@@ -113,7 +91,7 @@ _CLIP_FLOOR = 0.35
 
 
 def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16)) -> float:
-    """A sprite drawn in eight-pixel blocks loses nothing when averaged in eight-pixel blocks, so its reconstruction error at factor 8 is near zero and rises sharply at 12."""
+    """Reconstruction error is near zero at the factor the sprite was drawn in."""
     a = arr.astype(np.float32)
     h, w = a.shape[:2]
     baseline = float(a.var()) or 1.0
@@ -127,7 +105,7 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
         blocks = cropped.reshape(bh, factor, bw, factor, -1).mean(axis=(1, 3))
         restored = np.repeat(np.repeat(blocks, factor, axis=0), factor, axis=1)
         error = float(((cropped - restored) ** 2).mean())
-        # 2% of the image's own variance: comfortably above float noise, comfortably below the error of straddling a real block boundary.
+        # 2% of the image's own variance: above float noise, below a straddled block.
         if error < baseline * 0.02:
             best = float(factor)
     return best
@@ -335,12 +313,7 @@ def palette_chunk(chunk: int | None = None) -> int:
 
 
 def working_bytes(chunk: int, colours: int, width: int = 3) -> int:
-    """Peak temporary of one assignment block, in bytes.
-
-    The distance tensor is `chunk x colours x width` float32, and the reduction
-    that follows it is `chunk x colours` float32. Both are bounded by `chunk`,
-    so this is the whole working set whatever the image measures.
-    """
+    """Peak temporary of one assignment block, in bytes."""
     return chunk * colours * width * 4 + chunk * colours * 4
 
 
@@ -350,11 +323,7 @@ def _spans(total: int, chunk: int):
 
 
 def _distinct(pixels: np.ndarray) -> int:
-    """How many colours the image actually has.
-
-    Packing to one 24-bit integer sorts a third of the bytes that a row-wise
-    unique does, and answers the same question.
-    """
+    """How many colours the image actually has."""
     packed = (pixels[:, 0].astype(np.uint32) << 16
               | pixels[:, 1].astype(np.uint32) << 8
               | pixels[:, 2].astype(np.uint32))
@@ -371,11 +340,7 @@ def _nearest(feats: np.ndarray, centres: np.ndarray, chunk: int):
 
 def _sq_dist(feats: np.ndarray, point: np.ndarray, chunk: int,
              into: np.ndarray | None = None) -> np.ndarray:
-    """Squared distance from every row to one point.
-
-    Given `into`, keeps the smaller of the two in place, so the seeding walk
-    never holds two full-length distance arrays at once.
-    """
+    """Squared distance from every row to one point."""
     out = np.empty(len(feats), dtype=np.float32) if into is None else into
     for start, stop in _spans(len(feats), chunk):
         block = ((feats[start:stop] - point) ** 2).sum(axis=1)
@@ -388,13 +353,7 @@ def _sq_dist(feats: np.ndarray, point: np.ndarray, chunk: int,
 
 def _cluster_totals(rows: np.ndarray, feats: np.ndarray, centres: np.ndarray,
                     chunk: int) -> tuple[np.ndarray, np.ndarray]:
-    """Per-cluster sums of `rows`, and member counts, in one bounded pass.
-
-    Accumulating instead of indexing is what removes the N-long label array:
-    a block's labels are spent on its own bincount and then dropped. The
-    accumulator is float64 because a float32 running total drifts over
-    millions of rows, and it costs `colours x width` either way.
-    """
+    """Per-cluster sums of `rows`, and member counts, in one bounded pass."""
     count, width = len(centres), rows.shape[1]
     sums = np.zeros((count, width), dtype=np.float64)
     members = np.zeros(count, dtype=np.int64)
@@ -434,8 +393,6 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
         _sq_dist(feats, feats[centres[-1]], chunk, into=d2)
 
     c = feats[centres].copy()
-    # The palette is built from the assignment the last pass actually made, so
-    # the centres that produced it are what the closing pass has to reuse.
     assigned = c.copy()
     for _ in range(iterations):
         assigned = c.copy()
@@ -457,11 +414,7 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
 
 def _luminance_range(source: np.ndarray, mask: np.ndarray | None,
                      chunk: int) -> tuple[float, float]:
-    """The darkest and brightest the subject gets, read a block at a time.
-
-    Reading it rather than keeping it: min and max do not care what order they
-    see values in, so the span costs one pass and no full-length array.
-    """
+    """The darkest and brightest the subject gets, read a block at a time."""
     lo, hi = float("inf"), float("-inf")
     for start, stop in _spans(len(source), chunk):
         lum = source[start:stop].astype(np.float32) @ LUMA
@@ -474,13 +427,7 @@ def _luminance_range(source: np.ndarray, mask: np.ndarray | None,
 
 def _stretched(block: np.ndarray, lum: np.ndarray,
                target: np.ndarray) -> np.ndarray:
-    """One block moved onto its target luminance.
-
-    Darkening scales toward black, which a multiply does correctly. Brightening
-    cannot - a multiply drives a channel past 255 and clips it to a different
-    hue - so it walks each channel toward white by the share of the headroom
-    the target asks for.
-    """
+    """One block moved onto its target luminance."""
     floor = np.maximum(lum, 1e-6)
     ceiling = np.maximum(255.0 - lum, 1e-6)
     scaled = block * (target[:, None] / floor[:, None])

@@ -142,8 +142,7 @@ test('snapToAnatomy still repairs a mangled pose', () => {
   assert.ok(Math.abs(dist3(out.l_elbow, out.l_wrist) - want) < 1e-6);
 });
 
-/* `$` and `$$` are not word characters, so \b never matches them, and `$$(`
- * contains `$(` - both need an explicit boundary rather than \b. */
+// `$` and `$$` are not word characters, so \b never matches them.
 const DOM_HELPERS = ['$', '$$', 'el', 'escapeHtml'];
 
 const bodyOf = (src) => src.replace(/^import \{[^}]*\} from [^\n]*\n/gm, '');
@@ -1005,8 +1004,7 @@ await atest('newTypeDialog warns about a stage nobody registers', async () => {
 });
 
 console.log('\nchrome');
-/* toast is the one function every other failure path reports through, so a
- * throw inside it hides the message it was called to show. */
+// Every other failure path reports through toast; a throw in it hides them.
 const store = await import(join(JS, 'store.js'));
 test('toast renders the message it was given', () => {
   store.toast('Started 20260908_215455_char_3');

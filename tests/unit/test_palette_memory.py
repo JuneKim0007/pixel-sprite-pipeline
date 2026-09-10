@@ -72,9 +72,7 @@ def test_the_full_colour_range_works_on_a_small_image():
 
 
 def test_the_cost_does_not_follow_the_colour_count():
-    """The decisive one. An N x K x D broadcast costs sixteen times as much at
-    K=128 as at K=8; a chunked assignment costs the same at both, because K
-    only ever multiplies the chunk."""
+    """The decisive one."""
     image = _image(256)
     peaks = {k: _peak(lambda k=k: generate_palette(image, k, chunk=512))
              for k in (8, 128)}
@@ -103,8 +101,6 @@ def test_the_working_set_is_bounded_by_the_chunk_and_nothing_else():
     bound = working_bytes(chunk, colours)
     assert bound == chunk * colours * 3 * 4 + chunk * colours * 4
 
-    # The whole tensor for a 35.79 MP image would be gigabytes; the bound is
-    # a fixed cost per block and does not mention the image at all.
     assert bound < 3 << 20, f"{bound} bytes is not a bounded working set"
 
 
@@ -114,8 +110,6 @@ def test_a_palette_still_describes_the_picture(edge):
     image = _image(edge)
     palette = generate_palette(image, 8)
     assert 1 <= len(palette) <= 8
-    # Every entry lies inside the image's own colour range, so the palette
-    # describes this picture rather than an arbitrary one.
     flat = image.reshape(-1, 3).astype(int)
     lo, hi = flat.min(axis=0), flat.max(axis=0)
     for colour in palette:

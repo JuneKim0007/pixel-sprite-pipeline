@@ -30,7 +30,7 @@ def _stack(**scale_cfg):
     ("abc", 4),
 ])
 def test_a_field_s_declared_bounds_bind_the_api_not_just_the_form(sent, want):
-    # A request is not a form: the server took whatever arrived, so a control declaring max=16 accepted 64, which is 16x the pixels.
+    # A request is not a form: a control declaring max=16 accepted 64.
     assert REGISTRY["scale"].settings({"upscale": sent})["upscale"] == want
 
 
@@ -39,7 +39,7 @@ def test_an_unknown_config_key_survives_clamping():
 
 
 def test_growth_compounds_along_the_stack():
-    # Checking the final size rather than the product would let two layers that each double slip through as 2x when they are 16x.
+    # Checking the final size rather than the product hides a 16x as a 2x.
     assert projected_pixels(_stack(upscale=4), 1_000) == 16_000
     assert projected_pixels(_stack(upscale=16), 1_000) == 256_000
 

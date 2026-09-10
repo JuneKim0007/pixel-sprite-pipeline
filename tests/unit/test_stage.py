@@ -14,7 +14,7 @@ def test_no_stage_needs_what_nothing_gives():
 
     needed = {n for s in REGISTRY.values() for n in s.needs}
     given = {g for s in REGISTRY.values() for g in s.gives}
-    # A need is answered by a sibling or by the run; the stage does not say which, so neither does this.
+    # A need is answered by a sibling or by the run; the stage never says which.
     assert not needed - given - set(RESOLVERS)
 
 
@@ -83,7 +83,7 @@ def test_a_need_nothing_can_resolve_is_refused_by_name(root):
 
 
 def test_a_stage_declaring_an_unresolvable_need_never_starts():
-    # requires is checked before the run; needs was not checked at all, so a rig that could not be resolved surfaced minutes in rather than at the plan.
+    # needs went unchecked, so an unresolvable rig surfaced minutes in.
     from pipeline.generation import runner
 
     class Impossible(Stage):

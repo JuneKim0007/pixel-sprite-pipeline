@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pipeline.refs.references import Reference, pick, unresolved
 
-# Keywords, not positions: `role` was inserted second and positional construction silently made yaw="front".
+# Keywords, not positions: inserting `role` second made yaw="front".
 REFS = [Reference(path=Path("front.png"), yaw=0, label="front"),
         Reference(path=Path("rear.png"), yaw=180, label="rear")]
 

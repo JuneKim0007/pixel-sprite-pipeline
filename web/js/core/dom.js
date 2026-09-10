@@ -1,9 +1,4 @@
-/* Building and finding nodes. Nothing else.
- *
- * These lived in store.js beside the application state, so seventeen files
- * imported the state of the app to build a <div>. `el` is the most-imported
- * name in the codebase; it belongs somewhere that depends on nothing.
- */
+// Building and finding nodes.
 
 export const $  = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];

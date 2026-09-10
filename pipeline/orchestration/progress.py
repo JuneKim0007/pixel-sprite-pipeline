@@ -6,9 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-# What one stage submits to the GPU, and what it writes. Both are derived from
-# the config a run was started with, because both are configurable: candidates,
-# whether they batch, and how many pose entries there are all move these.
+# What one stage submits to the GPU, and what it writes.
 GPU_STAGES = ("canonical", "frames", "softbody")
 
 
@@ -48,11 +46,7 @@ def _written(run: Path, stage: str) -> int:
 
 
 def _on_disk(run: Path) -> list[str]:
-    """Stages that have written a directory, in order.
-
-    artifacts.json is written when a run ends, so mid-run it says nothing has
-    finished - which is exactly when someone is watching.
-    """
+    """Stages that have written a directory, in order."""
     return [d.name.split("_", 1)[1] for d in sorted(run.glob("[0-9][0-9]_*"))
             if d.is_dir()]
 
@@ -68,9 +62,6 @@ def of_run(run: Path, config: dict, completed: list[str]) -> dict[str, Any]:
     images_total = sum(v["images"] for v in plan.values())
     images_made = sum(_written(run, name) for name in plan)
 
-    # Jobs are counted from images written, not from stage directories: a
-    # directory exists as soon as a stage starts, so counting one as finished
-    # reads 8/8 while the fourth frame is still generating.
     jobs_done = 0
     for name, want in plan.items():
         made = _written(run, name)

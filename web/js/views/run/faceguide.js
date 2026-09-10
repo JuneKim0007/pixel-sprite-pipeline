@@ -1,4 +1,4 @@
-/* Loomis head construction, drawn as a guide and never saved. */
+// Loomis head construction, drawn as a guide and never saved.
 
 const CRANIUM = 0.62;    // ball diameter as a fraction of head height
 const EYE_LINE = 0.50;   // the canon: eyes sit at the head's vertical midpoint
@@ -20,8 +20,6 @@ export function headFrame(points, project) {
   const lEye = at('l_eye');
   const rEye = at('r_eye');
 
-  // Height: prefer neck-to-nose; fall back to ear spread when the neck is
-  // absent, which is common in a close crop.
   let height = null;
   let centre = null;
   let tilt = 0;
@@ -46,8 +44,6 @@ export function headFrame(points, project) {
   }
   if (!height || height < 4) return null;
 
-  // Turn: ears converge toward each other as the head rotates away from
-  // front-on, so their separation against the expected width reads as yaw.
   let turn = 0;
   if (lEar && rEar) {
     const spread = Math.hypot(lEar[0] - rEar[0], lEar[1] - rEar[1]);
@@ -93,7 +89,11 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
               r * Math.max(0.12, Math.abs(turn) * 0.62 + 0.12), r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
+<<<<<<< HEAD
   // 3. Centre line — bends with the turn, so the head reads as facing somewhere.
+=======
+  // 3.
+>>>>>>> comment-sweep
   const cx = -turn * r * 0.85;
   ctx.beginPath();
   ctx.ellipse(cx, ball, Math.max(2, Math.abs(turn) * r * 0.9 + 2), r, 0,
@@ -136,8 +136,7 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
   return true;
 }
 
-/** A standalone diagram for the side panel, so the construction is legible
- *  even before anything has been placed. */
+/** A standalone diagram for the side panel, legible before anything is placed. */
 export function drawFaceLegend(canvas) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;

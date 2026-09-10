@@ -8,7 +8,7 @@ from . import rigs as _rigs
 from .openpose import JOINTS
 from ..shared.errors import Invalid, NotFound
 
-# Pokémon-style battle backs sit around 165-200: mostly rear, turned just enough to read as a body rather than a silhouette.
+# Battle backs sit around 165-200: rear, but not a flat silhouette.
 VIEWS: dict[str, float] = {
     "front": 0.0,
     "three_quarter_front": 40.0,
@@ -60,7 +60,7 @@ def visible(joint: str, yaw_deg: float, rig=None) -> bool:
 def frame_scale(pose: Mapping[str, Sequence[float]], fill: float) -> float:
     if fill <= 0 or not pose:
         return 1.0
-    # Scaling on height alone sent a dragon to 94% of the canvas width at 88% fill, and a wingspan that touches both edges is a wingspan the export crop cannot breathe around.
+    # Height alone sent a dragon to 94% of the canvas width at 88% fill.
     spans = [
         max(p[axis] for p in pose.values()) - min(p[axis] for p in pose.values())
         for axis in (0, 1, 2)
@@ -75,7 +75,7 @@ def frame_fit(
     fill: float,
     margin: float = 0.06,
 ) -> dict[str, list[float]]:
-    """The rigs are authored at a size, and the size is small: the humanoid's neutral spans height 0.14 to 0.81, so a figure occupies 68% of the canvas and 32% is empty air."""
+    """The humanoid's neutral spans 0.14 to 0.81, leaving 32% of the canvas empty."""
     if fill <= 0:
         return {k: list(v) for k, v in pose.items()}
 
@@ -85,7 +85,7 @@ def frame_fit(
     if abs(scale - 1.0) < 1e-9:
         return {k: list(v) for k, v in pose.items()}
     top = min(p[2] for p in pose.values())
-    # Margin from the top, remainder under the feet: a sprite hard against the bottom edge reads wrong.
+    # Margin from the top, remainder under the feet.
     return {
         joint: [p[0] * scale, p[1] * scale, margin + (p[2] - top) * scale]
         for joint, p in pose.items()
@@ -102,7 +102,7 @@ def project(
     fill: float = 0.0,
     rig=None,
 ) -> list[list[float] | None]:
-    """`fill` lives here rather than in callers so the skeleton and depth map cannot be scaled differently."""
+    """`fill` lives here so skeleton and depth map cannot be scaled differently."""
     rig = rig if rig is not None else _rigs.HUMANOID
     if fill:
         pose = frame_fit(pose, fill=fill)
@@ -128,7 +128,7 @@ def project_point(
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
 ) -> tuple[float, float]:
-    """Soft-body nodes hang off the skeleton at their own offsets, so they need the same projection as joints without being part of the 18-point layout."""
+    """The joint projection, for soft-body nodes outside the 18-point layout."""
     yaw = math.radians(yaw_deg)
     lateral, depth, height = point
     x = centre + depth * depth_scale * math.sin(yaw) - lateral * lateral_scale * math.cos(yaw)
@@ -179,7 +179,7 @@ SKELETON_TREE: dict[str, tuple[str, ...]] = {
 
 
 def snap_to_anatomy(pose: Mapping[str, Sequence[float]], rig=None) -> dict[str, list[float]]:
-    """An LLM is good at the qualitative part — "the sword arm points forward and down" — and bad at the quantitative part — "the wrist is 0.148 units from the elbow"."""
+    """An LLM is good at "the sword arm points forward and down", bad at 0.148 units."""
     rig = rig if rig is not None else _rigs.HUMANOID
     neutral, tree = rig.neutral, rig.tree
 

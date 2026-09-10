@@ -26,12 +26,7 @@ def png_bytes(shade: int = 200) -> bytes:
 
 
 class FakeComfy:
-    """Records what a stage asked ComfyUI to do, and answers with flat images.
-
-    The graph a stage hands to `generate` is the whole of what it decided:
-    prompt, weights, control channels, seed, steps. Recording it is what makes
-    a body that needs a GPU checkable without one.
-    """
+    """Records what a stage asked ComfyUI to do, and answers with flat images."""
 
     def __init__(self, host: str = "") -> None:
         self.host = host
@@ -94,11 +89,7 @@ def comfy_fake(monkeypatch):
 
 @pytest.fixture
 def stage_ctx(tmp_path):
-    """A Context any stage can run against.
-
-    Cooling is off so a run does not sleep, and the three resources a stage may
-    declare are seeded, so no test resolves a rig through an LLM.
-    """
+    """A Context any stage can run against."""
 
     def build(rig=rigs.HUMANOID, **config):
         cfg = {
@@ -128,11 +119,7 @@ def png_fixture():
 
 @pytest.fixture
 def pose_entries():
-    """Pose entries as PoseStage writes them.
-
-    `posed=False` leaves out the joint positions, which is all the GPU stages
-    read and is what the generation tests passed before this was shared.
-    """
+    """Pose entries as PoseStage writes them."""
     def build(n=2, *, step=90.0, rig=None, posed=True):
         entry = ({"pose": rigs.tpose(rig or rigs.HUMANOID)} if posed
                  else {"mode": "library"})

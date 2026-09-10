@@ -1,10 +1,4 @@
-"""What PoseStage.run decides, driven through the source that needs nothing.
-
-`source: tpose` reaches the rig and nothing else — no library, no annotations,
-no LLM — so the part of run() worth pinning is reachable: how `pose.set`
-becomes entries, how a spec picks one frame out of several, and what a rig with
-no joints produces instead of skeletons.
-"""
+"""What PoseStage.run decides, driven through the source that needs nothing."""
 
 from __future__ import annotations
 
@@ -93,11 +87,7 @@ def test_an_unknown_source_is_clamped_before_the_stage_sees_it(stage_ctx, caplog
 
 
 def _many(n):
-    """A _resolve that yields n poses, so run()'s frame handling is reachable.
-
-    `tpose` always returns exactly one, so the `frame` index and the `frames`
-    count cannot be exercised through a real source here.
-    """
+    """A _resolve that yields n poses, so run()'s frame handling is reachable."""
     def resolve(self, ctx, cfg, wanted):
         return [{"joint": i} for i in range(n)]
     return resolve

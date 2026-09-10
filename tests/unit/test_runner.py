@@ -1,10 +1,4 @@
-"""What the runner does with a plan, checked with stages that only record.
-
-`test_generate.py` covers planning — which batches form, in what order. Nothing
-executed `runner.run`, so resume, the gate, artifact accumulation and the
-parallel path were all unverified. A Stage is an ordinary object here, so the
-fakes need no patching: they record that they ran and return what they declared.
-"""
+"""What the runner does with a plan, checked with stages that only record."""
 
 from __future__ import annotations
 

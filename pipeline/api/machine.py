@@ -83,15 +83,7 @@ def system_info() -> dict:
 
 
 def module_table() -> dict[str, dict]:
-    """Every asset type, and whether the stages it names actually exist.
-
-    The join lives here because it cannot live anywhere else: `shared/modules`
-    imports no sibling group, and putting it in `schema` would rebuild the
-    `schema <-> stage` cycle inside one group, where the packaging test cannot
-    see it. `available` is therefore derived rather than hand-set - a type
-    becomes usable the day its last missing stage is registered, and nobody can
-    mark one ready early.
-    """
+    """Every asset type, and whether the stages it names actually exist."""
     known = set(available())
     out = {}
     for key, spec in sorted(modules.all(ROOT).items()):
@@ -121,7 +113,7 @@ class Machine(BaseRouter):
                        stages=list, resources=list))
     def schema(self, req):
         described = schema.describe(ROOT, req.query("module") or None)
-        # `stage_names` fills a select, and reaching for the stage registry to build it was the last thing making `schema` and `stage` import each other.
+        # Built here, so `schema` need not import the stage registry.
         described["options"]["stage_names"] = sorted(available())
         machine = settings.load_global(ROOT)
         for field in described["fields"]:
@@ -133,7 +125,7 @@ class Machine(BaseRouter):
         return {
             **described,
             "modules": module_table(),
-            # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as an artifact nothing produces.
+            # A stage says what it needs, not where it comes from.
             "resources": sorted(RESOLVERS),
             "stages": [{"name": name, "resource": cls.resource,
                         "needs": sorted(cls.needs), "gives": sorted(cls.gives),

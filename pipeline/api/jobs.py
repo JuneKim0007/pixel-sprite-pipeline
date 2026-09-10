@@ -123,7 +123,7 @@ def autopilot(action: str, args: dict | None = None) -> dict:
     if action == "stop":
         if not alive:
             return {"running": False, "note": "not running"}
-        # SIGTERM, which autopilot traps to finish the job it is on rather than abandoning a half-written run directory.
+        # SIGTERM: autopilot traps it to finish the job it is on.
         proc.terminate()
         return {"running": False, "note": "asked to stop after the current job"}
 

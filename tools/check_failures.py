@@ -120,14 +120,6 @@ def reachable(index: Index, entries) -> set[tuple[str, str]]:
             for target in index.definitions.get(name, []):
                 if (str(target[0]), target[1].name) not in seen:
                     queue.append(target)
-        # A def lexically nested inside a live function is live too, whether
-        # or not its name ever appears in a Call. It was written there to
-        # run - as a callback, a thread target, a sort key, a decorator -
-        # and a `threading.Thread(target=helper)` never calls `helper` by
-        # name, it just passes it. Requiring a Call as proof of reachability
-        # would invert this checker's stated bias: a false positive costs
-        # one `# not-a-message:` marker, a false negative costs a 500 in
-        # front of a user. So enqueue nested defs unconditionally.
         for child in ast.walk(node):
             if child is node:
                 continue

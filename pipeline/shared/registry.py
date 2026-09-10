@@ -23,7 +23,7 @@ class Source(Generic[T]):
     """Where a registry's entries come from."""
 
     def load(self) -> tuple[dict[str, T], list[Broken]]:
-        raise NotImplementedError  # not-a-message: reaching it means one was built without doing that
+        raise NotImplementedError  # a Source that did not define load()
 
     def signature(self) -> Any:
         return None
@@ -86,7 +86,7 @@ class Scanned(Source[T]):
             produced = result if isinstance(result, dict) else dict([result])
             for key, value in produced.items():
                 if key in found:
-                    # Two files claiming one name is a real ambiguity, and picking one silently means the other's edits appear to do nothing at all.
+                    # Picking one silently makes the other file's edits do nothing.
                     broken.append(Broken(
                         path, f"'{key}' is already defined by {origin[key]}"))
                     continue

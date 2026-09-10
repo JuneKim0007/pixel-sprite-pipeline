@@ -1,14 +1,4 @@
-/* Rig editor: two orthogonal canvases, joint dragging, overlays.
- *
- * Two views rather than one because a 2D drag can only ever set two of the
- * three body-space coordinates. The front view fixes lateral and height; the
- * side view fixes depth and height. Every 3D rigging tool solves it this way,
- * and the alternative — typing depth into a number box — is not editing.
- *
- * The reference image is an overlay on the same canvas rather than a separate
- * page, so calibrating the rig to your art uses exactly the same drag
- * interaction as posing it.
- */
+// Rig editor: two orthogonal canvases, joint dragging, overlays.
 
 import { api } from '../../api.js';
 import { Button, Empty, Range } from '../../ui/index.js';
@@ -183,8 +173,6 @@ function attach(canvas, getYaw, onEdit, refImage) {
     const solved = unprojectX(x, yaw, point);
     const target = [solved.lateral, solved.depth, Math.max(0, Math.min(1, y))];
 
-    // Forward kinematics: the dragged joint takes its own limb with it and
-    // leaves every other limb untouched.
     entry.pose = neutral
       ? dragJoint(entry.pose, tree(), neutral, joint, target)
       : { ...entry.pose, [joint]: target };
@@ -323,10 +311,6 @@ export function rigEditor({ runId, onDirty } = {}) {
       for (const item of images) {
         refPicker.append(el('option', { value: item.path, textContent: item.name }));
       }
-      // Prefer whatever this pipeline already references, else the first
-      // upload: opening the editor with no underlay wastes the feature.
-      // The underlay is an identity reference: it is the character, drawn
-      // behind the skeleton so joints can be placed against it.
       const configured = (state.effective?.references?.identity || [])[0]?.path;
       const preferred = configured
         || state.overlay.refPath
@@ -364,14 +348,10 @@ export function rigEditor({ runId, onDirty } = {}) {
   const status = el('span', { className: 'mini' });
 
   const setEntries = (entries, note, rigDef = null) => {
-    // Without this the canvases fall back to the humanoid layout and a spider
-    // draws as a person — the topology has to travel with the pose.
     activeRig = rigDef;
     state.poseEntries = entries;
     state.poseFrame = 0;
     state.selectedJoint = null;
-    // The rig's rest position, not frame 0: dragJoint snaps bone lengths
-    // against this, so a bent opening frame skewed every later drag.
     neutral = rigDef?.neutral
       ? structuredClone(rigDef.neutral)
       : (entries[0] ? structuredClone(entries[0].pose) : null);
@@ -379,11 +359,7 @@ export function rigEditor({ runId, onDirty } = {}) {
     redraw();
   };
 
-  /** Pose data always resolves to *something* drawable.
-   *
-   * A run that failed before its pose stage has no skeletons to edit, but
-   * showing an empty canvas and an error is useless — the library and the rig
-   * T-poses are always available, so fall back to those and say so. */
+  // Pose data always resolves to *something* drawable.
   async function loadSources() {
     const options = [];
     let runEntries = null;

@@ -195,7 +195,7 @@ def main() -> int:
     p_cfg = sub.add_parser("config", help="emit a kohya dataset_config.toml")
     p_cfg.add_argument("--resolution", default="1024,1024")
     p_cfg.add_argument("--batch-size", type=int, default=1)
-    # Rank is capacity, NOT dataset size: 8 on twenty images learns a style, 32 memorises those twenty images and their poses.
+    # Rank is capacity, not dataset size: 32 memorises twenty images.
     p_cfg.add_argument("--rank", type=int, default=8,
                        help="LoRA network_dim. 8 is the cautious default (default 8)")
     p_cfg.add_argument("--alpha", type=int, default=None,

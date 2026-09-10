@@ -4,8 +4,6 @@ async function call(path, opts = {}) {
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // The hint is the half that says what to do about it, and every caller
-    // shows `message` alone.
     const said = body.error || `${res.status} ${res.statusText}`;
     const err = new Error(body.hint ? `${said} ${body.hint}` : said);
     err.kind = body.kind;

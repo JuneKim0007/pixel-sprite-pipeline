@@ -88,11 +88,7 @@ def _one(root: Path, entry: Any, role: str, index: int) -> Reference:
 
 
 def unresolved(root: Path, cfg: dict | None) -> list[str]:
-    """Every listed reference path that names no file, in declaration order.
-
-    `load` raises on the first one, which is right for a run and wrong for a
-    check: a config with four dead paths should report four, not one per fix.
-    """
+    """Every listed reference path that names no file, in declaration order."""
     out: list[str] = []
     for role in ROLES:
         entries = (cfg or {}).get(role) or []
@@ -178,7 +174,7 @@ def _mirrored(src: Reference, yaw: float) -> Reference | None:
 
 
 def fill_missing_sides(cfg, existing: list[Reference]) -> list[Reference]:
-    """Without this a 270 frame with only a 90 reference takes it at far_weight (0.45) - deliberately weak, because pick() gives latitude where there is no evidence."""
+    """Without this a 270 frame with only a 90 reference takes it at 0.45."""
     match = cfg.get("match") or {}
     mode = str(match.get("side_fallback", "none")).lower()
     if mode == "none":

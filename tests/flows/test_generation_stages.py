@@ -1,11 +1,4 @@
-"""What the two GPU stage bodies decide, checked without a GPU.
-
-`test_generate.py` covers the plan — which stages run, in what order. Nothing
-covered the bodies, so `canonical.run` and `frames.run` were the two
-most-changed methods in the tree and the two nothing could verify. The graph a
-stage hands to ComfyUI is the whole of its decision; a recording client makes
-that graph an assertion.
-"""
+"""What the two GPU stage bodies decide, checked without a GPU."""
 
 from __future__ import annotations
 
@@ -219,12 +212,7 @@ def test_both_stages_read_a_blank_style_the_same_way(comfy_fake, stage_ctx, fram
 
 
 def test_the_clip_vision_weight_is_the_configured_one(comfy_fake, frames_ctx):
-    """`models.clip_vision` had no way to reach the graph.
-
-    apply_ipadapter built CLIPVisionLoader from DEFAULT_GLOBAL directly while
-    taking `ipadapter` as a parameter, so the setting was declared, documented
-    and ignored — and a form field for it would have changed nothing.
-    """
+    """`models.clip_vision` had no way to reach the graph."""
     get("frames")().run(
         frames_ctx(1, models={"clip_vision": "my-clip.safetensors"}), {})
     loaded = [i["clip_name"] for i in comfy_fake.inputs_of("CLIPVisionLoader")]
@@ -242,12 +230,7 @@ def test_an_unset_weight_still_falls_back_to_the_default(comfy_fake, frames_ctx)
 
 
 def test_canonical_conditioning_windows_come_from_config(monkeypatch, tmp_path):
-    """These were literals: identity end_at 1.0 and style end_at 0.8.
-
-    frames declared eighteen ip_adapter and controlnet fields for the same two
-    mechanisms; canonical declared none, so the only way to test a different
-    window was to edit the source.
-    """
+    """These were literals: identity end_at 1.0 and style end_at 0.8."""
     from pathlib import Path
 
     from pipeline.generation.stage import Context
