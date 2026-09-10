@@ -10,7 +10,7 @@
 import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
-import { Button, ColourPicker, HelpTip } from './ui/index.js';
+import { Button, ColourPicker, HelpTip, Range } from './ui/index.js';
 import { autoOrder as orderOf, orderProblems as problemsOf } from './features/stages.js';
 import { VIEW_OPTIONS } from './features/pose.js';
 
@@ -76,24 +76,23 @@ export function control(field, value, onChange) {
   if (field.type === 'int' || field.type === 'float') {
     const isFloat = field.type === 'float';
     const step = field.step ?? (isFloat ? 0.05 : 1);
+    // A track only helps when there is a range to slide along; an unbounded
+    // field, or one spanning tens of thousands, is a number box.
+    const spanOk = field.min != null && field.max != null && field.max - field.min <= 5000;
+    if (spanOk) {
+      wrap.append(Range(value ?? field.min, {
+        min: field.min, max: field.max, step, readout: 'box', placeholder: 'auto',
+        onChange: (v) => onChange(v === null ? null : (isFloat ? v : Math.round(v))),
+      }));
+      return wrap;
+    }
+
     const num = el('input', {
       type: 'number', className: 'num', step,
       value: value ?? '', placeholder: 'auto',
     });
     if (field.min != null) num.min = field.min;
     if (field.max != null) num.max = field.max;
-
-    const spanOk = field.min != null && field.max != null && field.max - field.min <= 5000;
-    if (spanOk) {
-      const range = el('input', {
-        type: 'range', min: field.min, max: field.max, step,
-        value: value ?? field.min,
-      });
-      range.oninput = () => { num.value = range.value; };
-      range.onchange = () => onChange(Number(range.value));
-      num.oninput = () => { range.value = num.value; };
-      wrap.append(range);
-    }
     num.onchange = () =>
       onChange(num.value === '' ? null : (isFloat ? parseFloat(num.value) : parseInt(num.value, 10)));
     wrap.append(num);

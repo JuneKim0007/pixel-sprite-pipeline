@@ -1,4 +1,5 @@
 import { el } from '../../core/dom.js';
+import { Range } from '../../ui/index.js';
 import { Button } from '../../ui/index.js';
 
 export const EDGE = 128;
@@ -157,12 +158,11 @@ export function weightPainter({ imagePath, onChange, initial = null } = {}) {
     return b;
   };
 
-  const slider = (label, min, max, step, value, set) => {
-    const input = el('input', { type: 'range', min, max, step, value });
-    const out = el('span', { className: 'mini', textContent: String(value) });
-    input.oninput = () => { set(Number(input.value)); out.textContent = input.value; };
-    return el('label', { className: 'chk' }, `${label} `, input, out);
-  };
+  // A brush size is judged against the stroke, so this reacts while dragging
+  // rather than on release.
+  const slider = (label, min, max, step, value, set) =>
+    el('label', { className: 'chk' }, `${label} `,
+      Range(value, { min, max, step, onInput: set, format: (v) => String(v) }));
 
   const bar = el('div', { className: 'weightbar' },
     button('Centre', 'Strong in the middle, easing outward',

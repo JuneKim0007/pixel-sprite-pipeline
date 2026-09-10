@@ -11,7 +11,7 @@
  */
 
 import { api } from '../../api.js';
-import { Button, Empty } from '../../ui/index.js';
+import { Button, Empty, Range } from '../../ui/index.js';
 import { autosaver } from '../../core/autosave.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
@@ -223,24 +223,15 @@ function inspector(onEdit) {
 
   ['lateral', 'depth', 'height'].forEach((label, axis) => {
     const [min, max] = axis === 2 ? [0, 1] : [-0.5, 0.5];
-    const num = el('input', {
-      type: 'number', step: 0.005, value: point[axis].toFixed(3), className: 'num',
-    });
-    const range = el('input', { type: 'range', min, max, step: 0.005, value: point[axis] });
-
-    const commit = (raw) => {
-      const value = Math.max(min, Math.min(max, parseFloat(raw) || 0));
-      entry.pose[joint][axis] = value;
-      num.value = value.toFixed(3);
-      range.value = value;
-      onEdit({});
-    };
-    range.oninput = () => { num.value = parseFloat(range.value).toFixed(3); };
-    range.onchange = () => commit(range.value);
-    num.onchange = () => commit(num.value);
-
     box.append(el('label', { className: 'mini', textContent: label }),
-      el('div', { className: 'control' }, range, num));
+      Range(point[axis], {
+        min, max, step: 0.005, readout: 'box',
+        onChange: (value) => {
+          if (value === null) return;
+          entry.pose[joint][axis] = value;
+          onEdit({});
+        },
+      }));
   });
 
   const reset = Button('Reset joint', { variant: 'ghost' });

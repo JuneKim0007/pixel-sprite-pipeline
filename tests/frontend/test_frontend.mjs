@@ -1876,5 +1876,68 @@ await atest('nothing reports an error by hand any more', async () => {
   }
 });
 
+console.log('\nbounded numbers');
+await atest('a slider and its box cannot disagree', async () => {
+  // fields.js and rig.js each kept a range and a number box in step by hand,
+  // with their own clamping. Two implementations of one pairing is two places
+  // for them to drift.
+  const { Range } = await import(join(JS, 'ui/index.js'));
+  const node = Range(0.5, { min: 0, max: 1, step: 0.05, readout: 'box' });
+  const [range, box] = node.querySelectorAll('input');
+
+  assert.equal(range.type, 'range');
+  assert.equal(box.type, 'number');
+  assert.equal(box.min, '0');
+  assert.equal(box.max, '1');
+
+  range.value = 0.8;
+  range.oninput();
+  assert.equal(Number(box.value), 0.8, 'the box did not follow the slider');
+
+  box.value = 0.2;
+  box.oninput();
+  assert.equal(Number(range.value), 0.2, 'the slider did not follow the box');
+});
+
+await atest('a typed value outside the range is pulled back in', async () => {
+  const { Range } = await import(join(JS, 'ui/index.js'));
+  const seen = [];
+  const node = Range(0.5, { min: 0, max: 1, readout: 'box', onChange: (v) => seen.push(v) });
+  const box = node.querySelectorAll('input')[1];
+
+  box.value = 9;
+  box.onchange();
+  assert.equal(seen.pop(), 1, 'a value above max was accepted');
+  box.value = -4;
+  box.onchange();
+  assert.equal(seen.pop(), 0, 'a value below min was accepted');
+});
+
+await atest('dragging and settling are different events', async () => {
+  // A live preview wants every frame; a save wants the value once.
+  const { Range } = await import(join(JS, 'ui/index.js'));
+  const during = [], after = [];
+  const node = Range(1, { min: 0, max: 2,
+    onInput: (v) => during.push(v), onChange: (v) => after.push(v) });
+  const range = node.querySelector('input');
+
+  range.value = 1.5; range.oninput();
+  assert.deepEqual(during, [1.5]);
+  assert.deepEqual(after, [], 'a drag committed before it settled');
+  range.onchange();
+  assert.deepEqual(after, [1.5]);
+});
+
+await atest('the forms that keep their own element say why', async () => {
+  // Five sliders are driven from outside - a scrubber a timer sets, a yaw two
+  // canvases read - so they need the input, not a wrapper around it.
+  const files = ['views/result/result.js', 'views/input/input.js', 'views/run/rig.js'];
+  let hand = 0;
+  for (const f of files) {
+    hand += (readFileSync(join(JS, f), 'utf8').match(/type: 'range'/g) || []).length;
+  }
+  assert.equal(hand, 5, `${hand} hand-rolled ranges; the sweep left five with reasons`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

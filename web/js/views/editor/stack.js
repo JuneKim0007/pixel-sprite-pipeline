@@ -14,7 +14,7 @@
  */
 
 import { el } from '../../core/dom.js';
-import { BaseField, ColourPicker } from '../../ui/index.js';
+import { BaseField, ColourPicker, Range } from '../../ui/index.js';
 
 /* A control built from a Field declaration.
  *
@@ -66,14 +66,11 @@ class Control extends BaseField {
     // A bounded number is a slider with its value beside it: these are judged
     // against the preview, not typed.
     if (s.min !== null && s.max !== null && s.kind === 'float') {
-      const range = el('input', { type: 'range', id: this.id,
-                                  min: s.min, max: s.max, step: s.step ?? 0.05,
-                                  value: this.value ?? s.default ?? 0 });
-      this.out = el('span', { className: 'val',
-                              textContent: Number(this.value ?? 0).toFixed(2) });
-      range.oninput = () => { this.out.textContent = Number(range.value).toFixed(2); };
-      range.onchange = () => this.commit(Number(range.value));
-      return range;
+      return Range(this.value ?? s.default ?? 0, {
+        min: s.min, max: s.max, step: s.step ?? 0.05,
+        readout: 'box',
+        onChange: (v) => this.commit(v),
+      });
     }
     const num = el('input', { type: 'number', className: 'num', id: this.id,
                               min: s.min ?? undefined, max: s.max ?? undefined,
@@ -82,7 +79,6 @@ class Control extends BaseField {
     return num;
   }
 
-  readout() { return this.out || null; }
 }
 
 function visible(spec, config) {
