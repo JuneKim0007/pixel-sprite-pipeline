@@ -10,12 +10,12 @@
  */
 
 import { api, getPath, setPath } from '../../api.js';
-import { orderProblems } from '../../fields.js';
 import { ROLES } from '../input/input.js';
-import { HelpTip } from '../../ui/index.js';
+import { Disclosure, HelpTip } from '../../ui/index.js';
 import { annotator } from './annotate.js';
 import { poseAutosaver, rigEditor } from './rig.js';
 import { el } from '../../core/dom.js';
+import { orderProblems, renderGroup } from '../../fields.js';
 import { clearDraft, draft, draftConfig, state, toast } from '../../store.js';
 import { confirmDialog } from '../../ui/dialog.js';
 
@@ -193,7 +193,27 @@ function summary(label, value) {
       el('span', { className: 'mono summaryval', textContent: String(value) })));
 }
 
-function rigStep() {
+/* Bone lengths, where you are looking at the bones.
+ *
+ * rigs.scale already stretches named groups and carries everything below - the
+ * same nine fields the settings form shows under Proportions. Rendering them
+ * here is the schema's own group, not a second control writing the same paths. */
+function proportionsPanel(rerender) {
+  const cfg = draftConfig();
+  return Disclosure('Proportions', {
+    open: false,
+    note: 'bone lengths, both sides together',
+  },
+    el('p', { className: 'help', textContent:
+      'Scales a group of bones and everything below it. Left and right move '
+      + 'together. Applied to the rig every pose is derived from, so it '
+      + 'changes the body rather than one frame.' }),
+    renderGroup('Proportions', cfg, {
+      onChange: (path, value) => { draft()[path] = value; rerender(); },
+    }));
+}
+
+function rigStep(rerender) {
   const runId = state.selectedRun;
   const box = el('div', { className: 'group' });
   // Identity and pose references only. A palette swatch has no anatomy to
@@ -256,7 +276,8 @@ function rigStep() {
       el('span', { className: 'headnote', textContent: runId
         ? `editing ${runId}` : 'previewing the pose library — run the pose stage to edit' }),
       save),
-    editor);
+    editor,
+    proportionsPanel(rerender));
   return box;
 }
 
@@ -395,7 +416,7 @@ export function renderRun(host, { onStarted, goTo }) {
   const step = STEPS[state.wizardStep].key;
   host.append(
     step === 'review' ? reviewStep(rerender)
-    : step === 'rig' ? rigStep()
+    : step === 'rig' ? rigStep(rerender)
     : step === 'check' ? checkStep()
     : confirmStep(startRun));
 

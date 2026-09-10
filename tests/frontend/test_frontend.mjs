@@ -1559,5 +1559,20 @@ await atest('a result image cannot be stretched by its own attributes', async ()
   }
 });
 
+await atest('bone lengths are editable where the bones are', async () => {
+  // rigs.scale already stretches named groups, carries what hangs below, and
+  // moves both sides together. The nine fields render in Settings and the rig
+  // editor - where you look for bone length - never said so.
+  const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  assert.match(src, /function proportionsPanel/);
+  assert.match(src, /proportionsPanel\(rerender\)\)/,
+    'the panel is defined and never rendered');
+  assert.match(src, /renderGroup\('Proportions'/,
+    'it builds its own controls instead of the schema group');
+  // Two controls writing one config path is how they drift.
+  assert.doesNotMatch(src, /proportions\.(legs|arms|torso)/,
+    'a hardcoded proportion path crept in beside the schema');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

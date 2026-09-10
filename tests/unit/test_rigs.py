@@ -167,3 +167,66 @@ def test_an_unknown_view_names_the_ones_that_exist():
         bs.resolve_view("sideways")
     assert caught.value.status == 404
     assert "front" in caught.value.hint
+
+
+class TestProportions:
+    """Bone groups scale, both sides together, everything below carried along."""
+
+    @staticmethod
+    def _chain(neutral, *joints):
+        import math
+
+        return sum(math.dist(neutral[a], neutral[b])
+                   for a, b in zip(joints, joints[1:]))
+
+    def test_a_group_scales_by_exactly_its_factor(self):
+        from pipeline.geometry import rigs
+
+        rig = rigs.get("humanoid")
+        base = self._chain(rig.neutral, "l_hip", "l_knee", "l_ankle")
+        for factor in (0.7, 1.4, 2.0):
+            grown = rigs.scale(rig, {"legs": factor})
+            got = self._chain(grown.neutral, "l_hip", "l_knee", "l_ankle")
+            assert got == pytest.approx(base * factor, rel=1e-6)
+
+    def test_both_sides_move_together(self):
+        """A rig with one long leg is a mistake far more often than an intention."""
+        import math
+
+        from pipeline.geometry import rigs
+
+        grown = rigs.scale(rigs.get("humanoid"), {"legs": 1.4})
+        left = math.dist(grown.neutral["l_hip"], grown.neutral["l_knee"])
+        right = math.dist(grown.neutral["r_hip"], grown.neutral["r_knee"])
+        assert left == pytest.approx(right, abs=1e-9)
+
+    def test_what_hangs_below_is_carried(self):
+        from pipeline.geometry import rigs
+
+        rig = rigs.get("humanoid")
+        grown = rigs.scale(rig, {"legs": 1.4})
+        assert grown.neutral["l_ankle"][2] != pytest.approx(rig.neutral["l_ankle"][2])
+
+    def test_another_group_is_left_alone(self):
+        from pipeline.geometry import rigs
+
+        rig = rigs.get("humanoid")
+        grown = rigs.scale(rig, {"legs": 1.4})
+        before = self._chain(rig.neutral, "l_shoulder", "l_elbow", "l_wrist")
+        after = self._chain(grown.neutral, "l_shoulder", "l_elbow", "l_wrist")
+        assert after == pytest.approx(before, rel=1e-6)
+
+    def test_no_factors_returns_the_same_rig(self):
+        from pipeline.geometry import rigs
+
+        rig = rigs.get("humanoid")
+        assert rigs.scale(rig, None) is rig
+        assert rigs.scale(rig, {}) is rig
+
+    def test_an_unknown_group_is_refused_by_name(self):
+        from pipeline.geometry import rigs
+        from pipeline.shared.errors import Invalid
+
+        with pytest.raises(Invalid) as caught:
+            rigs.scale(rigs.get("humanoid"), {"elbows": 1.2})
+        assert "elbows" in str(caught.value)

@@ -300,22 +300,35 @@ what was missing was only that nothing said which outlives the run, and a
 status line on each now does.
 
 
-## 14. Bone lengths are fixed, and a rig cannot be made to fit a body
+## 14. Bone lengths were editable all along, three tabs away
 
-**Not started.** The rig editor drags joints but cannot change a bone's length,
-so a rig can be posed and not proportioned. Fitting a long-legged character
-means editing `rigs.py`.
+**Done 2026-09-10 by making it reachable; the entry was wrong about what was
+missing.**
 
-**What it would take.** Lengthening a bone moves everything below it, so it is a
-downward traversal rather than a point edit. `SKELETON_TREE` in
-`features/pose.js` gives parent/child and `subtree()` already walks it; both are
-used by `dragJoint`. Stretching `l_hip -> l_knee` translates the knee's subtree.
-Limbs come in pairs and one long leg is a mistake more often than an intention,
-so pairs move together by default, with a way to break it; the `l_`/`r_` prefix
-already names the pairing.
+It said the rig editor cannot change a bone's length, so fitting a long-legged
+character means editing rigs.py. Everything the request described was already
+built: `rigs.scale` stretches named groups and carries what hangs below,
+`PROPORTION_GROUPS` names nine of them, the groups match joint names so `l_` and
+`r_` move together, nine `proportions.*` fields render in the settings form, and
+`resources.py:50` applies them to the rig every pose derives from.
 
-**Not as large as it sounds.** No whole-rig recalculation. A bone length is the
-distance between two joints and the subtree is already computed.
+Measured: legs x1.4 gives a leg exactly 1.400 times as long, left and right
+equal to 1e-9, and the ankle carried from 0.815 to 0.939.
+
+The defect was that you look for bone length in the rig editor and the control
+lives under Settings, with nothing connecting them. The rig step now renders the
+schema's own Proportions group - the same nine fields, one save path, no second
+control writing the same config.
+
+**Deliberately not built.** Per-bone handles in the canvas. Nine named groups
+already cover the body, per-bone would make one forearm independently
+stretchable, which is the asymmetry the request explicitly did not want, and it
+would edit a pose where scale edits the rig underneath every pose.
+
+The invariants `scale` guarantees had no tests, which is why they are pinned
+now: exact ratio, symmetry, downward carry, other groups untouched, an unknown
+group refused by name.
+
 
 ## 15. The ui/ primitives are written and not adopted
 
