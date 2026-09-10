@@ -89,11 +89,7 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
               r * Math.max(0.12, Math.abs(turn) * 0.62 + 0.12), r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-<<<<<<< HEAD
   // 3. Centre line — bends with the turn, so the head reads as facing somewhere.
-=======
-  // 3.
->>>>>>> comment-sweep
   const cx = -turn * r * 0.85;
   ctx.beginPath();
   ctx.ellipse(cx, ball, Math.max(2, Math.abs(turn) * r * 0.9 + 2), r, 0,
