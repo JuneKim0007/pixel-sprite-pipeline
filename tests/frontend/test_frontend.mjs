@@ -1937,7 +1937,6 @@ await atest('the forms that keep their own element say why', async () => {
   assert.equal(hand, 5, `${hand} hand-rolled ranges; the sweep left five with reasons`);
 });
 
-<<<<<<< HEAD
 const { boundedStack, undoController } = await import(join(JS, 'core/undo.js'));
 
 // Float32Array holds 0.8 as 0.800000011920929, so these compare to the storage.
@@ -2106,7 +2105,8 @@ test('no source file carries an unresolved merge', () => {
   };
   for (const r of roots) walk(r);
   assert.deepEqual(seen, [], `unresolved merge in ${seen.join(', ')}`);
-=======
+});
+
 console.log('\nauthored content');
 await atest('a read-only surface turns into an editor and back', async () => {
   const { Editable } = await import(join(JS, 'ui/index.js'));
@@ -2205,7 +2205,6 @@ await atest('three authored style surfaces, one editor between them', async () =
     /className: 'fragx'/.test(readFileSync(join(JS, String(f)), 'utf8')));
   assert.deepEqual(owners.map(String), ['ui/editable.js'],
                    'more than one place knows how to edit a fragment list');
->>>>>>> edit-save-sweep
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
