@@ -89,7 +89,7 @@ def registry(root: Path) -> Registry[Palette]:
 
 
 def _entry(path: Path, root: Path) -> tuple[str, Palette]:
-    """A palette with no colours in it used to be dropped silently, so a typo presented as "the file I just wrote is not in the list" with nothing anywhere saying why."""
+    """An empty palette used to be dropped silently, with nothing saying why."""
     palette = _parse(path, root)
     if not palette.colours:
         raise Invalid("no colours found in this file",

@@ -40,7 +40,7 @@ def measured_proportions(ctx) -> dict[str, float]:
 
 
 def _detected(ctx) -> dict:
-    """The rig and the record of how it was chosen, which are one answer. Splitting them into two resolvers would detect twice, and under `rig: auto` that is a second LLM call."""
+    """The rig and the record of how it was chosen: one answer, one detection."""
     if "rig" not in ctx.resources:
         rig, record = detect.resolve(ctx.config, ctx.need("references"))
         measured = measured_proportions(ctx)

@@ -53,6 +53,6 @@ def test_not_found_reports_the_alternatives():
     (IsADirectoryError, 400),
 ])
 def test_library_raised_failures_keep_their_status(exc, status):
-    """A tidy-up that removes an entry because nothing here raises it turns a 504 into a 500, which is the bug the taxonomy exists to prevent."""
+    """Removing an entry because nothing here raises it turns a 504 into a 500."""
     assert errors.BUILTIN_STATUS[exc] == status
     assert errors.status_for(exc("x")) == status

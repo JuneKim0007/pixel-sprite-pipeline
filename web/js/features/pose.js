@@ -1,5 +1,4 @@
-/* Body-space pose maths: projection, dragging, anatomy limits.
- * No DOM. The Python twin is pipeline/geometry/bodyspace.py. */
+// Body-space pose maths; the Python twin is pipeline/geometry/bodyspace.py.
 export const VIEWS = {
   front: 0,
   three_quarter_front: 40,

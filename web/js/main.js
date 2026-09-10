@@ -171,8 +171,7 @@ async function refreshConfigs(select = null) {
   renderConfigPicker();
 }
 
-/* Only this workspace's pipelines. A character-sheet config in an animation
- * list is a config that changes the schema under you when picked. */
+// A config from another workspace changes the schema under you when picked.
 function renderConfigPicker() {
   const mine = configsFor(state.module);
   const sel = $('#configPicker');

@@ -12,8 +12,7 @@ import { EDGE, weightPainter } from './weights.js';
 
 const DOT = 7;
 
-/* Ordered so the most useful landmarks come first — a handful of these is
- * usually enough to describe a composition. */
+// Ordered so the most useful landmarks come first.
 const PRIORITY = [
   'neck', 'nose', 'l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow',
   'l_wrist', 'r_wrist', 'l_hip', 'r_hip', 'l_knee', 'r_knee',

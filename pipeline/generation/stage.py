@@ -32,7 +32,7 @@ def _set(block: dict[str, Any]) -> dict[str, Any]:
 
 
 class Resource:
-    """Which piece of hardware a stage occupies while it runs. GPU/LLM serialise - SDXL+ControlNet+IP-Adapter already fill most of 16 GB."""
+    """Which piece of hardware a stage occupies while it runs."""
 
     GPU = "gpu"
     CPU = "cpu"
@@ -43,7 +43,7 @@ class Resource:
 
 @dataclass
 class Context:
-    """Everything a stage is given. Two channels, deliberately separate: `artifacts` is what stages pass to each other and what a resume reads back, checkable against requires/produces; `resources` is what the run itself supplies against a stage's `needs`, derived from config and never persisted."""
+    """Everything a stage is given; only `artifacts` pass between stages."""
 
     root: Path
     outdir: Path
@@ -104,7 +104,7 @@ class Context:
         return path
 
     def need(self, name: str) -> Any:
-        """One declared resource. Resolved on first ask and memoised, because a rig under `rig: auto` costs an LLM call."""
+        """One declared resource, resolved on first ask and memoised."""
         if name not in self.resources:
             from . import resources as _resources
 
@@ -131,10 +131,10 @@ class Stage(ABC):
 
     name: ClassVar[str]
     resource: ClassVar[str] = Resource.CPU
-    # One vocabulary with `LayerSpec`: a name this cannot run without, and a name it makes available. Where a need comes from - an earlier stage, a seeded artifact, or the run's resource table - is the plan's business, not the stage's.
+    # One vocabulary with `LayerSpec`: a name needed, and a name made available.
     needs: ClassVar[frozenset[str]] = frozenset()
     gives: ClassVar[frozenset[str]] = frozenset()
-    # Soft: absent is fine, produced LATER is not, because the stage then runs without an input that was there for the taking.
+    # Soft: absent is fine, produced LATER is not.
     optional: ClassVar[frozenset[str]] = frozenset()
     DEFAULTS: ClassVar[dict[str, Any]] = {}
 

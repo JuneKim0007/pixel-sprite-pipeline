@@ -40,7 +40,7 @@ class PaletteStage(Stage):
         canonical: Path = ctx.require("canonical")
         key_colour = self._key_colour(ctx)
 
-        # Frames of a run share a grid — same model, same size — so searching per frame paid N times for one answer: measured 6/6 frames identical.
+        # Frames of a run share a grid: measured, 6/6 frames identical.
         arr = np.asarray(Image.open(canonical).convert("RGB"))
         phase = find_phase(arr, cfg["factor"])
         print(f"   grid phase {phase}, shared by every frame")
@@ -115,7 +115,7 @@ class PaletteStage(Stage):
         arr, cfg: dict, *, phase: tuple[int, int],
         key_colour: tuple[int, int, int] | None = None,
     ) -> list[tuple[int, int, int]]:
-        """A sprite is roughly 15% of the canvas; extracting from the whole image spends the budget on backdrop."""
+        """A sprite is ~15% of the canvas; the whole image buys mostly backdrop."""
         size = cfg["size"]
         ox, oy = phase
         small = reduce_blocks(arr, cfg["factor"], ox, oy, cfg["reduce"],

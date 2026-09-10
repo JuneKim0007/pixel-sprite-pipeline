@@ -1,5 +1,4 @@
-/* Widgets the views used to rebuild by hand: btn in 12 files, mini in 11,
- * empty in 10. A caller names what a thing is, never a class string. */
+// Shared widgets: a caller names what a thing is, never a class string.
 import { el } from '../core/dom.js';
 import { normaliseColour } from '../core/colour.js';
 

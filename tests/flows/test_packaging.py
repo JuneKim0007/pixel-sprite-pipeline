@@ -19,7 +19,7 @@ SHARED = sorted((pathlib.Path(pipeline.__path__[0]) / "shared").rglob("*.py"))
 
 @pytest.mark.parametrize("name", MODULES)
 def test_every_module_imports(name):
-    # A broken import is invisible until something imports that module, which for half of them is only when a particular route is called.
+    # A broken import is invisible until something imports that module.
     importlib.import_module(name)
 
 
@@ -69,7 +69,7 @@ def _group_imports() -> dict[str, dict[str, list[str]]]:
 
 
 def test_no_group_imports_form_a_cycle():
-    # Three cycles once made the seven groups un-layerable: cooling sat in `orchestration` importing nothing, a pixel layer reached into the palette registry, and `annotate` loaded a second reference library rather than being handed the one the run already had.
+    # Three cycles once made the seven groups un-layerable.
     edges = _group_imports()
     seen: dict[str, int] = {}
     cycles: list[list[str]] = []

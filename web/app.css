@@ -497,8 +497,6 @@ pre.log {
 .promptcount { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
 .promptcount.over { color: var(--warn); }
 
-/* The old two-row textarea was the most cramped control in the app; prompts
-   are paragraphs and deserve paragraph-sized boxes. */
 textarea.prompt {
   width: 100%; min-height: 90px; resize: vertical;
   font-family: inherit; font-size: 14px; line-height: 1.55;
@@ -628,8 +626,7 @@ input.wide { width: 100%; max-width: 420px; }
 
 /* ------------------------------------------------------------- styles */
 
-/* Master-detail: a narrow list of looks, and one look's detail beside it. The
- * list stays narrow because picking is a glance and the detail is the work. */
+/* A narrow list of looks beside one look's detail: picking is a glance. */
 .stylesbody { display: grid; grid-template-columns: 264px 1fr; gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .stylesbody { grid-template-columns: 1fr; } }
 
@@ -740,8 +737,7 @@ input.wide { width: 100%; max-width: 420px; }
 .evchevron { color: var(--ink-faint); font-size: 11px; }
 .evdetail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
-/* The affordance that says "evidence, not a restore point". Deliberately inert:
- * no button, no accent colour, nothing that reads as an action. */
+/* The affordance that says "evidence, not a restore point" — deliberately inert. */
 .evidence {
   display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: start;
   background: var(--panel-2); border: 1px dashed var(--line); border-radius: var(--r-sm);
@@ -978,8 +974,7 @@ input.wide { width: 100%; max-width: 420px; }
 .pane img { max-width: 100%; display: block; margin: 0 auto; }
 .pane img.pixel { image-rendering: pixelated; }
 
-/* The handle is 7px so it can be grabbed, and paints a 1px line so it reads as
-   a divider rather than a gutter. */
+/* 7px so it can be grabbed; paints a 1px line so it reads as a divider. */
 .pane-split {
   background: var(--line); background-clip: content-box;
   border: 0 solid transparent; position: relative; touch-action: none;
@@ -1093,8 +1088,7 @@ input.wide { width: 100%; max-width: 420px; }
  */
 
 
-/* The (?) — small, quiet until asked. A missing explanation is shown as a
- * dimmed marker rather than omitted, so the gap is visible in the UI. */
+/* The (?) — small, quiet until asked. */
 .ui-tip {
   border: 1px solid currentColor; border-radius: 50%; background: none;
   color: inherit; opacity: 0.45; cursor: pointer; font-size: 0.65rem;
@@ -1203,8 +1197,7 @@ input.wide { width: 100%; max-width: 420px; }
 .enginetag.exact { color: var(--ok); }
 .previewcanvas { max-width: 100%; image-rendering: pixelated; display: block; margin: 0 auto; }
 
-/* The preview is out of date and Python has not caught up yet. Nothing runs
- * on its own, so this is the only thing that says work is waiting. */
+/* The preview is out of date and Python has not caught up yet. */
 .btn.wants {
   border-color: var(--warn);
   box-shadow: 0 0 0 1px var(--warn) inset;
@@ -1235,13 +1228,11 @@ input.wide { width: 100%; max-width: 420px; }
 }
 .control input.num.mono { width: 92px; }
 
-/* Without a Save button, this line is the only thing that distinguishes
-   "saved" from "the app is ignoring me". */
+/* Without a Save button, this is the only sign that a change was saved. */
 .savestate { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .savestate.bad { color: rgb(194,55,44); }
 
-/* Lives in the sidebar, outside every view host, so a view that fails to draw
-   cannot take the way out down with it. */
+/* Outside every view host, so a failed view cannot take the way out with it. */
 .backbtn {
   display: flex; align-items: center; gap: 6px; width: 100%;
   margin: 0 0 12px; padding: 9px 12px; font-size: 13px; font-weight: 500;

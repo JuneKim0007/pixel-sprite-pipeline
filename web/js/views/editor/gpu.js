@@ -4,8 +4,7 @@ import { parseColour } from '../../core/colour.js';
 
 const WORKGROUP = 8;
 
-/* One pass over the output grid. Each thread owns one output pixel, reads the
- * block behind it, and writes a colour. */
+// One pass over the output grid; each thread owns one output pixel.
 const SHADER = `
 struct Params {
   factor      : u32,
@@ -37,8 +36,7 @@ fn tone(c: vec3<f32>) -> vec3<f32> {
   return clamp(v, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
-/* Nearest palette entry, weighted by luminance. Plain RGB distance treats a
- * shift in blue as equal to the same shift in green, and the eye does not. */
+// Nearest palette entry, weighted by luminance: the eye is not RGB-uniform.
 fn snap(c: vec3<f32>) -> vec3<f32> {
   if (P.palette_n == 0u) { return c; }
   var best = 0u;

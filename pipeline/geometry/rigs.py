@@ -251,7 +251,7 @@ BLOB = Rig(
 
 
 def humanoid(arms: int = 2, *, name: str = "", label: str = "", tail: bool = False) -> Rig:
-    """2 arms/no tail returns HUMANOID untouched (exact OpenPose joint order); any variation drops to scribble control."""
+    """2 arms and no tail is HUMANOID untouched; any variation is scribble control."""
     if arms == 2 and not tail:
         return HUMANOID
 
@@ -694,7 +694,7 @@ def summaries() -> list[dict]:
 
 def _swing(pose: dict[str, list[float]], root_joint: str,
            chain: tuple[str, ...], degrees: float, side: int) -> None:
-    """Placing each joint along a ray from the root preserves root-to-joint distances and silently rescales everything past the first bone, and assigning a coordinate outright preserves nothing."""
+    """Rotates the chain: a ray from the root would rescale everything past bone one."""
     import math
 
     if not chain or root_joint not in pose:
@@ -717,13 +717,12 @@ def _swing(pose: dict[str, list[float]], root_joint: str,
 
 STANCE_DEGREES = 6.0
 
-# 40 is the A-pose every character pipeline settles on, and it is a compromise between two measured failures rather than a convention borrowed on faith.
 A_POSE_DEGREES = 40.0
 
 
 def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
           ) -> dict[str, list[float]]:
-    """40 degrees (A-pose) chosen over 88 (true T, reads as a weapon) and 4/arms-down (joint pairs land within 4% of the canvas, silhouette has no gap)."""
+    """40 degrees: 88 reads as a weapon, 4 leaves no gap in the silhouette."""
 
     pose = {k: list(v) for k, v in rig.neutral.items()}
     angle = A_POSE_DEGREES if spread is None else float(spread)
@@ -741,7 +740,7 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
     if not symmetric:
         return pose
 
-    # Assigning the ankle's x directly is what this used to do, and it stretched the shin: measured, knee-to-ankle grew from 0.1600 to 0.1607 every time a symmetric sheet was generated.
+    # Assigning the ankle's x directly stretched the shin: 0.1600 to 0.1607.
     for hip, knee, ankle in (("l_hip", "l_knee", "l_ankle"),
                              ("r_hip", "r_knee", "r_ankle")):
         if hip in pose and ankle in pose:

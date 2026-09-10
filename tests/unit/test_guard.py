@@ -186,7 +186,7 @@ def test_a_bug_in_check_does_not_kill_the_guard(monkeypatch):
         raise RuntimeError("sensor exploded")
 
     monkeypatch.setattr(guard, "check", boom)
-    # At the real one-second interval this one assertion cost 2.5s, which was half the runtime of the whole suite.
+    # At the real one-second interval this assertion cost 2.5s.
     monkeypatch.setattr(guard_mod, "INTERVAL_S", 0.01)
     guard.start()
     deadline = time.monotonic() + 2.0

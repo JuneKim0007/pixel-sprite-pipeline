@@ -1,13 +1,11 @@
-/* mount() tears down the previous view before the next renders.
- * A view that throws shows its error in place instead of blanking the tab. */
+// mount() tears down the previous view before the next renders.
 import { el } from '../core/dom.js';
 import { canGoBack, forget, goBack } from '../core/history.js';
 
 let teardown = null;
 let mountedName = null;
 
-/** Render view(host), first tearing down the last. A returned function is
- *  called on the next mount. */
+/** Render view(host) after tearing down the last; a returned fn runs on next mount. */
 export function mount(name, host, view) {
   unmount();
   mountedName = name;

@@ -35,7 +35,7 @@ def _opening_facts(image: np.ndarray, stack: list[dict]) -> dict[str, Any]:
 
 def _closing_facts(facts: dict, out: np.ndarray, deferred: dict) -> None:
     """What the stack produced, and what a deferred layer would still do to it."""
-    # Scale records the count before it magnifies: magnification cannot change the number, and counting after is 17x the work for the same answer.
+    # Counted before magnifying: after is 17x the work for the same answer.
     counted = facts.pop("colours", None)
     facts["after"] = {"width": int(out.shape[1]), "height": int(out.shape[0]),
                       "colours": counted if counted is not None
@@ -136,7 +136,7 @@ def apply_stack(image: np.ndarray, stack: list[dict], *,
                 defer: set[str] | None = None) -> tuple[np.ndarray, dict]:
     defer = {k for k in (defer or set())
              if getattr(REGISTRY.get(k), "deferrable", False)}
-    # An order that measures colour from pixels the next layer destroys is wrong before it is expensive, so it is refused first.
+    # A wrong order is refused before an unaffordable one.
     validate_order(stack)
     # A stack that cannot fit is a 413 here and a reboot two lines later.
     admit(stack, int(image.shape[0]) * int(image.shape[1]), defer)

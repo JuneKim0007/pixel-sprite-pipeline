@@ -60,7 +60,7 @@ def render(
     thickness: float | None = None,
     rig=None,
 ) -> Image.Image:
-    """For the humanoid rig this is a literal OpenPose control image: 18 joints in COCO order with the exact hues the ControlNet was trained on."""
+    """For the humanoid rig, a literal OpenPose image: 18 joints in COCO order."""
     from . import rigs as _rigs
 
     rig = rig if rig is not None else _rigs.HUMANOID
@@ -71,7 +71,7 @@ def render(
             field="keypoints",
         )
 
-    # OpenPose's reference stick width is 4px on a 368px canvas; scale it so skeletons look identical whatever resolution we render at.
+    # OpenPose's reference stick is 4px on a 368px canvas; scale from that.
     stick = thickness if thickness is not None else max(2.0, 4.0 * min(width, height) / 368)
 
     canvas = Image.new("RGB", (width, height), (0, 0, 0))

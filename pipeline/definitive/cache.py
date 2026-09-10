@@ -104,14 +104,14 @@ def resume_from(source: str, stack: list) -> tuple[int, Any]:
 
 
 def remember(source: str, stack: list, upto: int, image) -> None:
-    """One 1280 px RGBA frame is 6.5 MB and would evict the entire snapshot budget to save a step that only runs when someone presses Write - the opposite of the trade this is for."""
+    """One 1280px RGBA frame is 6.5 MB and would evict the whole snapshot budget."""
     if getattr(image, "nbytes", 0) > (SNAPSHOTS.max_bytes // 4):
         return
     SNAPSHOTS.put(prefix_key(source, stack, upto), image)
 
 
 def fingerprint(image: np.ndarray) -> str:
-    """A content hash cheap enough to take every call: a 7x5 stride still reads ~28,000 pixels of a 1280 canvas."""
+    """A content hash cheap enough for every call: 7x5 stride, ~28,000 pixels."""
     h = hashlib.blake2b(digest_size=16)
     h.update(f"{image.shape}{image.dtype}".encode())
     h.update(np.ascontiguousarray(image[::7, ::5]).tobytes())

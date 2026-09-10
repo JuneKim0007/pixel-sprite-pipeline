@@ -113,8 +113,7 @@ export function control(field, value, onChange) {
 
 /* ------------------------------------------------------------ stage picker */
 
-/* Mirrors the server's dependency check so an unrunnable order shows up as you
- * build it, not when you press Save. */
+// Mirrors the server's dependency check, so a bad order shows as you build it.
 export const orderProblems = (active) =>
   problemsOf(active, state.schema.stages, state.schema.resources);
 export const autoOrder = (active) => orderOf(active, state.schema.stages);

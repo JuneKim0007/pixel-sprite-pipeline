@@ -208,7 +208,7 @@ class FramesStage(Stage):
                 control = comfy.load_image(g, pose_name)
                 pos, neg = comfy.apply_controlnet(
                     g, pos, neg, control, vae,
-                    # Measured: 1.0 held to 0.8 makes the model trace the control image and return a stick figure.
+                    # Measured: 1.0 held to 0.8 returns a traced stick figure.
                     strength=cn["strength"],
                     start_percent=cn["start_percent"],
                     end_percent=cn["end_percent"],

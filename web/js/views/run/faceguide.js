@@ -116,8 +116,7 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
   return true;
 }
 
-/** A standalone diagram for the side panel, so the construction is legible
- *  even before anything has been placed. */
+/** A standalone diagram for the side panel, legible before anything is placed. */
 export function drawFaceLegend(canvas) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;

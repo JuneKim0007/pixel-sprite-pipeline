@@ -110,7 +110,7 @@ def styles_dir(root: Path) -> Path:
 
 
 def _read(path: Path, home: Path) -> tuple[str, Style]:
-    """A sheet that will not parse used to be skipped silently, which presents as the style disappearing from the list - the same failure a malformed palette had, and the same fix."""
+    """A sheet that will not parse used to be skipped silently."""
     try:
         data = settings.read_yaml(path)
     except yaml.YAMLError as e:
@@ -192,7 +192,7 @@ def resolve_vocabulary(styles: list[Style], picks: dict[str, Any] | None = None)
 
 
 def expand(text: Any, vocabulary: dict[str, str]) -> Any:
-    """An unresolved placeholder is left alone rather than erased, so a typo shows up in the prompt preview instead of silently vanishing."""
+    """An unresolved placeholder is left alone rather than erased."""
     if isinstance(text, dict):
         return {k: expand(v, vocabulary) for k, v in text.items()}
     if isinstance(text, list):

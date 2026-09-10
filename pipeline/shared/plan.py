@@ -54,7 +54,7 @@ def unmet(nodes: Iterable[Any], *, seeded: frozenset[str] = frozenset(),
 
     out: list[Unmet] = []
     for node in nodes:
-        # A soft need is the same check in ordering mode: absent is fine, LATER is not. It is declared apart from `needs` because absent-is-fine is a property of the node, while strict-vs-ordering is a property of the engine. Naming one in both reads as "optional", so `optional` wins.
+        # A soft need in ordering mode: absent is fine, LATER is not.
         soft = frozenset(getattr(node, "optional", ()) or ())
         hard = frozenset(getattr(node, "needs", ()) or ()) - soft
         for name, strict_here in ([(n, strict) for n in sorted(hard)]
@@ -62,7 +62,7 @@ def unmet(nodes: Iterable[Any], *, seeded: frozenset[str] = frozenset(),
             if name in given or supplied(name):
                 continue
             producer = later.get(name)
-            # Not given anywhere is a hole when the need is hard and a non-event when it is soft, which is the whole difference between the two engines.
+            # Never given is a hole for a hard need and a non-event for a soft one.
             if producer is None and not strict_here:
                 continue
             out.append(Unmet(_name_of(node), name, producer))
@@ -79,7 +79,7 @@ def refuse(problems: list[Unmet], *, error=Invalid,
         return
     first = problems[0]
     if why is not None:
-        # A refusal with no way forward is a dead end, so the caller that knows the vocabulary supplies the way forward.
+        # The caller knows the vocabulary, so the caller supplies the way forward.
         raise error(why(first), field=first.node,
                     hint=hint(first) if hint else "")
     lines = [

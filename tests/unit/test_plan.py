@@ -33,7 +33,7 @@ def test_strict_refuses_a_name_nothing_gives_at_all():
 
 
 def test_ordering_permits_a_name_nothing_gives_at_all():
-    # A stack with no grid has no lattice for palette to contradict: doing it in the wrong order is the failure, not doing it at all.
+    # No grid means no lattice to contradict: the wrong order is the failure.
     assert plan.unmet([N("b", needs={"x"})], strict=False) == []
 
 
@@ -52,7 +52,7 @@ def test_an_optional_need_absent_altogether_is_not_a_hole():
 
 
 def test_an_optional_need_satisfied_too_late_still_is():
-    # `optional` used to be subtracted from `needs`, and no stage ever named one in both — so the subtraction never fired and an order that quietly defeated a soft input passed. Putting depth after canonical meant canonical ran with no depthmaps and said nothing.
+    # `optional` was subtracted from `needs`, so the check never fired.
     problems = plan.unmet([N("b", optional={"x"}), N("a", gives={"x"})],
                           strict=True)
     assert [(p.node, p.name, p.producer) for p in problems] == [("b", "x", "a")]
@@ -63,7 +63,7 @@ def test_naming_one_in_both_reads_as_optional():
 
 
 def test_an_empty_declaration_is_a_set_not_a_tuple():
-    # frozenset() is falsy, so `x or ()` quietly turned an empty declaration into a tuple and the set arithmetic raised.
+    # frozenset() is falsy, so `x or ()` turned an empty declaration into a tuple.
     assert plan.unmet([N("a"), N("b")]) == []
 
 

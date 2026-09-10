@@ -16,8 +16,7 @@ const ORDER = [
   'Quality', 'Export', 'LLM', 'Models', 'Compute', 'Services', 'Paths',
 ];
 
-/* Groups with no schema fields yet, which still need a home in the sidebar
- * because their editor is hand-written rather than generated. */
+// Groups with no schema fields; their editor is hand-written, not generated.
 const ALWAYS = new Set(['Paths', 'Softbody', 'References']);
 
 function sectionOrder(counts) {

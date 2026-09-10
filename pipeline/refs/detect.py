@@ -75,7 +75,7 @@ def detect(
 
 
 def resolve(config: dict, library, verbose: bool = True) -> tuple[rigs.Rig, dict]:
-    """Returns the rig plus a record of how it was chosen, so a run can show its reasoning rather than silently posing a snake as a person."""
+    """The rig plus a record of how it was chosen, so a run can show its reasoning."""
     requested = config.get("rig")
     if requested != "auto":
         return rigs.get(requested), {"source": "config", "rig": rigs.get(requested).name}

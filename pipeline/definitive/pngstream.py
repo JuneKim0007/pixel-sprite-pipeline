@@ -1,4 +1,4 @@
-"""Writes a magnified PNG a scanline at a time instead of materialising the full array. 512px RGBA @ zoom 16: 2.89 MB streamed vs 272 MB materialised (94x); at 4096px that's ~34 MB vs 16 GB."""
+"""Writes a magnified PNG a scanline at a time: 2.89 MB streamed vs 272 MB."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from ..shared.errors import Invalid
 
 _SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
-# Measured, 128px sprite of 24 colours at zoom 8: filter 0, streamed 49.8 KB 10.9 ms Pillow, adaptive 90.7 KB 7.5 ms 0.55x the size for 1.46x the time.
+# Filter 0: measured 0.55x the size of adaptive for 1.46x the time.
 _FILTER_NONE = b"\x00"
 
 _ROWS_PER_FLUSH = 64
@@ -71,6 +71,6 @@ def write_scaled(path: Path | str, image: np.ndarray, zoom: int = 1, *,
 
 
 def peak_bytes(width: int, channels: int, zoom: int) -> int:
-    """An estimate and not a guarantee - it read 2.03 MB against a measured 2.89 MB on the 512px-at-zoom-16 case, close enough to reason with and not close enough to assert."""
+    """An estimate, not a guarantee: 2.03 MB predicted against 2.89 MB measured."""
     line = width * max(1, zoom) * channels + 1
     return line * (_ROWS_PER_FLUSH + 2)

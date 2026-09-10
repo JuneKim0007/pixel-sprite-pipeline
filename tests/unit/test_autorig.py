@@ -52,7 +52,7 @@ def test_keying_removes_a_single_flat_background():
 
 
 def test_keying_refuses_a_pass_that_would_eat_the_subject():
-    # keep_min: a subject under 4% of the frame means the flood has escaped into it, so the pass is discarded rather than committed.
+    # keep_min: under 4% of the frame, the flood has escaped into the subject.
     img = np.full((80, 80, 3), 40, dtype=np.uint8)
     img[30:50, 35:45] = 120  # 3% of the frame.
     assert (background_to_alpha(img, 12)[..., 3] > 0).mean() == 1.0

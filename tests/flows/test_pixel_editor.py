@@ -30,7 +30,7 @@ def test_limits_are_shares_of_the_machine_not_this_laptops_numbers():
 
 
 def test_the_default_stack_runs_without_a_layer_failing(root, img, stack):
-    # A raising layer does not kill the run, which hides a broken import perfectly: regrouping the package moved `training`, _grid_prepare kept the old path, and the only symptom was [...]
+    # A raising layer does not kill the run, so it hides a broken import.
     out, facts = definitive.apply_stack(img, stack)
     assert out.ndim == 3, "the stack did not return an image"
     broke = [f"{la['layer']}: {la['error']}" for la in facts["layers"]
@@ -68,7 +68,7 @@ def _stack_of(*keys):
     (("background", "grid"), "Grid"),
 ])
 def test_an_order_that_measures_destroyed_pixels_is_refused(order, late):
-    # It used to be a sentence in the margin, so a palette measured from full-resolution pixels was applied to the reduced image and the run went on to produce colours the picture is not made of.
+    # A palette measured at full resolution was applied to the reduced image.
     with pytest.raises(Invalid) as caught:
         definitive.validate_order(_stack_of(*order))
     assert late in caught.value.message
@@ -91,7 +91,7 @@ def test_a_consistent_order_is_not_refused(order):
     (("grid", "palette", "scale"), False),
 ])
 def test_an_order_that_only_costs_something_still_warns(order, warns):
-    # These two are not dependency rules — one is cost and one is uniqueness — so they stay advisory rather than being forced through needs/gives.
+    # Cost and uniqueness are not dependency rules, so they stay advisory.
     assert bool(definitive.check_order(_stack_of(*order))) is warns
 
 
@@ -111,7 +111,7 @@ def test_a_failing_layer_reports_against_itself(root, img):
 
 
 def test_a_committed_palette_is_resolved_by_what_the_caller_supplied(tmp_path, img):
-    # The layer used to reach through facts["root"] into the palette registry, which is the import that made `definitive` depend on `looks`. `root` is the real repo, so a test that writes a palette has to write it somewhere else.
+    # `root` is the real repo, so a test that writes a palette writes elsewhere.
     seen = []
     committed = tmp_path / "two.hex"
     committed.write_text("000000\nffffff\n")
@@ -139,7 +139,7 @@ def test_reading_a_committed_palette_with_no_resolver_says_so(img):
 def test_a_bad_hex_colour_is_a_message_not_a_defect():
     stack = [{"layer": "background", "id": "b0", "enabled": True,
               "config": {"enabled": True, "tolerance": 14, "colour": "#zzzzzz"}}]
-    # A half-typed hex is something the user is in the middle of doing, so it must arrive as a message against that layer rather than a 500.
+    # A half-typed hex is a message against that layer, not a 500.
     _, facts = definitive.apply_stack(np.zeros((8, 8, 3), np.uint8), stack)
     errors = [layer.get("error", "") for layer in facts["layers"]]
     assert any("Invalid" in e for e in errors)
@@ -179,7 +179,7 @@ def test_resuming_produces_the_same_image_as_not_resuming(root, img, stack):
 
 @pytest.mark.slow
 def test_the_caches_are_bounded(root, img, stack):
-    # Without this they become the problem they solve: one preview measured 6.96 s and 363 MB of peak RSS, one per parameter change, none serialised.
+    # One preview measured 6.96 s and 363 MB of peak RSS, one per change.
     for i in range(60):
         definitive.apply_stack((img + i).astype(np.uint8), stack,
                                source=f"t{i}")

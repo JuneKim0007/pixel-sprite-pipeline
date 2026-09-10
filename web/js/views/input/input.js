@@ -8,8 +8,6 @@ import { draftConfig, state, toast } from '../../store.js';
 import { VIEW_OPTIONS } from '../../features/pose.js';
 import { browseDialog } from '../../ui/dialog.js';
 
-/* Textareas that grow with their content — a two-line box for a paragraph of
- * prompt is the single most cramped thing in the old layout. */
 function autoGrow(area, min = 90) {
   const fit = () => {
     area.style.height = 'auto';
@@ -106,8 +104,7 @@ function moveRole(fromKey, toKey, index, onChange) {
   onChange(toPath, nextTo);
 }
 
-/* Which role new uploads join. Module-level so switching tabs, uploading, and
- * coming back to the view all agree on it. */
+// Which role new uploads join; module-level so a tab switch agrees with it.
 let activeRole = 'identity';
 
 // The four views a character sheet is made of.

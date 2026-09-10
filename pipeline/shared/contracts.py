@@ -43,7 +43,7 @@ class Field:
                               "help", "none", "description"})
 
     def __post_init__(self) -> None:
-        # A blank help was already refused; twenty fields answered that by saying "TODO", which reaches the settings form as a (?) opening onto nothing.
+        # Twenty fields answered a required help text with "TODO".
         if not self.help or self.help.strip().rstrip(".").lower() in self.PLACEHOLDERS:
             raise ValueError(f"field '{self.key}' has no help text: "
                              f"{self.help!r}")
@@ -66,7 +66,7 @@ class Field:
         return value, True
 
     def _in_range(self, value) -> bool:
-        """The one place "in range" is defined, so clamp and check are built on the same comparisons and cannot silently drift apart."""
+        """The one place "in range" is defined, so clamp and check cannot drift."""
         if self.kind == "select":
             if not self.options:
                 return True
@@ -79,7 +79,7 @@ class Field:
         return True
 
     def clamp(self, value):
-        """A zoom declared max=16 accepted 64, which is sixteen times the pixels the control admits to - and a request is not a form."""
+        """A zoom declared max=16 accepted 64: a request is not a form."""
         value, ok = self._coerce(value)
         if not ok:
             return self.default
@@ -95,7 +95,7 @@ class Field:
         return value
 
     def check(self, value):
-        """Unlike clamp, an out-of-range value is not corrected - a config file is a person's own text, and silently rewriting it on save means the file no longer says what they typed."""
+        """Unlike clamp, an out-of-range value is refused, not corrected."""
         if value is None:
             return None
         if isinstance(value, dict) and self.kind in ("float", "int"):

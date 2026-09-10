@@ -23,7 +23,7 @@ class _Conditioning:
 
 
 def _label_for(yaw: float) -> str:
-    """Named views only span 0-180, so the character's right side has no name and becomes its angle."""
+    """Named views span 0-180, so the right side has no name and becomes its angle."""
     from ..geometry.bodyspace import VIEWS
     for name, deg in VIEWS.items():
         if abs(deg - refs_mod.bearing(yaw)) < 0.5:

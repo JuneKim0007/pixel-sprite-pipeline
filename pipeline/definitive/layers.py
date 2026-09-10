@@ -107,7 +107,7 @@ class LayerSpec:
     repeatable: bool = False
     magnify: Callable[[dict], float] | None = None
     deferrable: bool = False
-    # What this layer needs to already be true of the image, and what it makes true. A need nothing gives is satisfied vacuously - no grid means no lattice to contradict - but a need given LATER is an order that produces a silently wrong picture.
+    # What must already be true of the image, and what this layer makes true.
     needs: frozenset[str] = frozenset()
     gives: frozenset[str] = frozenset()
     reports: frozenset[str] = frozenset()
@@ -124,7 +124,7 @@ class LayerSpec:
         out = self.defaults()
         for key, value in (cfg or {}).items():
             field = by_key.get(key)
-            # An unknown key is passed through rather than dropped: layers read cfg with .get and a stale one is harmless, while silently eating it would hide a rename behind a working preview.
+            # An unknown key is passed through rather than dropped.
             out[key] = field.clamp(value) if field else value
         return out
 
@@ -221,7 +221,7 @@ def admit(stack: list[dict], pixels: int, defer: set[str] | None = None) -> None
         projected=want, ceiling=ceiling)
 
 
-# Why a particular layer needs what it needs. The dependency is declared on the layer; this is the sentence a person gets when they break it.
+# The sentence a person gets when they break a layer's dependency.
 WHY: dict[str, str] = {
     "palette": "A palette measured from full-resolution pixels does not "
                "describe the reduced image it gets applied to, so the colours "
@@ -248,7 +248,7 @@ def validate_order(stack: list[dict]) -> None:
 
 
 def check_order(stack: list[dict]) -> list[str]:
-    """Arrangements that cost something without being wrong. The ones that ARE wrong are refused by `validate_order`."""
+    """Costly but not wrong; the wrong ones are refused by `validate_order`."""
     seen: list[str] = [s.get("layer") for s in stack if s.get("enabled", True)]
     out: list[str] = []
 

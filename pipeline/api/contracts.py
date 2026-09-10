@@ -10,7 +10,7 @@ Kind = type | tuple[type, ...]
 
 
 class Shape:
-    """The keys a response must carry, and the type of each. Extra keys pass: a handler may answer with more than it promised, never with less."""
+    """The keys a response must carry, and the type of each; extra keys pass."""
 
     def __init__(self, **keys: Kind) -> None:
         for name, kind in keys.items():

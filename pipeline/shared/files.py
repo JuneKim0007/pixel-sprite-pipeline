@@ -102,7 +102,7 @@ def _disposition_field(disposition: str, key: str) -> str:
 
 
 def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, str, bytes]]:
-    """The stdlib `cgi` module did this, but it is deprecated and removed in Python 3.13, and `email.parser` mangles binary payloads unless carefully coaxed."""
+    """`cgi` did this and is gone in 3.13; `email.parser` mangles binary payloads."""
     marker = "boundary="
     if marker not in content_type:
         raise Invalid("multipart request has no boundary", field="content_type")

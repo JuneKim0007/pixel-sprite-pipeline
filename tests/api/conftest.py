@@ -24,7 +24,7 @@ def host():
 
 
 def _honours_contract(method: str, path: str, body):
-    """Every successful call any test makes is a contract check, so the POST and PUT routes are covered by whatever already exercises them rather than by a second suite that would have to fake their side effects."""
+    """Every successful call any test makes is a contract check."""
     from pipeline import api
 
     route = {(r["method"], r["path"]): r

@@ -80,7 +80,7 @@ def append(home: Path, event: Event) -> Path:
 
 
 def read(home: Path) -> list[dict[str, Any]]:
-    """A history that refuses to load because one line is broken is worse than one with a gap in it, and the gap is visible either way."""
+    """One broken line makes a gap in the history, not a refusal to load."""
     target = path_for(home)
     if not target.exists():
         return []

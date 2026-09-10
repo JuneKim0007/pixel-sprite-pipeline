@@ -3,8 +3,7 @@
 import { el } from './core/dom.js';
 import { loadConfig, state } from './store.js';
 
-/* Which pipeline was last open in each workspace, so returning to one does not
- * dump you on an unrelated config. */
+// Which pipeline was last open in each workspace.
 const lastConfig = {};
 
 // An unavailable cell names the stage it is waiting on.

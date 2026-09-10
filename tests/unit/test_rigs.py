@@ -87,7 +87,7 @@ def test_reference_pose_clears_the_torso_without_going_horizontal():
 @pytest.mark.parametrize("name", HUMANOIDS)
 @pytest.mark.parametrize("symmetric", [False, True])
 def test_tpose_rotation_is_rigid(name, symmetric):
-    # Placing joints along a ray from the shoulder preserves the shoulder distance and silently rescales the forearm.
+    # A ray from the shoulder rescales the forearm.
     rig = rigs.get(name)
     posed = rigs.tpose(rig, symmetric=symmetric)
     for a, b, _w in rig.bones:

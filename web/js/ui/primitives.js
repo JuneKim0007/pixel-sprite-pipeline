@@ -22,8 +22,7 @@ export function HelpTip(text) {
   return { btn, body };
 }
 
-/* A label with its (?) attached. Kept here rather than in BaseField so that a
- * one-off control outside the schema form gets the same affordance. */
+// Here rather than in BaseField, so controls outside the schema form get it.
 export function LabelWithTip(text, help, { htmlFor = null } = {}) {
   const tip = HelpTip(help);
   const label = el('label', { className: 'ui-label', textContent: text });

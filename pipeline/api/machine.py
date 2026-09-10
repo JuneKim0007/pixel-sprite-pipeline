@@ -113,7 +113,7 @@ class Machine(BaseRouter):
                        stages=list, resources=list))
     def schema(self, req):
         described = schema.describe(ROOT, req.query("module") or None)
-        # `stage_names` fills a select, and reaching for the stage registry to build it was the last thing making `schema` and `stage` import each other.
+        # Built here, so `schema` need not import the stage registry.
         described["options"]["stage_names"] = sorted(available())
         machine = settings.load_global(ROOT)
         for field in described["fields"]:
@@ -125,7 +125,7 @@ class Machine(BaseRouter):
         return {
             **described,
             "modules": module_table(),
-            # A stage says what it needs, not where it comes from. The order check has to know which names the run answers, or it reports every resource as an artifact nothing produces.
+            # A stage says what it needs, not where it comes from.
             "resources": sorted(RESOLVERS),
             "stages": [{"name": name, "resource": cls.resource,
                         "needs": sorted(cls.needs), "gives": sorted(cls.gives),

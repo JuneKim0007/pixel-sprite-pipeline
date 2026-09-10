@@ -31,7 +31,7 @@ def test_clamp_corrects_silently(sent, want):
 
 @pytest.mark.parametrize("sent", [400, 0, -1])
 def test_check_refuses_instead_of_correcting(sent):
-    # Rewriting `steps: 400` to 150 on save means the file no longer says what they typed, which is a different act from clamping a slider that has no error surface.
+    # Rewriting `steps: 400` to 150 on save is not the same act as clamping.
     with pytest.raises(Invalid) as caught:
         _field().check(sent)
     assert caught.value.status == 400
@@ -53,7 +53,7 @@ def test_a_select_only_accepts_its_options():
 
 
 def test_a_field_cannot_exist_without_an_explanation():
-    # definitive.Field has enforced this from the start and a test asserts it; 20 config fields reached the settings form with an empty (?) because nothing enforced the [...]
+    # Twenty config fields reached the settings form with an empty (?).
     with pytest.raises(ValueError, match="help"):
         _field(help="")
 

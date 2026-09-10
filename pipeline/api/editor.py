@@ -47,7 +47,7 @@ def _fit_for_preview(image: Image.Image) -> tuple[Image.Image, float]:
 
 
 def _open_bounded(src: Path) -> Image.Image:
-    """Without this the first thing every request did was materialise the whole source at 3 bytes a pixel, whatever it was about to shrink it to."""
+    """Opens without materialising the whole source at 3 bytes a pixel."""
     try:
         probe = Image.open(src)
     except Image.DecompressionBombError as e:

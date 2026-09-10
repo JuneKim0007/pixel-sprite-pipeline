@@ -102,7 +102,7 @@ BUILTIN_STATUS: dict[type, int] = {
 
 
 def status_for(exc: BaseException) -> int:
-    """ValueError maps to 400 rather than 500: of the 39 sites raising one, essentially all reject input, and reporting bad input as a server fault is worse than the reverse."""
+    """ValueError maps to 400: essentially all 39 sites raising one reject input."""
     if isinstance(exc, PixelError):
         return exc.status
     for cls, status in BUILTIN_STATUS.items():

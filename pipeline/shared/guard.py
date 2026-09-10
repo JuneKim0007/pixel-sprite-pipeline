@@ -1,4 +1,5 @@
-"""Killing a process before it takes the machine with it - watches RSS and system memory pressure from outside; a python3.12 holding 14.94 GB of 16 GB once triggered a kernel panic with no exception raised in-process."""
+"""Kills a process before it takes the machine with it: 14.94 GB of 16 GB once
+panicked the kernel with no exception raised in-process."""
 
 from __future__ import annotations
 

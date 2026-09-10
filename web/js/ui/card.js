@@ -12,8 +12,7 @@ export class BaseCard {
     this.node = null;
   }
 
-  /* ---- hooks a subclass overrides. All optional; a card with none of them
-   * still renders, which keeps a new subclass to the parts it cares about. */
+  // Hooks a subclass overrides. All optional.
   media() { return null; }
   title() { return this.data.title ?? null; }
   subtitle() { return this.data.subtitle ?? null; }

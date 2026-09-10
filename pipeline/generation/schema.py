@@ -873,7 +873,7 @@ def _render(field: ConfigField) -> dict:
     base["group"] = base.pop("group")
     base["options"] = [list(o) if isinstance(o, (list, tuple)) else o
                         for o in field.options]
-    # `del` unconditionally is why no field could carry its own default: a value declared beside the bounds it obeys was dropped before the form ever saw it, and only Stage.DEFAULTS could supply one — which reaches nothing nested, since _declared_default stops at one dot.
+    # `del` unconditionally is why no field can carry its own default.
     if base["default"] is None:
         del base["default"]
     for key, empty in (("min", None), ("max", None), ("step", None),
@@ -922,7 +922,7 @@ class ConfigSchema:
         return out
 
     def describe(self, root: Path, module: str | None = None) -> dict[str, Any]:
-        """The settings surface. Stages are not in it: this module describes fields, and reaching for the stage registry to list them is what made `schema` and `stage` import each other."""
+        """The settings surface; stages are not in it, to keep the import one-way."""
         from ..shared import modules as modules_mod
 
         return {

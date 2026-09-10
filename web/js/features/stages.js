@@ -1,5 +1,4 @@
-/* Whether a stage order can work, and the nearest one that can.
- * The Python twin is pipeline/generation/runner.py's validate and build. */
+// Whether a stage order can work; the twin is pipeline/generation/runner.py.
 export function orderProblems(active, stages, resources = []) {
   const meta = Object.fromEntries(stages.map((s) => [s.name, s]));
   const producers = {};
