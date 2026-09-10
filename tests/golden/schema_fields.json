@@ -608,11 +608,30 @@
       "type": "int"
     },
     {
+      "default": "#FF00FF",
       "group": "Palette",
-      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on.",
+      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
       "label": "Backdrop colour",
+      "options": [
+        [
+          "#FF00FF",
+          "Magenta \u2014 furthest from skin and cloth"
+        ],
+        [
+          "#00B140",
+          "Chroma green \u2014 the film standard, bleeds into skin"
+        ],
+        [
+          "#0047BB",
+          "Chroma blue \u2014 for green or yellow subjects"
+        ],
+        [
+          "#7F7F7F",
+          "Neutral grey \u2014 when the subject is saturated"
+        ]
+      ],
       "path": "background.colour",
-      "type": "text"
+      "type": "colour"
     },
     {
       "group": "Palette",
@@ -1910,11 +1929,30 @@
       "type": "int"
     },
     {
+      "default": "#FF00FF",
       "group": "Palette",
-      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on.",
+      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
       "label": "Backdrop colour",
+      "options": [
+        [
+          "#FF00FF",
+          "Magenta \u2014 furthest from skin and cloth"
+        ],
+        [
+          "#00B140",
+          "Chroma green \u2014 the film standard, bleeds into skin"
+        ],
+        [
+          "#0047BB",
+          "Chroma blue \u2014 for green or yellow subjects"
+        ],
+        [
+          "#7F7F7F",
+          "Neutral grey \u2014 when the subject is saturated"
+        ]
+      ],
       "path": "background.colour",
-      "type": "text"
+      "type": "colour"
     },
     {
       "group": "Palette",
@@ -3333,11 +3371,30 @@
       "type": "int"
     },
     {
+      "default": "#FF00FF",
       "group": "Palette",
-      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on.",
+      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
       "label": "Backdrop colour",
+      "options": [
+        [
+          "#FF00FF",
+          "Magenta \u2014 furthest from skin and cloth"
+        ],
+        [
+          "#00B140",
+          "Chroma green \u2014 the film standard, bleeds into skin"
+        ],
+        [
+          "#0047BB",
+          "Chroma blue \u2014 for green or yellow subjects"
+        ],
+        [
+          "#7F7F7F",
+          "Neutral grey \u2014 when the subject is saturated"
+        ]
+      ],
       "path": "background.colour",
-      "type": "text"
+      "type": "colour"
     },
     {
       "group": "Palette",
@@ -4601,11 +4658,30 @@
       "type": "int"
     },
     {
+      "default": "#FF00FF",
       "group": "Palette",
-      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on.",
+      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
       "label": "Backdrop colour",
+      "options": [
+        [
+          "#FF00FF",
+          "Magenta \u2014 furthest from skin and cloth"
+        ],
+        [
+          "#00B140",
+          "Chroma green \u2014 the film standard, bleeds into skin"
+        ],
+        [
+          "#0047BB",
+          "Chroma blue \u2014 for green or yellow subjects"
+        ],
+        [
+          "#7F7F7F",
+          "Neutral grey \u2014 when the subject is saturated"
+        ]
+      ],
       "path": "background.colour",
-      "type": "text"
+      "type": "colour"
     },
     {
       "group": "Palette",
@@ -5858,11 +5934,30 @@
       "type": "int"
     },
     {
+      "default": "#FF00FF",
       "group": "Palette",
-      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on.",
+      "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
       "label": "Backdrop colour",
+      "options": [
+        [
+          "#FF00FF",
+          "Magenta \u2014 furthest from skin and cloth"
+        ],
+        [
+          "#00B140",
+          "Chroma green \u2014 the film standard, bleeds into skin"
+        ],
+        [
+          "#0047BB",
+          "Chroma blue \u2014 for green or yellow subjects"
+        ],
+        [
+          "#7F7F7F",
+          "Neutral grey \u2014 when the subject is saturated"
+        ]
+      ],
       "path": "background.colour",
-      "type": "text"
+      "type": "colour"
     },
     {
       "group": "Palette",

@@ -10,6 +10,7 @@
 import { getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
+import { normaliseColour } from './core/colour.js';
 import { autoOrder as orderOf, orderProblems as problemsOf } from './features/stages.js';
 import { HelpTip } from './ui/index.js';
 import { VIEW_OPTIONS } from './features/pose.js';
@@ -97,6 +98,57 @@ export function control(field, value, onChange) {
     num.onchange = () =>
       onChange(num.value === '' ? null : (isFloat ? parseFloat(num.value) : parseInt(num.value, 10)));
     wrap.append(num);
+    return wrap;
+  }
+
+  /* A colour, said three ways, all of them the same value.
+   *
+   * The presets are one click and cover the decision most people should not
+   * have to research, which is why each carries its trade-off in a tooltip
+   * rather than being a bare square. The native picker is for choosing by eye.
+   * The text box is for saying exactly, and for pasting a value out of a
+   * palette file; it takes RGB as well as hex, because a field that silently
+   * ignored everything but six hex digits is the bug this replaces.
+   *
+   * All three write through `set`, so none can drift from the saved value. */
+  if (field.type === 'colour') {
+    const fallback = field.default || '#FF00FF';
+    let current = normaliseColour(value) || fallback;
+
+    const swatches = el('div', { className: 'swatchrow' });
+    const picker = el('input', { type: 'color', className: 'swatchpick', value: current });
+    const text = el('input', { type: 'text', className: 'num mono', value: value ?? current });
+
+    const set = (next, from) => {
+      const hex = normaliseColour(next);
+      if (!hex) return false;
+      current = hex;
+      picker.value = hex;
+      if (from !== 'text') text.value = hex;
+      for (const chip of swatches.children) {
+        chip.classList.toggle('on', chip.dataset.hex.toLowerCase() === hex.toLowerCase());
+      }
+      onChange(hex);
+      return true;
+    };
+
+    const presets = (field.options || []).map((o) => (Array.isArray(o) ? o : [o, o]));
+    for (const [hex, label] of presets) {
+      const chip = el('button', {
+        type: 'button', className: 'swatch', title: label, style: `background:${hex}`,
+      });
+      chip.dataset.hex = hex;
+      chip.onclick = () => set(hex);
+      swatches.append(chip);
+    }
+
+    picker.oninput = () => set(picker.value);
+    // `change`, not `input`: reformatting a half-typed value on every keystroke
+    // is what makes a text field impossible to type into.
+    text.onchange = () => { if (!set(text.value, 'text')) text.value = current; };
+
+    wrap.append(swatches, picker, text);
+    set(current);
     return wrap;
   }
 

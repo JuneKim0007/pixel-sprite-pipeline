@@ -1085,7 +1085,7 @@ await atest('the result says how many pixels it is', async () => {
 await atest('the shader keys the same colour the written file keys', async () => {
   // Two parsers is a real cost; a shader keying a different colour from the
   // one Python keys is a worse one, so the accepted forms are checked to match.
-  const { parseColour } = await import(join(JS, 'views/editor/gpu.js'));
+  const { parseColour } = await import(join(JS, 'core/colour.js'));
 
   assert.deepEqual(parseColour('12, 34, 56'), [12, 34, 56]);
   assert.deepEqual(parseColour('12,34,56'), [12, 34, 56]);
@@ -1173,6 +1173,44 @@ await atest('an unrecognised last line still reports something', async () => {
   const got = failureFrom('Traceback (most recent call last):\n  ...\nKilled');
   assert.equal(got.kind, 'Failed');
   assert.equal(got.message, 'Killed', 'a SIGKILL left the banner with nothing to say');
+});
+
+console.log('\nbackdrop colour');
+await atest('every form a person types round-trips to one hex value', async () => {
+  const { normaliseColour } = await import(join(JS, 'core/colour.js'));
+
+  assert.equal(normaliseColour('12, 34, 56'), '#0c2238');
+  assert.equal(normaliseColour('rgb(255, 0, 255)'), '#ff00ff');
+  assert.equal(normaliseColour('#abc'), '#aabbcc');
+  assert.equal(normaliseColour('#FF00FF'), '#ff00ff');
+  assert.equal(normaliseColour('0,0,0'), '#000000', 'black lost a digit');
+  assert.equal(normaliseColour('nonsense'), null);
+  assert.equal(normaliseColour(''), null);
+});
+
+await atest('the presets lead with magenta and green carries its cost', async () => {
+  // Green is the film industry default and the wrong default here: it sits
+  // close to skin and cloth, and every pixel it bleeds into costs a palette
+  // entry. It is offered, labelled, and not first.
+  const src = readFileSync(join(ROOT, 'pipeline/looks/vocabulary.py'), 'utf8');
+  const block = /BACKDROP_PRESETS[^=]*=\s*\(([\s\S]*?)\n\)/.exec(src)[1];
+  const hexes = [...block.matchAll(/"(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
+
+  assert.equal(hexes[0], '#FF00FF', 'magenta is no longer the first preset');
+  assert.ok(hexes.includes('#00B140'), 'chroma green is not offered at all');
+  assert.match(block, /bleeds into skin/, 'green is offered without its trade-off');
+});
+
+await atest('the settings form knows how to draw a colour', async () => {
+  const src = readFileSync(join(JS, 'fields.js'), 'utf8');
+  assert.match(src, /field\.type === 'colour'/);
+  assert.match(src, /type: 'color'/, 'no native picker, so no choosing by eye');
+  assert.match(src, /swatchrow/, 'no presets, so every choice needs research');
+  // A text box that reformats mid-word cannot be typed into.
+  assert.match(src, /text\.onchange =/);
+  assert.doesNotMatch(src, /text\.oninput =/);
+  // One parser, not a third.
+  assert.doesNotMatch(src, /0-9a-f\]\{3\}/, 'fields.js grew its own colour regex');
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

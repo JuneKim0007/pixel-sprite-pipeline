@@ -1235,3 +1235,18 @@ input.wide { width: 100%; max-width: 420px; }
 .rail-cell.add:hover { opacity: 1; }
 .stagepick { display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: 420px; }
 .modal-card.wide .fields { max-height: 62vh; overflow-y: auto; }
+
+/* Backdrop colour: presets, picker, exact value — one row, one value.
+   The swatch carries its trade-off in a tooltip, so choosing green is an
+   informed choice rather than a guess at which green. */
+.swatchrow { display: flex; gap: 4px; }
+.swatch {
+  width: 22px; height: 22px; border-radius: 5px; padding: 0;
+  border: 1px solid var(--line); cursor: pointer;
+}
+.swatch.on { box-shadow: 0 0 0 2px var(--accent); border-color: var(--accent); }
+.swatchpick {
+  width: 34px; height: 24px; padding: 0; border: 1px solid var(--line);
+  border-radius: 5px; background: none; cursor: pointer;
+}
+.control input.num.mono { width: 92px; }
