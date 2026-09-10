@@ -7,7 +7,7 @@ from typing import Mapping, Sequence
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from .bodyspace import frame_fit, frame_scale, project, view_depth
+from .bodyspace import MARGIN, frame_fit, frame_scale, project, view_depth
 
 THICKNESS: dict[tuple[str, str], float] = {
     ("neck", "r_hip"): 0.115,
@@ -74,6 +74,7 @@ def render_depth(
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
     fill: float = 0.0,
+    margin: float = MARGIN,
     build: float | dict | None = None,
     rig=None,
     props=None,
@@ -82,7 +83,7 @@ def render_depth(
 
     rig = rig if rig is not None else _rigs.HUMANOID
     # Fit once: projecting with fill= while the prop renderer got the RAW pose drew bodies at 1.3x.
-    fitted = frame_fit(pose, fill=fill) if fill else pose
+    fitted = frame_fit(pose, fill=fill, margin=margin) if fill else pose
     grow = frame_scale(pose, fill)
 
     keypoints = project(

@@ -135,6 +135,12 @@ FIELDS: list[ConfigField] = [
              "background. 0.88 makes a 128px sprite's character 113 pixels tall "
              "instead of 87, for the same GPU time. The tightest axis decides, "
              "so a wingspan cannot run off the sides."),
+    ConfigField(key="pose.margin", label="Headroom", kind="float",
+     default=0.06, min=0.0, max=0.4, step=0.01, group="Pose",
+     help="How far below the top edge the figure starts, as a fraction of the "
+             "canvas. The rest falls under the feet. Raise it when hair or a "
+             "hat keeps reaching the top: the model grows past the guide once "
+             "ControlNet stops steering, and it grows upward."),
     ConfigField(key="pose.size", default=1024, label="Skeleton size", kind="int",
      min=256, max=2048, step=64, group="Pose",
      help="Should match the generation resolution."),

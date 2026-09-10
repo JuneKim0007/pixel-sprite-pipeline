@@ -69,11 +69,14 @@ def frame_scale(pose: Mapping[str, Sequence[float]], fill: float) -> float:
     return fill / widest if widest > 1e-6 else 1.0
 
 
+MARGIN = 0.06
+
+
 def frame_fit(
     pose: Mapping[str, Sequence[float]],
     *,
     fill: float,
-    margin: float = 0.06,
+    margin: float = MARGIN,
 ) -> dict[str, list[float]]:
     """The humanoid's neutral spans 0.14 to 0.81, leaving 32% of the canvas empty."""
     if fill <= 0:
@@ -100,12 +103,13 @@ def project(
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
     fill: float = 0.0,
+    margin: float = MARGIN,
     rig=None,
 ) -> list[list[float] | None]:
     """`fill` lives here so skeleton and depth map cannot be scaled differently."""
     rig = rig if rig is not None else _rigs.HUMANOID
     if fill:
-        pose = frame_fit(pose, fill=fill)
+        pose = frame_fit(pose, fill=fill, margin=margin)
     yaw = math.radians(yaw_deg)
     sin_y, cos_y = math.sin(yaw), math.cos(yaw)
 

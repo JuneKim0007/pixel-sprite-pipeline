@@ -2,7 +2,7 @@
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
-import { el } from '../../core/dom.js';
+import { el, kids } from '../core/dom.js';
 import { Button, Empty, PanelHead } from '../../ui/index.js';
 import { promptEditor } from '../../features/prompts.js';
 import { state, toast } from '../../store.js';
@@ -155,7 +155,7 @@ export function renderOverview(host, { goTo }) {
     try {
       const q = await api.queue();
       const running = q.autopilot.running;
-      queueCard.replaceChildren(queueCard.firstChild,
+      queueCard.replaceChildren(...kids(queueCard.firstChild,
         el('div', { className: `pilotstate ${running ? 'on' : ''}` },
           el('span', { className: `dot ${running ? 'up' : ''}` }),
           el('b', { textContent: running ? 'Autopilot running' : 'Autopilot stopped' })),
@@ -166,7 +166,7 @@ export function renderOverview(host, { goTo }) {
           ['failed', q.counts.failed, q.counts.failed ? 'bad' : ''],
         ]),
         q.services.ok ? null : el('p', { className: 'warnline',
-          textContent: `⚠ ${q.services.why}` }));
+          textContent: `⚠ ${q.services.why}` })));
     } catch (e) {
       queueCard.replaceChildren(queueCard.firstChild,
         el('p', { className: 'warnline', textContent: e.message }));

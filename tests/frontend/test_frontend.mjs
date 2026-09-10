@@ -165,6 +165,9 @@ function declares(body, name) {
 }
 
 function usesOf(name, body) {
+  // Spread is three dots, and the member-access lookbehind below cannot tell
+  // `...kids(` from `x.kids`, so a spread-called import read as unused.
+  body = body.replace(/\.\.\./g, ' ');
   const pattern = name === '$' ? /(?<![\w$])\$(?=\s*\()/g
     : name === '$$' ? /(?<![\w$])\$\$(?=\s*\()/g
     : new RegExp(`(?<![\\w.$])${name}\\b`, 'g');
@@ -2205,6 +2208,34 @@ await atest('three authored style surfaces, one editor between them', async () =
     /className: 'fragx'/.test(readFileSync(join(JS, String(f)), 'utf8')));
   assert.deepEqual(owners.map(String), ['ui/editable.js'],
                    'more than one place knows how to edit a fragment list');
+});
+
+test('no conditional child reaches a DOM method unfiltered', () => {
+  // el() drops null and false; append and replaceChildren stringify them. That
+  // is how the overview printed the word "null" under its queue counters.
+  const files = readdirSync(JS, { recursive: true })
+    .filter((f) => String(f).endsWith('.js'));
+  const bad = [];
+  for (const f of files) {
+    const src = readFileSync(join(JS, String(f)), 'utf8');
+    for (const m of src.matchAll(/\.(replaceChildren|append|prepend)\(/g)) {
+      let i = m.index + m[0].length - 1, depth = 0, j = i;
+      for (; j < src.length; j++) {
+        if (src[j] === '(') depth++;
+        else if (src[j] === ')' && --depth === 0) break;
+      }
+      let d = 0, top = '';
+      for (const ch of src.slice(i + 1, j)) {
+        if (ch === '(') d++;
+        else if (ch === ')') d--;
+        if (d === 0) top += ch;
+      }
+      if (/\?\s*null\s*:|:\s*null\s*(,|$)/.test(top) && !/\bkids\(/.test(top)) {
+        bad.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, [], `pass these through kids(): ${bad.join(', ')}`);
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

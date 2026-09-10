@@ -181,6 +181,17 @@
    "type": "float"
   },
   {
+   "default": 0.06,
+   "group": "Pose",
+   "help": "How far below the top edge the figure starts, as a fraction of the canvas. The rest falls under the feet. Raise it when hair or a hat keeps reaching the top: the model grows past the guide once ControlNet stops steering, and it grows upward.",
+   "label": "Headroom",
+   "max": 0.4,
+   "min": 0.0,
+   "path": "pose.margin",
+   "step": 0.01,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -1696,6 +1707,17 @@
    "type": "float"
   },
   {
+   "default": 0.06,
+   "group": "Pose",
+   "help": "How far below the top edge the figure starts, as a fraction of the canvas. The rest falls under the feet. Raise it when hair or a hat keeps reaching the top: the model grows past the guide once ControlNet stops steering, and it grows upward.",
+   "label": "Headroom",
+   "max": 0.4,
+   "min": 0.0,
+   "path": "pose.margin",
+   "step": 0.01,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -3121,6 +3143,17 @@
    "min": 0.0,
    "path": "pose.fill",
    "step": 0.02,
+   "type": "float"
+  },
+  {
+   "default": 0.06,
+   "group": "Pose",
+   "help": "How far below the top edge the figure starts, as a fraction of the canvas. The rest falls under the feet. Raise it when hair or a hat keeps reaching the top: the model grows past the guide once ControlNet stops steering, and it grows upward.",
+   "label": "Headroom",
+   "max": 0.4,
+   "min": 0.0,
+   "path": "pose.margin",
+   "step": 0.01,
    "type": "float"
   },
   {
@@ -4605,6 +4638,17 @@
    "type": "float"
   },
   {
+   "default": 0.06,
+   "group": "Pose",
+   "help": "How far below the top edge the figure starts, as a fraction of the canvas. The rest falls under the feet. Raise it when hair or a hat keeps reaching the top: the model grows past the guide once ControlNet stops steering, and it grows upward.",
+   "label": "Headroom",
+   "max": 0.4,
+   "min": 0.0,
+   "path": "pose.margin",
+   "step": 0.01,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -5968,6 +6012,17 @@
    "min": 0.0,
    "path": "pose.fill",
    "step": 0.02,
+   "type": "float"
+  },
+  {
+   "default": 0.06,
+   "group": "Pose",
+   "help": "How far below the top edge the figure starts, as a fraction of the canvas. The rest falls under the feet. Raise it when hair or a hat keeps reaching the top: the model grows past the guide once ControlNet stops steering, and it grows upward.",
+   "label": "Headroom",
+   "max": 0.4,
+   "min": 0.0,
+   "path": "pose.margin",
+   "step": 0.01,
    "type": "float"
   },
   {

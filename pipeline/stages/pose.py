@@ -51,6 +51,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
             entry["pose"], entry["yaw"],
             depth_scale=cfg["depth_scale"],
             lateral_scale=cfg["lateral_scale"],
+            margin=cfg["margin"],
             fill=fill,
             rig=rig,
         )
