@@ -620,3 +620,35 @@ to docs, with the date), restates the code (delete), or is the one line worth
 keeping. Then a check in `make check` that refuses a new one, the way
 `tools/check_failures.py` refuses a builtin raise, so the sweep does not have to
 happen twice.
+
+## 26. "weight 1.00" on a reference card is not the weight
+
+**Found 2026-09-10.** The number on each reference card is `weight_scale`, a
+multiplier. The weight IPAdapter actually receives is decided per frame by
+`references.pick()` from the angle between the frame and the reference:
+
+```
+weight = exact_weight ... far_weight   interpolated over the angle
+         0.85            0.45          beyond references.match.tolerance (40°)
+applied  = weight * ref.weight_scale
+```
+
+So a card reading `1.00` produces 0.85 on a matching frame and 0.45 on the
+opposite one, and the card says neither. `1.00` is the neutral multiplier, not
+"full trust", which is why it is allowed above 1 - the identity slider ranges to
+1.5 and there is no clamp on the parsed value at all (`_one()` takes whatever
+the YAML says; only `style_weight()` clamps, at 0.6).
+
+Nothing is normalised across the three cards because nothing sums: `pick()`
+selects exactly one reference per frame by nearest yaw and the others are not
+in the graph for that frame. Normalising to 1.0 across three views would make
+each view weaker for the crime of supplying more views, which inverts what more
+views are for.
+
+What it would take: show the applied range on the card, not the multiplier -
+`0.85 front / 0.45 rear` beside a slider that keeps calling itself a
+multiplier. Same fix reaches the missing clamp, since the range is what makes
+2.55 visibly wrong.
+
+The control is also a bare `<input type=range>` rather than the `Range`
+primitive, so it is one of the stragglers from the slider sweep.
