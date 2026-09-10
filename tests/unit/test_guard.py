@@ -252,3 +252,46 @@ def test_a_model_server_is_adopted_as_expected_to_be_large(tmp_path, monkeypatch
     adopt_pidfiles(tmp_path)
 
     assert guard_mod.GUARD.watched[os.getpid()].expected_large is True
+
+
+def test_a_live_run_is_found_by_its_command_line(monkeypatch):
+    """Whoever started it may be gone: the UI restarts, the autopilot is separate."""
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = ("/usr/bin/python -u /x/run.py /x/cfg.yaml --run-id 20260101_000000_a\n"
+                  "/bin/zsh -c something else\n")
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    assert guard_mod.run_in_flight() == "20260101_000000_a"
+
+
+def test_nothing_running_is_not_a_run(monkeypatch):
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = "/bin/zsh -c nothing to do here\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    assert guard_mod.run_in_flight() is None
+
+
+def test_a_run_py_without_a_run_id_is_ignored(monkeypatch):
+    """--list and --help both invoke run.py and start nothing."""
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = "/usr/bin/python /x/run.py --list\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    assert guard_mod.run_in_flight() is None
+
+
+def test_ps_failing_says_nothing_rather_than_no(monkeypatch):
+    from pipeline.shared import guard as guard_mod
+
+    def boom(*a, **k):
+        raise OSError("no ps")
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", boom)
+    assert guard_mod.run_in_flight() is None

@@ -73,3 +73,18 @@ class TestPathMap:
         from pipeline.orchestration.artifacts import _decode, _encode
 
         assert _decode(_encode({})) == {}
+
+
+def test_a_queued_job_waits_for_the_machine_rather_than_failing(monkeypatch):
+    """Blocked because the GPU is busy is not a broken job."""
+    from pathlib import Path
+
+    from pipeline.orchestration import queue as q
+    from pipeline.shared import guard
+
+    monkeypatch.setattr(guard, "run_in_flight", lambda: "20260101_000000_x")
+    waiting = q._await_free_gpu(Path("."))
+    assert waiting and "20260101_000000_x" in waiting[0]
+
+    monkeypatch.setattr(guard, "run_in_flight", lambda: None)
+    assert q._await_free_gpu(Path(".")) == []

@@ -308,7 +308,7 @@ def test_a_finished_run_does_not_block_the_next(monkeypatch):
         def poll(self):
             return 0
 
-    monkeypatch.setattr(runs_api, "_adopted", lambda: None)
+    monkeypatch.setattr(runs_api.guard, "run_in_flight", lambda: None)
     runs_api._ACTIVE["20260101_000000_done"] = Dead()
     try:
         assert runs_api._in_flight() is None

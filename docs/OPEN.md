@@ -475,17 +475,23 @@ Measure before either. §16 changed the backdrop prompt from a hex code to a
 colour name, and the next generated canonical says whether the backdrop obeys at
 all. A weight map may be solving a problem that no longer exists.
 
-## 20. Nothing stops two runs, and a stop is not a stop everywhere
+## 20. Two runs at once, from either direction
 
-**Half done 2026-09-10.** `start_run` refused nothing: pressing Run while a run
-was going started a second subprocess, and pressing Resume on the run already
-running started a second copy of the SAME one - both writing the same stage
-directories and the same `artifacts.json`. It now raises `Conflict` either way,
-and the refusal survives a server restart by finding a live `run.py` through its
-`--run-id` on the command line, because `_ACTIVE` is only this process's memory.
+**Done 2026-09-10.** `start_run` refused nothing: Run while a run was going
+started a second subprocess, and Resume on the run already running started a
+second copy of the same one, both writing the same directories and the same
+`artifacts.json`. Both now raise `Conflict`.
 
-**What is left.** The queue and the autopilot start runs by their own path
-(`api/jobs.py`), and `_in_flight` does not gate them. Whether they should queue
-behind a manual run or refuse it is a product decision; today they neither
-queue nor refuse.
+The queue and the autopilot start runs by their own path and were not gated by
+that. They wait rather than refuse, which is the difference between the two
+callers: a person pressing Run has made a choice and wants to hear no, while a
+queued job blocked because the machine is busy is not a broken job and the
+autopilot exists to drain the queue eventually. `preflight` already separated
+`problems` from `waiting`, so it is one more waiting reason and the loop already
+knows to hold and retry.
 
+Discovery lives in `shared/guard.py` as `run_in_flight`, found through the
+`--run-id` a run carries on its command line. It is a fact about the machine,
+not about HTTP: `_ACTIVE` is one process's memory, the autopilot is a different
+process entirely, and the packaging test refused the first version for making
+`orchestration` import `api`.

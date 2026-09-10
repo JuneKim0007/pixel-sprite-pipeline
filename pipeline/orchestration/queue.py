@@ -230,6 +230,20 @@ def _await_source_run(root: Path, merged: dict) -> list[str]:
         f"run '{from_run}' does not exist yet"]
 
 
+def _await_free_gpu(root: Path) -> list[str]:
+    """A run already going, started by hand or left by an earlier autopilot.
+
+    Two runs share one GPU and, if they are the same run, one directory. The
+    queue waits rather than failing: a job blocked because the machine is busy
+    is not a broken job, and the autopilot's whole purpose is to drain a queue
+    eventually.
+    """
+    from ..shared import guard
+
+    busy = guard.run_in_flight()
+    return [f"run '{busy}' is still going"] if busy else []
+
+
 def _await_annotations(root: Path, merged: dict) -> list[str]:
     if merged.get("annotate") != "require":
         return []
@@ -266,6 +280,7 @@ def preflight(root: Path, job: Job) -> Preflight:
         waiting += _await_annotations(root, merged)
 
     waiting += _await_needs(root, job)
+    waiting += _await_free_gpu(root)
     return Preflight(not problems, problems, waiting)
 
 

@@ -1715,9 +1715,13 @@ await atest('starting a run cannot outrun a run already going', async () => {
   assert.match(src, /def _in_flight/);
   assert.match(src, /busy = _in_flight\(\)/, 'start_run does not check');
   assert.match(src, /raise Conflict/, 'a second run is allowed through');
-  // _ACTIVE is per-process; a restarted server must still see the subprocess.
-  assert.match(src, /def _adopted/, 'a restart would wave a second run through');
-  assert.match(src, /--run-id/, 'the adopted run is not found by its command line');
+  // _ACTIVE is per-process; a restarted server must still see the subprocess,
+  // and the queue needs the same answer, so discovery lives in shared/guard.py.
+  assert.match(src, /guard\.run_in_flight\(\)/,
+    'a restart would wave a second run through');
+  const g = readFileSync(join(ROOT, 'pipeline/shared/guard.py'), 'utf8');
+  assert.match(g, /def run_in_flight/);
+  assert.match(g, /--run-id/, 'the live run is not found by its command line');
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

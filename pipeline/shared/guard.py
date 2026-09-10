@@ -242,3 +242,25 @@ def adopt_pidfiles(run_dir) -> list[str]:
         GUARD.watch(pid, name, expected_large=name in EXPECTED_LARGE)
         adopted.append(f"{name}:{pid}")
     return adopted
+
+
+def run_in_flight() -> str | None:
+    """A live `run.py`, found by the --run-id it carries on its command line.
+
+    Discovery rather than bookkeeping: whoever started it may be gone, and both
+    the API and the queue need the same answer.
+    """
+    try:
+        out = subprocess.run(["ps", "-axo", "args="],
+                             capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.stdout.splitlines():
+        if "run.py" not in line or "--run-id" not in line:
+            continue
+        parts = line.split()
+        try:
+            return parts[parts.index("--run-id") + 1]
+        except (ValueError, IndexError):
+            continue
+    return None
