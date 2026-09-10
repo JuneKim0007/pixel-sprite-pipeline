@@ -23,6 +23,8 @@ import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
 import { projectPoint } from '../../features/pose.js';
 import { el } from '../../core/dom.js';
 import { toast } from '../../store.js';
+import { Disclosure } from '../../ui/index.js';
+import { EDGE, weightPainter } from './weights.js';
 
 const DOT = 7;
 
@@ -364,6 +366,42 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     render();
   };
 
+  const weightState = el('span', { className: 'mini savestate' });
+  let pending = null;
+
+  const weightSaver = autosaver(async () => {
+    const values = pending === null
+      ? null : Array.from(pending, (v) => Math.round(v * 1e4) / 1e4);
+    await api.saveWeightmap(imagePath, values, EDGE);
+  }, {
+    onState: (phase, detail) => {
+      weightState.classList.toggle('bad', phase === 'error');
+      weightState.textContent = saveLabel(phase, detail);
+    },
+  });
+
+  // A conditioning mask is a float per latent cell, not a flag - samplers.py
+  // does mask * mask_strength * strength - so a painted map is what the
+  // sampler already takes. It sits beside the annotation because both describe
+  // this image and outlive any run using it.
+  const painter = weightPainter({
+    imagePath,
+    onChange: (values) => { pending = values; weightSaver.touch(); },
+  });
+
+  const weightSection = Disclosure('Emphasis map', {
+    open: false,
+    note: 'where the model should attend',
+    actions: weightState,
+  }, painter.node);
+
+  (async () => {
+    try {
+      const saved = await api.weightmap(imagePath);
+      if (saved.painted && saved.values?.length) painter.set(saved.values);
+    } catch { /* nothing painted yet */ }
+  })();
+
   root.append(
     el('div', { className: 'annotbar' },
       el('span', { className: 'mini', textContent: 'Place' }), jointSel,
@@ -380,7 +418,8 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       el('div', { className: 'annotside' },
         el('h3', { textContent: 'Joints' }), placedList,
         el('h3', { textContent: 'What this implies' }), derived,
-        el('h3', { textContent: 'Head construction' }), legend)));
+        el('h3', { textContent: 'Head construction' }), legend)),
+    weightSection);
 
   drawFaceLegend(legend);
 

@@ -1283,3 +1283,11 @@ input.wide { width: 100%; max-width: 420px; }
   display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   margin-bottom: 12px; font-size: 13px;
 }
+
+.weightpanel { display: grid; gap: 10px; }
+.weightbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.weightcanvas {
+  width: 100%; max-width: 512px; aspect-ratio: 1; touch-action: none;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--panel-2); cursor: crosshair; image-rendering: pixelated;
+}

@@ -128,6 +128,32 @@ def _save_annotation(body: dict) -> dict:
     return {**annotate.describe(ann), "saved": True}
 
 
+def _save_weightmap(body: dict) -> dict:
+    """Store a painted map beside its image, or remove one when values are empty."""
+    import numpy as np
+
+    from pipeline.geometry import weightmap as wm
+
+    image = files_mod.safe_path(body.get("image", ""), allowed_roots())
+    if not image.is_file():
+        raise NotFound("image", body.get("image", ""))
+
+    values = body.get("values")
+    if not values:
+        wm.clear(image)
+        return {"painted": False, "image": str(image)}
+
+    edge = int(body.get("edge") or wm.EDGE)
+    if edge * edge != len(values):
+        raise Invalid(
+            f"{len(values)} value(s) do not fill a {edge}x{edge} map",
+            field="values")
+
+    grid = np.asarray(values, dtype=np.float32).reshape(edge, edge)
+    wm.save(image, grid)
+    return {"painted": True, "image": str(image), **wm.describe(grid)}
+
+
 class Poses(BaseRouter):
     prefix = "/api"
 
@@ -161,6 +187,23 @@ class Poses(BaseRouter):
           returns=Shape(saved=bool, image=str, rig=str, points=dict))
     def save_annotation(self, req):
         return _save_annotation(req.body)
+
+    @get("/weightmap", "the painted emphasis map for one reference image",
+         returns=Shape(painted=bool, image=str, edge=int, values=list))
+    def weightmap(self, req):
+        from pipeline.geometry import weightmap as wm
+
+        image = files_mod.safe_path(req.required("image"), allowed_roots())
+        found = wm.load(image)
+        return {"image": str(image), "edge": wm.EDGE,
+                "values": [] if found is None else
+                          [round(float(v), 4) for v in found.ravel()],
+                **wm.describe(found)}
+
+    @post("/weightmap", "store or clear a painted emphasis map",
+          returns=Shape(painted=bool, image=str))
+    def save_weightmap(self, req):
+        return _save_weightmap(req.body)
 
     @get("/autorig", "fit a rig to a reference image",
          returns=Shape(points=dict, proportions=dict, confidence=(int, float),

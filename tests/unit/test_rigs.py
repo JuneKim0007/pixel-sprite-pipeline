@@ -230,3 +230,72 @@ class TestProportions:
         with pytest.raises(Invalid) as caught:
             rigs.scale(rigs.get("humanoid"), {"elbows": 1.2})
         assert "elbows" in str(caught.value)
+
+
+class TestWeightMap:
+    """A painted emphasis map, stored beside the image it describes."""
+
+    def test_it_round_trips_through_the_sidecar(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from pipeline.geometry import weightmap as wm
+
+        image = tmp_path / "ref.png"
+        Image.new("RGB", (8, 8)).save(image)
+
+        painted = wm.radial(0.95, 0.60)
+        wm.save(image, painted)
+        back = wm.load(image)
+
+        assert back is not None
+        assert back.shape == painted.shape
+        # 8-bit storage, so a value is kept to within half a step.
+        assert np.abs(back - painted).max() <= 1 / 255 + 1e-6
+
+    def test_an_unpainted_image_has_no_map(self, tmp_path):
+        from PIL import Image
+
+        from pipeline.geometry import weightmap as wm
+
+        image = tmp_path / "ref.png"
+        Image.new("RGB", (8, 8)).save(image)
+        assert wm.load(image) is None
+        assert wm.clear(image) is False
+
+    def test_the_sidecar_sits_beside_the_image(self, tmp_path):
+        from pipeline.geometry import weightmap as wm
+
+        assert wm.sidecar_for(tmp_path / "a.png").name == "a.png.weight.png"
+
+    def test_radial_is_strongest_in_the_middle(self):
+        from pipeline.geometry import weightmap as wm
+
+        grid = wm.radial(0.9, 0.8)
+        middle = wm.EDGE // 2
+        assert grid[middle, middle] > grid[0, 0]
+        assert grid[0, 0] == pytest.approx(0.8, abs=1e-3)
+
+    def test_flat_is_one_value_everywhere(self):
+        from pipeline.geometry import weightmap as wm
+
+        grid = wm.flat(0.8)
+        assert grid.min() == pytest.approx(grid.max())
+
+    def test_values_outside_the_range_are_clipped(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from pipeline.geometry import weightmap as wm
+
+        image = tmp_path / "ref.png"
+        Image.new("RGB", (8, 8)).save(image)
+        wm.save(image, np.array([[-4.0, 9.0], [0.5, 0.5]], dtype=np.float32))
+        back = wm.load(image)
+        assert back.min() >= 0.0 and back.max() <= 1.0
+
+    def test_it_is_stored_at_the_grid_the_sampler_uses(self):
+        """samplers.py resizes a mask to the latent grid, an eighth of the image."""
+        from pipeline.geometry import weightmap as wm
+
+        assert wm.EDGE == 128

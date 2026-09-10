@@ -1620,5 +1620,48 @@ await atest('no stylesheet rule matches nothing', async () => {
   assert.deepEqual(dead, [], `CSS rules nothing matches: ${dead.join(', ')}`);
 });
 
+console.log('\nemphasis map');
+await atest('a brush builds up instead of stamping a disc', async () => {
+  const { flat, paint, stats, EDGE } = await import(join(JS, 'views/run/weights.js'));
+  const v = flat(0.8);
+  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: 0.1 });
+  const middle = v[(EDGE / 2) * EDGE + EDGE / 2];
+  const rim = v[Math.round(EDGE * 0.5 + EDGE * 0.19) + (EDGE / 2) * EDGE];
+  assert.ok(middle > rim, 'the stroke has a hard edge instead of a falloff');
+  assert.ok(rim >= 0.8, 'the rim went below what it started at');
+
+  // Overlapping strokes accumulate; that is what makes painting work.
+  const before = v[(EDGE / 2) * EDGE + EDGE / 2];
+  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: 0.1 });
+  assert.ok(v[(EDGE / 2) * EDGE + EDGE / 2] > before);
+  assert.ok(stats(v).max <= 1, 'a weight went over 1');
+});
+
+await atest('erasing is the same stroke with the sign flipped', async () => {
+  const { flat, paint, EDGE } = await import(join(JS, 'views/run/weights.js'));
+  const v = flat(0.8);
+  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: -0.2 });
+  assert.ok(v[(EDGE / 2) * EDGE + EDGE / 2] < 0.8);
+  assert.ok(v.every((x) => x >= 0), 'a weight went below 0');
+});
+
+await atest('centre falls off to the rim value', async () => {
+  const { radial, EDGE } = await import(join(JS, 'views/run/weights.js'));
+  const v = radial(0.9, 0.8);
+  assert.ok(Math.abs(v[(EDGE / 2) * EDGE + EDGE / 2] - 0.9) < 0.02);
+  assert.ok(Math.abs(v[0] - 0.8) < 1e-6, 'the corner is not the rim value');
+});
+
+await atest('the map is sized to the grid the sampler uses', async () => {
+  // samplers.py resizes a conditioning mask to the latent grid and multiplies:
+  // mask * mask_strength * strength. Painting at that size loses nothing.
+  const { EDGE, flat } = await import(join(JS, 'views/run/weights.js'));
+  assert.equal(EDGE, 128);
+  assert.equal(flat().length, 128 * 128);
+
+  const py = readFileSync(join(ROOT, 'pipeline/geometry/weightmap.py'), 'utf8');
+  assert.match(py, /EDGE = 128/, 'the two ends disagree on the grid size');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

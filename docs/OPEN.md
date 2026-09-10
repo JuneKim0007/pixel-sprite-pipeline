@@ -435,3 +435,26 @@ sweep shows how common it is.
 Supersedes the earlier reading of this entry, which assumed the annotation was
 too weak. It was not. Related to §16 only in that both wanted a way to say "not
 this"; this one does not need one.
+
+## 18. The emphasis map is authored and not yet consumed
+
+**Half done 2026-09-10.** A weight map can be painted on a reference image and
+is stored beside it as `<image>.weight.png`. Nothing reads it yet.
+
+**Why it is shaped this way.** `ComfyUI/comfy/samplers.py` does
+`mask * mask_strength * strength` on a conditioning mask that it resizes to the
+latent grid, so a mask is a continuous float per cell, not a flag, and 128x128
+is exactly what survives for a 1024px generation. Painting at that size loses
+nothing and keeps the sidecar around 2 KB.
+
+**What is left, and the order matters.** Wiring it into the graph means a second
+conditioning through `ConditioningSetMask`, and a regional conditioning whose
+weights disagree across a boundary is a known source of seams - worst on a
+thin-limbed subject, which is what this pipeline makes. So the cheaper thing
+first: flatten the background of the depth map that `render_depth` already
+builds, which gives the model a spatial "background is far and flat" signal at
+one scalar strength and needs no new nodes.
+
+Measure before either. §16 changed the backdrop prompt from a hex code to a
+colour name, and the next generated canonical says whether the backdrop obeys at
+all. A weight map may be solving a problem that no longer exists.
