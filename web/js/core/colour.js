@@ -1,14 +1,3 @@
-/* Colour, in the forms a person types it.
- *
- * The same forms `parse_colour` in pipeline/definitive/builtin.py accepts. Two
- * implementations is a real cost and it is paid deliberately: a live preview
- * keying a different colour from the one the written file keys would be worse.
- *
- * It lives in core/ because both the shader and the settings form need it, and
- * routing the settings form through the WebGPU module to reach a regex would
- * couple a text box to a graphics API.
- */
-
 export function parseColour(raw) {
   const text = String(raw ?? '').trim();
   if (!text) return null;
@@ -28,7 +17,6 @@ export function parseColour(raw) {
   return null;
 }
 
-/** The same value as `#rrggbb`, or null if it is not a colour at all. */
 export function normaliseColour(raw) {
   const rgb = parseColour(raw);
   return rgb ? '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('') : null;

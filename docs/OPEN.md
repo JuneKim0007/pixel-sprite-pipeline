@@ -194,150 +194,111 @@ those say so rather than being written up as features.
 
 ## 9. The Run tab does two unrelated jobs under one name
 
-**Not started.** `renderRun` is a wizard that configures and starts something
-new. The sidebar `RUN` selector beside it picks an existing run to inspect and
-resume. Both are called Run, and the selector sits in global chrome, so a
-freshly-chosen config shows a run id next to it and reads as though that run is
-about to be re-run.
-
+**Not started.** `renderRun` configures and starts something new. The sidebar
+`RUN` selector beside it picks an existing run to inspect and resume. Both are
+called Run, and the selector sits in global chrome, so a freshly-chosen config
+shows a run id next to it and reads as though that run is about to be re-run.
 Autopilot has an API (`api/jobs.py`) and no mode of its own, which puts a third
 job in the same place.
 
-**What it would take.** Split the nav: New (configure and start), Runs (inspect,
-resume, autopilot). Move the run selector out of the sidebar into Runs. The
-pieces exist — `STEPS`, `reviewStep`, `confirmStep`, `gateBanner`, and the
-resume path in `result.js:295`; this is re-routing, not rewriting.
+**What it would take.** Split the nav: New, and Runs. Move the run selector out
+of the sidebar. `STEPS`, `reviewStep`, `confirmStep`, `gateBanner` and the
+resume path in `result.js` already exist; this is re-routing, not rewriting.
 
-**Why not yet.** It is the largest of these and every other UI entry below sits
-inside the surface it moves, so it is worth doing first or last, not in the
-middle.
+**Why not yet.** Every other UI entry sits inside the surface it moves, so it is
+worth doing first or last, never in the middle. §16 should precede it.
 
-## 10. Two dirty states, one vague warning
+## 10. The pose default is `library/idle`, not a rest pose
 
-**Not started.** `run.js:328` guards leaving the rig step on
-`STEPS[state.wizardStep].key === 'rig'` — the step, not which of the two
-editors was in use. The rig editor and the reference annotator share that step
-behind a segmented control and each keeps its own dirty flag; the dialog names
-neither. It says "You changed the rig" while the annotation panel may be what
-is on screen, and it never mentions unsaved annotations at all.
+**Not started.** `pose.source` defaults to `'library'` with `pose.name: 'idle'`,
+so a new humanoid rig starts from a library animation rather than the neutral
+spread `rigs.tpose` produces. One default change, to `'tpose'`.
 
-**What it would take.** Name the editor in the message, and guard on the mode
-rather than the step.
+**Not the same question as the angle.** `A_POSE_DEGREES = 40.0` was measured: 88
+degrees reads to the model as holding a weapon, and arms-down puts joint pairs
+within 4% of the canvas so the silhouette has no gap for ControlNet. The angle
+should become a setting before anyone changes it.
 
-## 11. Saving a pose re-renders everything it can reach
-
-**Not started.** `save_poses` (`api/poses.py:61`) writes `pose.json`, then calls
-`pose_stage.render_entries` AND `depth_stage.render_entries`, then rewrites
-`artifacts.json`. So the Save button is not a write, it is a re-render of every
-skeleton and every depth map, which is why the button exists at all and why
-edits cannot simply persist as they are made.
-
-**What it would take.** Split it. `pose.json` is small and can be written on
-every edit with no button. Rendering moves to when it is needed — leaving the
-step, or the run itself. Autosaving the current call would re-render eight PNGs
-per mouse-up, which is the mistake the editor already made and documented.
-
-## 12. The pose default is `library/idle`, not a rest pose
-
-**Not started.** `pose.source` defaults to `'library'` with `pose.name: 'idle'`.
-A new humanoid rig therefore starts from a library animation rather than from
-the neutral spread `rigs.tpose` produces.
-
-**What it would take.** One default change, to `'tpose'`.
-
-**Not to be confused with the angle.** `A_POSE_DEGREES = 40.0` is a measured
-choice: 88 degrees (true T) reads to the model as holding a weapon, and
-arms-down puts joint pairs within 4% of the canvas so the silhouette has no gap
-for ControlNet to separate arm from torso. The angle should become a setting
-before anyone changes it, not be changed.
-
-## 13. `Cache._size` calls every dict 64 bytes
+## 11. `Cache._size` calls every dict 64 bytes
 
 **Measured 2026-09-08, unfixed.** `cache.py:26` returns 64 for anything that is
 not an ndarray, list or tuple. Prepare results are dicts, so the prepare cache's
-8 MB byte cap has never bound — only its 64-entry cap has. Recorded in
-DIAGNOSTIC-HARNESS.md as a reading fault in the harness output; it is the cache.
+8 MB cap has never bound; only its 64-entry cap has. DIAGNOSTIC-HARNESS.md
+records this as a reading fault in the harness output. It is the cache.
 
-Separately, `remember()` refuses any image over `SNAPSHOTS.max_bytes // 4`
-(6 MB). At the 384 px preview nothing reaches that, but at full resolution
-every checkpoint is skipped in silence, so each edit recomputes the whole stack
-from the first layer.
+Separately `remember()` refuses any image over `SNAPSHOTS.max_bytes // 4` (6 MB).
+At the 384 px preview nothing reaches that; at full resolution every checkpoint
+is skipped in silence and each edit recomputes the stack from the first layer.
 
-**Why it matters.** Both point the same way as "the editor gets slow after a few
-layers", which is the reported symptom and has not been reproduced under
-measurement yet.
+Both point at "the editor gets slow after a few layers", which is the reported
+symptom and has not been reproduced under measurement.
 
-## 14. Grid measures one lattice for a picture that has several
+## 12. Grid measures one lattice for a picture that has several
 
 **Not started.** On a multi-panel character sheet the result is mirrored
 vertical streaking. `estimate_block_size` and `find_phase` assume one lattice
-over the whole image; a sheet is several drawings with their own, and no single
-factor or phase fits. The editor offers the layer on any source without saying
-this.
+over the whole image; a sheet is several drawings with their own. Either refuse
+a source whose measured block size has no agreement across regions, or measure
+per region. Refusing is smaller and honest.
 
-**What it would take.** Either refuse a source whose measured block size has no
-agreement across regions, or measure per region. Refusing is smaller and honest.
+## 13. The annotation still saves by hand, and nothing says which save is durable
 
-## 15. Two dirty flags and two save buttons in one step
+**Half done.** The rig side closed on 2026-09-10: pose edits autosave and the
+dialog is gone. `annotate.js` still keeps its own `dirty` and `Save annotation`.
 
-**Not started, and a duplicate of neither half.** `annotate.js` keeps `dirty`
-and a `Save annotation` button; `run.js` keeps `rigDirty` and a `Save pose
-guides` button. They save to different places for good reason — a pose belongs
-to its run, an annotation belongs to the image and outlives every run that uses
-it — but nothing on screen says which of the two is durable.
+Poses belong to a run; annotations are a `<image>.rig.json` sidecar reused by
+every run that uses that image. Moving annotations into `out/runs/<id>/` would
+copy them per run and break that reuse, so the split stays. What is missing is
+anything on screen saying which of the two outlives the run.
 
-**Why the storage split should stay.** Moving annotations into
-`out/runs/<id>/` would copy them per run and break the reuse that makes them
-worth authoring. The divergence is correct; its invisibility is not.
+## 14. The result view is a flat grid with no structure and no inputs
 
-## 16. Inputs are not shown as the machine consumed them
+**Not started.** Each stage's PNGs render as one undifferentiated grid. Two
+things are missing and they are the same fix: the stages do not collapse, so a
+run with six of them is a wall; and nothing shows an input as the machine
+consumed it - a skeleton over the reference it was fitted to, a depth map
+against its frame - which is what makes a bad pose obvious.
 
-**Not started.** The result view shows each stage's PNGs as a flat grid. It does
-not show a skeleton over the reference it was fitted to, or a depth map against
-the frame it came from, which is what makes a bad pose obvious.
+The history strip has the same gap. A run is identified by a timestamped id, so
+telling two apart means opening both; the reference image a run was built from
+would identify it at a glance, and `run_audit` already reads
+`references.identity` out of the run's own config.
 
-**Now unblocked.** Every run in `out/runs` had failed on a moved reference path
-until 2026-09-10, so there was nothing to lay out. `20260910_102525_char_3` has
-four skeletons and four depth maps.
+**Unblocked 2026-09-10.** Every run had failed on a moved reference path until
+then, so there was nothing to lay out. `20260910_102525_char_3` has four
+skeletons and four depth maps.
 
-## 17. Bone lengths are fixed, and a rig cannot be made to fit a body
+## 15. Bone lengths are fixed, and a rig cannot be made to fit a body
 
-**Not started, requested 2026-09-10.** The rig editor drags joints but cannot
-change a bone's length, so a rig can be posed and not proportioned. Fitting a
-long-legged or short-torsoed character means editing `rigs.py`.
+**Not started.** The rig editor drags joints but cannot change a bone's length,
+so a rig can be posed and not proportioned. Fitting a long-legged character
+means editing `rigs.py`.
 
-**What it would take.** Lengthening a bone has to move everything below it or
-the skeleton comes apart, so the change is a downward traversal, not a point
-edit: `SKELETON_TREE` in `features/pose.js` already gives parent/child, and
-`subtree()` already walks it — both are used by `dragJoint`. Stretching
-`l_hip -> l_knee` translates the knee's whole subtree by the delta.
+**What it would take.** Lengthening a bone moves everything below it, so it is a
+downward traversal rather than a point edit. `SKELETON_TREE` in
+`features/pose.js` gives parent/child and `subtree()` already walks it; both are
+used by `dragJoint`. Stretching `l_hip -> l_knee` translates the knee's subtree.
+Limbs come in pairs and one long leg is a mistake more often than an intention,
+so pairs move together by default, with a way to break it; the `l_`/`r_` prefix
+already names the pairing.
 
-Symmetry is the second half: limbs come in pairs and a rig with one long leg is
-a mistake far more often than an intention, so the pair should move together by
-default with an explicit way to break it. The `l_`/`r_` prefix already names the
-pairing.
+**Not as large as it sounds.** No whole-rig recalculation. A bone length is the
+distance between two joints and the subtree is already computed.
 
-**Why it is not as large as it sounds.** No recalculation of the whole rig is
-required. A bone length is the distance between two joints; changing it is a
-translation applied to a subtree, and the subtree is already computed.
+## 16. The UI has no written layout rules, so every view invented its own
 
-## 18. The UI has no written layout rules, so every view invented its own
+**Not started.** Nothing says when a thing is a box, when boxes nest, what a
+panel's ratio or minimum is, or where an action belongs. Each view answered
+separately and the answers disagree: `.card`, `.pane`, `.stackpanel`,
+`.stackform`, `.group`, `.histbox` and `.auditbox` are all a bordered container
+with a heading, with different padding, radius and border rules.
 
-**Not started, requested 2026-09-10.** There is no document saying when a thing
-is a box, when boxes nest, what a panel's ratio or minimum size is, or where an
-action belongs. So each view answered separately, and the answers disagree:
-`.card`, `.compare-cell`, `.pane`, `.stackpanel`, `.stackform`, `.group`,
-`.histbox` and `.auditbox` are all "a bordered container with a heading", with
-different padding, radius and border rules between them.
+The editor's four cards became one shell with dividers on 2026-09-10, which
+fixed one view and widened the gap with the rest.
 
-The editor's four cards became one shell with dividers on 2026-09-10 (§9 area),
-which fixed one view and widened the gap with the rest.
+**What it would take.** Probe the elements and name the responsibilities that
+are actually present, write the rules down, then reduce the classes to them. The
+document is the deliverable; the refactor follows it.
 
-**What it would take.** Probe the existing elements first and name the
-responsibilities actually present - surface, section, pane, field row, action
-bar - then write the rules down and reduce the classes to them. The document is
-the deliverable; the refactor follows it rather than preceding it.
-
-**Why it is worth doing before more UI work.** §9 (splitting New from Runs) and
-§16 (showing inputs as consumed) both add layout, and adding it without rules
+**Why before more UI work.** §9 and §14 both add layout. Adding it without rules
 means two more dialects.

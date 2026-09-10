@@ -63,7 +63,11 @@ export function renderSettings(host, { onSaved }) {
       className: `scopebtn ${state.scope === value ? 'on' : ''}`,
       textContent: label,
     });
-    btn.onclick = () => { state.scope = value; renderSettings(host, { onSaved }); };
+    btn.onclick = () => {
+      window.pixelNav?.remember?.();
+      state.scope = value;
+      renderSettings(host, { onSaved });
+    };
     scopeBar.append(btn);
   }
 
@@ -86,7 +90,11 @@ export function renderSettings(host, { onSaved }) {
       el('span', { textContent: name }),
       el('span', { className: 'count', textContent: counts[name] ? String(counts[name]) : '·' }),
       (!isGlobal && pinnedHere) ? el('span', { className: 'dot' }) : null);
-    item.onclick = () => { state.settingsSection = name; renderSettings(host, { onSaved }); };
+    item.onclick = () => {
+      window.pixelNav?.remember?.();
+      state.settingsSection = name;
+      renderSettings(host, { onSaved });
+    };
     nav.append(item);
   }
 

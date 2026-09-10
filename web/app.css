@@ -1255,3 +1255,15 @@ input.wide { width: 100%; max-width: 420px; }
    "saved" from "the app is ignoring me". */
 .savestate { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .savestate.bad { color: rgb(194,55,44); }
+
+/* Lives in the sidebar, outside every view host, so a view that fails to draw
+   cannot take the way out down with it. */
+.backbtn {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  margin: 0 0 12px; padding: 9px 12px; font-size: 13px; font-weight: 500;
+  color: var(--ink-dim); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+}
+.backbtn:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+.backbtn:disabled { opacity: .38; cursor: default; }
+.backglyph { font-size: 17px; line-height: 1; }

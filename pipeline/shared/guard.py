@@ -65,15 +65,7 @@ class Guard:
 
     @staticmethod
     def rss(pids: list[int]) -> dict[int, int] | None:
-        """Resident bytes per pid, counting the descendants it is responsible for.
-
-        None means the question could not be asked; an empty dict means it was
-        asked and every process is gone. A caller that treats those alike
-        forgets every watched process the first time `ps` fails to spawn.
-
-        A descendant that is watched in its own right is left out, so the two
-        readings do not both claim the same bytes.
-        """
+        """Resident bytes per pid with its descendants. None if `ps` failed."""
         if not pids:
             return {}
         try:
@@ -115,12 +107,7 @@ class Guard:
 
     @staticmethod
     def _signal(pid: int) -> None:
-        """Kill the service, not just the process that speaks for it.
-
-        Each service is started in its own process group, and the memory the
-        reading measured usually sits in a worker rather than in the leader.
-        The guard's own group is never signalled that way: it holds the caller.
-        """
+        """SIGKILL the whole process group, never the guard's own."""
         try:
             group = os.getpgid(pid)
         except (ProcessLookupError, PermissionError):

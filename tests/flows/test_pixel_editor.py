@@ -229,3 +229,26 @@ def test_the_budget_does_not_leak_between_runs(root, img, stack):
     _, facts = definitive.apply_stack(big, stack)
     assert not [la for la in facts["layers"] if la.get("error")], \
         "a previous run's budget refused a larger independent image"
+
+
+def test_resume_reaches_start_run_as_resume(monkeypatch):
+    """Resume was wired to the `stages` key, so it never arrived."""
+    from pipeline.api import runs as runs_api
+
+    seen = {}
+
+    def fake(config_name, overrides, resume, style_picks=None):
+        seen.update(config=config_name, resume=resume)
+        return resume or "new"
+
+    monkeypatch.setattr(runs_api, "start_run", fake)
+
+    class Req:
+        body = {"resume": "20260101_000000_x"}
+
+        def get(self, key, default=None):
+            return self.body.get(key, default)
+
+    runs_api.Runs().start(Req())
+    assert seen["resume"] == "20260101_000000_x"
+    assert seen["config"] == ""

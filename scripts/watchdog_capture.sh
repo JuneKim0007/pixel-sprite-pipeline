@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
-# Collect the evidence a WindowServer watchdog timeout leaves behind.
-#
-# The reports name the process that died, never the forty seconds before it.
-# That window only exists in the unified log, it is gone by the time anyone
-# thinks to ask, and reconstructing the timestamps by hand is what went wrong
-# the first time. So the timestamps come from the report's own filename.
-#
-#   watchdog_capture.sh            the newest event
-#   watchdog_capture.sh --list     what events exist
-#   watchdog_capture.sh --watch    wait for the next one, then capture it
-#
-# Needs `sudo log config --mode "persist:info"` to have been set BEFORE the
-# event. Without it the log window comes back empty and only the stackshot
-# summary is worth reading.
+# watchdog_capture.sh [--list|--watch]  collect a WindowServer watchdog event
+# Needs: sudo log config --mode "persist:info"  set BEFORE the event.
 
 set -uo pipefail
 
@@ -27,7 +15,6 @@ newest() {
   ls -t "$REPORTS"/*userspace_watchdog_timeout.spin 2>/dev/null | head -1
 }
 
-# WindowServer_2026-09-10-093203_host.userspace_watchdog_timeout.spin
 stamp_of() {
   basename "$1" | sed -nE 's/.*_([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2})_.*/\1-\2-\3 \4:\5:\6/p'
 }
@@ -51,9 +38,6 @@ capture() {
   echo "event    $stamp"
   echo "window   $start -> $end"
 
-  # The stackshot answers "was anything actually running", which is what
-  # separates a machine under load from a machine that simply stopped
-  # answering. Both have looked like a freeze from the outside.
   {
     grep -m1 "^Reason:" "$spin"
     grep -m1 "^Total CPU Time:" "$spin"
@@ -66,9 +50,6 @@ capture() {
   } > "$out.summary.txt" 2>&1
   echo "wrote    $out.summary.txt"
 
-  # Compressed as it is produced. Four minutes of a busy machine came to 248 MB
-  # of text, and writing that out only to read it back and gzip it is where
-  # this stalled long enough to look hung.
   log show --start "$start" --end "$end" --info --debug --style compact 2>&1 \
     | gzip -c > "$out.log.txt.gz"
   local lines
@@ -81,14 +62,7 @@ capture() {
     return 0
   fi
 
-  # Everything after the kill is thousands of clients reconnecting and says
-  # nothing about why; the minutes BEFORE it are the point. LC_ALL=C throughout
-  # because the log carries bytes that are not valid UTF-8 and both sort and
-  # awk abort on them.
   local clock="${stamp#* }" dead
-  # The report is stamped a few seconds AFTER the kill, so a plain time filter
-  # picks up the REPLACEMENT WindowServer starting rather than the one that
-  # died. Pin the pid the report names.
   dead="$(sed -nE 's/^PID: +([0-9]+).*/\1/p' "$spin" | head -1)"
   {
     echo "--- WindowServer / watchdogd errors, up to the kill at $clock ---"
@@ -133,7 +107,7 @@ case "${1:-}" in
     done
     ;;
   --help|-h)
-    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+     sed -n '2,3p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     ;;
   *)
     spin="$(newest)"

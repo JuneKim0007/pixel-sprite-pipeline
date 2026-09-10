@@ -16,15 +16,11 @@ POSE_NEGATIVE = (
 
 BACKDROP = "#FF00FF"
 
-# Why magenta leads and green is offered rather than assumed: green sits close
-# to skin and cloth tones, so every pixel it bleeds into is one the palette has
-# to spend an entry on. That is a pixel-art cost film compositing does not pay,
-# which is why the industry default is the wrong default here.
 BACKDROP_PRESETS: tuple[tuple[str, str], ...] = (
-    ("#FF00FF", "Magenta — furthest from skin and cloth"),
-    ("#00B140", "Chroma green — the film standard, bleeds into skin"),
-    ("#0047BB", "Chroma blue — for green or yellow subjects"),
-    ("#7F7F7F", "Neutral grey — when the subject is saturated"),
+    ("#FF00FF", "Magenta, furthest from skin and cloth"),
+    ("#00B140", "Chroma green, bleeds into skin tones"),
+    ("#0047BB", "Chroma blue, for green or yellow subjects"),
+    ("#7F7F7F", "Neutral grey, for saturated subjects"),
 )
 BACKDROP_TERMS = (
     "solid flat {colour} chroma key background, uniform background colour, "

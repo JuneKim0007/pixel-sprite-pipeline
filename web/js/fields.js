@@ -101,16 +101,6 @@ export function control(field, value, onChange) {
     return wrap;
   }
 
-  /* A colour, said three ways, all of them the same value.
-   *
-   * The presets are one click and cover the decision most people should not
-   * have to research, which is why each carries its trade-off in a tooltip
-   * rather than being a bare square. The native picker is for choosing by eye.
-   * The text box is for saying exactly, and for pasting a value out of a
-   * palette file; it takes RGB as well as hex, because a field that silently
-   * ignored everything but six hex digits is the bug this replaces.
-   *
-   * All three write through `set`, so none can drift from the saved value. */
   if (field.type === 'colour') {
     const fallback = field.default || '#FF00FF';
     let current = normaliseColour(value) || fallback;
@@ -142,10 +132,7 @@ export function control(field, value, onChange) {
       swatches.append(chip);
     }
 
-    picker.oninput = () => set(picker.value);
-    // `change`, not `input`: reformatting a half-typed value on every keystroke
-    // is what makes a text field impossible to type into.
-    text.onchange = () => { if (!set(text.value, 'text')) text.value = current; };
+    picker.oninput = () => set(picker.value);    text.onchange = () => { if (!set(text.value, 'text')) text.value = current; };
 
     wrap.append(swatches, picker, text);
     set(current);
@@ -178,7 +165,6 @@ export function control(field, value, onChange) {
 export const orderProblems = (active) =>
   problemsOf(active, state.schema.stages, state.schema.resources);
 export const autoOrder = (active) => orderOf(active, state.schema.stages);
-
 
 function stagePicker(active, onChange) {
   const box = el('div', { className: 'stagepicker' });
@@ -329,19 +315,6 @@ const LIST_EDITORS = {
   },
 };
 
-
-/* The control for one field INSIDE a list card.
- *
- * Restored: 197651b deleted this and left the call below it, so every list
- * editor in Settings - references, poses, props, softbody nodes - threw
- * ReferenceError the moment it rendered. Nothing caught it because the list
- * editors are the one part of the settings form no test drives.
- *
- * It is not `control` directly for two reasons. `vec3`, `vec2` and `image` are
- * shapes only a list card uses, and a card spec says `optionsFrom` where a
- * schema field says `options_from` - so this is also the adapter between the
- * two vocabularies.
- */
 function subControl(spec, value, onChange) {
   if (spec.type === 'vec3' || spec.type === 'vec2') {
     const size = spec.type === 'vec3' ? 3 : 2;

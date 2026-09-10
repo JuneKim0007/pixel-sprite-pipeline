@@ -615,19 +615,19 @@
       "options": [
         [
           "#FF00FF",
-          "Magenta \u2014 furthest from skin and cloth"
+          "Magenta, furthest from skin and cloth"
         ],
         [
           "#00B140",
-          "Chroma green \u2014 the film standard, bleeds into skin"
+          "Chroma green, bleeds into skin tones"
         ],
         [
           "#0047BB",
-          "Chroma blue \u2014 for green or yellow subjects"
+          "Chroma blue, for green or yellow subjects"
         ],
         [
           "#7F7F7F",
-          "Neutral grey \u2014 when the subject is saturated"
+          "Neutral grey, for saturated subjects"
         ]
       ],
       "path": "background.colour",
@@ -1936,19 +1936,19 @@
       "options": [
         [
           "#FF00FF",
-          "Magenta \u2014 furthest from skin and cloth"
+          "Magenta, furthest from skin and cloth"
         ],
         [
           "#00B140",
-          "Chroma green \u2014 the film standard, bleeds into skin"
+          "Chroma green, bleeds into skin tones"
         ],
         [
           "#0047BB",
-          "Chroma blue \u2014 for green or yellow subjects"
+          "Chroma blue, for green or yellow subjects"
         ],
         [
           "#7F7F7F",
-          "Neutral grey \u2014 when the subject is saturated"
+          "Neutral grey, for saturated subjects"
         ]
       ],
       "path": "background.colour",
@@ -3378,19 +3378,19 @@
       "options": [
         [
           "#FF00FF",
-          "Magenta \u2014 furthest from skin and cloth"
+          "Magenta, furthest from skin and cloth"
         ],
         [
           "#00B140",
-          "Chroma green \u2014 the film standard, bleeds into skin"
+          "Chroma green, bleeds into skin tones"
         ],
         [
           "#0047BB",
-          "Chroma blue \u2014 for green or yellow subjects"
+          "Chroma blue, for green or yellow subjects"
         ],
         [
           "#7F7F7F",
-          "Neutral grey \u2014 when the subject is saturated"
+          "Neutral grey, for saturated subjects"
         ]
       ],
       "path": "background.colour",
@@ -4665,19 +4665,19 @@
       "options": [
         [
           "#FF00FF",
-          "Magenta \u2014 furthest from skin and cloth"
+          "Magenta, furthest from skin and cloth"
         ],
         [
           "#00B140",
-          "Chroma green \u2014 the film standard, bleeds into skin"
+          "Chroma green, bleeds into skin tones"
         ],
         [
           "#0047BB",
-          "Chroma blue \u2014 for green or yellow subjects"
+          "Chroma blue, for green or yellow subjects"
         ],
         [
           "#7F7F7F",
-          "Neutral grey \u2014 when the subject is saturated"
+          "Neutral grey, for saturated subjects"
         ]
       ],
       "path": "background.colour",
@@ -5941,19 +5941,19 @@
       "options": [
         [
           "#FF00FF",
-          "Magenta \u2014 furthest from skin and cloth"
+          "Magenta, furthest from skin and cloth"
         ],
         [
           "#00B140",
-          "Chroma green \u2014 the film standard, bleeds into skin"
+          "Chroma green, bleeds into skin tones"
         ],
         [
           "#0047BB",
-          "Chroma blue \u2014 for green or yellow subjects"
+          "Chroma blue, for green or yellow subjects"
         ],
         [
           "#7F7F7F",
-          "Neutral grey \u2014 when the subject is saturated"
+          "Neutral grey, for saturated subjects"
         ]
       ],
       "path": "background.colour",

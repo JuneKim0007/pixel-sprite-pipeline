@@ -1297,5 +1297,67 @@ await atest('the unsaved-edits dialog is gone, not just hidden', async () => {
   assert.match(src, /savestate/);
 });
 
+console.log('\nnavigation history');
+await atest('back returns to the last screen, not the last render', async () => {
+  const { createHistory, snapshot, same } = await import(join(JS, 'core/history.js'));
+  const h = createHistory();
+  const state = { tab: 'overview', settingsSection: 'Asset', scope: 'pipeline' };
+
+  h.push(snapshot(state));
+  state.tab = 'settings';
+  h.push(snapshot(state));
+  state.settingsSection = 'Palette';
+
+  assert.equal(h.depth(), 2);
+  assert.equal(h.pop().settingsSection, 'Asset', 'a sub-state change was not undoable');
+  assert.equal(h.pop().tab, 'overview');
+  assert.equal(h.pop(), null);
+  assert.equal(h.canGoBack(), false);
+
+  // Re-rendering a view is not a navigation; a stack of identical entries
+  // makes Back look broken.
+  const g = createHistory();
+  g.push(snapshot(state)); g.push(snapshot(state)); g.push(snapshot(state));
+  assert.equal(g.depth(), 1, 'repeated identical positions were all recorded');
+  assert.ok(same(snapshot(state), snapshot(state)));
+});
+
+await atest('a state that failed to draw is never somewhere back can land', async () => {
+  // Without forget(), Back walks into the screen that just threw - the same
+  // loop one level deeper, because the failing state was pushed on the way in.
+  const { createHistory, snapshot } = await import(join(JS, 'core/history.js'));
+  const h = createHistory();
+  const state = { tab: 'overview', settingsSection: 'Asset' };
+
+  h.push(snapshot(state));
+  state.tab = 'settings';
+  h.push(snapshot(state));
+  state.settingsSection = 'Broken';
+  h.push(snapshot(state));
+
+  h.forget(snapshot(state));
+  assert.notEqual(h.pop().settingsSection, 'Broken', 'back leads into the broken screen');
+});
+
+await atest('the stack cannot grow without bound', async () => {
+  const { createHistory } = await import(join(JS, 'core/history.js'));
+  const h = createHistory({ limit: 3 });
+  for (let i = 0; i < 20; i++) h.push({ tab: `t${i}` });
+  assert.equal(h.depth(), 3);
+  assert.equal(h.pop().tab, 't19', 'the cap dropped the newest instead of the oldest');
+});
+
+await atest('the way out lives outside every view host', async () => {
+  // mount() replaces the view host on failure. A back button rendered inside
+  // one would be removed by the very error it exists to escape.
+  const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
+  const sidebar = /<nav class="sidebar">[\s\S]*?<\/nav>/.exec(html)[0];
+  assert.match(sidebar, /id="goback"/, 'the back button is not in the sidebar');
+
+  const life = readFileSync(join(JS, 'listeners/lifecycle.js'), 'utf8');
+  assert.match(life, /pixelNav\?\.forget/, 'a failed state is still pushed');
+  assert.match(life, /goBack\(\)/, 'the failure card still only offers Try again');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

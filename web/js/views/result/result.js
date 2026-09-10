@@ -109,16 +109,6 @@ function auditPanel(detail) {
     a.subject ? el('p', { className: 'auditsubject', textContent: a.subject }) : null);
 }
 
-/* Why a run produced nothing.
- *
- * A run that dies in its first stage leaves the directory it was going to fill
- * and no files in it, so the view rendered an empty gallery and said nothing.
- * Every run on this machine had failed the same way for two days - a reference
- * path that moved - and the log saying so was already in the payload, three
- * screens down, under a heading nobody scrolls to when the page looks empty.
- *
- * The last non-empty line of a Python traceback is the exception, which is the
- * one line worth promoting to the top. */
 export function failureFrom(log) {
   if (!log || !/Traceback \(most recent call last\)/.test(log)) return null;
 
@@ -145,7 +135,7 @@ function failureBanner(failure, onShowLog) {
     ? `This run failed in ${failure.where}` : 'This run failed';
   const box = el('div', { className: 'banner err failed' },
     el('div', {},
-      el('b', { textContent: `${what} — ${failure.kind}` }),
+      el('b', { textContent: `${what}: ${failure.kind}` }),
       el('p', { className: 'mini', textContent: failure.message })));
   const jump = el('button', { className: 'btn ghost', textContent: 'Log' });
   jump.onclick = onShowLog;
@@ -338,8 +328,7 @@ export function renderResult(host, { runId, detail, onPick }) {
   const history = el('div', { className: 'histstrip' });
   const historyBox = el('section', { className: 'histbox' },
     el('div', { className: 'ovhead' },
-      el('h2', { textContent: 'History' }),
-      el('span', { className: 'mini', textContent: 'newest first' })),
+      el('h2', { textContent: 'History' })),
     history);
   host.append(historyBox);
 
@@ -382,9 +371,6 @@ export function renderResult(host, { runId, detail, onPick }) {
     host.append(el('div', { className: 'banner' },
       'Running — output appears as each stage finishes.'));
   } else if (failure && !produced) {
-    // Only when it produced nothing. A run that failed after writing frames
-    // still has output worth looking at, and a red banner over it would read
-    // as "these images are wrong" rather than "it stopped early".
     host.append(failureBanner(failure, () => {
       logPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       logPanel.scrollTop = logPanel.scrollHeight;

@@ -15,6 +15,7 @@ export function mount(name, host, view) {
     teardown = typeof cleanup === 'function' ? cleanup : null;
   } catch (e) {
     teardown = null;
+    window.pixelNav?.forget?.();
     host.replaceChildren(failure(name, e, () => mount(name, host, view)));
     console.error(`view '${name}' failed to render:`, e);
   }
@@ -46,8 +47,18 @@ export function teardowns(...fns) {
 function failure(name, error, retry) {
   const again = el('button', { className: 'btn', textContent: 'Try again', type: 'button' });
   again.onclick = retry;
+
+  const actions = el('div', { className: 'formfoot' }, again);
+  if (window.pixelNav?.canGoBack?.()) {
+    const back = el('button', {
+      className: 'btn primary', type: 'button', textContent: '‹ Back',
+    });
+    back.onclick = () => window.pixelNav.goBack();
+    actions.prepend(back);
+  }
+
   return el('div', { className: 'viewerror' },
     el('h2', { textContent: `The ${name} tab could not be drawn` }),
     el('pre', { className: 'joberror', textContent: `${error.name}: ${error.message}` }),
-    again);
+    actions);
 }

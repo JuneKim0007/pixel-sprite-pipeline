@@ -463,26 +463,6 @@ export async function savePoses(runId) {
   return true;
 }
 
-/* Edits persist as they are made.
- *
- * There was a Save button and a dialog warning that leaving would discard the
- * edits, which is a question to ask someone only if the answer can be yes -
- * nobody drags a joint into place meaning to throw it away.
- *
- * The button existed because `save_poses` is not a write: it re-renders every
- * skeleton and every depth map and rewrites the manifest. That turned out to
- * be a reason to measure rather than a reason to keep the button. Measured
- * 2026-09-10 against a live run: 77ms for four entries, 19ms each.
- *
- * It stays one atomic call for a reason poses.py states - a manifest that does
- * not match the frame count hands stale skeleton paths to the frames stage. So
- * writing pose.json cheaply now and rendering later would leave a window in
- * which a run consumes skeletons that no longer match the poses.
- *
- * One in flight, the last edit replays after, exactly as the editor's
- * authoritative preview does: a drag is many edits and a queue of them would
- * render the same skeletons repeatedly to arrive where the last one already is.
- */
 const AUTOSAVE_MS = 600;
 
 export function poseAutosaver(runId, onState) {
@@ -515,8 +495,6 @@ export function poseAutosaver(runId, onState) {
       clearTimeout(timer);
       timer = setTimeout(flush, AUTOSAVE_MS);
     },
-    /* Leaving the step must not outrun the timer, or the last drag before a
-     * click on Next is the one edit that does not survive. */
     async settle() {
       clearTimeout(timer);
       await flush();

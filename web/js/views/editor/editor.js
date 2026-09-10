@@ -127,20 +127,6 @@ export function renderEditor(host) {
     return node;
   };
 
-  /* Both engines draw into a box of the same fixed size.
-   *
-   * They do not agree on what size to hand the browser and never did: the
-   * shader's canvas is the REDUCED grid, so at factor 16 it is 24 pixels wide
-   * and drew 24 pixels wide, while the exact path sets width/height to the
-   * MAGNIFIED size, which max-width then clamps to fill the cell. Dragging a
-   * slider therefore swapped a thumbnail for a full panel and back, and
-   * changing the grid factor resized it again.
-   *
-   * Nothing is lost by fitting instead: `image-rendering: pixelated` IS
-   * nearest-neighbour, so an image and its own 16x magnification shown in one
-   * box are the same picture. The magnification that matters is the one
-   * written to the file, and that is what the size label is for.
-   */
   const showResult = (label, node, size) => after.replaceChildren(
     head(label, size), el('div', { className: 'compare-stage' }, node));
 
@@ -213,12 +199,6 @@ export function renderEditor(host) {
       facts = r.facts;
       engine = 'exact';
 
-      /* The magnification is NOT applied here. The stage fits whatever it is
-       * given and pixelated scaling is nearest-neighbour, so magnifying first
-       * would produce the same picture out of a much larger element - at zoom
-       * 16 a 38 megapixel one, for a panel about 500 CSS pixels wide. What the
-       * zoom actually changes is the file a write produces, so it is stated in
-       * the label rather than performed on screen. */
       const img = el('img', { src: r.image, className: 'pixel' });
       img.onclick = () => lightbox(r.image, `${source.split('/').pop()} · ${engine}`);
       const a = r.facts?.after;
@@ -392,11 +372,6 @@ export function renderEditor(host) {
 
   drawSource();
 
-  /* One shell, divided, rather than four cards with four gaps between them.
-   *
-   * Each ratio is a fraction on the container it divides, so the layout still
-   * responds to the window and to the one-column collapse below 1100px; a
-   * splitter writes the fraction and the grid does the rest. */
   const ratios = loadRatios({ side: 0.72, compare: 0.5 });
   const body = el('div', { className: 'editorbody' });
   const work = el('div', { className: 'editorwork' });

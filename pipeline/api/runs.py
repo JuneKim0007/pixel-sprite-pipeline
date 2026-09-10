@@ -224,7 +224,7 @@ class Runs(BaseRouter):
     @post("/run", "start a pipeline", returns=Shape(run_id=str))
     def start(self, req):
         run_id = start_run(req.get("config", ""), req.get("overrides") or {},
-                           req.get("stages") or None, req.get("picks") or None)
+                           req.get("resume") or None, req.get("picks") or None)
         return {"run_id": run_id}
 
     @post("/stop", "stop a running pipeline", returns=Shape(stopped=str))

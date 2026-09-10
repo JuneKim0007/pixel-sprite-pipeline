@@ -97,7 +97,6 @@ function coolingLine(cfg, rerender) {
   return box;
 }
 
-
 function reviewStep(rerender) {
   const cfg = draftConfig();
   const stages = getPath(cfg, 'pipeline.stages') || [];
@@ -237,12 +236,8 @@ function rigStep() {
     load();
     return box;
   }
-  /* No Save button. Edits persist as they are made - see poseAutosaver.
-   *
-   * The status line is not decoration: without a button there is nothing else
-   * on screen that distinguishes "saved" from "this app is ignoring me". */
   const save = el('span', { className: 'mini savestate', textContent: runId
-    ? 'Edits save themselves' : '' });
+    ? 'Saved' : '' });
 
   rigSaver = poseAutosaver(runId, (phase, detail) => {
     save.classList.toggle('bad', phase === 'error');
@@ -250,7 +245,7 @@ function rigStep() {
       pending: 'Saving…',
       saving: 'Saving…',
       saved: 'Saved',
-      error: `Not saved — ${detail}`,
+      error: `Not saved: ${detail}`,
     }[phase] || '';
   });
 
@@ -325,13 +320,6 @@ export function renderRun(host, { onStarted, goTo }) {
   const rerender = () => renderRun(host, { onStarted, goTo });
   host.replaceChildren();
 
-  /* Leaving the rig step waits for the last edit rather than asking about it.
-   *
-   * There used to be a dialog here warning that leaving would discard unsaved
-   * skeleton edits, which is a question worth asking only if the answer can be
-   * yes - nobody drags a joint into place meaning to throw it away. It also
-   * named "the rig" while the reference annotator shares this step and keeps
-   * its own unsaved state, so it could fire for one and describe the other. */
   const go = async (index) => {
     if (index !== state.wizardStep && STEPS[state.wizardStep].key === 'rig' && rigSaver) {
       await rigSaver.settle();
