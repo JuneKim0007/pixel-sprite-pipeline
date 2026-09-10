@@ -26,7 +26,7 @@ RESULTS = ROOT / "var/sweep.jsonl"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one -
 # the rest has to sit between runs or the machine works 56 of them back to back.
-REST = 300
+REST = 240
 
 # The file is named for the drawing; the config wants the angle, and there is
 # no named view for the far side - `side` is 90, so its mirror is 270.
@@ -133,12 +133,18 @@ def clear_emphasis(char: str) -> None:
 
 
 def plan() -> list[tuple[str, str, Path]]:
+    """Variant-major: every character is reached before any is repeated.
+
+    A sweep this long will be read before it finishes, and character-major
+    ordering would spend the first hours on char1 and answer nothing about the
+    other seven.
+    """
     CONFIGS.mkdir(parents=True, exist_ok=True)
+    chars = [c for c in sorted(SUBJECTS)
+             if (ROOT / f"library/refs/{c}/front.png").exists()]
     out = []
-    for char in sorted(SUBJECTS):
-        if not (ROOT / f"library/refs/{char}/front.png").exists():
-            continue
-        for name, extra in VARIANTS.items():
+    for name, extra in VARIANTS.items():
+        for char in chars:
             cfg = merge(base(char), extra)
             path = CONFIGS / f"{char}_{name}.yaml"
             path.write_text(yaml.safe_dump(cfg, sort_keys=False))
