@@ -65,10 +65,10 @@ canonical:
 pose:
   source: tpose
   size: 1024
-  # Pass 1 had fill 0 and the head touched the top edge: the skeleton had 53px
-  # clearance and the model overflowed it after ControlNet stopped steering at
-  # 40%. A smaller guide leaves room to overflow into.
-  fill: 0.8
+  # Measured pass 2: guide drawn at 0.815, output came out at 0.999 - the model
+  # overflows the guide by 1.23x once ControlNet stops steering at 40%. 0.69
+  # lands that overflow at 0.85 with margin instead of off the canvas.
+  fill: 0.69
   set:
   - view: front
   - view: side

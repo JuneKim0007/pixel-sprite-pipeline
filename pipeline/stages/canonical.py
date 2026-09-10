@@ -52,6 +52,23 @@ def _anchor_view(ctx, cfg) -> str | float:
     return opt(ctx.settings("pose"), "view", None) or "side"
 
 
+def _report_framing(image, ctx) -> None:
+    """A guide the model overflowed is silent otherwise, and crops the head."""
+    from ..geometry import framing
+
+    box = framing.measure(image)
+    if box is None:
+        return
+    moved = framing.recentre(image)
+    note = f" - {moved}" if moved else ""
+    print(f"   framing: {box.describe()}{note}")
+    if box.clipped:
+        fill = ctx.settings("pose").get("fill") or 0.0
+        print(f"   WARNING: the subject runs off the {', '.join(box.clipped)}; "
+              f"pixels are gone, not misplaced. pose.fill was {fill}, and the "
+              f"guide is only steered until canonical.controlnet.end_percent.")
+
+
 class _AnchorGraph:
     """Assembles one anchor's graph. Image uploads are shared across anchors."""
 
@@ -241,6 +258,7 @@ class CanonicalStage(Stage):
             if primary is None:
                 primary = dst
             print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {base_seed})")
+            _report_framing(dst, ctx)
             if len(views) > 1:
                 cooling.rest(ctx.config, after=f"anchor {vi + 1}",
                              last=vi == len(views) - 1)
