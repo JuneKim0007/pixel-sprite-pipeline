@@ -628,6 +628,32 @@ FIELDS: list[ConfigField] = [
              "faster and under half the swapping — but batching cannot rest "
              "between candidates, so an overnight run with cooling on wants "
              "this off, and a 1280 canvas may not fit the batch in 16 GB."),
+    ConfigField(key="canonical.from_reference.weight", label="Identity weight",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Canonical",
+     help="How hard the identity reference pulls. Blank uses the reference's "
+             "own role weight, which is 0.8 for identity. This block was read "
+             "by canonical.py and declared nowhere, so setting it in a config "
+             "did nothing until 2026-09-10."),
+    ConfigField(key="canonical.from_reference.end_at", default=1.0,
+     label="Identity end %", kind="float", min=0.0, max=1.0, step=0.05,
+     group="Canonical",
+     help="When the identity reference stops voting, as a fraction of "
+             "sampling. Holding to 1.0 keeps the likeness tightest; releasing "
+             "early lets the last steps sharpen without it pulling detail back."),
+    ConfigField(key="canonical.style.end_at", default=0.8,
+     label="Style end %", kind="float", min=0.0, max=1.0, step=0.05,
+     group="Canonical",
+     help="When the style exemplar stops voting. Diffusion settles broad "
+             "layout early and texture late, so an exemplar holding to 0.8 is "
+             "still voting through the steps that draw linework - which is "
+             "what a style sheet asking for a 'thick dark outline' is competing "
+             "with. Lowering it hands those steps to the prompt."),
+    ConfigField(key="canonical.style.start_at", default=0.0,
+     label="Style start %", kind="float", min=0.0, max=1.0, step=0.05,
+     group="Canonical",
+     help="When the style exemplar joins. Late leaves the composition to the "
+             "prompt and applies rendering over it."),
+
     ConfigField(key="canonical.style_weight", label="Style exemplar strength",
      kind="float", min=0.0, max=0.6, step=0.05, group="Canonical",
      help="Exemplars carry rendering, not colour. At the 0.35 role default "

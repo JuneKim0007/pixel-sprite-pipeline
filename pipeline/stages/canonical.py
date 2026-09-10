@@ -53,14 +53,16 @@ class _AnchorGraph:
         self.ctx, self.cfg, self.client, self.lib = ctx, cfg, client, lib
         self.prompt, self.backdrop = prompt, backdrop
         self.from_ref, self.cn = from_ref, cn
+        self.style_cfg = ctx.settings("canonical.style")
         self.lcm = bool(cfg["lcm"])
 
     def _with_identity(self, g, model, chosen):
         return comfy.apply_ipadapter(
             g, model, comfy.load_image(g, self.client.upload_image(chosen.path)),
-            weight=float(opt(self.from_ref, "weight", chosen.base_weight)),
+            weight=float(opt(self.from_ref, "weight", None) or chosen.base_weight),
             weight_type=opt(self.from_ref, "weight_type", "linear"),
-            start_at=0.0, end_at=1.0,
+            start_at=float(opt(self.from_ref, "start_at", 0.0)),
+            end_at=float(opt(self.from_ref, "end_at", 1.0)),
             models=self.ctx.settings("models"),
         )
 
@@ -70,7 +72,8 @@ class _AnchorGraph:
                 g, model, comfy.load_image(g, self.client.upload_image(exemplar.path)),
                 weight=refs_mod.style_weight([exemplar], self.cfg.get("style_weight")),
                 weight_type="style transfer",
-                start_at=0.0, end_at=0.8,
+                start_at=float(opt(self.style_cfg, "start_at", 0.0)),
+                end_at=float(opt(self.style_cfg, "end_at", 0.8)),
                 models=self.ctx.settings("models"),
             )
         return model

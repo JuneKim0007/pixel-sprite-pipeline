@@ -500,3 +500,39 @@ Discovery lives in `shared/guard.py` as `run_in_flight`, found through the
 not about HTTP: `_ACTIVE` is one process's memory, the autopilot is a different
 process entirely, and the packaging test refused the first version for making
 `orchestration` import `api`.
+
+## 21. Conditioning is configurable on both stages now
+
+**Done 2026-09-10.** `canonical` declared twenty-one fields and no
+`ip_adapter.*`, so identity `end_at=1.0` and style `end_at=0.8` were literals,
+and `canonical.from_reference` resolved to `{}` because the block canonical.py
+read from was declared nowhere - a setting that existed in code and could not be
+reached from a config.
+
+Four fields now: `from_reference.weight`, `from_reference.end_at`,
+`style.start_at`, `style.end_at`, each defaulting to exactly the literal it
+replaced, so nothing moves until someone moves it. A test pins that.
+
+They render beside the rig canvas through `renderGroup(..., {only})`, which
+narrows a group to the paths a view is about rather than copying declarations
+into it. Twenty-one Canonical fields, seven shown, one set of declarations.
+
+**Still worth trying.** `retro_jrpg` asks the prompt for a "thick dark outline
+around the whole figure" while the style exemplar votes to 0.8 of sampling,
+which covers the steps that draw linework. Lowering `canonical.style.end_at`
+hands those steps back to the prompt. Now testable from the UI.
+
+
+## 22. Two keyers, one of which cannot read a colour
+
+**Found 2026-09-10.** `palette.py:_key_colour` refuses anything but six hex
+digits, so `12, 34, 56` and `#abc` silently disable keying and the stage floods
+from the corners instead. The Definitive editor's background layer uses
+`shared.colour.parse_colour` and takes both. One concept, two parsers, and the
+older one is wrong.
+
+**Also worth having.** `background.colour: auto`, sampling the canonical's own
+corners. Three runs measured 0.0% near-magenta whatever the prompt asked, so the
+colour the model actually produced is the only reliable key, and the corners are
+where it is. Deterministic and exact; an LLM round for the same question would
+return a name that needs parsing back to a number and can differ between runs.

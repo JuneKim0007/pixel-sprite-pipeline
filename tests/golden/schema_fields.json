@@ -1233,6 +1233,49 @@
     },
     {
       "group": "Canonical",
+      "help": "How hard the identity reference pulls. Blank uses the reference's own role weight, which is 0.8 for identity. This block was read by canonical.py and declared nowhere, so setting it in a config did nothing until 2026-09-10.",
+      "label": "Identity weight",
+      "max": 1.5,
+      "min": 0.0,
+      "path": "canonical.from_reference.weight",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 1.0,
+      "group": "Canonical",
+      "help": "When the identity reference stops voting, as a fraction of sampling. Holding to 1.0 keeps the likeness tightest; releasing early lets the last steps sharpen without it pulling detail back.",
+      "label": "Identity end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.from_reference.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.8,
+      "group": "Canonical",
+      "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
+      "label": "Style end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.0,
+      "group": "Canonical",
+      "help": "When the style exemplar joins. Late leaves the composition to the prompt and applies rendering over it.",
+      "label": "Style start %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.start_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "group": "Canonical",
       "help": "Exemplars carry rendering, not colour. At the 0.35 role default silver-haired exemplars pulled a crimson character toward lavender; 0.18 keeps the brushwork and lets the prompt keep the palette. frames.style_weight was declared and this was not.",
       "label": "Style exemplar strength",
       "max": 0.6,
@@ -2540,6 +2583,49 @@
       "label": "Batch the candidates",
       "path": "canonical.batch_candidates",
       "type": "bool"
+    },
+    {
+      "group": "Canonical",
+      "help": "How hard the identity reference pulls. Blank uses the reference's own role weight, which is 0.8 for identity. This block was read by canonical.py and declared nowhere, so setting it in a config did nothing until 2026-09-10.",
+      "label": "Identity weight",
+      "max": 1.5,
+      "min": 0.0,
+      "path": "canonical.from_reference.weight",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 1.0,
+      "group": "Canonical",
+      "help": "When the identity reference stops voting, as a fraction of sampling. Holding to 1.0 keeps the likeness tightest; releasing early lets the last steps sharpen without it pulling detail back.",
+      "label": "Identity end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.from_reference.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.8,
+      "group": "Canonical",
+      "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
+      "label": "Style end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.0,
+      "group": "Canonical",
+      "help": "When the style exemplar joins. Late leaves the composition to the prompt and applies rendering over it.",
+      "label": "Style start %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.start_at",
+      "step": 0.05,
+      "type": "float"
     },
     {
       "group": "Canonical",
@@ -3996,6 +4082,49 @@
     },
     {
       "group": "Canonical",
+      "help": "How hard the identity reference pulls. Blank uses the reference's own role weight, which is 0.8 for identity. This block was read by canonical.py and declared nowhere, so setting it in a config did nothing until 2026-09-10.",
+      "label": "Identity weight",
+      "max": 1.5,
+      "min": 0.0,
+      "path": "canonical.from_reference.weight",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 1.0,
+      "group": "Canonical",
+      "help": "When the identity reference stops voting, as a fraction of sampling. Holding to 1.0 keeps the likeness tightest; releasing early lets the last steps sharpen without it pulling detail back.",
+      "label": "Identity end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.from_reference.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.8,
+      "group": "Canonical",
+      "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
+      "label": "Style end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.0,
+      "group": "Canonical",
+      "help": "When the style exemplar joins. Late leaves the composition to the prompt and applies rendering over it.",
+      "label": "Style start %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.start_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "group": "Canonical",
       "help": "Exemplars carry rendering, not colour. At the 0.35 role default silver-haired exemplars pulled a crimson character toward lavender; 0.18 keeps the brushwork and lets the prompt keep the palette. frames.style_weight was declared and this was not.",
       "label": "Style exemplar strength",
       "max": 0.6,
@@ -5272,6 +5401,49 @@
     },
     {
       "group": "Canonical",
+      "help": "How hard the identity reference pulls. Blank uses the reference's own role weight, which is 0.8 for identity. This block was read by canonical.py and declared nowhere, so setting it in a config did nothing until 2026-09-10.",
+      "label": "Identity weight",
+      "max": 1.5,
+      "min": 0.0,
+      "path": "canonical.from_reference.weight",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 1.0,
+      "group": "Canonical",
+      "help": "When the identity reference stops voting, as a fraction of sampling. Holding to 1.0 keeps the likeness tightest; releasing early lets the last steps sharpen without it pulling detail back.",
+      "label": "Identity end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.from_reference.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.8,
+      "group": "Canonical",
+      "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
+      "label": "Style end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.0,
+      "group": "Canonical",
+      "help": "When the style exemplar joins. Late leaves the composition to the prompt and applies rendering over it.",
+      "label": "Style start %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.start_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "group": "Canonical",
       "help": "Exemplars carry rendering, not colour. At the 0.35 role default silver-haired exemplars pulled a crimson character toward lavender; 0.18 keeps the brushwork and lets the prompt keep the palette. frames.style_weight was declared and this was not.",
       "label": "Style exemplar strength",
       "max": 0.6,
@@ -6545,6 +6717,49 @@
       "label": "Batch the candidates",
       "path": "canonical.batch_candidates",
       "type": "bool"
+    },
+    {
+      "group": "Canonical",
+      "help": "How hard the identity reference pulls. Blank uses the reference's own role weight, which is 0.8 for identity. This block was read by canonical.py and declared nowhere, so setting it in a config did nothing until 2026-09-10.",
+      "label": "Identity weight",
+      "max": 1.5,
+      "min": 0.0,
+      "path": "canonical.from_reference.weight",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 1.0,
+      "group": "Canonical",
+      "help": "When the identity reference stops voting, as a fraction of sampling. Holding to 1.0 keeps the likeness tightest; releasing early lets the last steps sharpen without it pulling detail back.",
+      "label": "Identity end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.from_reference.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.8,
+      "group": "Canonical",
+      "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
+      "label": "Style end %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.end_at",
+      "step": 0.05,
+      "type": "float"
+    },
+    {
+      "default": 0.0,
+      "group": "Canonical",
+      "help": "When the style exemplar joins. Late leaves the composition to the prompt and applies rendering over it.",
+      "label": "Style start %",
+      "max": 1.0,
+      "min": 0.0,
+      "path": "canonical.style.start_at",
+      "step": 0.05,
+      "type": "float"
     },
     {
       "group": "Canonical",

@@ -68,13 +68,22 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
+        """The colour to key, in the forms `parse_colour` accepts.
+
+        This took six hex digits and nothing else, so '12, 34, 56' and '#abc'
+        both read as "no colour named" and the stage fell back to flooding from
+        the corners. The Definitive editor's background layer has parsed both
+        since it was written; this is the same question asked twice.
+        """
+        from ..shared.colour import parse_colour
+
         bg = ctx.settings("background")
         if opt(bg, "enabled", True) is False:
             return None
-        raw = str(opt(bg, "colour", "") or "").lstrip("#")
-        if len(raw) != 6:
+        try:
+            return parse_colour(opt(bg, "colour", ""))
+        except Invalid:
             return None
-        return tuple(int(raw[i:i + 2], 16) for i in (0, 2, 4))
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("palette")

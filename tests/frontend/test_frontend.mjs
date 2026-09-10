@@ -1587,8 +1587,12 @@ await atest('bone lengths are editable where the bones are', async () => {
   // editor - where you look for bone length - never said so.
   const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
   assert.match(src, /function proportionsPanel/);
-  assert.match(src, /proportionsPanel\(rerender\)\)/,
+  // Matched on the closing paren once, which broke when a sibling panel was
+  // appended after it. What matters is that rigStep renders it at all.
+  const step = /function rigStep[\s\S]*?\n\}/.exec(src)[0];
+  assert.match(step, /proportionsPanel\(rerender\)/,
     'the panel is defined and never rendered');
+  assert.match(step, /conditioningPanel\(rerender\)/);
   assert.match(src, /renderGroup\('Proportions'/,
     'it builds its own controls instead of the schema group');
   // Two controls writing one config path is how they drift.
@@ -1779,6 +1783,37 @@ await atest('the two feeds do not share a cadence', async () => {
   const overall = new RunProgress(api, () => {});
   assert.ok(now.every < overall.every,
     'the live reading polls no faster than the background one');
+});
+
+await atest('a panel narrows a group instead of copying its fields', async () => {
+  // Canonical has twenty-one fields and the rig step is about four of them.
+  // Copying declarations into the view is how two controls for one path start.
+  const fields = readFileSync(join(JS, 'fields.js'), 'utf8');
+  assert.match(fields, /only = null/, 'renderGroup cannot render a subset');
+  assert.match(fields, /wanted\.has\(f\.path\)/);
+
+  const run = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  assert.match(run, /renderGroup\('Canonical', cfg, \{\s*only: CONDITIONING/,
+    'the conditioning panel does not reuse the schema group');
+  // Every path it names has to exist, or a slider silently renders nothing.
+  const listed = /const CONDITIONING = \[([\s\S]*?)\]/.exec(run)[1];
+  const paths = [...listed.matchAll(/'([\w.]+)'/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 5);
+  for (const p of paths) assert.match(p, /^canonical\./);
+});
+
+await atest('the conditioning paths are real schema fields', async () => {
+  // A path with no field renders an empty row and looks like a broken panel.
+  const run = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  const listed = /const CONDITIONING = \[([\s\S]*?)\]/.exec(run)[1];
+  const paths = [...listed.matchAll(/'([\w.]+)'/g)].map((m) => m[1]);
+
+  const golden = JSON.parse(
+    readFileSync(join(ROOT, 'tests/golden/schema_fields.json'), 'utf8'));
+  const known = new Set(golden.null.map((f) => f.path));
+  for (const p of paths) {
+    assert.ok(known.has(p), `${p} is not a declared field`);
+  }
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

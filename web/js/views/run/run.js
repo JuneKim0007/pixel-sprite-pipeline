@@ -213,6 +213,39 @@ function proportionsPanel(rerender) {
     }));
 }
 
+/* What competes with the prompt, beside the thing it competes over.
+ *
+ * The prompt asks for a thick dark outline and the style exemplar votes until
+ * 80% of sampling, which is through the steps that draw linework. Both are
+ * schema fields; this renders those four rather than sending anyone to
+ * Settings, and writes the same config paths the settings form writes. */
+const CONDITIONING = [
+  'canonical.from_reference.weight',
+  'canonical.from_reference.end_at',
+  'canonical.style_weight',
+  'canonical.style.start_at',
+  'canonical.style.end_at',
+  'canonical.controlnet.strength',
+  'canonical.controlnet.end_percent',
+];
+
+function conditioningPanel(rerender) {
+  const cfg = draftConfig();
+  return Disclosure('What steers the image', {
+    open: false,
+    note: 'reference, style and pose against the prompt',
+  },
+    el('p', { className: 'help', textContent:
+      'Each of these votes on every sampling step. A weight is how loudly; a '
+      + 'start and end are when. Diffusion settles layout early and texture '
+      + 'late, so something holding to 80% is still voting while the outline '
+      + 'is drawn.' }),
+    renderGroup('Canonical', cfg, {
+      only: CONDITIONING,
+      onChange: (path, value) => { draft()[path] = value; rerender(); },
+    }));
+}
+
 function rigStep(rerender) {
   const runId = state.selectedRun;
   const box = el('div', { className: 'group' });
@@ -277,7 +310,8 @@ function rigStep(rerender) {
         ? `editing ${runId}` : 'previewing the pose library — run the pose stage to edit' }),
       save),
     editor,
-    proportionsPanel(rerender));
+    proportionsPanel(rerender),
+    conditioningPanel(rerender));
   return box;
 }
 

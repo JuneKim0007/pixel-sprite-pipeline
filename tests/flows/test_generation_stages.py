@@ -239,3 +239,56 @@ def test_an_unset_weight_still_falls_back_to_the_default(comfy_fake, frames_ctx)
     ip = [i["ipadapter_file"] for i in comfy_fake.inputs_of("IPAdapterModelLoader")]
     assert set(clip) == {"CLIP-ViT-H-14.safetensors"}, clip
     assert set(ip) == {"my-ip.safetensors"}, ip
+
+
+def test_canonical_conditioning_windows_come_from_config(monkeypatch, tmp_path):
+    """These were literals: identity end_at 1.0 and style end_at 0.8.
+
+    frames declared eighteen ip_adapter and controlnet fields for the same two
+    mechanisms; canonical declared none, so the only way to test a different
+    window was to edit the source.
+    """
+    from pathlib import Path
+
+    from pipeline.generation.stage import Context
+
+    seen = []
+
+    def spy(g, model, image, *, weight, weight_type, start_at, end_at, models):
+        seen.append({"type": weight_type, "start_at": start_at, "end_at": end_at})
+        return model
+
+    from pipeline.generation import comfy
+
+    monkeypatch.setattr(comfy, "apply_ipadapter", spy)
+
+    cfg = {"canonical": {"style": {"end_at": 0.4, "start_at": 0.1},
+                         "from_reference": {"end_at": 0.9}}}
+    ctx = Context(root=Path("."), config=cfg, run_id="r", outdir=tmp_path)
+    assert ctx.settings("canonical.style")["end_at"] == 0.4
+    assert ctx.settings("canonical.style")["start_at"] == 0.1
+    assert ctx.settings("canonical.from_reference")["end_at"] == 0.9
+
+
+def test_the_declared_defaults_are_what_the_literals_were(tmp_path):
+    """A new field must not move behaviour until someone moves it."""
+    from pathlib import Path
+
+    from pipeline.generation.stage import Context
+
+    ctx = Context(root=Path("."), config={}, run_id="r", outdir=tmp_path)
+    assert ctx.settings("canonical.style")["end_at"] == 0.8
+    assert ctx.settings("canonical.style")["start_at"] == 0.0
+    assert ctx.settings("canonical.from_reference")["end_at"] == 1.0
+
+
+def test_identity_weight_falls_back_to_the_role_default(tmp_path):
+    """Blank means "use the reference's own weight", not zero."""
+    from pathlib import Path
+
+    from pipeline.generation.stage import Context
+    from pipeline.shared.config import opt
+
+    ctx = Context(root=Path("."), config={}, run_id="r", outdir=tmp_path)
+    from_ref = ctx.settings("canonical.from_reference")
+    assert (opt(from_ref, "weight", None) or 0.8) == 0.8

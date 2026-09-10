@@ -356,8 +356,13 @@ function listEditor(path, items, onChange) {
 /* ---------------------------------------------------------------- section */
 
 /** Render one settings group. `onChange(path, value)`, `onReset(path)`. */
-export function renderGroup(group, cfg, { onChange, onReset, overrides = [] }) {
-  const fields = state.schema.fields.filter((f) => f.group === group);
+export function renderGroup(group, cfg, { onChange, onReset, overrides = [], only = null }) {
+  // `only` narrows a group to the paths a view is actually about, so a panel
+  // beside the canvas shows the four conditioning knobs rather than all
+  // twenty-one Canonical fields. The declarations stay in one place.
+  const wanted = only && new Set(only);
+  const fields = state.schema.fields.filter(
+    (f) => f.group === group && (!wanted || wanted.has(f.path)));
   const host = el('div', { className: 'fields' });
 
   for (const field of fields) {
