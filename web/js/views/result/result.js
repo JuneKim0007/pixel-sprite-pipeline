@@ -136,10 +136,12 @@ export function failureFrom(log) {
   return null;
 }
 
-function failureBanner(failure, onShowLog) {
-  const what = failure.where
-    ? `This run failed in ${failure.where}` : 'This run failed';
-  const box = el('div', { className: 'banner err failed' },
+function failureBanner(failure, onShowLog, produced = false) {
+  const where = failure.where ? ` in ${failure.where}` : '';
+  const what = produced
+    ? `This run stopped${where}. What is below came from the stages before it`
+    : `This run failed${where}`;
+  const box = el('div', { className: `banner ${produced ? 'warn' : 'err'} failed` },
     el('div', {},
       el('b', { textContent: `${what}: ${failure.kind}` }),
       el('p', { className: 'mini', textContent: failure.message })));
@@ -385,14 +387,20 @@ export function renderResult(host, { runId, detail, onPick }) {
   const failure = failureFrom(detail.log);
   const produced = (detail.stages || []).some((s) => s.images?.length);
 
+  const toLog = () => {
+    logPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    logPanel.scrollTop = logPanel.scrollHeight;
+  };
+
   if (detail.running) {
     host.append(el('div', { className: 'banner' },
       'Running — output appears as each stage finishes.'));
-  } else if (failure && !produced) {
-    host.append(failureBanner(failure, () => {
-      logPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      logPanel.scrollTop = logPanel.scrollHeight;
-    }));
+  } else if (failure) {
+    // Shown whether or not earlier stages produced anything. Suppressing it
+    // when they did meant a resume that died in its first GPU stage looked
+    // exactly like the pause it started from - nothing said it had tried.
+    host.append(failureBanner(failure, toLog, produced));
+    if (detail.stopped_at) host.append(gateBanner(runId, detail));
   } else if (detail.stopped_at) {
     host.append(gateBanner(runId, detail));
   }

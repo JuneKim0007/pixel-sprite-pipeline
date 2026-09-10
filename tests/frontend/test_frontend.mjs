@@ -1140,6 +1140,19 @@ await atest('the editor is one shell, not four bordered cards', async () => {
 });
 
 console.log('\nrun failure reporting');
+await atest('a partial failure is still reported', async () => {
+  // Suppressing the banner when earlier stages produced something meant a
+  // resume that died in its first GPU stage looked exactly like the pause it
+  // started from - the gate banner, and nothing saying it had tried.
+  const src = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
+  assert.doesNotMatch(src, /failure && !produced/,
+    'the failure banner is hidden again when any output exists');
+  assert.match(src, /failureBanner\(failure, toLog, produced\)/,
+    'the banner is not told whether output survived');
+  // It must read as "stopped early", not "these images are wrong".
+  assert.match(src, /produced \? 'warn' : 'err'/);
+});
+
 await atest('a run that produced nothing says why, from its own log', async () => {
   const { failureFrom } = await import(join(JS, 'views/result/result.js'));
 
