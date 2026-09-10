@@ -50,7 +50,6 @@ models:
   ipadapter: ip-adapter_sdxl_vit-h.safetensors
 ui:
   suppress_gate_confirm: true
-  suppress_overwrite_confirm: false
 
 # How long a single GPU stage may wait on ComfyUI before giving up.
 # Four hours: a 1024 image takes about 280 s on this machine, so this covers a

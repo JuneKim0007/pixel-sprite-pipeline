@@ -38,7 +38,6 @@ DEFAULT_GLOBAL: dict[str, Any] = {
     },
     "ui": {
         "suppress_gate_confirm": False,
-        "suppress_overwrite_confirm": False,
     },
 }
 

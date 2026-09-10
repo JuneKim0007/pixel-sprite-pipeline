@@ -115,8 +115,16 @@ may pin it; `input_dir` and `download_dir` are only ever read through
 `ui.suppress_gate_confirm` also has a control — the "don't show this again" box
 in `views/run/run.js`.
 
-**What actually has none.** `ui.suppress_overwrite_confirm` (declared, and read
-by nothing), `models.lcm_lora`, and `models.clip_vision`.
+**What actually has none.** `models.lcm_lora` and `models.clip_vision`.
+
+`ui.suppress_overwrite_confirm` was the third and is now deleted rather than
+given one. Wiring it was the obvious next step and the wrong one. The dialog it
+named exists - `result.js` asks before a download clobbers files - but its
+answer is not a preference, it is a decision per download: Overwrite replaces
+them, Cancel keeps both by adding a numbered suffix. A remembered "Overwrite"
+would silently clobber from then on. `suppress_gate_confirm` is safe to
+remember because it only warns that a run will pause. A test now refuses any
+`ui.*` flag whose name contains "overwrite".
 
 **`models.clip_vision` was unreachable, and now is not.** Fixed 2026-09-09.
 `apply_ipadapter` built `CLIPVisionLoader` from `DEFAULT_GLOBAL` directly while
