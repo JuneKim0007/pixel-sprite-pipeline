@@ -23,7 +23,7 @@ import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
 import { projectPoint } from '../../features/pose.js';
 import { el } from '../../core/dom.js';
 import { toast } from '../../store.js';
-import { Disclosure } from '../../ui/index.js';
+import { Button, Disclosure, Empty } from '../../ui/index.js';
 import { EDGE, weightPainter } from './weights.js';
 
 const DOT = 7;
@@ -300,7 +300,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       img.src = api.fileUrl(imagePath);
       render();
     } catch (e) {
-      root.replaceChildren(el('p', { className: 'empty', textContent: e.message }));
+      root.replaceChildren(Empty(e.message));
     }
   })();
 
@@ -313,7 +313,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
   // A proposal, never a commitment: it lands in the editor for review, because
   // a wrong fit should cost a glance rather than a GPU run.
-  const auto = el('button', { className: 'btn', textContent: 'Auto-fit' });
+  const auto = Button('Auto-fit');
   auto.onclick = async () => {
     auto.disabled = true;
     auto.textContent = 'Fitting…';
@@ -343,8 +343,8 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
    * already flattens it, so this is two things that exist rather than a new
    * layout. Front-on, because a reference sheet usually is; anything else is a
    * drag away, which is the point. */
-  const tpose = el('button', { className: 'btn ghost', textContent: 'T-pose',
-                               title: 'Place every joint in a neutral pose to drag from' });
+  const tpose = Button('T-pose', { variant: 'ghost',
+    title: 'Place every joint in a neutral pose to drag from' });
   tpose.onclick = () => {
     if (!rigDef?.pose) { toast('this rig carries no neutral pose', 'warn'); return; }
     for (const [joint, p3] of Object.entries(rigDef.pose)) {
@@ -357,7 +357,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     render();
   };
 
-  const clear = el('button', { className: 'btn ghost', textContent: 'Clear' });
+  const clear = Button('Clear', { variant: 'ghost' });
   clear.onclick = () => {
     points = {};
     saver.touch();

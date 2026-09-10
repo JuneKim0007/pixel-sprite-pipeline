@@ -22,16 +22,21 @@ export const Note = (text) => el('p', { className: 'headnote', textContent: text
 /* --------------------------------------------------------------- buttons */
 
 const BUTTON_VARIANTS = ['primary', 'ghost', 'danger', 'pill'];
+// Size is not a variant: a large ghost button is both.
+const BUTTON_SIZES = ['lg'];
 
 /** variant names what it is; the class string is this file's business. */
-export function Button(label, { variant = '', onClick, title = '', disabled = false } = {}) {
+export function Button(label, { variant = '', size = '', onClick, title = '', disabled = false } = {}) {
   if (variant && !BUTTON_VARIANTS.includes(variant)) {
     // A typo would silently render unstyled, which nobody sees until a screenshot.
     throw new Error(`no button variant '${variant}'`);
   }
+  if (size && !BUTTON_SIZES.includes(size)) {
+    throw new Error(`no button size '${size}'`);
+  }
   const node = el('button', {
-    className: `btn ${variant}`.trim(), textContent: label, type: 'button',
-    title, disabled,
+    className: `btn ${variant} ${size}`.replace(/\s+/g, ' ').trim(),
+    textContent: label, type: 'button', title, disabled,
   });
   if (onClick) node.onclick = onClick;
   return node;

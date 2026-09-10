@@ -10,7 +10,7 @@
 import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
 import { state } from './store.js';
-import { ColourPicker, HelpTip } from './ui/index.js';
+import { Button, ColourPicker, HelpTip } from './ui/index.js';
 import { autoOrder as orderOf, orderProblems as problemsOf } from './features/stages.js';
 import { VIEW_OPTIONS } from './features/pose.js';
 
@@ -170,7 +170,7 @@ function stagePicker(active, onChange) {
   const wrap = el('div', { style: 'flex:1' }, box);
   const problems = orderProblems(active);
   if (problems.length) {
-    const fix = el('button', { className: 'btn', textContent: 'Auto-order' });
+    const fix = Button('Auto-order');
     fix.onclick = () => onChange(autoOrder(active));
     wrap.append(el('div', { className: 'orderwarn' },
       el('b', { textContent: 'This order cannot run.' }),

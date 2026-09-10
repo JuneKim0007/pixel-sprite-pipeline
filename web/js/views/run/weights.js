@@ -1,4 +1,5 @@
 import { el } from '../../core/dom.js';
+import { Button } from '../../ui/index.js';
 
 export const EDGE = 128;
 export const NEUTRAL = 0.8;
@@ -151,7 +152,7 @@ export function weightPainter({ imagePath, onChange, initial = null } = {}) {
   canvas.oncontextmenu = (e) => e.preventDefault();
 
   const button = (label, title, run) => {
-    const b = el('button', { className: 'btn ghost', textContent: label, title });
+    const b = Button(label, { variant: 'ghost', title });
     b.onclick = () => { run(); commit(); };
     return b;
   };

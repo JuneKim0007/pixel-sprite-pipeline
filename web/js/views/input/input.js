@@ -7,6 +7,7 @@
  */
 
 import { api, getPath } from '../../api.js';
+import { Button } from '../../ui/index.js';
 import { el } from '../../core/dom.js';
 import { draftConfig, state, toast } from '../../store.js';
 import { VIEW_OPTIONS } from '../../features/pose.js';
@@ -154,7 +155,7 @@ function viewSlots(images, onPick, onClear) {
       clear.onclick = () => onClear(view);
       slot.append(clear);
     } else {
-      const add = el('button', { className: 'btn ghost', textContent: '+ add' });
+      const add = Button('+ add', { variant: 'ghost' });
       add.onclick = () => onPick(view);
       slot.append(add);
     }
@@ -385,9 +386,9 @@ export function renderInput(host, { onChange, onContinue }) {
     } catch (e) { toast(e.message, 'error'); }
   };
 
-  const uploadBtn = el('button', { className: 'btn', textContent: 'Browse files…' });
+  const uploadBtn = Button('Browse files…');
   uploadBtn.onclick = () => upload.click();
-  const pickBtn = el('button', { className: 'btn ghost', textContent: 'From input folder…' });
+  const pickBtn = Button('From input folder…', { variant: 'ghost' });
   pickBtn.onclick = async () => {
     const picked = await browseDialog(paths.input_dir || '', true);
     if (picked?.length) addRefs(picked);
@@ -454,7 +455,7 @@ export function renderInput(host, { onChange, onContinue }) {
       el('div', { className: 'row' }, uploadBtn, pickBtn, upload),
       referenceCards(role, onChange))));
 
-  const cont = el('button', { className: 'btn primary lg', textContent: 'Continue to Run →' });
+  const cont = Button('Continue to Run →', { variant: 'primary', size: 'lg' });
   cont.onclick = onContinue;
   host.append(el('div', { className: 'formfoot' }, cont));
 }

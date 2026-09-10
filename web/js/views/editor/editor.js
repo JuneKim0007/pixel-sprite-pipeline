@@ -31,7 +31,7 @@ import { state, toast } from '../../store.js';
 import { layerForm, stackList } from './stack.js';
 import { clampFraction, fractionAt, loadRatios, saveRatios, splitter } from './panes.js';
 import { lightbox } from '../../ui/dialog.js';
-import { Fact, FactGrid, PanelHead } from '../../ui/index.js';
+import { Button, Empty, Fact, FactGrid, PanelHead } from '../../ui/index.js';
 import * as gpu from './gpu.js';
 
 let catalogue = [];
@@ -115,7 +115,7 @@ export function renderEditor(host) {
   const drawSource = () => sourceCell.replaceChildren(
     source ? el('div', { className: 'compare-stage' },
                 el('img', { src: api.fileUrl(source), alt: 'source' }))
-           : el('p', { className: 'empty', textContent: 'Pick an image.' }));
+           : Empty('Pick an image.'));
   const factsHost = el('div', { className: 'factshost' }, factsBar());
 
   const head = (label, size) => {
@@ -254,8 +254,7 @@ export function renderEditor(host) {
    * live where it can - it is a frame of GPU work, not a job - but the
    * authoritative pass happens when it is asked for.
    */
-  const generate = el('button', { className: 'btn primary',
-                                  textContent: 'Generate preview' });
+  const generate = Button('Generate preview', { variant: 'primary' });
 
   const markStale = () => {
     generate.classList.add('wants');
@@ -298,11 +297,10 @@ export function renderEditor(host) {
       markStale();
     } catch (e) { toast(e.message, 'error'); }
   };
-  const uploadBtn = el('button', { className: 'btn ghost', textContent: 'Upload' });
+  const uploadBtn = Button('Upload', { variant: 'ghost' });
   uploadBtn.onclick = () => upload.click();
 
-  const apply = el('button', { className: 'btn primary', textContent: 'Write _px.png',
-                               disabled: !source });
+  const apply = Button('Write _px.png', { variant: 'primary', disabled: !source });
   apply.onclick = async () => {
     try {
       const r = await api.editApply({ source, stack });
@@ -349,7 +347,7 @@ export function renderEditor(host) {
     const entry = stack.find((s) => s.id === selected);
     if (!entry) {
       formHost.replaceChildren(
-        el('p', { className: 'empty', textContent: 'Pick a layer to configure it.' }));
+        Empty('Pick a layer to configure it.'));
       return;
     }
     const spec = catalogue.find((s) => s.key === entry.layer);
@@ -423,7 +421,7 @@ export function renderEditor(host) {
     body);
 
   after.replaceChildren(el('h4', { textContent: 'Result' }),
-                        el('p', { className: 'empty', textContent: 'No preview yet.' }));
+                        Empty('No preview yet.'));
 
   (async () => {
     if (!catalogue.length) {

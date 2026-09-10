@@ -10,7 +10,7 @@ import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
-import { Disclosure, Meter, PanelHead } from '../../ui/index.js';
+import { Button, Disclosure, Empty, Meter, PanelHead } from '../../ui/index.js';
 import { GpuProgress, RunProgress } from '../../features/progress.js';
 import { browseDialog } from '../../ui/dialog.js';
 
@@ -146,7 +146,7 @@ function failureBanner(failure, onShowLog, produced = false) {
     el('div', {},
       el('b', { textContent: `${what}: ${failure.kind}` }),
       el('p', { className: 'mini', textContent: failure.message })));
-  const jump = el('button', { className: 'btn ghost', textContent: 'Log' });
+  const jump = Button('Log', { variant: 'ghost' });
   jump.onclick = onShowLog;
   box.append(jump);
   return box;
@@ -169,14 +169,14 @@ function grid(runId, stage) {
 /** Frame player: the only way to judge whether an animation actually reads. */
 function animation(runId, stage, stops) {
   const srcs = stage.images.map((n) => api.fileUrl(`${state.runDir}/${stage.dir}/${n}`));
-  if (!srcs.length) return el('p', { className: 'empty', textContent: 'No frames.' });
+  if (!srcs.length) return Empty('No frames.');
 
   const view = el('img', { className: 'animview', src: srcs[0] });
   const scrub = el('input', { type: 'range', min: 0, max: srcs.length - 1, step: 1, value: 0 });
   const fps = el('input', { type: 'range', min: 1, max: 24, step: 1, value: 12 });
   const fpsLabel = el('span', { className: 'mono', textContent: '12 fps' });
   const counter = el('span', { className: 'mono', textContent: `1/${srcs.length}` });
-  const playBtn = el('button', { className: 'btn', textContent: '▶ Play' });
+  const playBtn = Button('▶ Play');
   const loop = el('input', { type: 'checkbox', checked: true });
 
   let index = 0, timer = null;
@@ -244,7 +244,7 @@ function consumedStrip(paths) {
 function strip(runId, stage) {
   const canvas = el('canvas', { className: 'sheetcanvas' });
   const srcs = stage.images.map((n) => api.fileUrl(`${state.runDir}/${stage.dir}/${n}`));
-  if (!srcs.length) return el('p', { className: 'empty', textContent: 'Nothing to join.' });
+  if (!srcs.length) return Empty('Nothing to join.');
 
   Promise.all(srcs.map((src) => new Promise((res) => {
     const img = new Image();
@@ -308,7 +308,7 @@ function gateBanner(runId, detail) {
   const editable = EDITABLE[stage];
   const remaining = (detail.stages || []).length;
 
-  const resume = el('button', { className: 'btn primary', textContent: 'Run the rest' });
+  const resume = Button('Run the rest', { variant: 'primary' });
   resume.onclick = async () => {
     resume.disabled = true;
     try {
@@ -323,7 +323,7 @@ function gateBanner(runId, detail) {
 
   const actions = [resume];
   if (editable) {
-    const edit = el('button', { className: 'btn', textContent: editable.label });
+    const edit = Button(editable.label);
     edit.onclick = () => {
       window.dispatchEvent(new CustomEvent('pipeline:edit', {
         detail: { runId, tab: editable.tab, step: editable.step },
@@ -356,7 +356,7 @@ export function renderResult(host, { runId, detail, onPick }) {
     try {
       const { runs } = await api.runs();
       if (!runs.length) {
-        history.append(el('p', { className: 'empty', textContent: 'Nothing generated yet.' }));
+        history.append(Empty('Nothing generated yet.'));
         return;
       }
       for (const run of runs.slice(0, 40)) {
@@ -371,7 +371,7 @@ export function renderResult(host, { runId, detail, onPick }) {
   })();
 
   if (!detail || !detail.stages?.length) {
-    host.append(el('p', { className: 'empty', textContent: 'No output yet. Start a run.' }));
+    host.append(Empty('No output yet. Start a run.'));
     return;
   }
 
@@ -435,7 +435,7 @@ export function renderResult(host, { runId, detail, onPick }) {
       return btn;
     });
 
-    const dl = el('button', { className: 'btn ghost', textContent: 'Download' });
+    const dl = Button('Download', { variant: 'ghost' });
     dl.onclick = () => downloadStage(runId, stage.name).catch((e) => toast(e.message, 'error'));
 
     body.append(

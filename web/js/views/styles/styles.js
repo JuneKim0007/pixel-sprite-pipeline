@@ -28,6 +28,7 @@
  */
 
 import { api } from '../../api.js';
+import { Button, Empty } from '../../ui/index.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 
@@ -95,7 +96,7 @@ function imagesPanel(detail) {
       + `styles/${detail.name}/style.yaml.` }));
 
   if (!images.length) {
-    box.append(el('p', { className: 'empty', textContent: 'No exemplars yet.' }));
+    box.append(Empty('No exemplars yet.'));
     return box;
   }
 
@@ -129,7 +130,7 @@ function promptsPanel(detail) {
   }
 
   if (!groups.length) {
-    box.append(el('p', { className: 'empty', textContent: 'No vocabulary.' }));
+    box.append(Empty('No vocabulary.'));
   } else {
     const list = el('div', { className: 'vocab' });
     for (const [group, fragments] of groups) {
@@ -341,7 +342,7 @@ function historyPanel(detail, rerender) {
   // Writing a note is the one thing you may add to an append-only log by hand.
   const input = el('input', { type: 'text', placeholder:
     'Note what you changed and why — "dropped to 24 colours, armour was reading flat"' });
-  const add = el('button', { className: 'btn', textContent: 'Add note' });
+  const add = Button('Add note');
   const submit = async () => {
     if (!input.value.trim()) return;
     try {
@@ -425,7 +426,7 @@ async function trainingPanel(name) {
   try {
     data = await api.styleTraining(name);
   } catch (e) {
-    panel.append(el('p', { className: 'empty', textContent: e.message }));
+    panel.append(Empty(e.message));
     return panel;
   }
 
@@ -474,7 +475,7 @@ async function trainingPanel(name) {
     + 'staging accumulates until there is enough to train on.' }));
 
   if (!data.staged.length) {
-    panel.append(el('p', { className: 'empty', textContent: 'Nothing staged yet.' }));
+    panel.append(Empty('Nothing staged yet.'));
   } else {
     panel.append(el('div', { className: 'stagedlist' }, ...data.staged.map(stagedRow)));
   }
@@ -500,7 +501,7 @@ async function resolvedPanel() {
         ? el('p', { className: 'ok', textContent: '✓ No settings conflict with this pipeline.' })
         : null));
   } catch (e) {
-    panel.append(el('p', { className: 'empty', textContent: e.message }));
+    panel.append(Empty(e.message));
   }
   return panel;
 }
@@ -598,7 +599,7 @@ export function renderStyles(host, { onChanged }) {
       }
       await showDetail(true);
     } catch (e) {
-      list.append(el('p', { className: 'empty', textContent: e.message }));
+      list.append(Empty(e.message));
     }
   })();
 }

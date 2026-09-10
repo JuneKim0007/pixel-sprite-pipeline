@@ -16,13 +16,13 @@
 
 import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
-import { PanelHead } from '../../ui/index.js';
+import { Button, Empty, PanelHead } from '../../ui/index.js';
 import { state, toast } from '../../store.js';
 
 function card(title, { action, onAction } = {}) {
   let button = null;
   if (action) {
-    button = el('button', { className: 'btn ghost', textContent: action });
+    button = Button(action, { variant: 'ghost' });
     button.onclick = onAction;
   }
   return el('section', { className: 'ovcard' }, PanelHead(title, { action: button }));
@@ -41,7 +41,7 @@ function statLine(pairs) {
 function contextStrip(detail, refresh) {
   const box = el('div', {});
   if (!detail) {
-    return el('p', { className: 'empty', textContent: 'No style applied to this pipeline.' });
+    return Empty('No style applied to this pipeline.');
   }
 
   const images = detail.context.images || [];
@@ -133,7 +133,7 @@ function promptStrip(detail, refresh) {
   }
 
   if (!Object.keys(vocab).length) {
-    box.append(el('p', { className: 'empty', textContent: 'No vocabulary groups.' }));
+    box.append(Empty('No vocabulary groups.'));
   }
 
   return box;
@@ -155,7 +155,7 @@ export function renderOverview(host, { goTo }) {
         + `${stages.length} stage(s) · ${applied.join(' + ') || 'no style'}` })),
     el('div', { className: 'head-actions' },
       (() => {
-        const b = el('button', { className: 'btn primary', textContent: 'Set up a run' });
+        const b = Button('Set up a run', { variant: 'primary' });
         b.onclick = () => goTo('run');
         return b;
       })())));
@@ -231,7 +231,7 @@ export function renderOverview(host, { goTo }) {
       const latest = runs[0];
       if (!latest) {
         runCard.replaceChildren(runCard.firstChild,
-          el('p', { className: 'empty', textContent: 'Nothing generated yet.' }));
+          Empty('Nothing generated yet.'));
       } else {
         const shots = [];
         for (const stage of [...latest.stages].reverse()) {
@@ -250,7 +250,7 @@ export function renderOverview(host, { goTo }) {
             + (latest.stopped_at ? ` · gated at ${latest.stopped_at}` : '') }),
           strip,
           (() => {
-            const b = el('button', { className: 'btn ghost', textContent: 'Refine in editor' });
+            const b = Button('Refine in editor', { variant: 'ghost' });
             b.onclick = () => goTo('editor');
             return b;
           })());

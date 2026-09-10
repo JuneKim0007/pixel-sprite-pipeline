@@ -11,6 +11,7 @@
  */
 
 import { api } from '../../api.js';
+import { Button, Empty } from '../../ui/index.js';
 import { autosaver } from '../../core/autosave.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
@@ -208,11 +209,11 @@ function inspector(onEdit) {
   const box = el('div', { className: 'inspector' });
 
   if (!entry) {
-    box.append(el('p', { className: 'empty', textContent: 'No pose loaded.' }));
+    box.append(Empty('No pose loaded.'));
     return box;
   }
   if (!state.selectedJoint) {
-    box.append(el('p', { className: 'empty', textContent: 'Click a joint to edit it.' }));
+    box.append(Empty('Click a joint to edit it.'));
     return box;
   }
 
@@ -242,7 +243,7 @@ function inspector(onEdit) {
       el('div', { className: 'control' }, range, num));
   });
 
-  const reset = el('button', { className: 'btn ghost', textContent: 'Reset joint' });
+  const reset = Button('Reset joint', { variant: 'ghost' });
   reset.onclick = () => {
     if (neutral?.[joint]) {
       entry.pose[joint] = [...neutral[joint]];

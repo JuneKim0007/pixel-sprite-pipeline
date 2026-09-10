@@ -8,6 +8,7 @@
  */
 
 import { api, delPath, getPath, setPath } from '../../api.js';
+import { Button } from '../../ui/index.js';
 import { renderGroup } from '../../fields.js';
 import { el } from '../../core/dom.js';
 import { browseDialog } from '../../ui/dialog.js';
@@ -141,7 +142,7 @@ export function renderSettings(host, { onSaved }) {
         })));
 
   /* -- save bar */
-  const save = el('button', { className: 'btn primary', textContent: 'Save', disabled: !state.dirty });
+  const save = Button('Save', { variant: 'primary', disabled: !state.dirty });
   save.onclick = async () => {
     try {
       if (isGlobal) {

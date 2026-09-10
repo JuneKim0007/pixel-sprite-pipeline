@@ -11,7 +11,7 @@
 
 import { api, getPath, setPath } from '../../api.js';
 import { ROLES } from '../input/input.js';
-import { Disclosure, HelpTip } from '../../ui/index.js';
+import { Button, Disclosure, HelpTip } from '../../ui/index.js';
 import { annotator } from './annotate.js';
 import { poseAutosaver, rigEditor } from './rig.js';
 import { el } from '../../core/dom.js';
@@ -340,7 +340,7 @@ function confirmStep(onRun) {
         ? `This run will stop after "${gate}" so you can review it.`
         : 'This run will go through to the end.' })));
 
-  const go = el('button', { className: 'btn primary lg', textContent: 'Run' });
+  const go = Button('Run', { variant: 'primary', size: 'lg' });
   go.onclick = onRun;
   box.querySelector('.fields').append(el('div', { className: 'formfoot' }, go));
   return box;
@@ -434,9 +434,9 @@ export function renderRun(host, { onStarted, goTo }) {
     : step === 'check' ? checkStep()
     : confirmStep(startRun));
 
-  const back = el('button', { className: 'btn ghost', textContent: '← Back', disabled: state.wizardStep === 0 });
+  const back = Button('← Back', { variant: 'ghost', disabled: state.wizardStep === 0 });
   back.onclick = () => go(state.wizardStep - 1);
-  const next = el('button', { className: 'btn', textContent: 'Next →' });
+  const next = Button('Next →');
   next.onclick = () => go(state.wizardStep + 1);
 
   host.append(el('div', { className: 'wizardfoot' }, back,
@@ -445,7 +445,7 @@ export function renderRun(host, { onStarted, goTo }) {
   /* Resume banner for a gated run waiting to continue. */
   const stopped = state.runs.find((r) => r.id === state.selectedRun && r.stopped_at);
   if (stopped) {
-    const resume = el('button', { className: 'btn primary', textContent: 'Resume run' });
+    const resume = Button('Resume run', { variant: 'primary' });
     resume.onclick = async () => {
       try {
         await api.start({ resume: stopped.id });
