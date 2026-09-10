@@ -1,0 +1,78 @@
+# EXPERIMENT, not a shipped pipeline. Written 2026-09-10.
+#
+# What is being tested, and why each value differs from archer.yaml:
+#
+#   1. Four references instead of one. `pick()` matches the nearest by yaw, so
+#      each frame gets its own view at full weight instead of one front image
+#      reused at 0.85 / 0.71 / 0.45 as the pose turns away.
+#
+#   2. background.colour is the sheet's own backdrop, not magenta. Three runs
+#      measured 0.0% near-magenta whatever the prompt asked (§16), so this keys
+#      what is actually there rather than what was requested.
+#
+#   3. Proportions overridden. base_pixel.yaml scales legs 1.6 and torso 1.2,
+#      which puts the rig at h/shoulder 8.37 against the reference sheet's 4.42.
+#      1.0/1.0 is the closest reachable without a width group (§23).
+#
+#   4. canonical.style.end_at lowered to 0.45. The style exemplar votes to 0.8
+#      of sampling, through the steps that draw linework, while the prompt asks
+#      for an outline (§21). This hands those steps back to the prompt.
+#
+#   5. canonical.style_weight 0.18, the value that field's own help records as
+#      keeping brushwork while letting the prompt keep the palette.
+#
+# The control is 20260910_154912_archer.
+
+module: character_sheet
+subject: a young woman with long black hair, red eyes, a white shirt with a red
+  necktie, a black jacket worn off the shoulders, a black pleated skirt, black
+  knee socks, black loafers
+style: pixel art, game sprite
+styles:
+- hi_fidelity
+
+props:
+- longsword
+
+proportions:
+  legs: 1.0
+  torso: 1.0
+
+background:
+  colour: 242, 94, 147
+
+canonical:
+  style_weight: 0.18
+  style:
+    end_at: 0.45
+  candidates: 1
+
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+  - view: side_right
+  - view: rear
+
+references:
+  identity:
+  - path: library/refs/experiment_slim/front.png
+    view: front
+    weight: 1.0
+  - path: library/refs/experiment_slim/side_right.png
+    view: side_right
+    weight: 1.0
+  - path: library/refs/experiment_slim/rear.png
+    view: rear
+    weight: 1.0
+
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+  stop_after: canonical

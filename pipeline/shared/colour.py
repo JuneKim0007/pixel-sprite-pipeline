@@ -19,6 +19,7 @@ BACKDROP_PRESETS: tuple[tuple[str, str], ...] = (
 # produced a pale blue-grey backdrop with zero magenta pixels in it.
 COLOUR_NAMES: tuple[tuple[tuple[int, int, int], str], ...] = (
     ((255, 0, 255), "magenta"),
+    ((242, 94, 147), "hot pink"),
     ((0, 177, 64), "bright green"),
     ((0, 71, 187), "deep blue"),
     ((127, 127, 127), "mid grey"),

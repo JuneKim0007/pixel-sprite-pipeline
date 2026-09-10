@@ -536,3 +536,30 @@ corners. Three runs measured 0.0% near-magenta whatever the prompt asked, so the
 colour the model actually produced is the only reliable key, and the corners are
 where it is. Deterministic and exact; an LLM round for the same question would
 return a name that needs parsing back to a number and can differ between runs.
+
+## 23. A rig can be lengthened but not broadened
+
+**Measured 2026-09-10 against a reference sheet.** The generated sprites read as
+too slim, and the cause is not the one that looked obvious.
+
+Height against shoulder width, which is the ratio that says "slim":
+
+| | h/shoulder |
+|---|---|
+| reference sheet, front figure | **4.42** |
+| humanoid rig as shipped | **6.17** |
+| humanoid with the style sheet's legs 1.6, torso 1.2 | **8.37** |
+| humanoid at legs 1.0, torso 1.0 | **6.17** |
+
+So `base_pixel.yaml`'s 1.6/1.2 makes it worse, but zeroing them does not fix it:
+the rig's own neutral is 6.17 before anything scales it. Every one of the nine
+`PROPORTION_GROUPS` scales bone LENGTH along a chain, and none scales lateral
+offset, so there is no way to make a body broader - only shorter.
+
+Scaling the lateral axis of the shoulder and hip joints by 1.4 gives 4.41,
+which is the reference. That wants a tenth group, `width` or `build`, applied to
+the x component rather than to a bone length. `rigs.scale` walks parent to child
+applying a factor to a distance; a width group is a different operation on the
+same tree and should not be forced through the same function.
+
+Experiment images live in `library/refs/experiment_slim/`.
