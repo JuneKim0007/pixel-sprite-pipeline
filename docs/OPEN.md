@@ -473,3 +473,18 @@ one scalar strength and needs no new nodes.
 Measure before either. §16 changed the backdrop prompt from a hex code to a
 colour name, and the next generated canonical says whether the backdrop obeys at
 all. A weight map may be solving a problem that no longer exists.
+
+## 20. Nothing stops two runs, and a stop is not a stop everywhere
+
+**Half done 2026-09-10.** `start_run` refused nothing: pressing Run while a run
+was going started a second subprocess, and pressing Resume on the run already
+running started a second copy of the SAME one - both writing the same stage
+directories and the same `artifacts.json`. It now raises `Conflict` either way,
+and the refusal survives a server restart by finding a live `run.py` through its
+`--run-id` on the command line, because `_ACTIVE` is only this process's memory.
+
+**What is left.** The queue and the autopilot start runs by their own path
+(`api/jobs.py`), and `_in_flight` does not gate them. Whether they should queue
+behind a manual run or refuse it is a product decision; today they neither
+queue nor refuse.
+

@@ -1700,5 +1700,25 @@ await atest('the editor puts the field back to its declared default', async () =
     'the control never learns what its default is');
 });
 
+console.log('\nrefusals');
+await atest('a refusal carries what to do about it', async () => {
+  // Conflict, TooLarge and Invalid all set a hint, and every caller shows
+  // e.message alone, so "'x' is still running." arrived with no way forward.
+  const src = readFileSync(join(JS, 'api.js'), 'utf8');
+  assert.match(src, /body\.hint \? `\$\{said\} \$\{body\.hint\}`/,
+    'the hint is dropped before the toast sees it');
+  assert.match(src, /err\.hint = body\.hint/);
+});
+
+await atest('starting a run cannot outrun a run already going', async () => {
+  const src = readFileSync(join(ROOT, 'pipeline/api/runs.py'), 'utf8');
+  assert.match(src, /def _in_flight/);
+  assert.match(src, /busy = _in_flight\(\)/, 'start_run does not check');
+  assert.match(src, /raise Conflict/, 'a second run is allowed through');
+  // _ACTIVE is per-process; a restarted server must still see the subprocess.
+  assert.match(src, /def _adopted/, 'a restart would wave a second run through');
+  assert.match(src, /--run-id/, 'the adopted run is not found by its command line');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

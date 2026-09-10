@@ -12,7 +12,7 @@ from pathlib import Path
 from .. import stages as _stages  # noqa: F401  - registers them
 from ..generation import comfy, runner
 from ..shared import guard, settings
-from ..shared.errors import NotFound
+from ..shared.errors import Conflict, NotFound
 from .context import CONFIGS, ROOT, runs_dir
 from .contracts import Shape
 from .routing import BaseRouter, get, post
@@ -202,8 +202,52 @@ def run_detail(run_id: str) -> dict:
     return info
 
 
+def _adopted() -> str | None:
+    """A run left behind by an earlier UI process, found by its command line.
+
+    `_ACTIVE` is this process's memory. Restarting the server empties it while
+    the subprocess keeps going, and without this the guard below would then wave
+    a second one through - which is exactly when it matters most.
+    """
+    try:
+        out = subprocess.run(["ps", "-axo", "args="],
+                             capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.stdout.splitlines():
+        if "run.py" not in line or "--run-id" not in line:
+            continue
+        parts = line.split()
+        try:
+            return parts[parts.index("--run-id") + 1]
+        except (ValueError, IndexError):
+            continue
+    return None
+
+
+def _in_flight() -> str | None:
+    """The run already going, whether this process started it or not."""
+    with _LOCK:
+        for run_id, proc in list(_ACTIVE.items()):
+            if proc.poll() is None:
+                return run_id
+            del _ACTIVE[run_id]
+    return _adopted()
+
+
 def start_run(config_name: str, overrides: dict | None, resume: str | None,
               style_picks: dict | None = None) -> str:
+    # One at a time. Two SDXL subprocesses on one GPU do not halve each other's
+    # speed, they compete for the same VRAM, and resuming a run that is already
+    # running is worse than slow: both write the same stage directories and the
+    # same artifacts.json, so the manifest ends up describing neither.
+    busy = _in_flight()
+    if busy:
+        raise Conflict(
+            f"'{busy}' is still running.",
+            hint="Stop it first, or wait for it to finish." if busy != resume
+                 else "It is already running; watch it on the Result tab.")
+
     cmd = [sys.executable, "-u", str(ROOT / "run.py")]
 
     if resume:

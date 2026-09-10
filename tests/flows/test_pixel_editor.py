@@ -252,3 +252,66 @@ def test_resume_reaches_start_run_as_resume(monkeypatch):
     runs_api.Runs().start(Req())
     assert seen["resume"] == "20260101_000000_x"
     assert seen["config"] == ""
+
+
+def test_a_second_run_is_refused_while_one_is_going(monkeypatch):
+    """Two SDXL subprocesses compete for one GPU; two on one run corrupt it."""
+    from pipeline.api import runs as runs_api
+    from pipeline.shared.errors import Conflict
+
+    monkeypatch.setattr(runs_api, "_in_flight", lambda: "20260101_000000_x")
+    with pytest.raises(Conflict) as caught:
+        runs_api.start_run("char_3", {}, None)
+    assert "20260101_000000_x" in str(caught.value)
+
+
+def test_resuming_the_run_that_is_already_running_is_refused(monkeypatch):
+    from pipeline.api import runs as runs_api
+    from pipeline.shared.errors import Conflict
+
+    monkeypatch.setattr(runs_api, "_in_flight", lambda: "20260101_000000_x")
+    with pytest.raises(Conflict):
+        runs_api.start_run("", {}, "20260101_000000_x")
+
+
+def test_nothing_running_lets_a_run_start(monkeypatch, tmp_path):
+    from pipeline.api import runs as runs_api
+
+    monkeypatch.setattr(runs_api, "_in_flight", lambda: None)
+    started = {}
+
+    class FakeProc:
+        pid = 4242
+
+        def poll(self):
+            return None
+
+    def fake_popen(cmd, **kwargs):
+        started["cmd"] = cmd
+        return FakeProc()
+
+    monkeypatch.setattr(runs_api.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(runs_api, "runs_dir", lambda: tmp_path)
+    (tmp_path / "20260101_000000_x").mkdir()
+
+    run_id = runs_api.start_run("", {}, "20260101_000000_x")
+    assert run_id == "20260101_000000_x"
+    assert "--resume" in started["cmd"]
+    runs_api._ACTIVE.pop(run_id, None)
+
+
+def test_a_finished_run_does_not_block_the_next(monkeypatch):
+    """A dead entry in _ACTIVE must be forgotten, not treated as in flight."""
+    from pipeline.api import runs as runs_api
+
+    class Dead:
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr(runs_api, "_adopted", lambda: None)
+    runs_api._ACTIVE["20260101_000000_done"] = Dead()
+    try:
+        assert runs_api._in_flight() is None
+        assert "20260101_000000_done" not in runs_api._ACTIVE
+    finally:
+        runs_api._ACTIVE.pop("20260101_000000_done", None)
