@@ -7,6 +7,7 @@
  */
 
 import { api, getPath } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { Button } from '../../ui/index.js';
 import { el } from '../../core/dom.js';
 import { draftConfig, state, toast } from '../../store.js';
@@ -374,7 +375,7 @@ export function renderInput(host, { onChange, onContinue }) {
       const { saved } = await api.upload(upload.files);
       addRefs(saved.map((f) => f.path));
       toast(`Uploaded ${saved.length} image(s)`);
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
     upload.value = '';
   };
 
@@ -383,7 +384,7 @@ export function renderInput(host, { onChange, onContinue }) {
       const { saved } = await api.upload(files);
       addRefs(saved.map((f) => f.path));
       toast(`Added ${saved.length} image(s)`);
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   const uploadBtn = Button('Browse files…');

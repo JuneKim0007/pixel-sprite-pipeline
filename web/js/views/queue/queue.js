@@ -18,6 +18,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { Button, Empty, Fields, Head, Mini, Num, Ok, Row, Segmented, Select, Warn } from '../../ui/index.js';
@@ -95,7 +96,7 @@ function autopilotBar(data, refresh) {
       const r = await api.autopilot({ action, ...extra });
       toast(r.note || (r.running ? 'Autopilot started' : 'Autopilot stopping'));
       refresh();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   const start = Button.primary('Start autopilot',
@@ -143,7 +144,7 @@ function submitForm(refresh) {
       toast(`Queued ${r.count} job(s)`);
       matrix.value = '';
       refresh();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   box.append(Fields(
@@ -168,7 +169,7 @@ export function renderQueue(host) {
       await api.queueJob(id, action);
       toast(`${action} ${id}`);
       await load();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   function draw() {

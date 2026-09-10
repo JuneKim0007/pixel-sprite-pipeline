@@ -10,6 +10,7 @@
  */
 
 import { api, getPath, setPath } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { ROLES } from '../input/input.js';
 import { Button, Disclosure, HelpTip } from '../../ui/index.js';
 import { annotator } from './annotate.js';
@@ -411,7 +412,7 @@ export function renderRun(host, { onStarted, goTo }) {
       toast(`Started ${run_id}`);
       onStarted?.(run_id);
     } catch (e) {
-      toast(e.message, 'error');
+      showError(e);
     }
   };
 
@@ -452,7 +453,7 @@ export function renderRun(host, { onStarted, goTo }) {
         toast(`Resumed ${stopped.id}`);
         onStarted?.(stopped.id);
       } catch (e) {
-        toast(e.message, 'error');
+        showError(e);
       }
     };
     host.prepend(el('div', { className: 'banner warn' },

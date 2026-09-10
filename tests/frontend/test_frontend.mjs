@@ -1829,5 +1829,52 @@ await atest('a panel does not restate what the (?) already says', async () => {
   }
 });
 
+console.log('\nerror reporting');
+await atest('being told no is not the same as something breaking', async () => {
+  // The server classifies every refusal - PixelError carries a kind and a
+  // status - and seventeen call sites threw it away with
+  // `catch (e) { toast(e.message, 'error') }`, so a 409 looked like a 500.
+  const { classify } = await import(join(JS, 'core/errors.js'));
+
+  for (const kind of ['invalid', 'not_found', 'conflict', 'too_large']) {
+    const seen = classify({ kind });
+    assert.equal(seen.expected, true, `${kind} is reported as a defect`);
+    assert.equal(seen.tone, 'warn');
+  }
+  for (const kind of ['denied', 'unavailable', 'internal']) {
+    assert.equal(classify({ kind }).tone, 'error');
+    assert.equal(classify({ kind }).expected, false);
+  }
+});
+
+await atest('an error with no kind is a defect, not a refusal', async () => {
+  const { classify } = await import(join(JS, 'core/errors.js'));
+  const seen = classify(new TypeError('x is not a function'));
+  assert.equal(seen.expected, false, 'a thrown TypeError was treated as a refusal');
+  assert.equal(seen.kind, 'internal');
+});
+
+await atest('every server kind is classified', async () => {
+  // A kind the client does not know falls back to internal, which reports a
+  // refusal as a crash. The two lists have to stay in step.
+  const { KINDS } = await import(join(JS, 'core/errors.js'));
+  const py = readFileSync(join(ROOT, 'pipeline/shared/errors.py'), 'utf8');
+  const served = [...py.matchAll(/kind = "(\w+)"/g)].map((m) => m[1])
+    .filter((k) => k !== 'error');
+  for (const kind of served) {
+    assert.ok(KINDS[kind], `the server sends '${kind}' and the client has no entry`);
+  }
+});
+
+await atest('nothing reports an error by hand any more', async () => {
+  const files = readdirSync(join(JS), { recursive: true })
+    .filter((f) => String(f).endsWith('.js') && !String(f).endsWith('errors.js'));
+  for (const f of files) {
+    const src = readFileSync(join(JS, String(f)), 'utf8');
+    assert.doesNotMatch(src, /toast\(e\.message, 'error'\)/,
+      `${f} still reports an error without classifying it`);
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

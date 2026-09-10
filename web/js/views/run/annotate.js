@@ -18,6 +18,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { autosaver, saveLabel } from '../../core/autosave.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
 import { projectPoint } from '../../features/pose.js';
@@ -331,7 +332,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
         render();
       }
     } catch (e) {
-      toast(e.message, 'error');
+      showError(e);
     }
     auto.disabled = false;
     auto.textContent = 'Auto-fit';

@@ -28,6 +28,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { Button, Empty } from '../../ui/index.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
@@ -349,7 +350,7 @@ function historyPanel(detail, rerender) {
       await api.styleNote(detail.name, input.value);
       input.value = '';
       rerender(true);
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
   add.onclick = submit;
   input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
@@ -531,7 +532,7 @@ export function renderStyles(host, { onChanged }) {
       await onChanged?.();
       renderStyles(host, { onChanged });
     } catch (e) {
-      toast(e.message, 'error');
+      showError(e);
     }
   };
 

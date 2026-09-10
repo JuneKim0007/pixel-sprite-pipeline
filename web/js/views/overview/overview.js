@@ -15,6 +15,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { Button, Empty, PanelHead } from '../../ui/index.js';
 import { state, toast } from '../../store.js';
@@ -60,7 +61,7 @@ function contextStrip(detail, refresh) {
         await api.styleExemplar(detail.name, [image.path], true);
         toast(`Removed ${image.name}`);
         refresh();
-      } catch (e) { toast(e.message, 'error'); }
+      } catch (e) { showError(e); }
     };
     cell.append(drop);
     cell.append(el('figcaption', {},
@@ -77,7 +78,7 @@ function contextStrip(detail, refresh) {
       await api.styleExemplar(detail.name, saved.map((f) => f.path));
       toast(`Added ${saved.length} exemplar(s) to ${detail.name}`);
       refresh();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
     upload.value = '';
   };
 
@@ -106,7 +107,7 @@ function promptStrip(detail, refresh) {
       await api.stylePrompts(detail.name, vocab, null);
       toast('Vocabulary saved');
       refresh();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   for (const [group, fragments] of Object.entries(vocab)) {

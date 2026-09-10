@@ -7,6 +7,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
@@ -316,7 +317,9 @@ function gateBanner(runId, detail) {
       toast(`Resumed ${runId}`);
       window.dispatchEvent(new CustomEvent('pipeline:resumed', { detail: { runId } }));
     } catch (e) {
-      toast(e.message, 'error');
+      // The 409 from an already-running run lands here, and it is a refusal
+      // rather than a failure.
+      showError(e);
       resume.disabled = false;
     }
   };
@@ -436,7 +439,7 @@ export function renderResult(host, { runId, detail, onPick }) {
     });
 
     const dl = Button('Download', { variant: 'ghost' });
-    dl.onclick = () => downloadStage(runId, stage.name).catch((e) => toast(e.message, 'error'));
+    dl.onclick = () => downloadStage(runId, stage.name).catch((e) => showError(e));
 
     body.append(
       mode === 'grid' ? grid(runId, stage)

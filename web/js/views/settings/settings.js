@@ -8,6 +8,7 @@
  */
 
 import { api, delPath, getPath, setPath } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { Button } from '../../ui/index.js';
 import { renderGroup } from '../../fields.js';
 import { el } from '../../core/dom.js';
@@ -156,7 +157,7 @@ export function renderSettings(host, { onSaved }) {
       await onSaved?.();
       renderSettings(host, { onSaved });
     } catch (e) {
-      toast(e.message, 'error');
+      showError(e);
     }
   };
 

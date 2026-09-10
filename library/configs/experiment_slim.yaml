@@ -52,7 +52,7 @@ pose:
   size: 1024
   set:
   - view: front
-  - view: side_right
+  - view: side
   - view: rear
 
 references:
@@ -60,8 +60,8 @@ references:
   - path: library/refs/experiment_slim/front.png
     view: front
     weight: 1.0
-  - path: library/refs/experiment_slim/side_right.png
-    view: side_right
+  - path: library/refs/experiment_slim/side.png
+    view: side
     weight: 1.0
   - path: library/refs/experiment_slim/rear.png
     view: rear

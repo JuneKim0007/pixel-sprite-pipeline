@@ -26,6 +26,7 @@
  */
 
 import { api } from '../../api.js';
+import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { layerForm, stackList } from './stack.js';
@@ -295,7 +296,7 @@ export function renderEditor(host) {
       drawSource();
       renderForm();
       markStale();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
   const uploadBtn = Button('Upload', { variant: 'ghost' });
   uploadBtn.onclick = () => upload.click();
@@ -305,7 +306,7 @@ export function renderEditor(host) {
     try {
       const r = await api.editApply({ source, stack });
       toast(`Wrote ${r.written.split('/').pop()} at ${r.width}x${r.height}`);
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { showError(e); }
   };
 
   /* ----------------------------------------------------------- the stack */
