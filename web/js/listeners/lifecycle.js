@@ -1,6 +1,7 @@
 /* mount() tears down the previous view before the next renders.
  * A view that throws shows its error in place instead of blanking the tab. */
 import { el } from '../core/dom.js';
+import { canGoBack, forget, goBack } from '../core/history.js';
 
 let teardown = null;
 let mountedName = null;
@@ -15,7 +16,7 @@ export function mount(name, host, view) {
     teardown = typeof cleanup === 'function' ? cleanup : null;
   } catch (e) {
     teardown = null;
-    window.pixelNav?.forget?.();
+    forget();
     host.replaceChildren(failure(name, e, () => mount(name, host, view)));
     console.error(`view '${name}' failed to render:`, e);
   }
@@ -49,11 +50,11 @@ function failure(name, error, retry) {
   again.onclick = retry;
 
   const actions = el('div', { className: 'formfoot' }, again);
-  if (window.pixelNav?.canGoBack?.()) {
+  if (canGoBack()) {
     const back = el('button', {
       className: 'btn primary', type: 'button', textContent: '‹ Back',
     });
-    back.onclick = () => window.pixelNav.goBack();
+    back.onclick = () => goBack();
     actions.prepend(back);
   }
 

@@ -11,6 +11,7 @@ import { api, delPath, getPath, setPath } from '../../api.js';
 import { renderGroup } from '../../fields.js';
 import { el } from '../../core/dom.js';
 import { browseDialog } from '../../ui/dialog.js';
+import { remember } from '../../core/history.js';
 import { state, toast } from '../../store.js';
 
 /* An ordering hint, not a whitelist.
@@ -64,7 +65,7 @@ export function renderSettings(host, { onSaved }) {
       textContent: label,
     });
     btn.onclick = () => {
-      window.pixelNav?.remember?.();
+      remember();
       state.scope = value;
       renderSettings(host, { onSaved });
     };
@@ -91,7 +92,7 @@ export function renderSettings(host, { onSaved }) {
       el('span', { className: 'count', textContent: counts[name] ? String(counts[name]) : '·' }),
       (!isGlobal && pinnedHere) ? el('span', { className: 'dot' }) : null);
     item.onclick = () => {
-      window.pixelNav?.remember?.();
+      remember();
       state.settingsSection = name;
       renderSettings(host, { onSaved });
     };

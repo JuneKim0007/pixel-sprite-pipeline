@@ -226,6 +226,18 @@ function animation(runId, stage, stops) {
 }
 
 /** Joined sheet, drawn client-side so any stage can be viewed this way. */
+function consumedStrip(paths) {
+  const box = el('div', { className: 'consumed' });
+  for (const path of paths.slice(0, 12)) {
+    box.append(el('img', {
+      src: api.fileUrl(path), loading: 'lazy', title: path.split('/').pop(),
+    }));
+  }
+  return el('div', {},
+    el('p', { className: 'mini', textContent: `Consumed ${paths.length} file(s) from an earlier stage` }),
+    box);
+}
+
 function strip(runId, stage) {
   const canvas = el('canvas', { className: 'sheetcanvas' });
   const srcs = stage.images.map((n) => api.fileUrl(`${state.runDir}/${stage.dir}/${n}`));
@@ -410,31 +422,17 @@ export function renderResult(host, { runId, detail, onPick }) {
       : strip(runId, stage));
 
     const fed = (detail.consumed || {})[stage.name] || [];
-    const open = openStages.get(stage.dir) ?? true;
-    const panel = Disclosure(STAGE_LABEL[stage.name] || stage.name, {
-      open,
+    host.append(Disclosure(STAGE_LABEL[stage.name] || stage.name, {
+      open: openStages.get(stage.dir) ?? true,
       note: `${stage.dir} · ${stage.images.length} file(s)`,
       actions: [el('span', { className: 'seg' }, ...buttons), dl],
       onToggle: (v) => openStages.set(stage.dir, v),
-    });
-
-    if (STAGE_NOTE[stage.name]) {
-      panel.body.append(el('p', { className: 'help stagehelp', textContent: STAGE_NOTE[stage.name] }));
-    }
-    if (fed.length) {
-      const strip = el('div', { className: 'consumed' });
-      for (const path of fed.slice(0, 12)) {
-        strip.append(el('img', {
-          src: api.fileUrl(path), loading: 'lazy',
-          title: path.split('/').pop(),
-        }));
-      }
-      panel.body.append(
-        el('p', { className: 'mini', textContent: `Consumed ${fed.length} file(s) from an earlier stage` }),
-        strip);
-    }
-    panel.body.append(body);
-    host.append(panel);
+    },
+      STAGE_NOTE[stage.name]
+        ? el('p', { className: 'help stagehelp', textContent: STAGE_NOTE[stage.name] })
+        : null,
+      fed.length ? consumedStrip(fed) : null,
+      body));
   }
 
   host.append(el('section', { className: 'group' },

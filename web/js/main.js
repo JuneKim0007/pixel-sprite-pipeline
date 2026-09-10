@@ -22,42 +22,28 @@ import { newPipelineDialog, newTypeDialog } from './library.js';
 import { $, $$, el } from './core/dom.js';
 import { mount } from './listeners/lifecycle.js';
 import { poll } from './listeners/poll.js';
-import { createHistory, snapshot } from './core/history.js';
+import * as history from './core/history.js';
 import { draft, loadConfig, state, toast } from './store.js';
 
 const TABS = ['overview', 'input', 'run', 'result', 'styles', 'editor', 'queue', 'settings'];
 
-const history = createHistory();
-
 function setTab(name, { record = true } = {}) {
-  if (record) history.push(snapshot(state));
+  if (record) history.remember();
   state.tab = name;
+  showTab(name);
+  render();
+}
+
+function showTab(name) {
   $$('#nav li').forEach((li) => li.classList.toggle('active', li.dataset.view === name));
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${name}`));
-  render();
-  renderBack();
 }
 
-function remember() {
-  history.push(snapshot(state));
-  renderBack();
-}
-
-function goBack() {
-  const where = history.pop();
-  if (!where) return false;
-  Object.assign(state, where);
-  $$('#nav li').forEach((li) => li.classList.toggle('active', li.dataset.view === state.tab));
-  $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${state.tab}`));
-  render();
-  renderBack();
-  return true;
-}
-
-function renderBack() {
-  const btn = $('#goback');
-  if (btn) btn.disabled = !history.canGoBack();
-}
+history.install({
+  read: () => history.snapshot(state),
+  restore: (where) => { Object.assign(state, where); showTab(state.tab); render(); },
+  onChange: (can) => { const b = $('#goback'); if (b) b.disabled = !can; },
+});
 
 /* One table, and the mounter calls it.
  *
@@ -240,14 +226,8 @@ async function boot() {
   $$('#nav li').forEach((li) => { li.onclick = () => setTab(li.dataset.view); });
 
   const back = $('#goback');
-  if (back) back.onclick = () => goBack();
-  renderBack();
+  if (back) back.onclick = () => history.goBack();
 
-  window.pixelNav = {
-    remember, goBack,
-    canGoBack: () => history.canGoBack(),
-    forget: () => { history.forget(snapshot(state)); renderBack(); },
-  };
   $('#configPicker').onchange = async (e) => {
     await loadConfig(e.target.value);
     renderRailBar();

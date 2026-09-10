@@ -9,6 +9,7 @@ import threading
 import time
 from pathlib import Path
 
+from .. import stages as _stages  # noqa: F401  - registers them
 from ..generation import comfy, runner
 from ..shared import guard, settings
 from ..shared.errors import NotFound
@@ -159,10 +160,6 @@ def run_audit(run_dir: Path) -> dict:
 
 def _consumed(run: Path, stage_names: list[str]) -> dict[str, list[str]]:
     """What each stage was handed, from the declared graph and the manifest."""
-    import pipeline.stages  # noqa: F401  - registers the stages
-
-    from ..generation import runner
-
     try:
         stages = runner.build(list(stage_names))
     except Exception:                                   # noqa: BLE001

@@ -1363,8 +1363,16 @@ await atest('the way out lives outside every view host', async () => {
   assert.match(sidebar, /id="goback"/, 'the back button is not in the sidebar');
 
   const life = readFileSync(join(JS, 'listeners/lifecycle.js'), 'utf8');
-  assert.match(life, /pixelNav\?\.forget/, 'a failed state is still pushed');
+  assert.match(life, /^import \{[^}]*forget[^}]*\} from '\.\.\/core\/history\.js'/m,
+    'navigation reached through a global instead of an import');
+  assert.match(life, /\bforget\(\)/, 'a failed state is still pushed');
   assert.match(life, /goBack\(\)/, 'the failure card still only offers Try again');
+
+  // A module import is never undefined; the optional chaining was there
+  // because the global might not exist yet.
+  const all = ['main.js', 'listeners/lifecycle.js', 'views/settings/settings.js']
+    .map((f) => readFileSync(join(JS, f), 'utf8')).join('\n');
+  assert.doesNotMatch(all, /window\.pixelNav/, 'the navigation global is back');
 });
 
 console.log('\nresult view');
@@ -1380,12 +1388,18 @@ await atest('what fed a stage comes from the declared graph', async () => {
 });
 
 await atest('stages collapse through the shared primitive', async () => {
-  const kit = readFileSync(join(JS, 'ui/kit.js'), 'utf8');
-  assert.match(kit, /export function Disclosure/);
-  assert.match(kit, /el\('details'/, 'a hand-rolled toggle instead of <details>');
+  // Structure lives beside Section and Subsection, not among the widgets.
+  const prim = readFileSync(join(JS, 'ui/primitives.js'), 'utf8');
+  assert.match(prim, /export function Disclosure/);
+  assert.match(prim, /el\('details'/, 'a hand-rolled toggle instead of <details>');
+  assert.match(prim, /Disclosure\(title, opts = \{\}, \.\.\.children\)/,
+    'Disclosure does not take children the way Section does');
+  assert.doesNotMatch(prim, /box\.body =/,
+    'a caller still reaches in through a property on the DOM node');
 
   const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
   assert.match(view, /Disclosure\(/);
+  assert.doesNotMatch(view, /panel\.body/, 'the caller still uses the expando');
   assert.doesNotMatch(view, /group stagesection/, 'the old flat section survived');
 });
 

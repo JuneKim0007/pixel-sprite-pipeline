@@ -47,3 +47,39 @@ export function createHistory({ limit = LIMIT } = {}) {
     },
   };
 }
+
+const shared = createHistory();
+let apply = null;
+let announce = null;
+
+export function install({ read, restore, onChange }) {
+  apply = { read, restore };
+  announce = onChange;
+  if (announce) announce(shared.canGoBack());
+}
+
+function changed() {
+  if (announce) announce(shared.canGoBack());
+}
+
+export function remember() {
+  if (!apply) return;
+  shared.push(apply.read());
+  changed();
+}
+
+export function forget() {
+  if (!apply) return;
+  shared.forget(apply.read());
+  changed();
+}
+
+export function goBack() {
+  const where = shared.pop();
+  changed();
+  if (!where || !apply) return false;
+  apply.restore(where);
+  return true;
+}
+
+export const canGoBack = () => shared.canGoBack();
