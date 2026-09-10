@@ -314,10 +314,10 @@
       },
       {
         "default": "",
-        "help": "Hex, if the prompt named the backdrop. Then the keyer removes that exact hue instead of flooding from a corner and guessing, which also reaches a gap enclosed by the character that a flood cannot.",
+        "help": "RGB as '12, 34, 56' or hex as '#0a1b2c', if you know what the backdrop is. Then the keyer removes that exact hue instead of flooding from a corner and guessing, which also reaches a gap enclosed by the character that a flood cannot. Leave it blank to flood.",
         "key": "colour",
         "kind": "text",
-        "label": "Named colour",
+        "label": "Backdrop colour",
         "max": null,
         "min": null,
         "options": [],

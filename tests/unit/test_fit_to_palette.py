@@ -150,3 +150,43 @@ def test_the_stretch_costs_no_more_than_the_snap_beneath_it():
     assert stretch < snap * 1.5, (
         f"fitting peaked at {stretch / 1e6:.2f}MB against the snap's "
         f"{snap / 1e6:.2f}MB - the stretch is still holding the whole image")
+
+
+class TestBackdropColour:
+    """A backdrop the user names, in the forms a person actually types."""
+
+    def test_rgb_with_commas(self):
+        from pipeline.definitive.builtin import parse_colour
+
+        assert parse_colour("12, 34, 56") == (12, 34, 56)
+        assert parse_colour("12,34,56") == (12, 34, 56)
+        assert parse_colour("rgb(12, 34, 56)") == (12, 34, 56)
+
+    def test_hex_long_and_short(self):
+        from pipeline.definitive.builtin import parse_colour
+
+        assert parse_colour("#0a1b2c") == (10, 27, 44)
+        assert parse_colour("0a1b2c") == (10, 27, 44)
+        assert parse_colour("#abc") == (170, 187, 204)
+
+    def test_blank_means_flood_from_a_corner(self):
+        from pipeline.definitive.builtin import parse_colour
+
+        assert parse_colour("") is None
+        assert parse_colour(None) is None
+        assert parse_colour("   ") is None
+
+    def test_a_channel_over_255_is_refused(self):
+        from pipeline.definitive.builtin import parse_colour
+        from pipeline.shared.errors import Invalid
+
+        with pytest.raises(Invalid):
+            parse_colour("300, 0, 0")
+
+    def test_nonsense_is_refused_by_name(self):
+        from pipeline.definitive.builtin import parse_colour
+        from pipeline.shared.errors import Invalid
+
+        with pytest.raises(Invalid) as caught:
+            parse_colour("chartreuse")
+        assert caught.value.detail["field"] == "colour"
