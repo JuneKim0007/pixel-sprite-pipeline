@@ -4,7 +4,7 @@
  *
  *   kit         widgets. Button, Select, Row, Head. A caller names what a
  *               thing IS - Button.primary - and never writes a class string.
- *   primitives  structure. Disclosure, HelpTip.
+ *   primitives  structure. Disclosure, HelpTip, Editable.
  *   field/card  bases a caller subclasses when a widget is not enough.
  *
  * Nothing here knows what a rig or a palette is. A primitive that understands
@@ -17,5 +17,6 @@ export {
   PanelHead, Range, Row, Segmented, Select, Warn,
 } from './kit.js';
 export { Disclosure, HelpTip, LabelWithTip } from './primitives.js';
+export { Editable } from './editable.js';
 export { BaseCard } from './card.js';
 export { BaseField } from './field.js';

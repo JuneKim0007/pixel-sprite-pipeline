@@ -18,6 +18,7 @@ import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { Button, Empty, PanelHead } from '../../ui/index.js';
+import { promptEditor } from '../../features/prompts.js';
 import { state, toast } from '../../store.js';
 
 function card(title, { action, onAction } = {}) {
@@ -97,49 +98,6 @@ function contextStrip(detail, refresh) {
   return box;
 }
 
-function promptStrip(detail, refresh) {
-  if (!detail) return null;
-  const vocab = { ...(detail.context.prompts.vocabulary || {}) };
-  const box = el('div', { className: 'promptedit' });
-
-  const save = async () => {
-    try {
-      await api.stylePrompts(detail.name, vocab, null);
-      toast('Vocabulary saved');
-      refresh();
-    } catch (e) { showError(e); }
-  };
-
-  for (const [group, fragments] of Object.entries(vocab)) {
-    const row = el('div', { className: 'vocabrow' },
-      el('span', { className: 'mini', textContent: group }));
-    const chips = el('span', {});
-    fragments.forEach((fragment, i) => {
-      const chip = el('span', { className: 'frag editable', textContent: fragment });
-      const x = el('button', { className: 'fragx', textContent: '×', title: 'Remove' });
-      x.onclick = () => { vocab[group] = fragments.filter((_, j) => j !== i); save(); };
-      chip.append(x);
-      chips.append(chip);
-    });
-
-    const input = el('input', { type: 'text', className: 'fragadd', placeholder: '+ add' });
-    input.onkeydown = (e) => {
-      if (e.key !== 'Enter' || !input.value.trim()) return;
-      vocab[group] = [...fragments, input.value.trim()];
-      save();
-    };
-    chips.append(input);
-    row.append(chips);
-    box.append(row);
-  }
-
-  if (!Object.keys(vocab).length) {
-    box.append(Empty('No vocabulary groups.'));
-  }
-
-  return box;
-}
-
 /* ------------------------------------------------------------------ view */
 
 export function renderOverview(host, { goTo }) {
@@ -197,7 +155,9 @@ export function renderOverview(host, { goTo }) {
         el('h4', { textContent: 'Images' }),
         contextStrip(detail, loadStyleCard),
         el('h4', { textContent: 'Prompts' }),
-        promptStrip(detail, loadStyleCard));
+        el('div', { className: 'promptedit' },
+          promptEditor(detail, 'groups',
+                       detail.context.prompts.vocabulary || {}, loadStyleCard)));
     } catch (e) {
       styleCard.replaceChildren(styleCard.firstChild,
         el('p', { className: 'warnline', textContent: e.message }));

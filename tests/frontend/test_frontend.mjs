@@ -1939,5 +1939,105 @@ await atest('the forms that keep their own element say why', async () => {
   assert.equal(hand, 5, `${hand} hand-rolled ranges; the sweep left five with reasons`);
 });
 
+console.log('\nauthored content');
+await atest('a read-only surface turns into an editor and back', async () => {
+  const { Editable } = await import(join(JS, 'ui/index.js'));
+  const saved = [];
+  const node = Editable('two lines\nof prose', {
+    kind: 'lines', onSave: (next) => { saved.push(next); return true; },
+  });
+
+  assert.ok(node.querySelector('pre.notes'), 'the value is not shown as itself');
+  assert.equal(node.querySelector('textarea'), null, 'it opened already editing');
+
+  node.querySelector('button').onclick();
+  const area = node.querySelector('textarea');
+  assert.equal(area.value, 'two lines\nof prose', 'the editor did not start from the value');
+  area.value = 'rewritten';
+  await node.querySelector('.btn.primary').onclick();
+
+  assert.deepEqual(saved, ['rewritten']);
+  assert.equal(node.querySelector('pre.notes').textContent, 'rewritten',
+               'the read view still shows what was replaced');
+});
+
+await atest('cancel writes nothing', async () => {
+  const { Editable } = await import(join(JS, 'ui/index.js'));
+  let calls = 0;
+  const node = Editable('kept', { kind: 'lines', onSave: () => { calls++; return true; } });
+  node.querySelector('button').onclick();
+  node.querySelector('textarea').value = 'thrown away';
+  node.querySelectorAll('.editable-bar .btn')[0].onclick();
+  assert.equal(calls, 0);
+  assert.equal(node.querySelector('pre.notes').textContent, 'kept');
+});
+
+await atest('a refused save keeps what was typed on screen', async () => {
+  // Closing the editor on a rejection loses the edit and shows the old value,
+  // which reads as the save having worked.
+  const { Editable } = await import(join(JS, 'ui/index.js'));
+  const node = Editable('before', { kind: 'lines', onSave: () => false });
+  node.querySelector('button').onclick();
+  node.querySelector('textarea').value = 'after';
+  await node.querySelector('.btn.primary').onclick();
+  assert.equal(node.querySelector('textarea').value, 'after', 'the editor closed on a refusal');
+});
+
+await atest('a vocabulary group can lose a word and gain one', async () => {
+  const { Editable } = await import(join(JS, 'ui/index.js'));
+  let sent = null;
+  const node = Editable({ style: ['bold outlines', 'flat shading'] }, {
+    kind: 'groups', onSave: (next) => { sent = next; return true; },
+  });
+  assert.equal(node.querySelectorAll('.frag').length, 2);
+
+  node.querySelector('button').onclick();
+  node.querySelectorAll('.fragx')[0].onclick();
+  const add = node.querySelector('.fragadd');
+  add.value = 'high contrast';
+  add.onkeydown({ key: 'Enter' });
+  await node.querySelector('.btn.primary').onclick();
+
+  assert.deepEqual(sent, { style: ['flat shading', 'high contrast'] });
+});
+
+await atest('a sheet with no groups is not a dead end', async () => {
+  const { Editable } = await import(join(JS, 'ui/index.js'));
+  let sent = null;
+  const node = Editable({}, { kind: 'groups', onSave: (next) => { sent = next; return true; } });
+  node.querySelector('button').onclick();
+  const named = node.querySelector('.fragadd.wide');
+  named.value = 'mood';
+  named.onkeydown({ key: 'Enter' });
+  await node.querySelector('.btn.primary').onclick();
+  assert.deepEqual(sent, { mood: [] });
+});
+
+await atest('three authored style surfaces, one editor between them', async () => {
+  // The sweep: styles.js drew the vocabulary as read-only chips and the notes
+  // as a <pre>, while overview.js had its own chip editor against the route
+  // that already served all three. Chips, notes, and the overview strip.
+  const views = ['views/styles/styles.js', 'views/overview/overview.js'];
+  let surfaces = 0;
+  for (const f of views) {
+    const src = readFileSync(join(JS, f), 'utf8');
+    surfaces += (src.match(/promptEditor\(detail/g) || []).length;
+  }
+  assert.equal(surfaces, 3, `${surfaces} authored style surfaces; the sweep converted three`);
+
+  // The history's <pre class="notes"> stays: an audit entry is evidence, not
+  // something to rewrite. Only the panel that shows the sheet's own words moved.
+  const panel = /function promptsPanel[\s\S]*?\n\}/
+    .exec(readFileSync(join(JS, 'views/styles/styles.js'), 'utf8'))[0];
+  assert.doesNotMatch(panel, /el\('pre'|className: 'frag'/,
+                      'the prompts panel prints the sheet read-only again');
+
+  const files = readdirSync(JS, { recursive: true }).filter((f) => String(f).endsWith('.js'));
+  const owners = files.filter((f) =>
+    /className: 'fragx'/.test(readFileSync(join(JS, String(f)), 'utf8')));
+  assert.deepEqual(owners.map(String), ['ui/editable.js'],
+                   'more than one place knows how to edit a fragment list');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);
