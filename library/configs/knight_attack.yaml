@@ -16,7 +16,9 @@ module: animation
 
 # What you're making. Both stages that write prompts read these, so the
 # character description lives in exactly one place.
-subject: a knight in steel armor holding a sword
+subject: a knight in steel armor
+props:
+- longsword
 style: pixel art, game sprite, side view, plain flat background
 
 pipeline:

@@ -409,34 +409,33 @@ and the annotation autosave continuously, so on-screen and saved are the same
 thing, and settings models it with dirty and Save.
 
 
-## 18. The subject line asks for the weapon it is being blamed for
+## 18. A character sheet has no channel for a held object but the subject line
 
-**Diagnosed 2026-09-10, not started.** The reported symptom was that an
-annotation does not stop a weapon appearing. The cause is upstream of the
-annotation. `library/configs/archer.yaml:12` ends:
+**Half done 2026-09-10, and the other half is a real gap rather than a tidy-up.**
 
-    ... chunky black boots, a quiver of arrows, holding a curved black bow
+The report was that a bow appears where no prop was annotated. It is in the
+subject: `archer.yaml` says "a quiver of arrows, holding a curved black bow", so
+the model draws what it was asked for.
 
-The model is drawing what it was asked for. No amount of ControlNet weight
-fixes a prompt, and raising it to suppress a prop stiffens every pose - a real
-cost paid for a symptom it does not cause.
+Two of the four configs carrying an object clause were animations declaring no
+props at all, and the sword moved to `props: [longsword]`, which places it at a
+socket and says "holding a longsword" once. A test refuses a word appearing in
+both `subject` and `props`.
 
-**What the field is for.** `subject` is identity: who the character is, and what
-they wear, held constant across every view of a sheet. A held object is not
-identity - it is per-frame, which is why `prompt_for` takes `held` as its own
-argument and why `props:` exists in the config. A bow in `subject` is asserted
-in all four views including the rear, where a character sheet wants the body.
+The other two could not move, and finding out why is the finding. `archer` is a
+character_sheet, `ModuleSpec` sets `props: False` for that type, and
+`frames.py:73` gates `prompt_terms` on `props_mod.wanted` - so for a sheet,
+props contribute neither geometry nor words. Moving the bow out of `subject`
+deletes it. Reverted before it shipped.
 
-**What it would take.** Sweep the shipped configs for object clauses that belong
-in `props` or `held` rather than `subject`, and say so where the field is
-described - `schema.py`'s help for `subject` does not currently distinguish
-identity from what a character happens to be carrying. A validator that refuses
-"holding ..." in `subject` is the stronger version and should wait until the
-sweep shows how common it is.
+**So the gap.** A sheet is one pose from several angles, and there is nowhere to
+say "carries a bow" except a field asserted identically in all four views,
+including the rear where the body is what matters. Either character_sheet should
+take the prompt half of props while still declining the geometry, or a sheet
+needs a per-view held slot. The first is smaller and probably right: the reason
+props are off for a sheet is that a socket cannot be placed on a static
+multi-angle render, which is an argument about geometry, not about words.
 
-Supersedes the earlier reading of this entry, which assumed the annotation was
-too weak. It was not. Related to §16 only in that both wanted a way to say "not
-this"; this one does not need one.
 
 ## 19. The emphasis map is authored and not yet consumed
 

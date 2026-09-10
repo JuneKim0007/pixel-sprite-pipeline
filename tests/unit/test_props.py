@@ -71,3 +71,55 @@ def test_both_config_shapes_load(root):
     flat = props.load(["bow"], root=root)
     mapped = props.load({"enabled": False, "items": ["bow"]}, root=root)
     assert [p.name for p in flat] == [p.name for p in mapped] == ["bow"]
+
+
+class TestObjectsBelongInProps:
+    """A held object is per-frame; a subject is what stays true in every view."""
+
+    @staticmethod
+    def _configs():
+        from pathlib import Path
+
+        from pipeline.shared import settings
+
+        for path in sorted(Path("library/configs").glob("*.yaml")):
+            if path.stem == "_global":
+                continue
+            yield path.stem, settings.read_yaml(path)
+
+    def test_an_animation_names_its_weapon_once(self):
+        """Declared twice, the prompt asserts it and the socket places it."""
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+        from pipeline.shared import modules
+
+        for name, cfg in self._configs():
+            if not modules.wants_props(Path("."), cfg.get("module")):
+                continue
+            listed = cfg.get("props") or []
+            if not listed:
+                continue
+            terms = props_mod.prompt_terms(props_mod.load(listed, root=Path(".")))
+            for word in ("sword", "bow", "staff", "spear", "dagger", "whip"):
+                if word in terms:
+                    assert word not in (cfg.get("subject") or ""), (
+                        f"{name}: '{word}' is in both subject and props")
+
+    def test_a_sheet_keeps_its_objects_in_the_subject(self):
+        """character_sheet sets props: False, so the prompt is the only channel.
+
+        frames.py gates prompt_terms on props_mod.wanted, which is false for a
+        sheet, so moving a bow out of `subject` there removes it entirely.
+        """
+        from pathlib import Path
+
+        from pipeline.geometry import props as props_mod
+        from pipeline.shared import modules
+
+        assert not modules.wants_props(Path("."), "character_sheet")
+
+        for name, cfg in self._configs():
+            if cfg.get("module") != "character_sheet":
+                continue
+            assert not props_mod.wanted(cfg, Path(".")), name
