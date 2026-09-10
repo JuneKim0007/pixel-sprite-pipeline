@@ -13,15 +13,11 @@ notes: >
   or a boss, wasteful for a field mob.
 
 vocabulary:
+  # Only the delta from retro_jrpg: groups merge down the chain, they do not replace.
   style:
-    - detailed pixel art sprite
-    - crisp clean pixel clusters
-    - firm dark outline
-    - readable silhouette
+    - detailed pixel art
   shading:
-    - deliberate cel shading
-    - three-tone shading with a rim light
-    - no gradients
+    - rim light
 
 settings:
   # This sheet costs roughly three times retro_jrpg per image - larger canvas,

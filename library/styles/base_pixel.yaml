@@ -7,20 +7,33 @@ notes: >
 
 vocabulary:
   medium: [pixel art, game sprite]
-  render: [crisp hard edges, no anti-aliasing, flat colour blocks]
+  render: [flat colors, hard edges, limited palette]
+  # Merged down the extends chain, so a sheet adds only what it alone must avoid.
+  avoid:
+    - antialiased
+    - smooth gradient
+    - dithered
+    - blurry
+    - soft
+    - jpeg artifacts
+    - photo
+    - realistic
+    - 3d render
+    - watermark
+    - signature
+    - text
+    - extra limbs
+    - deformed
+    - low contrast
+    - muddy colors
 
 modules:
   character_sheet:
-    style: "{medium}, {render}, clean reference pose, full body, head to feet visible, centred"
+    style: "{medium}, {render}, clean reference pose, full body, centered"
   animation:
-    style: "{medium}, {render}, full body, head to feet visible"
+    style: "{medium}, {render}, full body"
 
 settings:
-  # The generation canvas belongs to the style, because it has to agree with
-  # the palette factor: canvas / factor is the sprite size, and pinning one
-  # without the other silently changes the output resolution.
-  canonical: {width: 1024, height: 1024}
-  frames: {width: 1024, height: 1024}
   # The figure fills the frame. The rigs are authored small - the humanoid's
   # neutral spans 68% of the canvas height - so a third of the generation
   # resolution went to empty background. At 1024 reduced by 8 this is the
@@ -74,9 +87,17 @@ settings:
   # It carries the pixel style and must outweigh the reference illustration
   # rather than sit under it — at 0.55 against an identity reference at 0.85
   # the illustration won on rendering too, and the frames drifted apart.
+
+  # Canvas / factor is the sprite size, so the canvas belongs beside the palette.
   canonical:
+    width: 1024
+    height: 1024
+    negative: "{avoid}"
     from_reference: {weight_type: linear}
   frames:
+    width: 1024
+    height: 1024
+    negative: "{avoid}"
     ip_adapter:
       weight_type: linear
       anchor: true

@@ -15,10 +15,7 @@ POSE_NEGATIVE = (
 )
 
 from ..shared.colour import BACKDROP, BACKDROP_PRESETS  # noqa: F401
-BACKDROP_TERMS = (
-    "solid flat {colour} chroma key background, uniform background colour, "
-    "no shadow, no gradient, no ground plane"
-)
+BACKDROP_TERMS = "solid flat {colour} chroma key background, uniform background color"
 BACKDROP_NEGATIVE = (
     "cast shadow, drop shadow, ground shadow, floor, ground plane, vignette, "
     "background gradient, studio lighting, environment, scenery, backdrop "
@@ -97,7 +94,8 @@ def facing_negative(yaw: float) -> str:
 # Words that describe a backdrop. Beside a chroma-key clause they contradict it,
 # and the prompt then asks for two different things at once.
 BACKDROP_WORDS = ("plain background", "flat background", "white background",
-                  "studio background", "backdrop", "background colour")
+                  "studio background", "backdrop", "background colour",
+                  "background color")
 
 
 def backdrop_conflict(style: str, backdrop: str | None) -> str:
