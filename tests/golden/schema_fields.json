@@ -51,6 +51,42 @@
       "type": "textarea"
     },
     {
+      "group": "Depth",
+      "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
+      "label": "Depth view",
+      "options": [
+        "front",
+        "three_quarter_front",
+        "side",
+        "three_quarter_rear",
+        "rear_turned",
+        "rear"
+      ],
+      "path": "depth.view",
+      "type": "select"
+    },
+    {
+      "default": 0,
+      "group": "Pose",
+      "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+      "label": "Keep the model loaded",
+      "max": 3600,
+      "min": 0,
+      "path": "pose.llm.keep_alive",
+      "step": 30,
+      "type": "int"
+    },
+    {
+      "group": "Pose",
+      "help": "Pixels wide the pose guide's bones are drawn. Blank scales with the canvas, which is what a 1024px guide wants; set it when a thin line disappears into a busy reference. Read by pose.py and declared nowhere until 2026-09-10, so two shipped configs set it and could not see it in the form.",
+      "label": "Skeleton line width",
+      "max": 24.0,
+      "min": 0.5,
+      "path": "pose.thickness",
+      "step": 0.5,
+      "type": "float"
+    },
+    {
       "group": "Pipeline",
       "help": "Stop the run after this stage so its output can be reviewed or edited before the expensive stages consume it. Stopping after 'pose' is what makes the rig editor useful \u2014 resume continues with whatever you saved.",
       "label": "Pause after stage",
@@ -467,9 +503,10 @@
     {
       "default": "linear",
       "group": "Identity",
-      "help": "How the reference is blended into conditioning.",
+      "help": "How the reference is blended into conditioning. 'linear' is the default and was missing from this list, so the field's own default failed its own validation and red_hanfu.yaml - which sets it explicitly - was refused.",
       "label": "Weight type",
       "options": [
+        "linear",
         "standard",
         "prompt is more important",
         "style transfer",
@@ -1536,6 +1573,42 @@
       "type": "textarea"
     },
     {
+      "group": "Depth",
+      "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
+      "label": "Depth view",
+      "options": [
+        "front",
+        "three_quarter_front",
+        "side",
+        "three_quarter_rear",
+        "rear_turned",
+        "rear"
+      ],
+      "path": "depth.view",
+      "type": "select"
+    },
+    {
+      "default": 0,
+      "group": "Pose",
+      "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+      "label": "Keep the model loaded",
+      "max": 3600,
+      "min": 0,
+      "path": "pose.llm.keep_alive",
+      "step": 30,
+      "type": "int"
+    },
+    {
+      "group": "Pose",
+      "help": "Pixels wide the pose guide's bones are drawn. Blank scales with the canvas, which is what a 1024px guide wants; set it when a thin line disappears into a busy reference. Read by pose.py and declared nowhere until 2026-09-10, so two shipped configs set it and could not see it in the form.",
+      "label": "Skeleton line width",
+      "max": 24.0,
+      "min": 0.5,
+      "path": "pose.thickness",
+      "step": 0.5,
+      "type": "float"
+    },
+    {
       "group": "Pipeline",
       "help": "Stop the run after this stage so its output can be reviewed or edited before the expensive stages consume it. Stopping after 'pose' is what makes the rig editor useful \u2014 resume continues with whatever you saved.",
       "label": "Pause after stage",
@@ -1856,9 +1929,10 @@
     {
       "default": "linear",
       "group": "Identity",
-      "help": "How the reference is blended into conditioning.",
+      "help": "How the reference is blended into conditioning. 'linear' is the default and was missing from this list, so the field's own default failed its own validation and red_hanfu.yaml - which sets it explicitly - was refused.",
       "label": "Weight type",
       "options": [
+        "linear",
         "standard",
         "prompt is more important",
         "style transfer",
@@ -2889,6 +2963,42 @@
       "type": "textarea"
     },
     {
+      "group": "Depth",
+      "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
+      "label": "Depth view",
+      "options": [
+        "front",
+        "three_quarter_front",
+        "side",
+        "three_quarter_rear",
+        "rear_turned",
+        "rear"
+      ],
+      "path": "depth.view",
+      "type": "select"
+    },
+    {
+      "default": 0,
+      "group": "Pose",
+      "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+      "label": "Keep the model loaded",
+      "max": 3600,
+      "min": 0,
+      "path": "pose.llm.keep_alive",
+      "step": 30,
+      "type": "int"
+    },
+    {
+      "group": "Pose",
+      "help": "Pixels wide the pose guide's bones are drawn. Blank scales with the canvas, which is what a 1024px guide wants; set it when a thin line disappears into a busy reference. Read by pose.py and declared nowhere until 2026-09-10, so two shipped configs set it and could not see it in the form.",
+      "label": "Skeleton line width",
+      "max": 24.0,
+      "min": 0.5,
+      "path": "pose.thickness",
+      "step": 0.5,
+      "type": "float"
+    },
+    {
       "group": "Pipeline",
       "help": "Stop the run after this stage so its output can be reviewed or edited before the expensive stages consume it. Stopping after 'pose' is what makes the rig editor useful \u2014 resume continues with whatever you saved.",
       "label": "Pause after stage",
@@ -3316,9 +3426,10 @@
     {
       "default": "linear",
       "group": "Identity",
-      "help": "How the reference is blended into conditioning.",
+      "help": "How the reference is blended into conditioning. 'linear' is the default and was missing from this list, so the field's own default failed its own validation and red_hanfu.yaml - which sets it explicitly - was refused.",
       "label": "Weight type",
       "options": [
+        "linear",
         "standard",
         "prompt is more important",
         "style transfer",
@@ -4362,6 +4473,42 @@
       "type": "textarea"
     },
     {
+      "group": "Depth",
+      "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
+      "label": "Depth view",
+      "options": [
+        "front",
+        "three_quarter_front",
+        "side",
+        "three_quarter_rear",
+        "rear_turned",
+        "rear"
+      ],
+      "path": "depth.view",
+      "type": "select"
+    },
+    {
+      "default": 0,
+      "group": "Pose",
+      "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+      "label": "Keep the model loaded",
+      "max": 3600,
+      "min": 0,
+      "path": "pose.llm.keep_alive",
+      "step": 30,
+      "type": "int"
+    },
+    {
+      "group": "Pose",
+      "help": "Pixels wide the pose guide's bones are drawn. Blank scales with the canvas, which is what a 1024px guide wants; set it when a thin line disappears into a busy reference. Read by pose.py and declared nowhere until 2026-09-10, so two shipped configs set it and could not see it in the form.",
+      "label": "Skeleton line width",
+      "max": 24.0,
+      "min": 0.5,
+      "path": "pose.thickness",
+      "step": 0.5,
+      "type": "float"
+    },
+    {
       "group": "Pipeline",
       "help": "Stop the run after this stage so its output can be reviewed or edited before the expensive stages consume it. Stopping after 'pose' is what makes the rig editor useful \u2014 resume continues with whatever you saved.",
       "label": "Pause after stage",
@@ -4671,9 +4818,10 @@
     {
       "default": "linear",
       "group": "Identity",
-      "help": "How the reference is blended into conditioning.",
+      "help": "How the reference is blended into conditioning. 'linear' is the default and was missing from this list, so the field's own default failed its own validation and red_hanfu.yaml - which sets it explicitly - was refused.",
       "label": "Weight type",
       "options": [
+        "linear",
         "standard",
         "prompt is more important",
         "style transfer",
@@ -5681,6 +5829,42 @@
       "type": "textarea"
     },
     {
+      "group": "Depth",
+      "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
+      "label": "Depth view",
+      "options": [
+        "front",
+        "three_quarter_front",
+        "side",
+        "three_quarter_rear",
+        "rear_turned",
+        "rear"
+      ],
+      "path": "depth.view",
+      "type": "select"
+    },
+    {
+      "default": 0,
+      "group": "Pose",
+      "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+      "label": "Keep the model loaded",
+      "max": 3600,
+      "min": 0,
+      "path": "pose.llm.keep_alive",
+      "step": 30,
+      "type": "int"
+    },
+    {
+      "group": "Pose",
+      "help": "Pixels wide the pose guide's bones are drawn. Blank scales with the canvas, which is what a 1024px guide wants; set it when a thin line disappears into a busy reference. Read by pose.py and declared nowhere until 2026-09-10, so two shipped configs set it and could not see it in the form.",
+      "label": "Skeleton line width",
+      "max": 24.0,
+      "min": 0.5,
+      "path": "pose.thickness",
+      "step": 0.5,
+      "type": "float"
+    },
+    {
       "group": "Pipeline",
       "help": "Stop the run after this stage so its output can be reviewed or edited before the expensive stages consume it. Stopping after 'pose' is what makes the rig editor useful \u2014 resume continues with whatever you saved.",
       "label": "Pause after stage",
@@ -5990,9 +6174,10 @@
     {
       "default": "linear",
       "group": "Identity",
-      "help": "How the reference is blended into conditioning.",
+      "help": "How the reference is blended into conditioning. 'linear' is the default and was missing from this list, so the field's own default failed its own validation and red_hanfu.yaml - which sets it explicitly - was refused.",
       "label": "Weight type",
       "options": [
+        "linear",
         "standard",
         "prompt is more important",
         "style transfer",

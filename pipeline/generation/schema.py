@@ -9,6 +9,7 @@ from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 from ..shared.contracts import ConfigField
+from ..shared.errors import Invalid
 from ..shared import colour as colour_mod
 
 
@@ -55,6 +56,29 @@ FIELDS: list[ConfigField] = [
              "flat background' and whose backdrop clause said 'solid flat "
              "magenta chroma key' produced a pale blue-grey studio card with "
              "zero magenta pixels in it."),
+
+    ConfigField(key="depth.view", label="Depth view", kind="select",
+     options=list(VIEWS_FOR_UI), group="Depth",
+     help="Which angle the depth map is rendered from. Blank follows pose.view, "
+             "which is what keeps the two guides describing the same body. "
+             "depth.size beside it was declared and this was not, so a config "
+             "could set it and never see it in the form."),
+
+    ConfigField(key="pose.llm.keep_alive", default=0, label="Keep the model loaded",
+     kind="int", min=0, max=3600, step=30, group="Pose",
+     help="Seconds Ollama holds the model in memory after answering. 0 unloads "
+             "immediately, which is what a 16 GB machine sharing VRAM with "
+             "SDXL wants; raise it when several LLM calls run back to back. "
+             "Read by pose.py, palette.py and refs/detect.py, and declared "
+             "nowhere until 2026-09-10."),
+
+    ConfigField(key="pose.thickness", label="Skeleton line width", kind="float",
+     min=0.5, max=24.0, step=0.5, group="Pose",
+     help="Pixels wide the pose guide's bones are drawn. Blank scales with the "
+             "canvas, which is what a 1024px guide wants; set it when a thin "
+             "line disappears into a busy reference. Read by pose.py and "
+             "declared nowhere until 2026-09-10, so two shipped configs set it "
+             "and could not see it in the form."),
 
     ConfigField(key="pipeline.stop_after", label="Pause after stage", kind="select",
      options_from="stage_names", group="Pipeline",
@@ -244,9 +268,12 @@ FIELDS: list[ConfigField] = [
              "high looks pasted on and fights the pose."),
     ConfigField(key="frames.ip_adapter.weight_type", default="linear", label="Weight type",
      kind="select", group="Identity",
-     options=["standard", "prompt is more important", "style transfer",
+     options=["linear", "standard", "prompt is more important", "style transfer",
                  "composition", "style and composition"],
-     help="How the reference is blended into conditioning."),
+     help="How the reference is blended into conditioning. 'linear' is the "
+             "default and was missing from this list, so the field's own "
+             "default failed its own validation and red_hanfu.yaml - which "
+             "sets it explicitly - was refused."),
 
     ConfigField(modules=["animation"], key="softbody.fps", default=12.0, label="Playback fps",
      kind="float", min=1, max=60, step=1, group="Softbody",
@@ -919,13 +946,28 @@ class ConfigSchema:
         return None
 
     def check(self, cfg: dict, _path: str = "") -> None:
+        """Every declared value in range, and no value at a path nobody declared.
+
+        The second half is why `canonical.from_reference` could be read by
+        canonical.py, declared nowhere, and do nothing for as long as it
+        existed: an undeclared scalar was simply skipped, so a typo saved
+        cleanly and was silent forever.
+        """
         for key, value in (cfg or {}).items():
             here = f"{_path}.{key}" if _path else key
             f = self.field(here)
             if f is not None:
                 f.check(value)
-            elif isinstance(value, dict):
+                continue
+            if here in STRUCTURAL or _path in STRUCTURAL:
+                continue
+            if isinstance(value, dict):
                 self.check(value, here)
+                continue
+            raise Invalid(
+                f"'{here}' is not a setting this pipeline has.",
+                field=here,
+                hint=_nearest(here, [f.key for f in self.fields]))
 
     def clamp(self, cfg: dict) -> tuple[dict, list[str]]:
         out = copy.deepcopy(cfg or {})
@@ -944,6 +986,28 @@ class ConfigSchema:
                 node[key] = fixed
             elif isinstance(value, dict):
                 self._clamp_into(value, notes, here)
+
+
+# Paths that carry structure rather than a value: lists the list editors own,
+# and the keys that say what a config IS. A scalar anywhere else is a typo.
+STRUCTURAL: frozenset[str] = frozenset({
+    "module", "subject", "style", "styles", "prompt", "props", "style_picks",
+    "paths", "models", "proportions",
+    # DEFAULT_GLOBAL's own namespace: _global.yaml carries these and the
+    # pipeline schema does not describe them.
+    "ui", "compute", "cooling.note",
+    "pose.set", "softbody.nodes",
+    "references.identity", "references.style", "references.pose",
+    "references.palette", "references.style_exemplars", "references.from_run",
+})
+
+
+def _nearest(path: str, known: list[str]) -> str:
+    """The closest declared path, so a typo names its own fix."""
+    import difflib
+
+    close = difflib.get_close_matches(path, known, n=1, cutoff=0.7)
+    return f"did you mean '{close[0]}'?" if close else ""
 
 
 SCHEMA = ConfigSchema(fields=FIELDS)

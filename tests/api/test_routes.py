@@ -235,8 +235,16 @@ def test_an_in_range_save_still_succeeds(http, config_file):
     assert code == 200
 
 
-def test_a_key_the_schema_does_not_declare_passes_through(http, config_file):
+def test_a_key_the_schema_does_not_declare_is_refused(http, config_file):
+    """900833f let these through because the schema was not exhaustive.
+
+    It is now: pose.thickness, pose.llm.keep_alive, depth.view and
+    canonical.from_reference were all read by code and declared nowhere, which
+    is the same fault this check exists to catch - a value that saves cleanly
+    and does nothing forever. Every shipped config passes, so the reason for
+    the exemption is gone and an unknown key is a typo.
+    """
     code = http.status(
         "/api/config?name=knight_attack",
         {"config": {"canonical": {"totally_unknown_key": 5}}}, "PUT")
-    assert code == 200
+    assert code == 400
