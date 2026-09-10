@@ -62,6 +62,16 @@ class _AnchorGraph:
         self.style_cfg = ctx.settings("canonical.style")
         self.lcm = bool(cfg["lcm"])
 
+    def _emphasis(self, g, image):
+        """The map painted on this reference, as a MASK, or None if unpainted."""
+        from ..geometry import weightmap
+
+        if not weightmap.sidecar_for(image).exists():
+            return None
+        print(f"   emphasis map from {weightmap.sidecar_for(image).name}")
+        return comfy.image_as_mask(
+            g, self.client.upload_image(weightmap.sidecar_for(image)))
+
     def _with_identity(self, g, model, chosen):
         return comfy.apply_ipadapter(
             g, model, comfy.load_image(g, self.client.upload_image(chosen.path)),
@@ -70,6 +80,7 @@ class _AnchorGraph:
             start_at=float(opt(self.from_ref, "start_at", 0.0)),
             end_at=float(opt(self.from_ref, "end_at", 1.0)),
             models=self.ctx.settings("models"),
+            attn_mask=self._emphasis(g, chosen.path),
         )
 
     def _with_style(self, g, model):

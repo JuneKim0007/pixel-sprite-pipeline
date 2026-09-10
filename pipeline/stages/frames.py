@@ -43,6 +43,16 @@ def _anchor_weight(ip: dict, frame_yaw: float, anchor_yaw: float) -> float:
     return weight * (1.0 - t) + float(ip["anchor_far_weight"]) * t
 
 
+def _emphasis(g, client, image):
+    """The map painted on this reference, as a MASK, or None if unpainted."""
+    from ..geometry import weightmap
+
+    sidecar = weightmap.sidecar_for(image)
+    if not sidecar.exists():
+        return None
+    return comfy.image_as_mask(g, client.upload_image(sidecar))
+
+
 def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
     """The three artifacts a frame needs, checked to correspond one to one."""
     skeletons: list[Path] = ctx.require("skeletons")
@@ -191,6 +201,7 @@ class FramesStage(Stage):
                 start_at=ip["start_at"],
                 end_at=ip["end_at"],
                 models=models,
+                attn_mask=_emphasis(g, client, chosen.path),
             )
 
             for exemplar in style_refs:

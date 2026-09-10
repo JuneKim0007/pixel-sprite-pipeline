@@ -234,28 +234,31 @@ config.yaml was snapshotted before the archers were cleaned, so it carries the
 old subject clause and the props words and asks for the bow twice, which makes
 it the wrong control. The next clean run is the one to look at.
 
-## 13. The emphasis map is authored and not yet consumed
+## 13. A painted emphasis map applies to identity, not to style or pose
 
-**Open since 2026-09-10.** A weight map can be painted on a reference image and
-is stored beside it as `<image>.weight.png`. Nothing reads it.
+**Consumed 2026-09-10; what is left is narrower than the entry it replaces.**
+A map painted on a reference now reaches the graph as `IPAdapterAdvanced`'s
+`attn_mask`, on the identity adapter in both `canonical` and `frames`.
 
-**Why it is shaped this way.** `ComfyUI/comfy/samplers.py` does
-`mask * mask_strength * strength` on a conditioning mask that it resizes to the
-latent grid, so a mask is a continuous float per cell, not a flag, and 128x128
-is exactly what survives for a 1024px generation. Painting at that size loses
-nothing and keeps the sidecar around 2 KB.
+It went in there rather than through `ConditioningSetMask` because the mask is
+not applied to the prompt at all: `CrossAttentionPatch.ipadapter_attention`
+interpolates it to the latent attention grid and multiplies it into `out_ip`,
+that adapter's own contribution. So it says where a REFERENCE steers, which is
+what was painted, and it needs no second conditioning branch and cannot seam
+two disagreeing regions against each other.
 
-**What is left, and the order matters.** Wiring it into the graph means a second
-conditioning through `ConditioningSetMask`, and a regional conditioning whose
-weights disagree across a boundary is a known source of seams - worst on a
-thin-limbed subject, which is what this pipeline makes. So the cheaper thing
-first: flatten the background of the depth map that `render_depth` already
-builds, which gives the model a spatial "background is far and flat" signal at
-one scalar strength and needs no new nodes.
+The size was already right by accident: SDXL at 1024px has a 128x128 latent
+grid, and the painter writes 128x128, so nothing is resampled.
 
-The measurement this used to wait on has been taken. §11 records that a backdrop
-asked for by name is ignored anyway, so the problem a weight map would address
-has not gone away.
+**What is left.** Style exemplars and the anchor take no mask - both call
+`apply_ipadapter` without one, so a map painted on a style sheet is still
+inert. Whether style SHOULD be regional is a real question and not obviously
+yes: an exemplar is meant to tint the whole figure. The pose ControlNet is
+separate again and would need `ConditioningSetMask`, with the seam risk that
+kept it out of this change.
+
+Unmeasured: whether a mask on identity actually changes an output, and by how
+much. The wiring is tested; the effect is not.
 
 ## 14. The outline `retro_jrpg` asks for is drawn by the steps style transfer owns
 

@@ -62,6 +62,50 @@ def test_canonical_conditions_on_a_skeleton_when_one_exists(comfy_fake, stage_ct
     assert any(u.startswith("skeleton_") for u in comfy_fake.uploads)
 
 
+def _identity_ref(tmp, name="hero.png"):
+    from tests.flows.conftest import png
+    from pipeline.refs import references as refs_mod
+
+    image = tmp / name
+    png(image)
+    return refs_mod.Reference(path=image, role="identity", yaw=0.0, label="front")
+
+
+def test_an_unpainted_reference_adds_no_mask(comfy_fake, stage_ctx, tmp_path):
+    from pipeline.refs import references as refs_mod
+
+    ctx = stage_ctx()
+    ctx.resources["references"] = refs_mod.Library(identity=[_identity_ref(tmp_path)])
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.count("ImageToMask") == 0
+    for node in comfy_fake.inputs_of("IPAdapterAdvanced"):
+        assert "attn_mask" not in node, "an unpainted reference still sent a mask"
+
+
+def test_a_painted_reference_reaches_the_adapter_as_a_mask(comfy_fake, stage_ctx, tmp_path):
+    """The map was stored, read back by the editor, and never put in a graph."""
+    import numpy as np
+
+    from pipeline.geometry import weightmap
+    from pipeline.refs import references as refs_mod
+
+    ref = _identity_ref(tmp_path)
+    weights = np.full((weightmap.EDGE, weightmap.EDGE), weightmap.NEUTRAL,
+                      dtype=np.float32)
+    weights[32:96, 32:96] = 1.0
+    weightmap.save(ref.path, weights)
+
+    ctx = stage_ctx()
+    ctx.resources["references"] = refs_mod.Library(identity=[ref])
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.count("ImageToMask") == 1
+    masked = [n for n in comfy_fake.inputs_of("IPAdapterAdvanced") if "attn_mask" in n]
+    assert len(masked) == 1, "the identity adapter took no mask"
+    assert any(u.endswith(weightmap.SUFFIX) for u in comfy_fake.uploads)
+
+
 def test_canonical_without_a_skeleton_applies_no_control(comfy_fake, stage_ctx):
     get("canonical")().run(stage_ctx(), {})
     assert comfy_fake.count("ControlNetApplyAdvanced") == 0
