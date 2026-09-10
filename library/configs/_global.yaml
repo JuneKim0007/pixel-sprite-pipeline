@@ -85,4 +85,3 @@ frames:
 # Rests happen AFTER a task and never before, and never after the last one.
 cooling:
   enabled: true
-  seconds: 180

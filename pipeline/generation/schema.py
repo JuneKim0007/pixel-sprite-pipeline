@@ -9,6 +9,7 @@ from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
 from ..shared.contracts import ConfigField
+from ..shared.cooling import DEFAULT_SECONDS
 from ..shared.errors import Invalid
 from ..shared import colour as colour_mod
 
@@ -610,11 +611,11 @@ FIELDS: list[ConfigField] = [
              "to work — it is there because sustained heat shortens a battery "
              "and a throttling machine finishes anyway, quietly aged."),
     ConfigField(key="cooling.seconds", label="Rest length (seconds)", kind="int",
-     min=0, max=1800, step=30, group="Compute",
+     default=DEFAULT_SECONDS, min=0, max=1800, step=30, group="Compute",
      help="Per rest, and rests fall between tasks — between stages, between "
              "candidates, between frames — never before the first or after the "
-             "last. At 180s a fifty-image night spends two and a half hours "
-             "resting; that is the trade being made."),
+             "last. At 120s a fifty-image night spends over an hour and a "
+             "half resting; that is the trade being made."),
     ConfigField(key="compute.vram_mode", label="VRAM policy", kind="select",
      options=["--gpu-only", "--highvram", "--normalvram", "--lowvram",
               "--novram", "--cpu"],

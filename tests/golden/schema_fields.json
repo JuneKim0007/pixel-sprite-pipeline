@@ -1199,8 +1199,9 @@
    "type": "bool"
   },
   {
+   "default": 120,
    "group": "Compute",
-   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 180s a fifty-image night spends two and a half hours resting; that is the trade being made.",
+   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 120s a fifty-image night spends over an hour and a half resting; that is the trade being made.",
    "label": "Rest length (seconds)",
    "max": 1800,
    "min": 0,
@@ -2598,8 +2599,9 @@
    "type": "bool"
   },
   {
+   "default": 120,
    "group": "Compute",
-   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 180s a fifty-image night spends two and a half hours resting; that is the trade being made.",
+   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 120s a fifty-image night spends over an hour and a half resting; that is the trade being made.",
    "label": "Rest length (seconds)",
    "max": 1800,
    "min": 0,
@@ -4140,8 +4142,9 @@
    "type": "bool"
   },
   {
+   "default": 120,
    "group": "Compute",
-   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 180s a fifty-image night spends two and a half hours resting; that is the trade being made.",
+   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 120s a fifty-image night spends over an hour and a half resting; that is the trade being made.",
    "label": "Rest length (seconds)",
    "max": 1800,
    "min": 0,
@@ -5505,8 +5508,9 @@
    "type": "bool"
   },
   {
+   "default": 120,
    "group": "Compute",
-   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 180s a fifty-image night spends two and a half hours resting; that is the trade being made.",
+   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 120s a fifty-image night spends over an hour and a half resting; that is the trade being made.",
    "label": "Rest length (seconds)",
    "max": 1800,
    "min": 0,
@@ -6870,8 +6874,9 @@
    "type": "bool"
   },
   {
+   "default": 120,
    "group": "Compute",
-   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 180s a fifty-image night spends two and a half hours resting; that is the trade being made.",
+   "help": "Per rest, and rests fall between tasks \u2014 between stages, between candidates, between frames \u2014 never before the first or after the last. At 120s a fifty-image night spends over an hour and a half resting; that is the trade being made.",
    "label": "Rest length (seconds)",
    "max": 1800,
    "min": 0,

@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-DEFAULT_SECONDS = 180
+DEFAULT_SECONDS = 120
 
 
 def seconds(config: dict | None) -> float:
