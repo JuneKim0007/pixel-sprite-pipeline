@@ -28,6 +28,10 @@ RESULTS = ROOT / "var/sweep.jsonl"
 # the rest has to sit between runs or the machine works 56 of them back to back.
 REST = 300
 
+# The file is named for the drawing; the config wants the angle, and there is
+# no named view for the far side - `side` is 90, so its mirror is 270.
+VIEWS = {"front": "front", "side": "side", "side_right": 270, "rear": "rear"}
+
 SUBJECTS = {
     "char1": "a young woman with long straight black hair, a white shirt with a "
              "red necktie, a black jacket, a black pleated skirt, black knee "
@@ -79,9 +83,9 @@ def base(char: str) -> dict:
         "canonical": {"candidates": 1, "style": {"end_at": 0.65},
                       "style_weight": 0.28},
         "references": {"identity": [
-            {"path": f"library/refs/{char}/{view}.png", "view": view}
-            for view in ("front", "side", "side_right", "rear")
-            if (ROOT / f"library/refs/{char}/{view}.png").exists()
+            {"path": f"library/refs/{char}/{name}.png", "view": view}
+            for name, view in VIEWS.items()
+            if (ROOT / f"library/refs/{char}/{name}.png").exists()
         ]},
         "pipeline": {"stages": ["pose", "depth", "canonical"],
                      "stop_after": "canonical"},
@@ -108,8 +112,8 @@ def paint_emphasis(char: str) -> None:
     from pipeline.geometry import weightmap
     from tools.score import subject
 
-    for view in ("front", "side", "side_right", "rear"):
-        image = ROOT / f"library/refs/{char}/{view}.png"
+    for name in VIEWS:
+        image = ROOT / f"library/refs/{char}/{name}.png"
         if not image.exists():
             continue
         _, mask = subject(image)
@@ -122,8 +126,8 @@ def paint_emphasis(char: str) -> None:
 def clear_emphasis(char: str) -> None:
     from pipeline.geometry import weightmap
 
-    for view in ("front", "side", "side_right", "rear"):
-        image = ROOT / f"library/refs/{char}/{view}.png"
+    for name in VIEWS:
+        image = ROOT / f"library/refs/{char}/{name}.png"
         if image.exists():
             weightmap.clear(image)
 

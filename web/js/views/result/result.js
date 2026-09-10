@@ -61,6 +61,25 @@ function historyCard(run, { selected, onPick }) {
   return card;
 }
 
+/* The only way to stop a run was the terminal; the button the API already had
+ * was never called from anywhere. */
+function abort(runId) {
+  const button = Button('Stop run', { variant: 'ghost',
+    title: 'Ask the run to stop after the task it is on' });
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      await api.stop(runId);
+      toast('Stopping — it finishes the task it is on first');
+    } catch (e) {
+      button.disabled = false;
+      showError(e);
+    }
+  };
+  return button;
+}
+
+
 function auditPanel(detail) {
   const a = detail.audit || {};
   if (!Object.keys(a).length) {
@@ -358,7 +377,7 @@ export function renderResult(host, { runId, detail, onPick }) {
     el('div', { className: 'fields progressbox' }, gpuBox, runBox)));
 
   host.append(el('section', { className: 'auditbox' },
-    PanelHead(runId, { note: detail.dir }),
+    PanelHead(runId, { note: detail.dir, action: detail.running ? abort(runId) : null }),
     auditPanel(detail)));
 
   state.runDir = detail.dir;

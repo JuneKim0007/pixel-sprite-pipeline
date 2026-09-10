@@ -32,7 +32,7 @@ references:
   - path: library/refs/char2/side.png
     view: side
   - path: library/refs/char2/side_right.png
-    view: side_right
+    view: 270
   - path: library/refs/char2/rear.png
     view: rear
 pipeline:

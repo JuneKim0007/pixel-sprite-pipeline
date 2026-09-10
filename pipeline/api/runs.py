@@ -67,6 +67,8 @@ def list_runs() -> list[dict]:
     base = runs_dir()
     if not base.exists():
         return []
+    # One source of truth, and the only one that survives a restart.
+    live = _in_flight()
     out = []
     for d in sorted(base.iterdir(), reverse=True):
         if not d.is_dir():
@@ -74,8 +76,7 @@ def list_runs() -> list[dict]:
         stage_dirs = sorted(
             s for s in d.iterdir() if s.is_dir() and re.match(r"^\d\d_", s.name)
         )
-        with _LOCK:
-            running = d.name in _ACTIVE and _ACTIVE[d.name].poll() is None
+        running = d.name == live
 
         completed = _completed(d)
         stopped_at = _stopped_at(d, completed)
@@ -311,10 +312,14 @@ class Runs(BaseRouter):
 
     @post("/stop", "stop a running pipeline", returns=Shape(stopped=str))
     def stop(self, req):
-        rid = req.get("run_id", "")
+        rid = req.get("run_id", "") or guard.run_in_flight() or ""
         with _LOCK:
             proc = _ACTIVE.get(rid)
-        if not proc:
+        if proc and proc.poll() is None:
+            proc.terminate()
+            return {"stopped": rid}
+        # _ACTIVE is this process's memory of what it started. A run outlives a
+        # web server restart, so a reload used to make Stop a 404.
+        if not guard.stop_run(rid):
             raise NotFound("running job", rid)
-        proc.terminate()
         return {"stopped": rid}

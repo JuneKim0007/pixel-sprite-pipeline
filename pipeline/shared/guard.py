@@ -261,10 +261,14 @@ def adopt_pidfiles(run_dir) -> list[str]:
     return adopted
 
 
-def run_in_flight() -> str | None:
-    """A live `run.py`, found by the --run-id it carries on its command line."""
+def find_run(run_id: str | None = None) -> tuple[int, str] | None:
+    """A live `run.py` as (pid, run_id), found from its own command line.
+
+    Discovery rather than bookkeeping, because it is the only answer that
+    survives the web server restarting under a run that is still going.
+    """
     try:
-        out = subprocess.run(["ps", "-axo", "args="],
+        out = subprocess.run(["ps", "-axo", "pid=,args="],
                              capture_output=True, text=True, timeout=5)
     except (OSError, subprocess.SubprocessError):
         return None
@@ -273,7 +277,30 @@ def run_in_flight() -> str | None:
             continue
         parts = line.split()
         try:
-            return parts[parts.index("--run-id") + 1]
+            pid = int(parts[0])
+            found = parts[parts.index("--run-id") + 1]
         except (ValueError, IndexError):
             continue
+        if run_id in (None, found):
+            return pid, found
     return None
+
+
+def run_in_flight() -> str | None:
+    found = find_run()
+    return found[1] if found else None
+
+
+def stop_run(run_id: str) -> bool:
+    """Ask a run to stop. False when it was not running to begin with."""
+    found = find_run(run_id)
+    if not found:
+        return False
+    try:
+        os.killpg(os.getpgid(found[0]), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        try:
+            os.kill(found[0], signal.SIGTERM)
+        except ProcessLookupError:
+            return False
+    return True

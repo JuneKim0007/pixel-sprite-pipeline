@@ -283,11 +283,40 @@ def test_a_live_run_is_found_by_its_command_line(monkeypatch):
     from pipeline.shared import guard as guard_mod
 
     class Out:
-        stdout = ("/usr/bin/python -u /x/run.py /x/cfg.yaml --run-id 20260101_000000_a\n"
-                  "/bin/zsh -c something else\n")
+        stdout = ("  711 /usr/bin/python -u /x/run.py /x/cfg.yaml --run-id 20260101_000000_a\n"
+                  "  712 /bin/zsh -c something else\n")
 
     monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
     assert guard_mod.run_in_flight() == "20260101_000000_a"
+    assert guard_mod.find_run() == (711, "20260101_000000_a")
+    assert guard_mod.find_run("20260101_000000_a") == (711, "20260101_000000_a")
+    assert guard_mod.find_run("another") is None, "matched a run it was not asked for"
+
+
+def test_stopping_a_run_nobody_is_holding_reports_it(monkeypatch):
+    """The web server restarts; the run it started does not, so Stop 404d."""
+    from pipeline.shared import guard as guard_mod
+
+    class Empty:
+        stdout = ""
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Empty())
+    assert guard_mod.stop_run("20260101_000000_a") is False
+
+
+def test_a_run_is_signalled_by_the_pid_on_its_command_line(monkeypatch):
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = "  711 python /x/run.py cfg --run-id 20260101_000000_a\n"
+
+    sent = []
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    monkeypatch.setattr(guard_mod.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(guard_mod.os, "killpg",
+                        lambda pgid, sig: sent.append((pgid, sig)))
+    assert guard_mod.stop_run("20260101_000000_a") is True
+    assert sent == [(711, guard_mod.signal.SIGTERM)]
 
 
 def test_nothing_running_is_not_a_run(monkeypatch):
@@ -319,3 +348,24 @@ def test_ps_failing_says_nothing_rather_than_no(monkeypatch):
 
     monkeypatch.setattr(guard_mod.subprocess, "run", boom)
     assert guard_mod.run_in_flight() is None
+
+
+def test_a_run_survives_the_web_server_that_started_it(monkeypatch):
+    """_ACTIVE is one process's memory; a reload made Stop a 404 on a live run."""
+    from pipeline.api import runs as runs_mod
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = "  711 python /x/run.py cfg --run-id 20260101_000000_a\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    monkeypatch.setattr(runs_mod, "_ACTIVE", {})
+
+    sent = []
+    monkeypatch.setattr(guard_mod.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(guard_mod.os, "killpg",
+                        lambda pgid, sig: sent.append(pgid))
+
+    assert runs_mod._in_flight() == "20260101_000000_a"
+    assert guard_mod.stop_run("20260101_000000_a") is True
+    assert sent == [711], "stop fell back to a handle it does not have"

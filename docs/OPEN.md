@@ -311,41 +311,7 @@ same tree and should not be forced through the same function.
 
 Experiment images live in `library/refs/experiment_slim/`.
 
-## 17. A run can be started, refused, and never stopped
-
-**Found 2026-09-10 while looking at what happens during a cooling rest.**
-`cooling.rest()` sleeps the run process for `cooling.seconds` (default 180)
-after every GPU task except the last. The run is alive and idle for those three
-minutes, which is when someone reaches for the UI.
-
-`POST /api/stop` exists, `api.stop(run_id)` exists in `web/js/api.js`, and
-**nothing in the frontend calls it**. There is no abort control on any view.
-The only way to stop a run is from the terminal.
-
-Meanwhile "is a run going" is answered from three different places:
-
-| Answer | Source | Survives a server restart |
-|---|---|---|
-| `list_runs()["running"]` | `_ACTIVE` dict in `api/runs.py` | no |
-| `start_run` → `_in_flight()` | `_ACTIVE`, then `ps` for `run.py --run-id` | yes |
-| `run_progress()["run"]["running"]` | `guard.run_in_flight()`, `ps` | yes |
-| `POST /api/stop` | `_ACTIVE` only, else `NotFound` | no |
-
-So after the web server reloads while a run is going, the run list shows it as
-finished, Start and Resume refuse it with a 409 naming a run the page says is
-not running, and Stop would raise `NotFound` even if something called it. The
-UI is a dead end in exactly the window cooling makes longest.
-
-Resume itself is correct: `_in_flight()` guards it, and the pause/resume path
-through `pipeline.stop_after` is unaffected.
-
-What it would take: one source of truth for "running" - discovery, since it is
-the only one that survives a restart - and `POST /api/stop` finding the pid the
-same way rather than requiring a `Popen` handle it may not have. Then one abort
-control, in the same place the run's state is already shown, reusing the
-existing button primitive rather than a new one.
-
-## 18. Reasoning lives beside the code instead of in docs
+## 17. Reasoning lives beside the code instead of in docs
 
 **Measured 2026-09-10.** The rule is one line per comment, two per docstring;
 anything longer belongs in `docs/` or the commit that made the decision.
@@ -368,7 +334,7 @@ keeping. Then a check in `make check` that refuses a new one, the way
 `tools/check_failures.py` refuses a builtin raise, so the sweep does not have to
 happen twice.
 
-## 19. "weight 1.00" on a reference card is not the weight
+## 18. "weight 1.00" on a reference card is not the weight
 
 **Found 2026-09-10.** The number on each reference card is `weight_scale`, a
 multiplier. The weight IPAdapter actually receives is decided per frame by
@@ -400,14 +366,7 @@ multiplier. Same fix reaches the missing clamp, since the range is what makes
 The control is also a bare `<input type=range>` rather than the `Range`
 primitive, so it is one of the stragglers from the slider sweep.
 
-## 20. The overview's queue panel prints `null`
-
-**Found 2026-09-10 from a screenshot.** Under the four counters (pending,
-running, held, failed) the overview renders a bare `null`. Something reaches
-that panel undefined and is written out rather than tested for. Cheap to find:
-the panel is the middle column of the overview view.
-
-## 21. The latest output is shown but is not part of the history
+## 19. The latest output is shown but is not part of the history
 
 **Asked 2026-09-10.** The overview's third column shows the newest run's frames
 under "LATEST OUTPUT" with a "Refine in editor" button, and the styles view has
@@ -417,7 +376,7 @@ this produced over time" do not share a source. Whether that is one feed with a
 newest-first cursor or two genuinely different questions is the thing to decide
 before writing either.
 
-## 22. Terms cannot be weighted in a prompt
+## 20. Terms cannot be weighted in a prompt
 
 **Asked 2026-09-10, unanswered.** Whether "gender = girl" or a skin term can be
 made to count for more than the fragments around it. SDXL through ComfyUI
@@ -426,7 +385,7 @@ graph's encoder path preserves it, and whether a weighted term survives the
 IPAdapter and ControlNet conditioning that follow, is unmeasured. The style
 vocabulary is a flat list of equals today.
 
-## 23. Five segmented controls, and one primitive none of them use
+## 21. Five segmented controls, and one primitive none of them use
 
 **Enumerated 2026-09-10, not converted.** `Segmented` exists in `ui/kit.js:141`.
 Five controls build the same thing by hand: `queue.js` states, `result.js`

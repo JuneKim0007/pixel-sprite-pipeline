@@ -31,7 +31,7 @@ references:
   - path: library/refs/char3/side.png
     view: side
   - path: library/refs/char3/side_right.png
-    view: side_right
+    view: 270
   - path: library/refs/char3/rear.png
     view: rear
 pipeline:
