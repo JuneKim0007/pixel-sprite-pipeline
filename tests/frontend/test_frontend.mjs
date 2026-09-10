@@ -1456,5 +1456,17 @@ await atest('an unchanged payload does not rebuild the view', async () => {
   assert.match(main, /force = false/, 'a caller cannot force a redraw after acting');
 });
 
+console.log('\nrig reference pose');
+await atest('reset returns a joint to the rig, not to frame 0', async () => {
+  // neutral was structuredClone(entries[0].pose), so Reset restored whatever
+  // the first loaded frame happened to be. dragJoint snaps bone lengths
+  // against the same variable, so a bent opening frame skewed every drag.
+  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
+  assert.match(src, /neutral = rigDef\?\.neutral/,
+    'the reference pose is still taken from the first frame');
+  assert.doesNotMatch(src, /^\s*neutral = entries\[0\]/m,
+    'the old assignment survived');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

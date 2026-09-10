@@ -311,36 +311,28 @@ Websearch and measurement both required. Do not implement from the request
 alone - the ordering that looks wrong may be deliberate, and DECISIONS.md should
 be read for the backdrop wording before anything moves.
 
-## 17. "Reset joint" restores frame 0, not the rig's rest position
+## 17. Three editors keep only the state that is on screen
 
-**Not started, found 2026-09-10.** `rig.js:380` sets the reference pose from
-whatever was loaded first:
+**Half done 2026-09-10.** The rig's reference pose now comes from the rig
+(`rigDef.neutral`) rather than from frame 0, so Reset returns a joint to the
+rest position and `dragJoint` snaps bone lengths against the right reference.
+Measured: neutral and the T-pose differ on 4 of 18 joints, so the two were
+never interchangeable.
 
-    neutral = entries[0] ? structuredClone(entries[0].pose) : null;
+**What is left, and it is the wider shape.** Every editable set here has three
+states - what the rig or schema defines, what was last saved, and what is on
+screen - and only the third is modelled. The rig editor now has the first;
+annotations, the layer stack and the settings form still have none, so each
+answers "reset" differently or not at all.
 
-So Reset returns a joint to where it was in the first frame of the current set,
-which is only the rest position by coincidence. The same variable is the
-reference `dragJoint` snaps bone lengths against, so a bent starting frame makes
-every later drag snap to the wrong proportions.
+A base naming `defaults()` and `saved()`, with reset meaning "back to saved, or
+to defaults when never saved", would serve all four. `ui/BaseField` and
+`ui/BaseCard` are the precedent for putting that in one place, and `BaseCard` is
+still unused, so the shape is available rather than absent.
 
-The real one is already on the wire. `/api/rigpose` returns `neutral` beside
-`pose` (`poses.py:46` and `:187`), 18 joints, and it differs from the T-pose on
-4 of them - so the two are not interchangeable and the client is discarding the
-one it needs. Nothing needs caching or re-importing; the payload is already
-there and the client overwrites it.
+Do not generalise from the one case that is fixed. Look at whether the other
+three want the same base first.
 
-**The wider shape.** Every editable set in this app has the same three states:
-what the rig defines, what was saved, and what is on screen. Only the third is
-modelled. A base that names the other two - `defaults()` and `saved()`, with
-reset meaning "back to saved, or to defaults when never saved" - would apply to
-poses, annotations, layer stacks and the settings form alike, all of which
-currently hand-roll their own answer or lack one. `ui/BaseField` and
-`ui/BaseCard` are the existing precedent for putting that in one place, and
-`BaseCard` is unused, so the shape is available rather than absent.
-
-Do not build the base first. Fix the one-line source of `neutral`, then look at
-whether the other three editors want the same base before generalising from a
-single case.
 
 ## 18. The subject line asks for the weapon it is being blamed for
 

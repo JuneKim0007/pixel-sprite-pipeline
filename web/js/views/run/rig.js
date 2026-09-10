@@ -377,7 +377,11 @@ export function rigEditor({ runId, onDirty } = {}) {
     state.poseEntries = entries;
     state.poseFrame = 0;
     state.selectedJoint = null;
-    neutral = entries[0] ? structuredClone(entries[0].pose) : null;
+    // The rig's rest position, not frame 0: dragJoint snaps bone lengths
+    // against this, so a bent opening frame skewed every later drag.
+    neutral = rigDef?.neutral
+      ? structuredClone(rigDef.neutral)
+      : (entries[0] ? structuredClone(entries[0].pose) : null);
     status.textContent = note;
     redraw();
   };
