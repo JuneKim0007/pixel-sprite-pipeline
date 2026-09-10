@@ -6,7 +6,7 @@
 name: red_hanfu
 module: character_sheet
 subject: a woman with very long flowing crimson red hair, wearing a black and deep red hanfu robe with wide draping sleeves, a gold and jade waist ornament hanging from a red sash, black skirt, geta sandals
-style: pixel art, game sprite, plain flat background
+style: pixel art, game sprite
 rig: humanoid
 pipeline:
   stages:

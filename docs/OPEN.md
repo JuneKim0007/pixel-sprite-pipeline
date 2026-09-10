@@ -363,33 +363,34 @@ third dialect cannot accumulate quietly. Verified by adding a dead rule and
 watching it fail.
 
 
-## 16. The backdrop was asked for in a language the encoder does not read
+## 16. The prompt asked for two different backgrounds
 
-**Diagnosed and half fixed 2026-09-10.** The report was that the model confuses
-which area is background even with a rig, and asked for a brush to paint the
-answer. Measured on real output first, and the cause is upstream of any mask.
+**Measured twice, fixed twice, and the second measurement is why the first was
+not enough.**
 
-`out/runs/20260910_102428_archer/02_canonical/canonical.png` was generated from
-a prompt containing "solid flat #FF00FF chroma key background". It contains
-**zero** near-magenta pixels; its backdrop is a pale blue-grey, (188, 217, 225)
-at every corner. CLIP was trained on captions and reads a hex code as
-punctuation and digits, so the request asked for nothing at all and the keyer
-was left flooding from whatever the corners happened to be - 78% removed, by
-luck rather than by key.
+A canonical generated from a prompt containing "solid flat #FF00FF chroma key
+background" had zero near-magenta pixels: CLIP reads a hex code as punctuation
+and digits. `name_for` now says "magenta" instead. That was not the whole fault.
 
-`name_for` now maps a colour to the nearest name a caption would use and the
-prompt says "solid flat magenta chroma key background". The hex is unchanged
-where it matters: the keyer still matches the exact value.
+The run of 2026-09-10 12:22 carried the named colour and still produced a pale
+blue-grey card, (194, 226, 232) at every corner, zero magenta. Its style said
+"pixel art, game sprite, side view, plain flat background" and the backdrop
+clause said "solid flat magenta chroma key background", in that order, in one
+prompt. The model was asked for a plain background and a chroma key at once and
+answered the first.
 
-**Not yet established.** Whether a named colour is enough. SDXL may still ignore
-it, and the next generated frame is the measurement - count near-magenta pixels
-in the canonical, as above. Only if that fails is a mask worth building, and
-then as a keyer input rather than a model input: it is exact, cannot confuse
-anything, and `background_to_alpha` already takes a key.
+The contradiction was documented in this repo, in schema.py, twice, arguing both
+ways: `style`'s help recommended "plain flat background" and
+`background.colour`'s help warned that asking for a "plain" background gets a lit
+studio card. `DEFAULT_STYLE` and nine shipped configs carried the phrase.
 
-Fixed while here: `backdrop_colour(None)` raised AttributeError. The stage path
-passes a merged dict so nothing hit it, but a config with no `background:` block
-crashes anything calling it directly.
+Removed from all of them, and `backdrop_conflict` names any style phrase that
+describes a background while a chroma key is being asked for. `run.py` prints it
+above the stages, and a test refuses it across every shipped config.
+
+**Still not measured.** Whether magenta now survives. Every earlier measurement
+was taken on a prompt that contradicted itself, so the next clean run is the
+first real test of the colour name.
 
 
 ## 17. Four editors, four meanings of reset, and no shared base

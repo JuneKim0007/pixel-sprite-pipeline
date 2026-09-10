@@ -7,7 +7,7 @@ name: drake
 module: character_sheet
 subject: a lean four-legged drake with tattered membrane wings, ridged spine, dark
   iron-green scales and amber eyes, long counterbalancing tail
-style: pixel art, game sprite, plain flat background
+style: pixel art, game sprite
 rig: dragon
 pipeline:
   stages:

@@ -7,7 +7,7 @@ name: dire_wolf
 module: character_sheet
 subject: a heavy dire wolf with shaggy grey-black fur, a pale scarred muzzle, ice-blue
   eyes and a thick brush tail
-style: pixel art, game sprite, plain flat background
+style: pixel art, game sprite
 rig: quadruped
 pipeline:
   stages:

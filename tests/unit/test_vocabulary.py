@@ -30,3 +30,45 @@ def test_a_keyed_backdrop_gets_its_negative():
 @pytest.mark.parametrize("yaw,word", [(0, "front"), (180, "rear")])
 def test_a_yaw_reads_as_a_view(yaw, word):
     assert word in v.view_words(yaw)
+
+
+class TestBackdropConflict:
+    """A style that describes a background argues with the backdrop clause."""
+
+    def test_it_names_the_phrase_that_clashes(self):
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_conflict(
+            "pixel art, plain flat background", "#FF00FF") == "flat background"
+
+    def test_a_clean_style_is_quiet(self):
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_conflict("pixel art, game sprite", "#FF00FF") == ""
+
+    def test_no_backdrop_means_no_conflict(self):
+        """Without a chroma key, describing a background is the only instruction."""
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_conflict("plain flat background", None) == ""
+
+    def test_the_default_style_does_not_argue_with_the_default_backdrop(self):
+        from pipeline.looks import vocabulary
+
+        assert vocabulary.backdrop_conflict(
+            vocabulary.DEFAULT_STYLE, vocabulary.BACKDROP) == ""
+
+    def test_no_shipped_config_asks_for_two_backgrounds(self):
+        from pathlib import Path
+
+        from pipeline.looks import vocabulary
+        from pipeline.shared import settings
+
+        for path in sorted(Path("library/configs").glob("*.yaml")):
+            if path.stem == "_global":
+                continue
+            cfg = settings.read_yaml(path)
+            backdrop = vocabulary.backdrop_colour(cfg.get("background") or None)
+            clash = vocabulary.backdrop_conflict(
+                cfg.get("style") or vocabulary.DEFAULT_STYLE, backdrop)
+            assert clash == "", f"{path.stem}: style says '{clash}'"

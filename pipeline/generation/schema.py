@@ -48,8 +48,13 @@ FIELDS: list[ConfigField] = [
      help="The character. Read by every stage that writes a prompt, so it "
              "lives in one place."),
     ConfigField(key="style", label="Style", kind="textarea", group="Asset",
-     help="Appended to the subject. 'plain flat background' makes the "
-             "background keying in the palette stage much cleaner."),
+     help="Appended to the subject. Leave the backdrop out of it: "
+             "background.colour already asks for one, and 'plain flat "
+             "background' beside it asks for two different things in one "
+             "prompt - measured 2026-09-10, a run whose style said 'plain "
+             "flat background' and whose backdrop clause said 'solid flat "
+             "magenta chroma key' produced a pale blue-grey studio card with "
+             "zero magenta pixels in it."),
 
     ConfigField(key="pipeline.stop_after", label="Pause after stage", kind="select",
      options_from="stage_names", group="Pipeline",

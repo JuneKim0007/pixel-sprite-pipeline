@@ -7,7 +7,7 @@ name: cave_spider
 module: character_sheet
 subject: a hunting spider the size of a hound, glossy black chitin with pale bone
   markings, eight banded legs and a cluster of red eyes
-style: pixel art, game sprite, plain flat background
+style: pixel art, game sprite
 rig: spider
 pipeline:
   stages:

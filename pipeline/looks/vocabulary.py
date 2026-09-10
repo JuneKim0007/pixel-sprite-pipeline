@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 DEFAULT_SUBJECT = "a knight in armor"
-DEFAULT_STYLE = "pixel art, game sprite, side view, plain flat background"
+DEFAULT_STYLE = "pixel art, game sprite, side view"
 
 NEGATIVE = (
     "blurry, soft, smooth gradient, antialiased, jpeg artifacts, photo, "
@@ -91,4 +91,21 @@ def facing_negative(yaw: float) -> str:
         return FACE_NEGATIVE_REAR
     if 100 < yaw < 135 or 225 < yaw < 260:
         return FACE_NEGATIVE_NEAR_REAR
+    return ""
+
+
+# Words that describe a backdrop. Beside a chroma-key clause they contradict it,
+# and the prompt then asks for two different things at once.
+BACKDROP_WORDS = ("plain background", "flat background", "white background",
+                  "studio background", "backdrop", "background colour")
+
+
+def backdrop_conflict(style: str, backdrop: str | None) -> str:
+    """A style phrase that argues with the backdrop being asked for, or ""."""
+    if not backdrop:
+        return ""
+    said = (style or "").lower()
+    for phrase in BACKDROP_WORDS:
+        if phrase in said:
+            return phrase
     return ""

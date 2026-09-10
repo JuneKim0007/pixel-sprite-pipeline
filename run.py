@@ -164,6 +164,15 @@ def main() -> int:
         print(f"note: {', '.join(doubled)} named in both subject and props; "
               f"the prompt asks for each twice")
 
+    from pipeline.looks import vocabulary as _vocab
+
+    clash = _vocab.backdrop_conflict(
+        cfg.get("style") or _vocab.DEFAULT_STYLE,
+        _vocab.backdrop_colour((cfg.get("background") or {}) or None))
+    if clash:
+        print(f"note: style says '{clash}' while the backdrop asks for a "
+              f"chroma key; the prompt describes two backgrounds")
+
     try:
         runner.run(built, ctx, stop_after=gate, skip=already)
     finally:

@@ -16,6 +16,10 @@ def _encode(value: Any) -> dict:
         return {"type": "path", "value": str(value)}
     if isinstance(value, list) and value and all(isinstance(v, Path) for v in value):
         return {"type": "paths", "value": [str(v) for v in value]}
+    # A dict of paths, which is how canonical hands back one image per view.
+    if (isinstance(value, dict) and value
+            and all(isinstance(v, Path) for v in value.values())):
+        return {"type": "path_map", "value": {k: str(v) for k, v in value.items()}}
     try:
         json.dumps(value)
         return {"type": "json", "value": value}
@@ -28,6 +32,8 @@ def _encode(value: Any) -> dict:
             # caller who asked to save.
             f"artifact {type(value).__name__} cannot be persisted, so the run "
             f"would not be resumable. Prefix the key with '_' if it is scratch."
+            + (f" Contents: {sorted(type(v).__name__ for v in value.values())}."
+               if isinstance(value, dict) else "")
         ) from e
 
 
@@ -37,6 +43,8 @@ def _decode(entry: dict) -> Any:
         return Path(value)
     if kind == "paths":
         return [Path(v) for v in value]
+    if kind == "path_map":
+        return {k: Path(v) for k, v in value.items()}
     return value
 
 

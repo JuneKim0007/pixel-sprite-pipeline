@@ -18,7 +18,7 @@ name: character_sheet
 module: character_sheet
 
 subject: a knight in steel armor
-style: pixel art, game sprite, plain flat background
+style: pixel art, game sprite
 
 # Body plan. Decides joint layout, bone hierarchy, and which ControlNet channel
 # the skeleton may legitimately be sent to:

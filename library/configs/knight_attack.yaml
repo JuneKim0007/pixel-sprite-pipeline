@@ -19,7 +19,7 @@ module: animation
 subject: a knight in steel armor
 props:
 - longsword
-style: pixel art, game sprite, side view, plain flat background
+style: pixel art, game sprite, side view
 
 pipeline:
   # Execution order. Validated before anything runs: a stage needing an

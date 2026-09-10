@@ -29,3 +29,47 @@ def test_a_scratch_key_is_the_supported_way_to_keep_one_out(tmp_path):
     io.save(tmp_path, {"_thing": Opaque(), "n": 1}, [])
     loaded, _ = io.load(tmp_path)
     assert loaded == {"n": 1}
+
+
+class TestPathMap:
+    """One image per view, which is what canonical hands back."""
+
+    def test_a_dict_of_paths_round_trips(self):
+        from pathlib import Path
+
+        from pipeline.orchestration.artifacts import _decode, _encode
+
+        made = {"front": Path("a.png"), "side": Path("b.png")}
+        assert _decode(_encode(made)) == made
+
+    def test_it_survives_the_manifest(self, tmp_path):
+        """canonical crashed the run at the end, after the images were written."""
+        from pathlib import Path
+
+        from pipeline.orchestration import artifacts
+
+        made = {"front": tmp_path / "a.png", "side": tmp_path / "b.png"}
+        for one in made.values():
+            one.write_bytes(b"")
+        artifacts.save(tmp_path, {"canonical": made["front"], "canonicals": made},
+                       ["canonical"])
+        back, completed = artifacts.load(tmp_path)
+        assert back["canonicals"] == made
+        assert completed == ["canonical"]
+
+    def test_a_dict_of_something_else_is_still_refused(self):
+        from pipeline.orchestration.artifacts import _encode
+
+        class Opaque:
+            pass
+
+        with pytest.raises(TypeError) as caught:
+            _encode({"front": Opaque()})
+        # The message has to name what was in it, or the next person reads
+        # "dict cannot be persisted" and has no idea which key or what type.
+        assert "Opaque" in str(caught.value)
+
+    def test_an_empty_dict_is_plain_json(self):
+        from pipeline.orchestration.artifacts import _decode, _encode
+
+        assert _decode(_encode({})) == {}
