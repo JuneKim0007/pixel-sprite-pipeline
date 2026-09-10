@@ -80,8 +80,9 @@ export function control(field, value, onChange) {
     // field, or one spanning tens of thousands, is a number box.
     const spanOk = field.min != null && field.max != null && field.max - field.min <= 5000;
     if (spanOk) {
-      wrap.append(Range(value ?? field.min, {
+      wrap.append(Range(value ?? null, {
         min: field.min, max: field.max, step, readout: 'box', placeholder: 'auto',
+        park: field.default,
         onChange: (v) => onChange(v === null ? null : (isFloat ? v : Math.round(v))),
       }));
       return wrap;

@@ -72,7 +72,7 @@ frames:
     anchor_far_weight: 0.5
 cooling:
   enabled: true
-  seconds: 420
+  seconds: 30
 palette:
   source: file
   file: char_1

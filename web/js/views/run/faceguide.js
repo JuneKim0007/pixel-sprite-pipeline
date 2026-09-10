@@ -1,24 +1,13 @@
-/* Loomis-style head construction, drawn as a guide.
- *
- * Purely decorative and never saved: the annotation stores joint positions,
- * and this only helps a person decide where those positions should go. Eyes,
- * ears and nose are the fiddliest points to place because a head is a volume
- * and the annotation is a handful of dots — the classic sphere-plus-jaw
- * construction makes that volume visible.
- *
- * Everything is derived from whatever the user has already placed, so the
- * guide follows the head rather than sitting at a fixed spot:
- *
- *   neck + nose      give head height and tilt
- *   ear spread       gives the turn, since ears converge as the head rotates
- *   eyes             pin the eye line if placed, otherwise it is estimated
- *
- * Canvas 2D only. No model, no GPU, a fraction of a millisecond.
- */
+/* Loomis head construction, drawn as a guide and never saved. */
 
-const CRANIUM = 0.62;   // sphere radius as a fraction of total head height
-const EYE_LINE = 0.52;  // eye height down the head, roughly the midpoint
-const JAW_WIDTH = 0.72; // jaw width relative to the cranium diameter
+const CRANIUM = 0.62;    // ball diameter as a fraction of head height
+const EYE_LINE = 0.50;   // the canon: eyes sit at the head's vertical midpoint
+const NOSE_LINE = 0.72;  // base of the nose, measured down from the skull top
+const MOUTH_LINE = 0.83;
+const JAW_WIDTH = 0.72;
+
+// The ball caps the skull, so its centre is one radius below the head's top.
+const BALL_RISE = CRANIUM * 0.5 - 0.5;
 
 /** Work out head geometry from the placed points, in canvas pixels. */
 export function headFrame(points, project) {
@@ -42,8 +31,11 @@ export function headFrame(points, project) {
     const dy = nose[1] - neck[1];
     height = Math.hypot(dx, dy) * 1.9;
     tilt = Math.atan2(dx, -dy);
-    centre = [nose[0] - Math.sin(tilt) * height * 0.10,
-              nose[1] + Math.cos(tilt) * height * 0.10];
+    // The eye line is the head's midpoint, so placed eyes ARE the centre.
+    const drop = (EYE_LINE - NOSE_LINE) * height;
+    centre = lEye && rEye
+      ? [(lEye[0] + rEye[0]) / 2, (lEye[1] + rEye[1]) / 2]
+      : [nose[0] - Math.sin(tilt) * drop, nose[1] + Math.cos(tilt) * drop];
   } else if (lEar && rEar) {
     height = Math.hypot(lEar[0] - rEar[0], lEar[1] - rEar[1]) * 2.4;
     centre = [(lEar[0] + rEar[0]) / 2, (lEar[1] + rEar[1]) / 2];
@@ -80,6 +72,7 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
 
   const { centre, height, tilt, turn, eyeY } = frame;
   const r = height * CRANIUM * 0.5;
+  const ball = height * BALL_RISE;
 
   ctx.save();
   ctx.translate(centre[0], centre[1]);
@@ -90,32 +83,38 @@ export function drawFaceGuide(ctx, points, project, { color = 'rgba(255,120,150,
 
   // 1. Cranium — the sphere the whole head is built on.
   ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.arc(0, ball, r, 0, Math.PI * 2);
   ctx.stroke();
 
   // 2. Side plane — the flat the ear sits on, an ellipse narrowing with turn.
   const planeOffset = turn * r * 0.62;
   ctx.beginPath();
-  ctx.ellipse(planeOffset, 0, r * Math.max(0.12, Math.abs(turn) * 0.62 + 0.12), r, 0, 0, Math.PI * 2);
+  ctx.ellipse(planeOffset, ball,
+              r * Math.max(0.12, Math.abs(turn) * 0.62 + 0.12), r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 3. Centre line — bends with the turn, which is what makes a head read as
-  //    facing somewhere rather than straight on.
+  // 3. Centre line — bends with the turn, so the head reads as facing somewhere.
   const cx = -turn * r * 0.85;
   ctx.beginPath();
-  ctx.ellipse(cx, 0, Math.max(2, Math.abs(turn) * r * 0.9 + 2), r, 0, -Math.PI / 2, Math.PI / 2);
+  ctx.ellipse(cx, ball, Math.max(2, Math.abs(turn) * r * 0.9 + 2), r, 0,
+              -Math.PI / 2, Math.PI / 2);
   ctx.stroke();
 
-  // 4. Eye line — placed eyes win; otherwise the standard proportion.
-  const eyeLocal = eyeY != null
-    ? (eyeY - centre[1]) * Math.cos(tilt)
-    : -r + height * EYE_LINE;
-  ctx.beginPath();
-  ctx.ellipse(0, eyeLocal, r, Math.max(2, Math.abs(turn) * r * 0.35 + 2), 0, 0, Math.PI * 2);
-  ctx.stroke();
+  // 4. Eye, nose and mouth lines, at the proportions measured down the head.
+  const eyeLocal = eyeY != null ? (eyeY - centre[1]) * Math.cos(tilt) : 0;
+  const flat = (y, squash) => {
+    ctx.beginPath();
+    ctx.ellipse(0, y, r, Math.max(2, Math.abs(turn) * r * squash + 2), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  flat(eyeLocal, 0.35);
+  ctx.setLineDash([2, 4]);
+  flat((NOSE_LINE - EYE_LINE) * height, 0.28);
+  flat((MOUTH_LINE - EYE_LINE) * height, 0.24);
+  ctx.setLineDash([]);
 
   // 5. Jaw — cranium bottom tapering to the chin.
-  const jawTop = r * 0.55;
+  const jawTop = ball + r * 0.55;
   const chin = height * 0.5;
   const halfW = r * JAW_WIDTH;
   ctx.beginPath();
@@ -145,7 +144,8 @@ export function drawFaceLegend(canvas) {
   ctx.clearRect(0, 0, w, h);
 
   const fake = {
-    neck: [0.5, 0.86], nose: [0.56, 0.46],
+    neck: [0.5, 0.86], nose: [0.54, 0.52],
+    l_eye: [0.44, 0.42], r_eye: [0.58, 0.42],
     l_ear: [0.40, 0.44], r_ear: [0.60, 0.44],
   };
   const project = (p) => [p[0] * w, p[1] * h];
@@ -153,7 +153,9 @@ export function drawFaceLegend(canvas) {
 
   ctx.fillStyle = 'rgba(255,255,255,.55)';
   ctx.font = '9px ui-monospace, monospace';
-  ctx.fillText('eye line', 4, h * 0.47);
-  ctx.fillText('ear', w * 0.62, h * 0.58);
+  ctx.fillText('eye line', 4, h * 0.43);
+  ctx.fillText('nose', 4, h * 0.55);
+  ctx.fillText('mouth', 4, h * 0.63);
+  ctx.fillText('ear', w * 0.62, h * 0.50);
   ctx.fillText('jaw', w * 0.36, h * 0.86);
 }

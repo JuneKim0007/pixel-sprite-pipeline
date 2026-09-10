@@ -86,14 +86,18 @@ export function Check(label, { checked = false, onChange } = {}) {
  */
 export function Range(value, {
   min, max, step = 0.05, onChange, onInput, format,
-  readout = 'text', placeholder = '',
+  readout = 'text', placeholder = '', park = null,
 } = {}) {
   const show = format || ((v) => Number(v).toFixed(2));
-  const node = el('input', { type: 'range', min, max, step, value });
+  // A null value is unset, not zero: the thumb parks and the box stays empty.
+  const node = el('input', {
+    type: 'range', min, max, step, value: value ?? park ?? min,
+  });
 
   if (readout === 'box') {
     const box = el('input', {
-      type: 'number', className: 'num', step, value, placeholder,
+      type: 'number', className: 'num', step, placeholder,
+      value: value ?? '',
     });
     if (min != null) box.min = min;
     if (max != null) box.max = max;
