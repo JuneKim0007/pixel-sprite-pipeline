@@ -2059,5 +2059,34 @@ test('painting is still pure and headless', () => {
   assert.ok(stats(values).max > before.max);
 });
 
+test('every surface where an edit is a gesture can be undone', () => {
+  // The sweep: three of five mutating surfaces take a controller. The other
+  // two are form fields, which already have per-field reset and browser undo -
+  // a stack over them would fight the one the browser gives for free.
+  const wired = ['views/run/weights.js', 'views/run/rig.js', 'views/run/annotate.js'];
+  const byHand = ['views/run/run.js', 'views/input/input.js', 'views/editor/stack.js'];
+
+  for (const f of wired) {
+    const src = readFileSync(join(JS, f), 'utf8');
+    assert.ok(/undoController\(/.test(src), `${f} edits by gesture and has no undo`);
+    assert.ok(/undoKeys\(/.test(src), `${f} has undo but no Ctrl+Z`);
+  }
+  for (const f of byHand) {
+    const src = readFileSync(join(JS, f), 'utf8');
+    assert.ok(!/undoController\(/.test(src),
+              `${f} took a controller; if that is right, move it and say why here`);
+  }
+});
+
+test('undo keys are scoped to a panel, never to the document', () => {
+  // A global Ctrl+Z rewinds the emphasis map from any tab in the app.
+  for (const f of ['views/run/weights.js', 'views/run/rig.js', 'views/run/annotate.js']) {
+    const src = readFileSync(join(JS, f), 'utf8');
+    for (const call of src.match(/undoKeys\([^)]*\)/g) || []) {
+      assert.ok(/target:/.test(call), `${f}: ${call} falls back to document`);
+    }
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

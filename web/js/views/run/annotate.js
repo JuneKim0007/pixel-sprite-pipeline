@@ -3,6 +3,7 @@
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
 import { autosaver, saveLabel } from '../../core/autosave.js';
+import { undoController, undoKeys } from '../../core/undo.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
 import { projectPoint } from '../../features/pose.js';
 import { el } from '../../core/dom.js';
@@ -25,7 +26,7 @@ function orderJoints(joints) {
 }
 
 export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
-  const root = el('div', { className: 'annot' });
+  const root = el('div', { className: 'annot', tabIndex: -1 });
   const canvas = el('canvas', { width: 640, height: 640, className: 'annotcanvas' });
   const img = new Image();
 
@@ -142,6 +143,27 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     return best;
   }
 
+  const undoBar = el('span', { className: 'undobar' });
+
+  const history = undoController({
+    read: () => structuredClone(points),
+    write: (saved) => { points = saved; saver.touch(); render(); },
+    onChange: () => drawUndo(),
+  });
+
+  function drawUndo() {
+    const step = (label, hint, act, live) => {
+      const b = Button(label, { variant: 'ghost', title: hint, disabled: !live });
+      b.onclick = act;
+      return b;
+    };
+    undoBar.replaceChildren(
+      step('Undo', 'Ctrl+Z', () => history.undo(), history.canUndo()),
+      step('Redo', 'Ctrl+Y', () => history.redo(), history.canRedo()));
+  }
+  drawUndo();
+  undoKeys(history, { target: root });
+
   const mark = (joint, pos) => {
     points[joint] = [Number(pos[0].toFixed(4)), Number(pos[1].toFixed(4))];
     saver.touch();
@@ -152,6 +174,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     if (!pos) return;
     const under = nearest(pos);
     if (under) {
+      history.begin();
       drag = under;
       next = under;
       jointSel.value = under;
@@ -160,7 +183,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       return;
     }
     if (!next) return;
-    mark(next, pos);
+    history.record(() => mark(next, pos));
     advance();
     render();
   };
@@ -173,7 +196,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     canvas.style.cursor = over ? 'grab' : (next ? 'crosshair' : 'default');
   };
 
-  const release = () => { if (drag) { drag = null; render(); } };
+  const release = () => { if (drag) { drag = null; history.commit(); render(); } };
   canvas.onpointerup = release;
   canvas.onpointercancel = release;
   canvas.onpointerleave = () => { hover = null; release(); draw(); };
@@ -212,7 +235,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
                                     title: `Remove ${joint} and aim here` });
         drop.onclick = (e) => {
           e.stopPropagation();
-          delete points[joint];
+          history.record(() => { delete points[joint]; });
           saver.touch();
           // Aim at what was just removed.
           target(joint);
@@ -288,7 +311,8 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       if (!Object.keys(fit.points || {}).length) {
         toast(fit.notes?.[0] || 'nothing to fit', 'warn');
       } else {
-        points = { ...fit.points, ...points };   // never overwrite your own work
+        // never overwrite your own work
+        history.record(() => { points = { ...fit.points, ...points }; });
         saver.touch();
         const pct = Math.round((fit.confidence || 0) * 100);
         toast(`Proposed ${Object.keys(fit.points).length} joints (${pct}% confidence) — check them`);
@@ -308,11 +332,13 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     title: 'Place every joint in a neutral pose to drag from' });
   tpose.onclick = () => {
     if (!rigDef?.pose) { toast('this rig carries no neutral pose', 'warn'); return; }
-    for (const [joint, p3] of Object.entries(rigDef.pose)) {
-      if (points[joint]) continue;          // never overwrite your own work
-      const [x, y] = projectPoint(p3, 0);
-      points[joint] = [Number(x.toFixed(4)), Number(y.toFixed(4))];
-    }
+    history.record(() => {
+      for (const [joint, p3] of Object.entries(rigDef.pose)) {
+        if (points[joint]) continue;        // never overwrite your own work
+        const [x, y] = projectPoint(p3, 0);
+        points[joint] = [Number(x.toFixed(4)), Number(y.toFixed(4))];
+      }
+    });
     saver.touch();
     toast('Neutral pose placed — drag each joint onto the figure');
     render();
@@ -320,7 +346,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
   const clear = Button('Clear', { variant: 'ghost' });
   clear.onclick = () => {
-    points = {};
+    history.record(() => { points = {}; });
     saver.touch();
     next = orderJoints(rigDef?.joints || []).find(() => true) || null;
     jointSel.value = next || '';
@@ -364,7 +390,8 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       el('span', { className: 'mini', textContent: 'Place' }), jointSel,
       counter,
       guideToggle,
-      el('span', { className: 'sep' }), auto, tpose, clear, saveState),
+      el('span', { className: 'sep' }), auto, tpose, clear,
+      el('span', { className: 'sep' }), undoBar, saveState),
     el('p', { className: 'help', textContent:
       'Click where each part is in this image, or drag a dot that is already '
       + 'there. Skip anything cropped or hidden — absent is a real answer, and a '

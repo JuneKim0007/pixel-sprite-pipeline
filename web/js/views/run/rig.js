@@ -3,6 +3,7 @@
 import { api } from '../../api.js';
 import { Button, Empty, Range } from '../../ui/index.js';
 import { autosaver } from '../../core/autosave.js';
+import { undoController, undoKeys } from '../../core/undo.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import {
@@ -150,7 +151,7 @@ function attach(canvas, getYaw, onEdit, refImage) {
     state.selectedJoint = joint;
     dragging = { canvas, joint };
     canvas.setPointerCapture(e.pointerId);
-    onEdit({ redrawOnly: true });
+    onEdit({ redrawOnly: true, phase: 'begin' });
   };
 
   canvas.onpointermove = (e) => {
@@ -183,7 +184,7 @@ function attach(canvas, getYaw, onEdit, refImage) {
     if (dragging?.canvas === canvas) {
       dragging = null;
       canvas.releasePointerCapture?.(e.pointerId);
-      onEdit({});
+      onEdit({ phase: 'commit' });
     }
   };
   canvas.onpointerup = release;
@@ -216,8 +217,9 @@ function inspector(onEdit) {
         min, max, step: 0.005, readout: 'box',
         onChange: (value) => {
           if (value === null) return;
+          onEdit({ phase: 'begin', redrawOnly: true });
           entry.pose[joint][axis] = value;
-          onEdit({});
+          onEdit({ phase: 'commit' });
         },
       }));
   });
@@ -225,8 +227,9 @@ function inspector(onEdit) {
   const reset = Button('Reset joint', { variant: 'ghost' });
   reset.onclick = () => {
     if (neutral?.[joint]) {
+      onEdit({ phase: 'begin', redrawOnly: true });
       entry.pose[joint] = [...neutral[joint]];
-      onEdit({});
+      onEdit({ phase: 'commit' });
     }
   };
   box.append(reset);
@@ -236,7 +239,7 @@ function inspector(onEdit) {
 /* ------------------------------------------------------------------ view */
 
 export function rigEditor({ runId, onDirty } = {}) {
-  const root = el('div', { className: 'rig' });
+  const root = el('div', { className: 'rig', tabIndex: -1 });
   const refImage = new Image();
 
   const front = el('canvas', { width: 420, height: 520, className: 'rigcanvas' });
@@ -246,6 +249,32 @@ export function rigEditor({ runId, onDirty } = {}) {
 
   const insp = el('div', { className: 'rigside' });
   const timeline = el('div', { className: 'timeline' });
+
+  const undoBar = el('span', { className: 'undobar' });
+
+  const history = undoController({
+    read: () => structuredClone(state.poseEntries),
+    write: (entries) => {
+      state.poseEntries = entries;
+      state.poseFrame = Math.min(state.poseFrame, entries.length - 1);
+      onDirty?.();
+      redraw();
+    },
+    onChange: () => drawUndo(),
+  });
+
+  function drawUndo() {
+    const step = (label, hint, act, live) => {
+      const b = Button(label, { variant: 'ghost', title: hint, disabled: !live });
+      b.onclick = act;
+      return b;
+    };
+    undoBar.replaceChildren(
+      step('Undo', 'Ctrl+Z', () => history.undo(), history.canUndo()),
+      step('Redo', 'Ctrl+Y', () => history.redo(), history.canRedo()));
+  }
+  drawUndo();
+  undoKeys(history, { target: root });
 
   const redraw = () => {
     const entry = state.poseEntries[state.poseFrame];
@@ -258,9 +287,11 @@ export function rigEditor({ runId, onDirty } = {}) {
     drawTimeline();
   };
 
-  const onEdit = ({ redrawOnly } = {}) => {
+  const onEdit = ({ redrawOnly, phase } = {}) => {
+    if (phase === 'begin') history.begin();
     if (!redrawOnly) onDirty?.();
     redraw();
+    if (phase === 'commit') history.commit();
   };
 
   function drawTimeline() {
@@ -340,6 +371,7 @@ export function rigEditor({ runId, onDirty } = {}) {
       insp),
     el('div', { className: 'rigfoot' },
       el('span', { className: 'mini', textContent: 'view angle' }), yawSlider,
+      el('span', { className: 'sep' }), undoBar,
       el('span', { className: 'sep' }), timeline));
 
   /* ---------------------------------------------------------- loading */
