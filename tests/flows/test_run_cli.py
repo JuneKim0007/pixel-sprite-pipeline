@@ -1,10 +1,4 @@
-"""What `./run.py` decides before the pipeline starts.
-
-main() picks the run id, resolves the gate, snapshots the config, seeds a
-resume and names the output. None of that was executed by a test, and none of
-it needs a GPU: the only thing faked here is runner.run, which is where the
-work would begin.
-"""
+"""What `./run.py` decides before the pipeline starts."""
 
 from __future__ import annotations
 

@@ -96,14 +96,8 @@ class Field:
 
     def check(self, value):
         """Unlike clamp, an out-of-range value is not corrected - a config file is a person's own text, and silently rewriting it on save means the file no longer says what they typed."""
-        # `key:` with nothing after it is YAML None, and eleven shipped configs
-        # write it that way to mean "follow the default" - which is what clamp
-        # and Context.settings both do with it. Only check disagreed.
         if value is None:
             return None
-        # A per-group mapping where a scalar is declared: depth.build takes
-        # {torso: 1.6, arms: 0.9} and depthmap._bulk reads exactly that, so the
-        # bounds apply to each entry rather than to the mapping.
         if isinstance(value, dict) and self.kind in ("float", "int"):
             for name, each in value.items():
                 self.check(each)

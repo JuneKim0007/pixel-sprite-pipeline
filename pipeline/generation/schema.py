@@ -897,9 +897,7 @@ class ConfigSchema:
 
     def fields_for(self, module: str | None,
                    inherits: Iterable[str] = ()) -> list[dict[str, Any]]:
-        """`inherits` is the type and everything it extends, so a new asset type
-        declaring `extends: animation` shows animation's scoped fields instead of
-        only the 124 that no module scopes."""
+        """`inherits` is the type and everything it extends, so a new asset type."""
         mine = {module, *inherits} - {None}
         out = []
         for field in self.fields:
@@ -946,13 +944,7 @@ class ConfigSchema:
         return None
 
     def check(self, cfg: dict, _path: str = "") -> None:
-        """Every declared value in range, and no value at a path nobody declared.
-
-        The second half is why `canonical.from_reference` could be read by
-        canonical.py, declared nowhere, and do nothing for as long as it
-        existed: an undeclared scalar was simply skipped, so a typo saved
-        cleanly and was silent forever.
-        """
+        """Every declared value in range, and no value at a path nobody declared."""
         for key, value in (cfg or {}).items():
             here = f"{_path}.{key}" if _path else key
             f = self.field(here)
@@ -988,13 +980,9 @@ class ConfigSchema:
                 self._clamp_into(value, notes, here)
 
 
-# Paths that carry structure rather than a value: lists the list editors own,
-# and the keys that say what a config IS. A scalar anywhere else is a typo.
 STRUCTURAL: frozenset[str] = frozenset({
     "module", "subject", "style", "styles", "prompt", "props", "style_picks",
     "paths", "models", "proportions",
-    # DEFAULT_GLOBAL's own namespace: _global.yaml carries these and the
-    # pipeline schema does not describe them.
     "ui", "compute", "cooling.note",
     "pose.set", "softbody.nodes",
     "references.identity", "references.style", "references.pose",

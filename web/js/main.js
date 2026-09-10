@@ -1,12 +1,4 @@
-/* Shell: six tabs, shared polling, boot.
- *
- *   Input    what to make this time
- *   New run  the guided flow, with the rig editor inside it
- *   Result   what came out, per stage
- *   Styles   the looks, their context, and what has been done to them
- *   Queue    jobs on disk and the autopilot that drains them
- *   Settings how the machine behaves — global, or pinned per pipeline
- */
+// Shell: six tabs, shared polling, boot.
 
 import { api } from './api.js';
 import { renderInput } from './views/input/input.js';
@@ -45,16 +37,7 @@ history.install({
   onChange: (can) => { const b = $('#goback'); if (b) b.disabled = !can; },
 });
 
-/* One table, and the mounter calls it.
- *
- * This was an if-chain of eight branches, which is the same shape the server's
- * routing had before it became data - and it had the same problem: nothing
- * could enumerate the views, and nobody could tear one down because there was
- * no moment that meant "leaving".
- *
- * `mount` calls the previous view's teardown before the next one renders, so a
- * poll or a subscription cannot outlive the tab that started it.
- */
+// One table, and the mounter calls it.
 const VIEWS = {
   overview: (host) => renderOverview(host, { goTo: setTab }),
   input: (host) => renderInput(host, {
@@ -83,8 +66,6 @@ function render() {
   renderFlow();
 }
 
-// The result tab is redrawn by the run poll as well as by a tab switch, so it
-// owns its own teardown rather than handing one to mount().
 let stopResult = null;
 
 async function renderResultTab() {
@@ -143,12 +124,7 @@ function renderRunPicker() {
   if (!state.runs.length) sel.append(el('option', { value: '', textContent: 'no runs yet' }));
 }
 
-/* What a refresh would change on screen, as one string.
- *
- * `renderResult` opens with `host.replaceChildren()`, which is right when a
- * view mounts and wrong every four seconds: it takes scroll position, focus and
- * image decode with it. Comparing first means an unchanged payload costs one
- * request and no DOM at all. */
+// What a refresh would change on screen, as one string.
 function runsSignature(runs, selected) {
   return runs.map((r) => [
     r.id, r.modified, r.running ? 1 : 0, r.stopped_at || '',
@@ -160,12 +136,7 @@ function runsSignature(runs, selected) {
 let lastSignature = null;
 let stopWatching = null;
 
-/* Runs only while a run is running, and again when one starts.
- *
- * It used to run whenever the Result tab was merely open, which is a finished
- * run being asked about every four seconds for as long as the tab stays open.
- * Stopping when idle is only safe if starting is covered, so every path that
- * begins or resumes a run calls this. */
+// Runs only while a run is running, and again when one starts.
 function watchRuns() {
   if (stopWatching) return;
   stopWatching = poll(async () => {
@@ -228,8 +199,6 @@ function renderRailBar() {
       return made;
     },
 
-    // A new type has no pipeline, and the rail cannot open a workspace without
-    // one, so making the type offers to make its first pipeline too.
     onNewType: async () => {
       const key = await newTypeDialog();
       if (!key) return;
@@ -251,8 +220,6 @@ async function boot() {
   state.system = await api.system().catch(() => null);
   state.global = (await api.global().catch(() => ({ config: {} }))).config || {};
 
-  // Joint names are only known to the schema consumer; the soft-body editor
-  // needs them as a dropdown source.
   const { JOINTS } = await import('./features/pose.js');
   state.schema.options.joints = JOINTS;
 
@@ -276,8 +243,6 @@ async function boot() {
     render();
   };
 
-  // The Result tab's gate banner acts in place rather than sending you to
-  // another tab to find the right control.
   window.addEventListener('pipeline:edit', (e) => {
     state.selectedRun = e.detail.runId;
     state.wizardStep = e.detail.step ?? 0;
@@ -294,9 +259,6 @@ async function boot() {
   if (state.runs.some((r) => r.running)) watchRuns();
 }
 
-// mount() catches a view that throws while rendering and poll() catches its own
-// tick, but an async click handler rejects into nowhere - which is how a run that
-// started looked like a button that did nothing.
 window.addEventListener('unhandledrejection', (e) => {
   toast(e.reason?.message || String(e.reason ?? 'Something went wrong'), 'error');
 });

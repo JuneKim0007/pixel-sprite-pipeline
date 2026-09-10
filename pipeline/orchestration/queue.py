@@ -183,8 +183,6 @@ def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
 
 
 def _check_stack(merged: dict) -> list[str]:
-    # `stages` must be imported for its side effect: without it the registry is
-    # empty and every job fails validation, turning the guard into the fault.
     from .. import stages  # noqa: F401  (importing registers them)
     from ..generation import runner
 
@@ -231,13 +229,7 @@ def _await_source_run(root: Path, merged: dict) -> list[str]:
 
 
 def _await_free_gpu(root: Path) -> list[str]:
-    """A run already going, started by hand or left by an earlier autopilot.
-
-    Two runs share one GPU and, if they are the same run, one directory. The
-    queue waits rather than failing: a job blocked because the machine is busy
-    is not a broken job, and the autopilot's whole purpose is to drain a queue
-    eventually.
-    """
+    """A run already going, started by hand or left by an earlier autopilot."""
     from ..shared import guard
 
     busy = guard.run_in_flight()

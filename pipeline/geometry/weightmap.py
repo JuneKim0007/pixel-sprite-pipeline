@@ -8,9 +8,6 @@ import numpy as np
 
 SUFFIX = ".weight.png"
 
-# What a conditioning mask becomes: samplers.py resizes it to the latent grid,
-# which is an eighth of the image, then multiplies. Storing it at that size
-# keeps the file small and loses nothing the sampler would have kept.
 EDGE = 128
 
 NEUTRAL = 0.8

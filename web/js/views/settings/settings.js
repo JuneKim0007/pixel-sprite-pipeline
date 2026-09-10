@@ -1,11 +1,4 @@
-/* Settings tab — macOS-style category sidebar with a scope switcher.
- *
- * Two scopes share one form. Global holds machine-level answers (compute,
- * models, paths) that are true for every pipeline; the pipeline scope shows
- * the same fields with inherited values, and pins one only when you change it.
- * A pinned field gets a dot and a reset link, because "inherited 7.0" and
- * "pinned to 7.0" behave differently the moment the global changes.
- */
+// Settings tab — macOS-style category sidebar with a scope switcher.
 
 import { api, delPath, getPath, setPath } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -16,15 +9,7 @@ import { browseDialog } from '../../ui/dialog.js';
 import { remember } from '../../core/history.js';
 import { state, toast } from '../../store.js';
 
-/* An ordering hint, not a whitelist.
- *
- * This used to be the list of sections that got rendered, and a group missing
- * from it was simply unreachable — `Export` and `Quality` were declared in the
- * schema, consumed by the pipeline, and editable nowhere, because nobody
- * remembered to add two strings here. Deriving the list from the schema and
- * using this only for order means a new group appears by existing; coverage
- * cannot silently regress.
- */
+// An ordering hint, not a whitelist.
 const ORDER = [
   'Asset', 'Proportions', 'Pipeline', 'Pose', 'Depth', 'Canonical', 'Frames',
   'Pose control', 'Identity', 'References', 'Props', 'Softbody', 'Palette',
@@ -171,10 +156,6 @@ function fieldGroup(path) {
   return state.schema.fields.find((f) => f.path === path)?.group;
 }
 
-/* Folders are scoped by what each one is, which is what the pipeline already
- * does: `output_dir` is read from the run config by resources.py and queue.py,
- * so a pipeline may pin it. The other two are only ever read through the
- * global, by the upload sink and the browse root, so pinning them did nothing. */
 const PATH_ROWS = [
   ['paths.input_dir', 'Input folder', false,
    'Where uploads land, and the root the image browser opens in. Machine-level: '

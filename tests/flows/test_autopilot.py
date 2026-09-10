@@ -1,11 +1,4 @@
-"""What the autopilot loop decides, with the subprocess and the network faked.
-
-`work` is the unattended runner: it takes the next ready job, asks whether it
-could run at all, waits for the services, runs it, and decides what a failure
-means. Everything but `run_job` and `services_up` is real here — the queue is
-the filesystem-backed one and preflight is the real preflight — so what is
-under test is the loop's own judgement rather than a mock's.
-"""
+"""What the autopilot loop decides, with the subprocess and the network faked."""
 
 from __future__ import annotations
 
@@ -21,11 +14,7 @@ from pipeline.shared import paths
 
 @pytest.fixture(autouse=True)
 def _no_run_in_flight(monkeypatch):
-    """The queue holds a job while a run is going, so a real one would hold these.
-
-    Whether the machine happens to be generating is not what any of these tests
-    are about, and without this the suite passes or fails depending on it.
-    """
+    """The queue holds a job while a run is going, so a real one would hold these."""
     from pipeline.shared import guard
 
     monkeypatch.setattr(guard, "run_in_flight", lambda: None)
@@ -44,8 +33,6 @@ def home(root, tmp_path, monkeypatch):
     monkeypatch.setattr(autopilot, "STOPPING", False)
     monkeypatch.setattr(q, "services_up", lambda r, need_llm=False: (True, ""))
 
-    # Bounded rather than a no-op: without --drain an empty queue polls forever,
-    # so an unexpectedly spinning loop must fail the test instead of hanging it.
     waits = []
 
     def _sleep(_seconds):
@@ -244,11 +231,7 @@ def test_stopping_ends_the_loop_without_running_anything(queue, monkeypatch):
 
 
 def test_the_breaker_also_trips_on_repeated_run_failures(queue, monkeypatch):
-    """The breaker is written twice — once for preflight, once for the run.
-
-    Every other breaker test here fails at preflight and exercises only the
-    first arm.
-    """
+    """The breaker is written twice — once for preflight, once for the run."""
     runs(monkeypatch, (False, "r", "boom"), (False, "r", "boom"),
          (False, "r", "boom"))
     for name in ("a_bad", "b_bad", "c_bad"):

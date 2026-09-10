@@ -83,15 +83,7 @@ def system_info() -> dict:
 
 
 def module_table() -> dict[str, dict]:
-    """Every asset type, and whether the stages it names actually exist.
-
-    The join lives here because it cannot live anywhere else: `shared/modules`
-    imports no sibling group, and putting it in `schema` would rebuild the
-    `schema <-> stage` cycle inside one group, where the packaging test cannot
-    see it. `available` is therefore derived rather than hand-set - a type
-    becomes usable the day its last missing stage is registered, and nobody can
-    mark one ready early.
-    """
+    """Every asset type, and whether the stages it names actually exist."""
     known = set(available())
     out = {}
     for key, spec in sorted(modules.all(ROOT).items()):

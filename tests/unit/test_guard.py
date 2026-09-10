@@ -16,14 +16,7 @@ from pipeline.shared.guard import (PRESSURE_CRITICAL, PRESSURE_NORMAL, Guard,
 
 @pytest.fixture
 def victim():
-    """A real process the guard is allowed to kill, in its own process group.
-
-    `_signal` kills the group, because the memory a reading measured is usually
-    in a worker rather than the leader, and ctl.sh starts every service in its
-    own group for exactly that reason. A victim sharing pytest's group takes
-    the test runner down with it - measured as exit 137 partway through the
-    suite.
-    """
+    """A real process the guard is allowed to kill, in its own process group."""
     proc = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
     yield proc
     if proc.poll() is None:
@@ -112,12 +105,7 @@ def test_an_expected_large_process_is_exempt_from_the_per_process_cap(
 
 
 def test_sustained_critical_pressure_kills_the_largest(monkeypatch, victim):
-    """A /bin/sleep is a few MB, so its size is faked to make it a candidate.
-
-    The floor exists because killing a small process frees nothing: measured
-    2026-09-10, the guard killed comfy at 0.05 GB and then the UI at 0.02 GB,
-    which is the process it runs inside.
-    """
+    """A /bin/sleep is a few MB, so its size is faked to make it a candidate."""
     guard = Guard()
     guard.watch(victim.pid, "victim", expected_large=True)
     monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
@@ -223,12 +211,7 @@ def test_adopt_reads_the_pidfiles_ctl_sh_writes(tmp_path, monkeypatch):
 
 
 def test_a_failed_reading_does_not_disarm_the_guard(monkeypatch, victim):
-    """`ps` failing means no information, not that every process exited.
-
-    Spawning `ps` is what fails first under the memory pressure this guard
-    exists to survive, so a failed reading that forgot every watched process
-    would disarm the guard at exactly the moment it is needed.
-    """
+    """`ps` failing means no information, not that every process exited."""
     guard = Guard()
     guard.watch(victim.pid, "victim")
     monkeypatch.setattr(subprocess, "run",

@@ -107,12 +107,7 @@ class TestObjectsBelongInProps:
                         f"{name}: '{word}' is in both subject and props")
 
     def test_a_sheet_names_a_prop_it_cannot_attach(self):
-        """Declining a socket is a claim about geometry, not about words.
-
-        character_sheet sets props: False because there is no frame to place a
-        socket on. The prompt is not geometry, and a sheet of an archer holding
-        nothing is not what was asked for.
-        """
+        """Declining a socket is a claim about geometry, not about words."""
         from pathlib import Path
 
         from pipeline.geometry import props as props_mod

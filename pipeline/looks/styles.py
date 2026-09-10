@@ -163,12 +163,7 @@ def _chain(root: Path, names: list[str], seen: set[str] | None = None) -> list[S
 
 def effective(root: Path, raw: dict, *,
               picks: dict | None = None) -> tuple[dict, dict]:
-    """A config as a run will see it: style sheets layered in, defaults resolved.
-
-    The counterpart to `settings.effective`, which resolves defaults but knows
-    nothing about style sheets. Returns the config and the record of which
-    sheets were applied.
-    """
+    """A config as a run will see it: style sheets layered in, defaults resolved."""
     from ..shared import settings
 
     styled, record = layer(root, raw, picks=picks)

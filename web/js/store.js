@@ -1,10 +1,4 @@
-/* Application state, and the chrome that reports on it.
- *
- * `draft` is the wizard's cached form: the Back button has to return you to
- * edits you already made, so pending changes live here rather than in the DOM.
- *
- * DOM helpers live in core/dom.js and are imported, not re-exported.
- */
+// Application state, and the chrome that reports on it.
 
 import { api } from './api.js';
 import { $, el } from './core/dom.js';
@@ -34,14 +28,6 @@ export const state = {
   wizardStep: 0,
 
   // Pending edits, per workspace.
-  //
-  // One shared draft was fine while there was one kind of thing to make. With
-  // the module as the primary axis it is not: switching from a character sheet
-  // to a tileset would carry the sheet's half-finished edits into a form that
-  // has no field for them, and switching back would find them gone. Keyed by
-  // module, switching is never destructive - which is the one load-bearing
-  // decision in PixelLab's tool switcher, and the reason it feels safe to
-  // click around in.
   drafts: {},
 
   // Rig editor
@@ -80,8 +66,6 @@ export function draftConfig() {
 export async function loadConfig(name) {
   const data = await api.config(name);
   state.current = name;
-  // The schema is module-scoped, so switching pipeline reloads the field set
-  // rather than showing knobs that do nothing for this kind of run.
   if (data.module && data.module !== state.module) {
     state.module = data.module;
     state.schema = await api.schema(data.module);
@@ -93,14 +77,9 @@ export async function loadConfig(name) {
   state.overrides = data.overrides || [];
   state.styleRecord = data.style_record || {};
   state.unset = [];
-  // Deliberately does NOT clear the draft: loading a config for the workspace
-  // you are already in should not silently discard edits you have made in it.
-  // Committing or starting a run clears it; that is where it belongs.
   state.dirty = false;
 }
 
-// The reporter is the one function that must not throw: when it does, a working
-// action looks like a dead button and the real message is never seen.
 export function toast(message, kind = 'info') {
   const text = String(message ?? '');
   try {

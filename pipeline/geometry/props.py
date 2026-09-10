@@ -65,14 +65,7 @@ def wanted(config: dict, root: Path) -> bool:
 
 
 def named(config: dict) -> bool:
-    """Whether a listed prop is NAMED in the prompt.
-
-    A type declines props when a socket cannot be placed on what it renders - a
-    character sheet is one pose from several angles, so there is no frame to
-    attach to. That is an argument about geometry. The words are not geometry,
-    and a sheet of an archer holding nothing is not what was asked for, so only
-    an explicit refusal silences them.
-    """
+    """Whether a listed prop is NAMED in the prompt."""
     said = _explicit(config)
     return True if said is None else said
 
@@ -261,11 +254,7 @@ def describe(props: Sequence[Prop]) -> str:
 
 
 def said_twice(config: dict, root: Path) -> list[str]:
-    """Objects a config both lists as props and spells out in its subject.
-
-    The prompt then names the same thing twice, which is how a model comes to
-    insist on a prop nobody asked it to emphasise.
-    """
+    """Objects a config both lists as props and spells out in its subject."""
     if not named(config):
         return []
     listed = config.get("props") or []

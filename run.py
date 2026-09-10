@@ -116,9 +116,6 @@ def main() -> int:
         config_path = a.config
 
     raw_cfg = load_config(config_path)
-    # Style sheets sit between the global defaults and the pipeline config, so
-    # a named look can set anything that affects the result while the pipeline
-    # still overrides it and a single job still overrides everything.
     cfg, style_record = styles.effective(
         ROOT, raw_cfg, picks=raw_cfg.get("style_picks"))
     if style_record["styles"]:
@@ -130,9 +127,7 @@ def main() -> int:
 
     if a.explain:
         runner.validate(built, seeded=set())
-        # A dead reference path used to survive every gate and fail minutes into
-        # a run. Seven of fourteen configs were unrunnable this way for a month,
-        # each reported `ok` by `make check`.
+        # A dead reference path used to survive every gate and fail minutes into a run.
         dead = refs_mod.unresolved(ROOT, cfg.get("references"))
         if dead:
             print(runner.describe(built))

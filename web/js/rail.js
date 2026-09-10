@@ -1,29 +1,4 @@
-/* The workspace rail: what kind of thing you are making.
- *
- * This is the primary axis of the interface, and it is the same axis the
- * pipeline already had — `module` in pipeline/schema.py, which scopes the
- * settings fields and the style-sheet prompt templates. It was a config
- * attribute reached through a dropdown; here it is the first thing on screen,
- * because it is the first decision.
- *
- * Two properties are deliberate, and both are borrowed from PixelLab's tool
- * switcher rather than from its layout:
- *
- *   switching is never destructive   Each workspace keeps its own draft, so
- *                                    half-finished edits survive a look at
- *                                    another one. This is the whole reason
- *                                    clicking around feels safe rather than
- *                                    risky.
- *
- *   cells are named by the job       "Character sheet — one pose, several
- *                                    angles", not the name of a stage or a
- *                                    checkpoint. You pick what you want, not
- *                                    the machinery that makes it.
- *
- * Unavailable workspaces are shown, disabled. A rail with two cells is a
- * toggle; naming the ones that do not exist yet states that asset type is the
- * top-level split, and gives the next one an obvious place to land.
- */
+// The workspace rail: what kind of thing you are making.
 
 import { el } from './core/dom.js';
 import { loadConfig, state } from './store.js';
@@ -32,12 +7,7 @@ import { loadConfig, state } from './store.js';
  * dump you on an unrelated config. */
 const lastConfig = {};
 
-/* An unavailable cell names the stage it is waiting on.
- *
- * `available` is no longer a flag anyone sets. The server derives it by asking
- * whether every stage the type declares is registered, so a type turns usable
- * the day its last missing stage lands and cannot be marked ready early. Saying
- * "not built yet" threw away the only useful part of that: which work. */
+// An unavailable cell names the stage it is waiting on.
 function cell(key, meta, { active, onPick }) {
   const waiting = (meta.missing || []).join(', ');
   const btn = el('button', {
@@ -80,9 +50,6 @@ export function renderRail(host, { onSwitch, onEmpty, onNewType }) {
     if (key === state.module) return;
     lastConfig[state.module] = state.current;
 
-    // A workspace with no pipeline used to be a dead end - it said which was
-    // missing and refused to move. Offering to make one is what turns the rail
-    // into somewhere a new kind of thing can start.
     const target = lastConfig[key] || configsFor(key)[0];
     if (!target) {
       if (!await onEmpty?.(key, modules[key])) return;

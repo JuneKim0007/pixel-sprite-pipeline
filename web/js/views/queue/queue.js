@@ -1,21 +1,4 @@
-/* The queue, and the autopilot that drains it.
- *
- * Both were complete and reachable only from a shell, which is a strange place
- * to put the feature whose entire purpose is running unattended for hours: the
- * moment you most want to look at it is from somewhere other than the terminal
- * that started it.
- *
- * The view is built around one asymmetry. A pending job is a claim that
- * something will work, and preflight can check that claim in milliseconds
- * without touching the GPU — so it does, here, and shows the result. A job
- * that can never work is visible before the night is spent discovering it,
- * which is the difference between finding one broken config in the morning and
- * finding two hundred failures.
- *
- * Held is deliberately not an error state and is not coloured like one. A job
- * is held when its dependency has not been produced yet, which during a
- * chained overnight batch is the normal condition of most of the queue.
- */
+// The queue, and the autopilot that drains it.
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -53,8 +36,6 @@ function jobRow(job, onAct) {
         el('span', { className: 'frag', textContent: `${k} = ${JSON.stringify(v)}` }))));
   }
 
-  // Preflight is only computed for pending jobs; for the rest it is either
-  // moot or already history.
   const pf = job.preflight;
   if (pf && pf.problems.length) {
     for (const p of pf.problems) {
@@ -155,10 +136,6 @@ function submitForm(refresh) {
 }
 
 export function renderQueue(host) {
-  // The panel that shows the queue, kept as a node so a refresh replaces its
-  // children rather than the whole view. Rebuilding the view would take the
-  // header, the poll and the segmented control with it - and the segmented
-  // control is what you just clicked.
   const body = el('div', {});
   host.replaceChildren(Head('Queue'), body);
 
@@ -194,16 +171,12 @@ export function renderQueue(host) {
     try {
       data = await api.queue();
       draw();
-      // Submitting a job or starting autopilot is what makes the queue move
-      // again, and both land here.
       if (moving()) watch();
     } catch (e) {
       body.replaceChildren(Empty(e.message));
     }
   }
 
-  // A queue at rest does not need a request every four seconds, and this view
-  // stays open for hours. Stopping is only safe because `load` restarts it.
   let stopPolling = null;
   function watch() {
     if (stopPolling) return;
@@ -217,7 +190,6 @@ export function renderQueue(host) {
 
   load();
 
-  // The teardown the lifecycle calls before the next view mounts. Without it
-  // this interval outlived the tab, which is what the old setTimeout did.
+  // The teardown the lifecycle calls before the next view mounts.
   return () => { if (stopPolling) stopPolling(); };
 }

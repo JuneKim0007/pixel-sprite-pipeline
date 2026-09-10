@@ -26,9 +26,7 @@ export const LIMBS = [
   [1, 0], [0, 14], [14, 16], [0, 15], [15, 17],
 ];
 
-/* The canonical OpenPose colour wheel. ControlNet was trained against these
- * exact hues, so they are protocol rather than decoration — the editor shows
- * the same colours the model will see. */
+// The canonical OpenPose colour wheel.
 export const COLORS = [
   [255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0],
   [85, 255, 0], [0, 255, 0], [0, 255, 85], [0, 255, 170], [0, 255, 255],
@@ -38,10 +36,7 @@ export const COLORS = [
 
 export const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
-/* `?? 0` never fired: parseFloat returns a number or NaN, never null, so a
- * junk view name produced NaN and every downstream angle computed from it
- * became NaN — silently, since NaN propagates rather than throwing. Guard on
- * finiteness, which is what the 0 fallback was reaching for. */
+// `??
 export const resolveView = (view) => {
   if (typeof view === 'number') return Number.isFinite(view) ? view : 0;
   if (view in VIEWS) return VIEWS[view];
@@ -51,10 +46,7 @@ export const resolveView = (view) => {
 
 export const FACE_ONLY = new Set(['nose', 'r_eye', 'l_eye']);
 
-/** Whether a keypoint is emitted at this angle.
- *
- * Only the face is angle-dependent, and it matters: the presence or absence of
- * a nose is how a skeleton tells ControlNet which way the character faces. */
+// Whether a keypoint is emitted at this angle.
 export function visibleJoint(joint, yawDeg) {
   if (!FACE_ONLY.has(joint)) return true;
   const facing = Math.cos((yawDeg * Math.PI) / 180);
@@ -71,11 +63,7 @@ export function projectPoint(point, yawDeg, { centre = 0.5, depthScale = 1, late
   ];
 }
 
-/** Inverse of projectPoint for a drag: solve for whichever axis the view shows.
- *
- * At yaw 0 the horizontal axis is pure lateral; at yaw 90 it is pure depth.
- * In between both contribute, so a drag is ambiguous — which is exactly why
- * the editor offers two orthogonal views instead of one. */
+// Inverse of projectPoint for a drag: solve for whichever axis the view shows.
 export function unprojectX(x, yawDeg, point, { centre = 0.5, depthScale = 1, lateralScale = 1 } = {}) {
   const yaw = (yawDeg * Math.PI) / 180;
   const sin = Math.sin(yaw), cos = Math.cos(yaw);
@@ -120,20 +108,7 @@ export function subtree(tree, joint) {
   return out;
 }
 
-/** Move one joint, taking its own limb with it and leaving the rest alone.
- *
- * Forward kinematics, which is what a rig drag should feel like:
- *
- *   the dragged joint  cannot leave the sphere its parent's bone length
- *                      describes, so the drag rotates that limb rather than
- *                      stretching it
- *   its descendants    travel with it rigidly, then have their own bone
- *                      lengths restored
- *   everything else    is not touched at all
- *
- * Re-snapping the whole skeleton from the root, which is what this replaced,
- * could perturb joints on limbs the user never touched.
- */
+// Move one joint, taking its own limb with it and leaving the rest alone.
 export function dragJoint(pose, tree, neutral, joint, target) {
   const next = {};
   for (const [k, v] of Object.entries(pose)) next[k] = [...v];

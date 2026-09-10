@@ -1,21 +1,4 @@
-/* Annotate a reference image: mark where the parts are in THIS picture.
- *
- * Deliberately not the two-canvas pose editor. That one authors a body you
- * intend to generate, in 3D body space, projectable to any angle. This one
- * marks up an image that already exists — one canvas, because a photograph
- * offers no depth to set; partial, because a cropped thigh has no position;
- * and with no bone-length rules, because foreshortening genuinely shortens a
- * limb on screen.
- *
- * Click-to-place, AND drag-to-correct. This used to argue for the first alone,
- * on the grounds that dragging a standing skeleton onto a seated figure is
- * slower than placing the five joints that matter. Half of that still holds and
- * the sparse path is untouched — but Auto-fit already seeds all eighteen from
- * the image, and without dragging there was no way to nudge one of them. So a
- * dot is grabbable wherever it came from, and the joint list addresses every
- * joint rather than only the placed ones: removing a point used to leave the
- * click target pointing somewhere else with nothing on screen saying so.
- */
+// Annotate a reference image: mark where the parts are in THIS picture.
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -106,9 +89,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       });
     }
 
-    // Decorative only, and drawn under the joints: a head is a volume and the
-    // annotation is a few dots, so the construction is what makes eye and ear
-    // placement judgeable at all.
     if (showGuide && rigDef?.face_joints?.length) {
       drawFaceGuide(ctx, points, at);
     }
@@ -125,8 +105,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       ctx.stroke();
     }
 
-    // A dot with no name is what made this editor unreadable: eighteen
-    // identical circles, and no way to tell which one you were about to move.
     const named = drag || hover;
     if (named && points[named]) {
       const [x, y] = at(points[named]);
@@ -175,8 +153,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     if (!pos) return;
     const under = nearest(pos);
     if (under) {
-      // Grabbing an existing dot, wherever it came from - a click you placed,
-      // an Auto-fit proposal, or a seeded T-pose.
       drag = under;
       next = under;
       jointSel.value = under;
@@ -220,14 +196,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     render();
   }
 
-  /* Every joint, not only the placed ones.
-   *
-   * The list used to hold a chip per placed joint, so an unplaced joint was
-   * reachable only through the dropdown. Removing a point then left `next`
-   * pointing at whatever advance() had moved on to, and nothing on screen said
-   * which joint the next click would land on. Listing all of them makes the
-   * target visible and every joint one click away, so a removal is undone by
-   * clicking again rather than by hunting through a menu. */
+  // Every joint, not only the placed ones.
   function render() {
     placedList.replaceChildren();
     for (const joint of orderJoints(rigDef?.joints || [])) {
@@ -246,8 +215,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
           e.stopPropagation();
           delete points[joint];
           saver.touch();
-          // Aim at what was just removed. Without this the next click landed on
-          // an unrelated joint, which is what made a deletion feel permanent.
+          // Aim at what was just removed.
           target(joint);
         };
         row.append(drop);
@@ -312,8 +280,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
   const legend = el('canvas', { width: 150, height: 190, className: 'facelegend' });
 
-  // A proposal, never a commitment: it lands in the editor for review, because
-  // a wrong fit should cost a glance rather than a GPU run.
   const auto = Button('Auto-fit');
   auto.onclick = async () => {
     auto.disabled = true;
@@ -338,12 +304,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     auto.textContent = 'Auto-fit';
   };
 
-  /* Dots to drag, for when there is nothing to aim at yet.
-   *
-   * The rig already carries a neutral pose in body space and `projectPoint`
-   * already flattens it, so this is two things that exist rather than a new
-   * layout. Front-on, because a reference sheet usually is; anything else is a
-   * drag away, which is the point. */
+  // Dots to drag, for when there is nothing to aim at yet.
   const tpose = Button('T-pose', { variant: 'ghost',
     title: 'Place every joint in a neutral pose to drag from' });
   tpose.onclick = () => {
@@ -381,10 +342,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     },
   });
 
-  // A conditioning mask is a float per latent cell, not a flag - samplers.py
-  // does mask * mask_strength * strength - so a painted map is what the
-  // sampler already takes. It sits beside the annotation because both describe
-  // this image and outlive any run using it.
   const painter = weightPainter({
     imagePath,
     onChange: (values) => { pending = values; weightSaver.touch(); },

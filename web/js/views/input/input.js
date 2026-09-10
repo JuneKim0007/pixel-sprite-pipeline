@@ -1,10 +1,4 @@
-/* Input tab — what to make this time.
- *
- * The prompt composer is the centre of gravity here, not a field in a list:
- * it is the thing you rewrite twenty times per character, so it gets room,
- * auto-grows, and keeps its secondary prompts one click away rather than
- * buried among sliders.
- */
+// Input tab — what to make this time.
 
 import { api, getPath } from '../../api.js';
 import { showError } from '../../core/errors.js';
@@ -35,8 +29,6 @@ function promptBox({ label, path, placeholder, hint, rows = 3, onChange }) {
 
   const count = el('span', { className: 'promptcount' });
   const tick = () => {
-    // CLIP takes 75 tokens per chunk; a rough word count is enough to warn
-    // before a prompt starts diluting itself across chunks.
     const words = area.value.trim().split(/\s+/).filter(Boolean).length;
     count.textContent = words ? `${words} words` : '';
     count.classList.toggle('over', words > 60);
@@ -87,9 +79,7 @@ function creaturePicker(onChange) {
 
 /* ----------------------------------------------------------- references */
 
-/* The four roles, with the weight range each actually wants. Identity has to
- * hold a character together; style only has to tint it, and at identity
- * strength it would replace the character with the exemplar. */
+// The four roles, with the weight range each actually wants.
 export const ROLES = [
   { key: 'identity', label: 'Identity', max: 1.5,
     blurb: 'Who the character is. Illustrations or art — not necessarily pixel art.' },
@@ -101,12 +91,7 @@ export const ROLES = [
     blurb: 'Colours to lock to. Imposed exactly, so frames cannot drift.' },
 ];
 
-/* Move one image from one role's list to another, as a single edit.
- *
- * Re-tagging matters more than it looks. The mistake people actually make is
- * dropping eight images in at once and only then noticing that two of them
- * were style references, not identity — and delete-then-re-add loses the view
- * label and the weight that had already been set. */
+// Move one image from one role's list to another, as a single edit.
 function moveRole(fromKey, toKey, index, onChange) {
   const fromPath = `references.${fromKey}`;
   const toPath = `references.${toKey}`;
@@ -115,8 +100,6 @@ function moveRole(fromKey, toKey, index, onChange) {
   const moving = from[index];
   if (!moving) return;
 
-  // Both arrays are derived from one snapshot before either write, so the
-  // re-render the first write triggers cannot make the second one stale.
   const nextFrom = from.filter((_, i) => i !== index);
   const nextTo = [...to, { ...moving, weight: 1 }];
   onChange(fromPath, nextFrom);
@@ -127,12 +110,7 @@ function moveRole(fromKey, toKey, index, onChange) {
  * coming back to the view all agree on it. */
 let activeRole = 'identity';
 
-/* The four views a character sheet is made of.
- *
- * `side` is 90 degrees, the character's LEFT. Its mirror has no name and is the
- * raw angle 270 - the same asymmetry the backend carries, surfaced here so the
- * two cannot disagree. Naming 270 something that reads like a mirror of `side`
- * is how the two get swapped. */
+// The four views a character sheet is made of.
 const SHEET_VIEWS = [
   { view: 'front', label: 'Front' },
   { view: 'rear', label: 'Back' },
@@ -140,10 +118,7 @@ const SHEET_VIEWS = [
   { view: '270', label: 'Side (right)' },
 ];
 
-/* Slots, not a pile. A generic list lets four images be added with no view
- * said, and the default said `front` for all of them. A slot per view makes
- * the label a consequence of WHERE you dropped the file, and makes a missing
- * back visible instead of implicit. */
+// Slots, not a pile.
 function viewSlots(images, onPick, onClear) {
   const row = el('div', { className: 'refslots' });
   for (const { view, label } of SHEET_VIEWS) {
@@ -179,13 +154,7 @@ function referenceCards(role, onChange) {
     }
     roleSel.onchange = () => moveRole(role.key, roleSel.value, index, onChange);
 
-    // The named views only span 0-180 - one side of the body. A character's
-    // RIGHT side has no name and is written as a raw angle (270), which
-    // resolve_view accepts. A select built from the names alone cannot hold
-    // that value, so opening this card and touching anything rewrote a
-    // correctly-labelled right-side reference to a named left-side one.
-    // Mislabelling is worse than not labelling: a rear frame takes a
-    // front-labelled image at full weight and comes back facing the wrong way.
+    // The named views only span 0-180 - one side of the body.
     const viewSel = el('select', { className: 'select' });
     const named = new Set(VIEW_OPTIONS);
     for (const name of VIEW_OPTIONS) {
@@ -198,8 +167,6 @@ function referenceCards(role, onChange) {
       viewSel.append(el('option', { value: String(deg), textContent: `${label} · ${deg}°` }));
     }
     const current = ref.view === undefined || ref.view === null ? '' : String(ref.view);
-    // Any other angle already in the config stays selectable rather than being
-    // silently replaced.
     if (current && !named.has(current)
         && !['320', '270', '215'].includes(current)) {
       viewSel.append(el('option', { value: current, textContent: `${current}°` }));
@@ -262,10 +229,7 @@ function referenceCards(role, onChange) {
   return grid;
 }
 
-/** Drop target that also accepts pasted images.
- *
- * Dragging a file in, or pasting a screenshot, is how people actually move
- * images between apps; a file dialog behind a button is the slow path. */
+// Drop target that also accepts pasted images.
 function dropZone(onFiles) {
   const zone = el('div', { className: 'dropzone' },
     el('div', { className: 'dropicon', textContent: '⬓' }),
@@ -283,8 +247,6 @@ function dropZone(onFiles) {
     if (files.length) onFiles(files);
   });
 
-  // Paste is bound to the tab, not the zone, so it works wherever the cursor
-  // is — matching how paste behaves in a chat composer.
   const onPaste = (e) => {
     if (!document.getElementById('view-input')?.classList.contains('active')) return;
     const files = [...(e.clipboardData?.items || [])]
@@ -306,8 +268,6 @@ export function renderInput(host, { onChange, onContinue }) {
   const paths = state.system?.paths || {};
   host.replaceChildren();
 
-  // Which role tab is open is view state, not config, so it does not go
-  // through onChange — that would write a draft entry for a UI preference.
   const render = () => renderInput(host, { onChange, onContinue });
 
   /* --- prompt composer --- */
@@ -345,23 +305,15 @@ export function renderInput(host, { onChange, onContinue }) {
     creaturePicker(onChange)));
 
   /* --- references --- */
-  // Uploads land in whichever role is selected. The backend rejects the old
-  // flat `references.images` outright, so writing it here would produce a
-  // config that cannot run.
+  // Uploads land in whichever role is selected.
   const upload = el('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none' });
-  // Which view the next upload claims to be. Every upload used to be labelled
-  // `front` regardless, and a mislabelled reference is worse than a missing
-  // one: a rear frame takes a front-labelled image at FULL weight and comes
-  // back facing the wrong way, where an absent one would merely have been
-  // weakened by the angular falloff.
+  // Which view the next upload claims to be.
   let pendingView = 'front';
 
   const addRefs = (items, view) => {
     const path = `references.${activeRole}`;
     const current = getPath(draftConfig(), path) || [];
     const label = view || pendingView;
-    // A view slot holds one image: adding replaces rather than accumulating,
-    // which is what "this is the back" means.
     const kept = label === 'any'
       ? current
       : current.filter((r) => String(r.view) !== String(label));
@@ -400,9 +352,7 @@ export function renderInput(host, { onChange, onContinue }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const role = ROLES.find((r) => r.key === activeRole) || ROLES[0];
 
-  // Role tabs rather than four separate drop zones. One target that you aim
-  // first is less to hit than four you must aim between, and every card can
-  // be re-tagged afterwards anyway.
+  // Role tabs rather than four separate drop zones.
   const roleTabs = el('div', { className: 'segmented roletabs' });
   for (const r of ROLES) {
     const b = el('button', {

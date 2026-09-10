@@ -1,27 +1,8 @@
-/* Structural primitives: headings, sections, and the (?) tip.
- *
- * These exist so a screen is assembled from named parts rather than from a
- * pile of divs with hand-written class strings. Two things follow from that:
- * the markup is consistent without anyone remembering to make it consistent,
- * and a change to how every section looks is one edit here.
- *
- * No build step and no framework — this is the same plain `el()` the rest of
- * the UI uses, just wrapped in names.
- */
+// Structural primitives: headings, sections, and the (?) tip.
 
 import { el } from '../core/dom.js';
 
-/* The (?) next to a label.
- *
- * Replaces a paragraph of help under every control. The reasoning in this
- * project is worth keeping — it is measured, and docs/DECISIONS.md exists because
- * of it — but printed under all 131 settings it makes the form unreadable and
- * people stop reading any of it. So: one glyph, click to reveal, and the full
- * text is one interaction away instead of always-on noise.
- *
- * The lead sentence is treated as the summary and shown in the tooltip title,
- * so hovering answers the common case without a click.
- */
+// The (?) next to a label.
 export function HelpTip(text) {
   if (!text) return null;
   const split = text.search(/\.\s/);

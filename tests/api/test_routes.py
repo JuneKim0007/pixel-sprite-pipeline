@@ -7,9 +7,7 @@ from pipeline.generation.schema import FIELDS
 from pipeline.shared import paths
 from pipeline.shared.contracts import Field
 
-# What a GET route needs before it can answer at all. A route missing an entry
-# is called bare, which is a 400 and proves nothing about its shape — so this
-# table is what decides whether the contract test actually exercises a route.
+# What a GET route needs before it can answer at all.
 ARGS = {
     "/api/config": "?name=char_1",
     "/api/rigpose": "?rig=humanoid",
@@ -236,14 +234,7 @@ def test_an_in_range_save_still_succeeds(http, config_file):
 
 
 def test_a_key_the_schema_does_not_declare_is_refused(http, config_file):
-    """900833f let these through because the schema was not exhaustive.
-
-    It is now: pose.thickness, pose.llm.keep_alive, depth.view and
-    canonical.from_reference were all read by code and declared nowhere, which
-    is the same fault this check exists to catch - a value that saves cleanly
-    and does nothing forever. Every shipped config passes, so the reason for
-    the exemption is gone and an unknown key is a typo.
-    """
+    """900833f let these through because the schema was not exhaustive."""
     code = http.status(
         "/api/config?name=knight_attack",
         {"config": {"canonical": {"totally_unknown_key": 5}}}, "PUT")

@@ -1,11 +1,4 @@
-/* Form controls generated from the server's schema.
- *
- * Nothing here hardcodes a knob: add a field to pipeline/schema.py and it
- * appears with the right control, range and help text. The list editors are
- * the exception — reference images, pose sets and soft-body nodes are lists of
- * objects, which a flat field table cannot express, so they get bespoke
- * editors keyed by config path.
- */
+// Form controls generated from the server's schema.
 
 import { api, getPath } from './api.js';
 import { el } from './core/dom.js';
@@ -22,13 +15,6 @@ function optionsFor(field) {
   return [];
 }
 
-/* A `when` condition compares against the CONTROLLING field's own default, not
- * a single hardcoded one. The literal 'library' here was pose.source's default,
- * copied from the pre-module version and then applied to every condition — so
- * `palette.file`, gated on `palette.source == 'file'` whose real default is
- * 'extract', was being judged against 'library'. It hid correctly by accident,
- * and would have shown the wrong control the moment a `when` awaited the value
- * that happened to be hardcoded. */
 function whenDefault(path) {
   const field = (state.schema?.fields || []).find((f) => f.path === path);
   return field && 'default' in field ? field.default : undefined;
@@ -76,8 +62,6 @@ export function control(field, value, onChange) {
   if (field.type === 'int' || field.type === 'float') {
     const isFloat = field.type === 'float';
     const step = field.step ?? (isFloat ? 0.05 : 1);
-    // A track only helps when there is a range to slide along; an unbounded
-    // field, or one spanning tens of thousands, is a number box.
     const spanOk = field.min != null && field.max != null && field.max - field.min <= 5000;
     if (spanOk) {
       wrap.append(Range(value ?? field.min, {
@@ -356,9 +340,6 @@ function listEditor(path, items, onChange) {
 
 /** Render one settings group. `onChange(path, value)`, `onReset(path)`. */
 export function renderGroup(group, cfg, { onChange, onReset, overrides = [], only = null }) {
-  // `only` narrows a group to the paths a view is actually about, so a panel
-  // beside the canvas shows the four conditioning knobs rather than all
-  // twenty-one Canonical fields. The declarations stay in one place.
   const wanted = only && new Set(only);
   const fields = state.schema.fields.filter(
     (f) => f.group === group && (!wanted || wanted.has(f.path)));
@@ -370,11 +351,6 @@ export function renderGroup(group, cfg, { onChange, onReset, overrides = [], onl
     const pinned = overrides.includes(field.path);
     const row = el('div', { className: `field ${pinned ? 'pinned' : ''}` });
     // The explanation goes behind a (?) rather than under the control.
-    //
-    // The reasoning is worth keeping - it is measured, and docs/DECISIONS.md exists
-    // because of it - but 119 fields each carrying a paragraph is a page
-    // nobody reads any of. The lead sentence is the tooltip, so hovering
-    // answers the common case; clicking reveals the rest.
     const tip = HelpTip(field.help);
     const label = el('div', {},
       el('div', { className: 'ui-label-row' },
@@ -398,9 +374,7 @@ export function renderGroup(group, cfg, { onChange, onReset, overrides = [], onl
     host.append(row);
   }
 
-  // List editors attach to the group that owns their config path. References
-  // owns four of them, one per role, because the roles are consumed
-  // differently and carry weights an order of magnitude apart.
+  // List editors attach to the group that owns their config path.
   for (const [path, spec] of Object.entries(LIST_EDITORS)) {
     if (spec.group !== group && !groupOwnsPath(group, path)) continue;
     const row = el('div', { className: 'field' },

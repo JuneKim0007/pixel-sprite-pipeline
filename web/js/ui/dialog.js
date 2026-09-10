@@ -1,9 +1,4 @@
-/* Modal dialogs. The card, and the three that carry no domain knowledge.
- *
- * `dialog` is the card every modal in the app is built from. Four of them had
- * hand-rolled the same eight things - a promise, a close that removes and
- * resolves, a backdrop that dismisses, the modal/modal-card/h2/modal-actions
- * tree, and the append to body. */
+// Modal dialogs.
 
 import { api } from '../api.js';
 import { el } from '../core/dom.js';

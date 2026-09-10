@@ -1,28 +1,4 @@
-/* A WebGPU preview of the layer stack.
- *
- * Why this exists: every parameter change used to POST a 1280px image to
- * Python, wait for numpy to reduce and quantise it, and get a PNG back. That
- * is a second of latency on a control you are meant to judge by eye, and a
- * slider you cannot drag is a slider you cannot use.
- *
- * Why it is a preview and not the answer: there are now two implementations of
- * the same arithmetic, and two implementations drift. So the split is explicit
- * and one-directional.
- *
- *     dragging          the shader, every frame, approximate
- *     letting go        Python, once, authoritative
- *     writing a file    Python, always
- *
- * The UI says which one is on screen. `agrees()` renders both and reports the
- * difference, so the claim that they match is checkable rather than asserted.
- *
- * Three of the five layers are here. Curves and Grid are per-pixel and per-
- * block arithmetic, which is what a GPU is for. Palette generation is k-means
- * over the whole image - a reduction, not a map - so the shader takes the
- * palette Python last produced and only applies it. That is the honest split:
- * the expensive part that changes with every drag runs on the GPU, and the
- * part that needs to see all the pixels at once does not.
- */
+// A WebGPU preview of the layer stack.
 
 import { parseColour } from '../../core/colour.js';
 
@@ -84,10 +60,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
   let base = vec2<u32>(gid.x * f + P.phase.x, gid.y * f + P.phase.y);
   let in_size = textureDimensions(src);
 
-  // Average the block, then take the sample nearest that average. Mean alone
-  // invents a colour that was not in the picture; picking the closest real
-  // sample keeps to colours that were actually there, which is the property
-  // median has and the reason median is the default.
+  // Average the block, then take the sample nearest that average.
   var sum = vec3<f32>(0.0);
   var n = 0.0;
   for (var dy = 0u; dy < f; dy = dy + 1u) {
@@ -148,15 +121,7 @@ export async function init() {
   return device;
 }
 
-/* Flatten a stack into the flat uniform the shader wants.
- *
- * The stack is a list because order matters, and the shader is one pass
- * because that is what makes it fast. Those are reconcilable only because the
- * five layers commute in the ways that matter here: tone before snapping is a
- * different uniform from tone after it, and both are one multiply. Anything
- * that genuinely needs two passes is a reason to go back to the server, not a
- * reason to fake it - see `exact` in the caller.
- */
+// Flatten a stack into the flat uniform the shader wants.
 export function uniformsFrom(stack, { palette = [] } = {}) {
   const on = (key) => stack.find((s) => s.layer === key && s.enabled !== false);
   const cfg = (key) => on(key)?.config || {};
@@ -182,15 +147,10 @@ export function uniformsFrom(stack, { palette = [] } = {}) {
   };
 }
 
-// A ceiling the caller cannot forget. Three allocations scale with this, and
-// on Apple Silicon GPU memory is system memory - the display shares it.
+// A ceiling the caller cannot forget.
 const MAX_PIXELS = 1 << 20;      // 1 megapixel
 
 export async function render(bitmap, u) {
-  // Before init(), not after: the ceiling is arithmetic, and a machine with no
-  // WebGPU used to report that instead of the oversized bitmap that was the
-  // actual fault. Refusing first also means the guard never pays for a device
-  // it is about to refuse work on.
   const pixels = bitmap.width * bitmap.height;
   if (pixels > MAX_PIXELS) {
     throw new Error(
@@ -215,8 +175,6 @@ export async function render(bitmap, u) {
     usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
   });
 
-  // std140-ish layout, padded to 16-byte boundaries by hand because there is
-  // no reflection to do it for us.
   const buf = new ArrayBuffer(64);
   const i32 = new Uint32Array(buf);
   const f32 = new Float32Array(buf);
@@ -276,10 +234,7 @@ export async function render(bitmap, u) {
     read.unmap();
     return image;
   } finally {
-    // Every allocation, every frame. The first version destroyed the two
-    // textures and left three buffers behind - including `read`, which is the
-    // size of the whole output - so dragging a slider leaked tens of megabytes
-    // a second. WebGPU will not collect these for you.
+    // Every allocation, every frame.
     src.destroy(); dst.destroy();
     uni.destroy(); palBuf.destroy(); read.destroy();
   }

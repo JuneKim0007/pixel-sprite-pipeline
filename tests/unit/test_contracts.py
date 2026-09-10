@@ -109,13 +109,7 @@ def test_config_field_has_no_wire_format_opinion_either():
 
 
 def test_every_config_field_is_a_config_field():
-    """The count guarded a migration, not a ceiling.
-
-    137 was how many dicts became declarations. Pinning it forever means every
-    genuinely new field arrives as a failing test, which teaches the next person
-    to edit the number rather than read it. What is worth holding is that the
-    list only grows and holds nothing else.
-    """
+    """The count guarded a migration, not a ceiling."""
     from pipeline.generation import schema
     from pipeline.shared.contracts import ConfigField
 
@@ -134,8 +128,6 @@ def test_the_settings_form_is_unchanged_by_the_migration():
 
     from pipeline.shared import modules
 
-    # The builtin keys rather than whatever is on disk: a type someone adds to
-    # library/modules/ must not move this golden.
     want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
     got = json.loads(json.dumps(
         {("null" if m is None else m): schema.fields_for(m)

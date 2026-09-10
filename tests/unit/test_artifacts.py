@@ -65,8 +65,6 @@ class TestPathMap:
 
         with pytest.raises(TypeError) as caught:
             _encode({"front": Opaque()})
-        # The message has to name what was in it, or the next person reads
-        # "dict cannot be persisted" and has no idea which key or what type.
         assert "Opaque" in str(caught.value)
 
     def test_an_empty_dict_is_plain_json(self):

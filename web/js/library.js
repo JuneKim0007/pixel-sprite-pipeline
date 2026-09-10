@@ -1,9 +1,4 @@
-/* Making the things that live in `library/` — a pipeline config, an asset type.
- *
- * A type may require a stage nothing registers; that is how `tileset` says what
- * it is waiting for, so the extra box is not a mistake to prevent. An order that
- * could never run is prevented, and only when every stage in it exists, because
- * an order naming an unknown stage cannot be checked at all. */
+// Making the things that live in `library/` — a pipeline config, an asset type.
 
 import { api } from './api.js';
 import { autoOrder, orderProblems } from './fields.js';

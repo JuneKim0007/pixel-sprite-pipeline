@@ -1,17 +1,4 @@
-"""The one dependency walk, over anything that declares what it needs and gives.
-
-Two engines run nodes — the pipeline runner over stages, `apply_stack` over
-editor layers — and they had the same walk written twice with two vocabularies.
-What differs is only how a name may be satisfied, and that is a parameter:
-
-  strict   a name must already be given, or seeded, or supplied by the run.
-           A pipeline stage cannot invent an artifact it was not handed.
-
-  ordering a name must not be given LATER. A stack with no `grid` has no
-           lattice for `palette` to contradict, so a name nothing gives at all
-           is consistent — the failure is doing it in the wrong order, not
-           doing it at all.
-"""
+"""The one dependency walk, over anything that declares what it needs and gives."""
 
 from __future__ import annotations
 
@@ -22,17 +9,7 @@ from .errors import Invalid
 
 
 class Node(Protocol):
-    """What `Stage` and `LayerSpec` genuinely share.
-
-    Both declare `needs`/`gives`, both split the orderless half into `prepare`,
-    and both `apply` by RETURNING what they produced — which is what lets one
-    check hold them to it, rather than a layer writing into a dict the caller
-    passed in and nothing noticing.
-
-    What they do NOT share is how the work arrives: a layer is handed its
-    inputs, a stage is handed the run's `Context`. Unifying that is what
-    `docs/OPEN.md` still calls open, and it is why this declares no signatures.
-    """
+    """What `Stage` and `LayerSpec` genuinely share."""
 
     needs: frozenset[str]
     gives: frozenset[str]
@@ -40,12 +17,7 @@ class Node(Protocol):
 
 def undeclared(node: str, produced: Iterable[str], allowed: Iterable[str],
                *, required: Iterable[str] = ()) -> str:
-    """Why a node's answer does not match what it declared, or "" if it does.
-
-    One check for both engines. The stage runner has enforced it since it was
-    written; the layer engine had no equivalent, so a layer could return any
-    key or none and nothing said so.
-    """
+    """Why a node's answer does not match what it declared, or "" if it does."""
     extra = sorted(set(produced) - set(allowed))
     if extra:
         return (f"'{node}' returned {extra}, which it never declared. Add them "

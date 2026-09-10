@@ -94,8 +94,7 @@ def facing_negative(yaw: float) -> str:
     return ""
 
 
-# Words that describe a backdrop. Beside a chroma-key clause they contradict it,
-# and the prompt then asks for two different things at once.
+# Words that describe a backdrop.
 BACKDROP_WORDS = ("plain background", "flat background", "white background",
                   "studio background", "backdrop", "background colour")
 

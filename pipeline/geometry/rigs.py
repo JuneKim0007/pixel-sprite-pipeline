@@ -554,24 +554,14 @@ def _by_name(joint: str) -> str | None:
 
 
 def groups_of(rig: Rig) -> list[str]:
-    """Proportion groups this rig actually has, in the order they are declared.
-
-    A humanoid has no wings and a drake has no segments. Offering all nine puts
-    five controls on screen that move nothing, which reads as a broken slider
-    rather than an absent limb.
-    """
+    """Proportion groups this rig actually has, in the order they are declared."""
     found = {group_of(parent, child)
              for parent, kids in rig.tree.items() for child in kids}
     return [g for g in PROPORTION_GROUPS if g in found]
 
 
 def height_ratio(rig: Rig) -> float:
-    """Height against shoulder width: the number that says "slim" out loud.
-
-    A drawn human figure is around 4. The shipped style sheet scales legs 1.6
-    and torso 1.2, which puts the humanoid at 6.2 - deliberate, and invisible
-    until something states it.
-    """
+    """Height against shoulder width: the number that says "slim" out loud."""
     neutral = rig.neutral
     pairs = [(a, b) for a, b in (("l_shoulder", "r_shoulder"), ("l_hip", "r_hip"))
              if a in neutral and b in neutral]

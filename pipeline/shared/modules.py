@@ -1,14 +1,4 @@
-"""Asset types: what kind of thing a pipeline makes.
-
-One file per type in `library/modules/`, because a type is something a person
-writes rather than something the program ships.
-
-This deliberately cannot see the stage registry. `shared/` imports no sibling
-group, so "is every stage this type names registered" has to be answered
-somewhere that can see both — `api/machine.py`, which already joins them for
-`options.stage_names`. Answering it here would put `schema -> stage` back
-inside one group, where `test_packaging.py` cannot see the cycle.
-"""
+"""Asset types: what kind of thing a pipeline makes."""
 
 from __future__ import annotations
 
@@ -38,8 +28,7 @@ class ModuleSpec:
     stages: list[str] = field(default_factory=list)
     extends: str = ""
     props: bool = True
-    # Settings this type starts from, as dotted paths. A config that names one
-    # itself still wins; this is what an unset field means for this type.
+    # Settings this type starts from, as dotted paths.
     defaults: dict[str, Any] = field(default_factory=dict)
 
     def rendered(self) -> dict[str, Any]:
@@ -57,9 +46,6 @@ BUILTIN: dict[str, dict[str, Any]] = {
                  "first thing you make, and the input to an animation.",
         "stages": ["pose", "depth", "canonical", "frames", "palette", "export"],
         "props": False,
-        # A sheet is one rest pose from several angles, so it starts from the
-        # rig rather than from an animation's first frame. Every shipped
-        # character_sheet config restated this; the type says it once.
         "defaults": {"pose.source": "tpose"},
     },
     "animation": {
@@ -147,12 +133,7 @@ def find(root: Path, key: str | None) -> ModuleSpec | None:
 
 
 def lineage(root: Path, key: str | None) -> list[str]:
-    """A type and the types it extends, nearest first.
-
-    A field scoped to `animation` shows for a type declaring
-    `extends: animation`; without that a new type sees only the fields no
-    module scopes, which reads as the form having lost its pose settings.
-    """
+    """A type and the types it extends, nearest first."""
     known = all(root)
     out: list[str] = []
     seen: set[str] = set()

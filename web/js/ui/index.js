@@ -1,16 +1,4 @@
-/* Every presentational piece, in one import.
- *
- * Three groups, and the split is by how much a caller has to know:
- *
- *   kit         widgets. Button, Select, Row, Head. A caller names what a
- *               thing IS - Button.primary - and never writes a class string.
- *   primitives  structure. Disclosure, HelpTip.
- *   field/card  bases a caller subclasses when a widget is not enough.
- *
- * Nothing here knows what a rig or a palette is. A primitive that understands
- * the domain has stopped being one, which is the rule that keeps this folder
- * reusable and testable without a server.
- */
+// Every presentational piece, in one import.
 
 export {
   Button, Check, ColourPicker, Empty, Fact, FactGrid, Fields, Head, Meter, Mini, Mono, Note, Num, Ok,

@@ -261,11 +261,7 @@ def adopt_pidfiles(run_dir) -> list[str]:
 
 
 def run_in_flight() -> str | None:
-    """A live `run.py`, found by the --run-id it carries on its command line.
-
-    Discovery rather than bookkeeping: whoever started it may be gone, and both
-    the API and the queue need the same answer.
-    """
+    """A live `run.py`, found by the --run-id it carries on its command line."""
     try:
         out = subprocess.run(["ps", "-axo", "args="],
                              capture_output=True, text=True, timeout=5)

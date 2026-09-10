@@ -14,13 +14,7 @@ def test_presence_is_the_override_not_difference():
 
 
 def test_no_ui_flag_suppresses_a_destructive_confirmation():
-    """A gate warning may be silenced; one that decides what happens to files may not.
-
-    `suppress_overwrite_confirm` was declared and read by nothing. Wiring it was
-    the obvious next step and the wrong one: the download dialog's answer is not
-    a preference but a decision per download, and remembering "Overwrite" would
-    clobber files silently from then on.
-    """
+    """A gate warning may be silenced; one that decides what happens to files may not."""
     from pipeline.shared import settings
 
     ui = settings.DEFAULT_GLOBAL.get("ui", {})

@@ -1,10 +1,4 @@
-"""Where `find_phase` says the lattice starts, pinned before it is rewritten.
-
-Sampling on the wrong phase straddles block boundaries and smears two logical
-pixels into one, so the answer is the whole value of the measurement. These pin
-it exactly, across shapes, channel counts and factors, so a change to how the
-search is computed can be proved to leave the answer alone.
-"""
+"""Where `find_phase` says the lattice starts, pinned before it is rewritten."""
 
 from __future__ import annotations
 
@@ -89,9 +83,7 @@ def test_the_answer_does_not_drift_between_calls():
 
 
 def test_the_search_no_longer_costs_the_factor_squared():
-    """What the integral images bought. Scanning every candidate made factor 16
-    sixteen times the work of factor 4; four lookups per block makes it about
-    the same work, because both are one pass over the image."""
+    """What the integral images bought."""
     import time
 
     rng = np.random.default_rng(0)

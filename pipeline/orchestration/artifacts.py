@@ -25,11 +25,6 @@ def _encode(value: Any) -> dict:
         return {"type": "json", "value": value}
     except TypeError as e:
         raise TypeError(
-            # not-a-message: save() only ever calls _encode() on artifacts
-            # already stripped of scratch (`_`-prefixed) keys, so an
-            # unpersistable value here means a stage handed back something it
-            # should not have — a defect upstream, not a message for the
-            # caller who asked to save.
             f"artifact {type(value).__name__} cannot be persisted, so the run "
             f"would not be resumable. Prefix the key with '_' if it is scratch."
             + (f" Contents: {sorted(type(v).__name__ for v in value.values())}."
