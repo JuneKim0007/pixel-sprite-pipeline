@@ -365,34 +365,37 @@ actually build, or be deleted; both are product calls and neither is urgent. The
 dead-CSS test already stops the rules from drifting again.
 
 
-## 16. The prompt asked for two different backgrounds
+## 16. The model will not paint a chroma key, and the prompt is not why
 
-**Measured twice, fixed twice, and the second measurement is why the first was
-not enough.**
+**Measured to a conclusion 2026-09-10. Two real faults fixed, and the symptom
+survived both.**
 
-A canonical generated from a prompt containing "solid flat #FF00FF chroma key
-background" had zero near-magenta pixels: CLIP reads a hex code as punctuation
-and digits. `name_for` now says "magenta" instead. That was not the whole fault.
+The prompt said "#FF00FF", which CLIP reads as punctuation and digits. Fixed:
+`name_for` says "magenta". The prompt also said "plain flat background" in the
+style and "magenta chroma key background" in the backdrop clause, in that order,
+so it asked for two things at once. Fixed: the phrase is gone from
+`DEFAULT_STYLE` and nine configs, and `backdrop_conflict` refuses it.
 
-The run of 2026-09-10 12:22 carried the named colour and still produced a pale
-blue-grey card, (194, 226, 232) at every corner, zero magenta. Its style said
-"pixel art, game sprite, side view, plain flat background" and the backdrop
-clause said "solid flat magenta chroma key background", in that order, in one
-prompt. The model was asked for a plain background and a chroma key at once and
-answered the first.
+The clean run of 15:49 - one background asked for, by name, with nothing
+contradicting it and no background words anywhere in the style vocabulary -
+produced a pale blue-grey card again. 0.0% near-magenta at tolerance 60,
+corners (191, 208, 218).
 
-The contradiction was documented in this repo, in schema.py, twice, arguing both
-ways: `style`'s help recommended "plain flat background" and
-`background.colour`'s help warned that asking for a "plain" background gets a lit
-studio card. `DEFAULT_STYLE` and nine shipped configs carried the phrase.
+**So the prompt is not the lever.** Three measurements, three fixes to what was
+asked, no change in what came back. What the sprite actually sits on matches the
+`hi_fidelity` exemplars, which are white, off-white and dark purple - IPAdapter
+style transfer runs at 0.0-0.8 of sampling and carries the backdrop along with
+the style, and it is applied per exemplar with no text to argue with.
 
-Removed from all of them, and `backdrop_conflict` names any style phrase that
-describes a background while a chroma key is being asked for. `run.py` prints it
-above the stages, and a test refuses it across every shipped config.
+**What is worth trying, in order.** Restrict style transfer's end_at so the
+backdrop is decided after it stops; or key on what the model actually produces
+rather than on a colour it was asked for, which is what `background_to_alpha`
+does today by flooding from the corners and is why the pipeline works at all
+despite this. §19's emphasis map is a third option and the most expensive.
 
-**Still not measured.** Whether magenta now survives. Every earlier measurement
-was taken on a prompt that contradicted itself, so the next clean run is the
-first real test of the colour name.
+**Not a bug in the keyer.** It removed 78-80% of both canonicals correctly. The
+gap is only that `background.colour` claims to name what the model will paint,
+and it does not.
 
 
 ## 17. Four editors, four meanings of reset, and no shared base
