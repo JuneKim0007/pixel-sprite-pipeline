@@ -370,3 +370,25 @@ sweep shows how common it is.
 Supersedes the earlier reading of this entry, which assumed the annotation was
 too weak. It was not. Related to §16 only in that both wanted a way to say "not
 this"; this one does not need one.
+
+## 19. The result view is rebuilt from scratch every four seconds
+
+**Diagnosed 2026-09-10, not started.** `main.js:278` polls every 4s while
+something is running OR the Result tab is open. Each tick calls `refreshRuns`,
+which calls `renderResultTab`, which calls `renderResult`, whose first statement
+is `host.replaceChildren()`. So the entire view is torn down and rebuilt on a
+timer, whether or not anything changed.
+
+What that costs: scroll position, focus, image decode, and any DOM state not
+held in a module-level variable. `openStages` and `viewModes` survive because
+they are Maps outside the render; nothing else does.
+
+**Two faults, not one.** The tab polls when it is merely open, not when the run
+it shows is live - a finished run has nothing to poll for. And a tick rebuilds
+unconditionally rather than comparing what it fetched against what is on screen.
+
+**What it would take.** Poll only while `state.runs.some(r => r.running)`, and
+make the tick a no-op when the payload is unchanged; the run's `modified`
+timestamp and its per-stage image counts are enough to decide. Beyond that,
+updating in place rather than replacing is the real fix, and is the same problem
+§15 is about - a view built from primitives can re-render one section.
