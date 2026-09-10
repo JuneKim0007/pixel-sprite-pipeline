@@ -29,6 +29,8 @@ import { api } from '../../api.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { layerForm, stackList } from './stack.js';
+import { clampFraction, fractionAt, loadRatios, saveRatios, splitter } from './panes.js';
+import { lightbox } from '../../ui/dialog.js';
 import * as gpu from './gpu.js';
 
 let catalogue = [];
@@ -109,16 +111,40 @@ function factsBar() {
 export function renderEditor(host) {
   host.replaceChildren();
 
-  const after = el('div', { className: 'compare-cell' });
+  const after = el('div', { className: 'pane' });
   const sourceCell = el('div', {});
 
   const drawSource = () => sourceCell.replaceChildren(
-    source ? el('img', { src: api.fileUrl(source), alt: 'source' })
+    source ? el('div', { className: 'compare-stage' },
+                el('img', { src: api.fileUrl(source), alt: 'source' }))
            : el('p', { className: 'empty', textContent: 'Pick an image.' }));
   const factsHost = el('div', { className: 'factshost' }, factsBar());
 
-  const head = (label) => el('h4', {}, 'Result',
-    el('span', { className: `enginetag ${engine}`, textContent: label }));
+  const head = (label, size) => {
+    const node = el('h4', {}, 'Result',
+      el('span', { className: `enginetag ${engine}`, textContent: label }));
+    if (size) node.append(el('span', { className: 'pixsize', textContent: size }));
+    return node;
+  };
+
+  /* Both engines draw into a box of the same fixed size.
+   *
+   * They do not agree on what size to hand the browser and never did: the
+   * shader's canvas is the REDUCED grid, so at factor 16 it is 24 pixels wide
+   * and drew 24 pixels wide, while the exact path sets width/height to the
+   * MAGNIFIED size, which max-width then clamps to fill the cell. Dragging a
+   * slider therefore swapped a thumbnail for a full panel and back, and
+   * changing the grid factor resized it again.
+   *
+   * Nothing is lost by fitting instead: `image-rendering: pixelated` IS
+   * nearest-neighbour, so an image and its own 16x magnification shown in one
+   * box are the same picture. The magnification that matters is the one
+   * written to the file, and that is what the size label is for.
+   */
+  const showResult = (label, node, size) => after.replaceChildren(
+    head(label, size), el('div', { className: 'compare-stage' }, node));
+
+  const sizeLabel = (w, h) => `${w}×${h}`;
 
   /* Both ways the live preview can decline used to be a bare `return false`,
    * and a silent return from a slider reads as a freeze rather than a refusal.
@@ -166,7 +192,7 @@ export function renderEditor(host) {
       const canvas = el('canvas', { width: image.width, height: image.height,
                                     className: 'pixel previewcanvas' });
       canvas.getContext('2d').putImageData(image, 0, 0);
-      after.replaceChildren(head('preview'), canvas);
+      showResult('preview', canvas, sizeLabel(image.width, image.height));
       return true;
     } catch (e) {
       toast(`WebGPU preview unavailable: ${e.message}`, 'error');
@@ -187,16 +213,20 @@ export function renderEditor(host) {
       facts = r.facts;
       engine = 'exact';
 
-      /* The magnification the server did not do. Every result surface carries
-       * `image-rendering: pixelated`, which IS nearest-neighbour, so setting
-       * the size here produces the same picture the server used to compute -
-       * without the array. At zoom 16 that array was 38 megapixels for a
-       * panel about 500 CSS pixels wide. */
+      /* The magnification is NOT applied here. The stage fits whatever it is
+       * given and pixelated scaling is nearest-neighbour, so magnifying first
+       * would produce the same picture out of a much larger element - at zoom
+       * 16 a 38 megapixel one, for a panel about 500 CSS pixels wide. What the
+       * zoom actually changes is the file a write produces, so it is stated in
+       * the label rather than performed on screen. */
       const img = el('img', { src: r.image, className: 'pixel' });
+      img.onclick = () => lightbox(r.image, `${source.split('/').pop()} · ${engine}`);
+      const a = r.facts?.after;
       const d = r.facts?.deferred;
-      if (d && d.width && d.height) { img.width = d.width; img.height = d.height; }
+      let size = a ? sizeLabel(a.width, a.height) : '';
+      if (size && d && d.scale > 1) size += ` → ${sizeLabel(d.width, d.height)}`;
 
-      after.replaceChildren(head('exact'), img);
+      showResult('exact', img, size);
       factsHost.replaceChildren(factsBar());
       palette = [];      // refreshed from the rendered image below
       // Sampled from the unmagnified image, which is both cheaper and the same
@@ -361,21 +391,62 @@ export function renderEditor(host) {
   }
 
   drawSource();
+
+  /* One shell, divided, rather than four cards with four gaps between them.
+   *
+   * Each ratio is a fraction on the container it divides, so the layout still
+   * responds to the window and to the one-column collapse below 1100px; a
+   * splitter writes the fraction and the grid does the rest. */
+  const ratios = loadRatios({ side: 0.72, compare: 0.5 });
+  const body = el('div', { className: 'editorbody' });
+  const work = el('div', { className: 'editorwork' });
+  const compare = el('div', { className: 'compare' });
+  const side = el('div', { className: 'editorside' }, listHost, formHost);
+
+  const applyRatios = () => {
+    body.style.setProperty('--side-split', `${ratios.side * 100}%`);
+    compare.style.setProperty('--compare-split', `${ratios.compare * 100}%`);
+  };
+
+  const dragRatio = (key, host, axis) => (e) => {
+    if (e.nudge !== undefined) {
+      ratios[key] = clampFraction(ratios[key] + e.nudge);
+    } else {
+      const box = host.getBoundingClientRect();
+      const along = axis === 'x' ? e.clientX - box.left : e.clientY - box.top;
+      ratios[key] = fractionAt(along, axis === 'x' ? box.width : box.height);
+    }
+    applyRatios();
+  };
+
+  compare.append(
+    el('div', { className: 'pane' },
+      el('h4', { textContent: 'Source' }), sourceCell),
+    splitter('x', {
+      label: 'Drag to resize source and result',
+      onMove: dragRatio('compare', compare, 'x'),
+      onDrop: () => saveRatios(ratios),
+    }),
+    after);
+
+  work.append(compare, factsHost);
+  body.append(
+    work,
+    splitter('x', {
+      label: 'Drag to resize the work area and the layer panel',
+      onMove: dragRatio('side', body, 'x'),
+      onDrop: () => saveRatios(ratios),
+    }),
+    side);
+  applyRatios();
+
   host.append(
     el('header', { className: 'head' },
       el('div', {}, el('h1', { textContent: 'Editor' })),
       el('div', { className: 'head-actions' }, uploadBtn, upload, generate, apply)),
     el('div', { className: 'row' },
       el('span', { className: 'mini', textContent: 'Source' }), sourceSel),
-    el('div', { className: 'editorbody' },
-      el('div', {},
-        el('div', { className: 'compare' },
-          el('div', { className: 'compare-cell' },
-            el('h4', { textContent: 'Source' }),
-            sourceCell),
-          after),
-        factsHost),
-      el('div', { className: 'editorside' }, listHost, formHost)));
+    body);
 
   after.replaceChildren(el('h4', { textContent: 'Result' }),
                         el('p', { className: 'empty', textContent: 'No preview yet.' }));

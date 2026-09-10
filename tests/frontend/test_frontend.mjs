@@ -1055,5 +1055,89 @@ await atest('every schema field carries help, so no (?) is ever empty', async ()
   assert.ok(paths.length > 100, `only found ${paths.length} schema paths`);
 });
 
+console.log('\neditor preview surface');
+await atest('both engines draw into the one fixed stage', async () => {
+  // The shader hands over the REDUCED grid and the exact path a full PNG. Each
+  // used to size the element itself, so a drag swapped a 24px thumbnail for a
+  // full panel and back, and changing the grid factor resized it again.
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  assert.ok(!/after\.replaceChildren\(head\(/.test(src),
+    'an engine still renders straight into the cell, bypassing the stage');
+  assert.match(src, /showResult\('preview', canvas/);
+  assert.match(src, /showResult\('exact', img/);
+
+  // The stage was briefly a hardcoded 320px. Once the panes resize, its job is
+  // to be bounded BY the pane, so a fixed height would fight the splitter.
+  const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
+  assert.doesNotMatch(css, /\.compare-stage\s*\{[^}]*[^-]height: \d/,
+    'the stage has a fixed height again, which the splitter cannot override');
+  assert.match(css, /\.compare-stage img[^{]*\{[^}]*max-height: 100%/);
+});
+
+await atest('the result says how many pixels it is', async () => {
+  const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
+  assert.match(src, /sizeLabel\(image\.width, image\.height\)/,
+    'the live preview does not report its size');
+  assert.match(src, /sizeLabel\(a\.width, a\.height\)/,
+    'the exact preview does not report its size');
+});
+
+await atest('the shader keys the same colour the written file keys', async () => {
+  // Two parsers is a real cost; a shader keying a different colour from the
+  // one Python keys is a worse one, so the accepted forms are checked to match.
+  const { parseColour } = await import(join(JS, 'views/editor/gpu.js'));
+
+  assert.deepEqual(parseColour('12, 34, 56'), [12, 34, 56]);
+  assert.deepEqual(parseColour('12,34,56'), [12, 34, 56]);
+  assert.deepEqual(parseColour('rgb(12, 34, 56)'), [12, 34, 56]);
+  assert.deepEqual(parseColour('#0a1b2c'), [10, 27, 44]);
+  assert.deepEqual(parseColour('0a1b2c'), [10, 27, 44]);
+  assert.deepEqual(parseColour('#abc'), [170, 187, 204]);
+  assert.equal(parseColour(''), null);
+  assert.equal(parseColour(null), null);
+  assert.equal(parseColour('300, 0, 0'), null);
+  assert.equal(parseColour('chartreuse'), null);
+});
+
+console.log('\neditor panes');
+await atest('a split cannot swallow the pane that holds its handle', async () => {
+  const { clampFraction, fractionAt, MIN_FRACTION, MAX_FRACTION } =
+    await import(join(JS, 'views/editor/panes.js'));
+
+  assert.equal(clampFraction(0.5), 0.5);
+  assert.equal(clampFraction(-3), MIN_FRACTION, 'a drag past the left edge hid a pane');
+  assert.equal(clampFraction(99), MAX_FRACTION, 'a drag past the right edge hid a pane');
+  assert.equal(clampFraction(NaN), (MIN_FRACTION + MAX_FRACTION) / 2);
+
+  assert.equal(fractionAt(250, 1000), 0.25);
+  assert.equal(fractionAt(0, 1000), MIN_FRACTION);
+  // A container measured before layout reports 0, and dividing by it is how a
+  // splitter ends up at Infinity and the pane vanishes on first paint.
+  assert.equal(fractionAt(100, 0), (MIN_FRACTION + MAX_FRACTION) / 2);
+});
+
+await atest('saved ratios survive storage being unavailable', async () => {
+  const { loadRatios, saveRatios } = await import(join(JS, 'views/editor/panes.js'));
+  const fallback = { side: 0.72, compare: 0.5 };
+
+  // No localStorage in node at all, which is the same shape as a private
+  // window or a browser set to block site data: it must open at its defaults
+  // rather than throw before the editor renders.
+  assert.deepEqual(loadRatios(fallback), fallback);
+  assert.doesNotThrow(() => saveRatios(fallback));
+});
+
+await atest('the editor is one shell, not four bordered cards', async () => {
+  const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
+  const body = /\.editorbody\s*\{([^}]*)\}/.exec(css)[1];
+  assert.match(body, /border: 1px solid var\(--line\)/,
+    'the shell has no border of its own');
+  assert.doesNotMatch(body, /gap:/, 'the shell still gaps its panes apart');
+  assert.match(body, /--side-split/, 'the side column is not driven by a ratio');
+  assert.match(/\.compare\s*\{([^}]*)\}/.exec(css)[1], /--compare-split/);
+  // The panes inside must not re-add the borders the shell replaced.
+  assert.match(css, /\.editorside \.stackpanel[^{]*\{[^}]*border: 0/);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

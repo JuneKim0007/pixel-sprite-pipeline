@@ -953,23 +953,76 @@ input.wide { width: 100%; max-width: 420px; }
 
 /* ---------------------------------------------------------------- editor */
 
-.editorbody { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
-@media (max-width: 1100px) { .editorbody { grid-template-columns: 1fr; } }
-.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.compare-cell {
+/* One shell, divided. The dividers are the separators, so there is one border
+   round the editor instead of one round each of four cards, and the space the
+   gaps between them used to take goes to the picture. */
+.editorbody {
+  display: grid; align-items: stretch;
+  grid-template-columns: var(--side-split, 72%) 7px minmax(240px, 1fr);
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 12px; min-height: 220px;
+  border-radius: var(--radius); overflow: hidden;
+  height: clamp(420px, calc(100vh - 210px), 900px);
 }
-.compare-cell h4 {
-  margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+.editorwork { display: grid; grid-template-rows: 1fr auto; min-width: 0; overflow: hidden; }
+.compare {
+  display: grid; grid-template-columns: var(--compare-split, 50%) 7px 1fr;
+  min-height: 0; overflow: hidden;
+}
+.pane {
+  display: grid; grid-template-rows: auto 1fr; gap: 8px;
+  padding: 12px; min-width: 0; min-height: 0; overflow: hidden;
+}
+.pane h4 {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  font-size: 11px; text-transform: uppercase;
   letter-spacing: .06em; color: var(--ink-faint);
 }
-.compare-cell img {
-  max-width: 100%; display: block; margin: 0 auto;
-  background: var(--panel-2); border-radius: 6px;
+.pane img { max-width: 100%; display: block; margin: 0 auto; }
+.pane img.pixel { image-rendering: pixelated; }
+
+/* The handle is 7px so it can be grabbed, and paints a 1px line so it reads as
+   a divider rather than a gutter. */
+.pane-split {
+  background: var(--line); background-clip: content-box;
+  border: 0 solid transparent; position: relative; touch-action: none;
 }
-.compare-cell img.pixel { image-rendering: pixelated; }
-.editorside { display: grid; gap: 14px; }
+.pane-split-x { cursor: col-resize; border-width: 0 3px; }
+.pane-split:hover, .pane-split.dragging, .pane-split:focus-visible {
+  background: var(--accent); outline: none;
+}
+.pane-split.dragging { background-clip: border-box; }
+
+@media (max-width: 1100px) {
+  .editorbody, .compare { grid-template-columns: 1fr; height: auto; }
+  .editorbody > .pane-split, .compare > .pane-split { display: none; }
+  .editorside { border-top: 1px solid var(--line); }
+}
+
+/* One box, both engines. The shader hands over the reduced grid and the exact
+   path hands over a full-resolution PNG; fitting them into the same stage is
+   what stops the panel resizing every time the drawing engine or the grid
+   factor changes. */
+.compare-stage {
+  min-height: 0; display: grid; place-items: center; overflow: hidden;
+  background: var(--panel-2); border-radius: 6px; cursor: zoom-in;
+}
+.compare-stage img, .compare-stage canvas {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; image-rendering: pixelated;
+  display: block; margin: 0; background: none; border-radius: 0;
+}
+.pixsize {
+  margin-left: auto; font-variant-numeric: tabular-nums;
+  letter-spacing: 0; text-transform: none; color: var(--ink-faint);
+}
+.editorside {
+  display: block; padding: 12px; min-width: 0;
+  overflow-y: auto; border-left: 1px solid var(--line);
+}
+.editorside .stackpanel, .editorside .stackform {
+  background: none; border: 0; border-radius: 0; padding: 0 0 12px;
+}
+.editorside .stackform { border-top: 1px solid var(--line); padding-top: 12px; }
 .factshost { margin-top: 12px; }
 .factsgrid { display: flex; gap: 20px; flex-wrap: wrap; }
 .fact { display: grid; }
