@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline.shared.contracts import Field
+from pipeline.shared.contracts import ConfigField, Field
 from pipeline.shared.errors import Invalid
 
 
@@ -37,6 +37,21 @@ def test_check_refuses_instead_of_correcting(sent):
     assert caught.value.status == 400
     assert caught.value.detail.get("field") == "steps"
     assert "150" in caught.value.message
+
+
+def test_a_per_group_mapping_survives_being_clamped():
+    """depth.build reached the depth stage as None, so no config could widen a rig."""
+    field = ConfigField(key="depth.build", label="Build", kind="float",
+                        min=0.3, max=3.0, help="how heavy, as distinct from how tall")
+    sent = {"torso": 1.35, "arms": 1.25}
+    assert field.check(sent) == sent
+    assert field.clamp(sent) == sent, "the mapping was discarded, not bounded"
+
+
+def test_a_per_group_mapping_is_bounded_entry_by_entry():
+    field = ConfigField(key="depth.build", label="Build", kind="float",
+                        min=0.3, max=3.0, help="how heavy, as distinct from how tall")
+    assert field.clamp({"torso": 9.0, "arms": 0.01}) == {"torso": 3.0, "arms": 0.3}
 
 
 def test_check_passes_a_value_in_range():

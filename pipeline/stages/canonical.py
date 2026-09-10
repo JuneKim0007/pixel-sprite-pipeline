@@ -33,17 +33,23 @@ def _label_for(yaw: float) -> str:
 
 def _anchor_view(ctx, cfg) -> str | float:
     """Which way the anchor faces. Three sources, most specific first."""
+    from ..generation.schema import get_path
+
     explicit = cfg.get("view")
     if explicit is not None:
         return explicit
 
-    pose_cfg = ctx.settings("pose")
-    named = opt(pose_cfg, "view", None)
+    # The raw config, not settings(): settings fills pose.view in from the
+    # schema default, and a default that outranks the config's own pose.set is
+    # not "most specific first" - it anchored every sheet on side regardless.
+    named = get_path(ctx.config, "pose.view")
     if named is not None:
         return named
 
-    first = (opt(pose_cfg, "set", []) or [{}])[0]
-    return first.get("view", "side") if isinstance(first, dict) else "side"
+    first = (opt(ctx.settings("pose"), "set", []) or [{}])[0]
+    if isinstance(first, dict) and first.get("view") is not None:
+        return first["view"]
+    return opt(ctx.settings("pose"), "view", None) or "side"
 
 
 class _AnchorGraph:
