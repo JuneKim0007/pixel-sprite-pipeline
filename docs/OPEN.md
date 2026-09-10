@@ -320,3 +320,24 @@ pairing.
 **Why it is not as large as it sounds.** No recalculation of the whole rig is
 required. A bone length is the distance between two joints; changing it is a
 translation applied to a subtree, and the subtree is already computed.
+
+## 18. The UI has no written layout rules, so every view invented its own
+
+**Not started, requested 2026-09-10.** There is no document saying when a thing
+is a box, when boxes nest, what a panel's ratio or minimum size is, or where an
+action belongs. So each view answered separately, and the answers disagree:
+`.card`, `.compare-cell`, `.pane`, `.stackpanel`, `.stackform`, `.group`,
+`.histbox` and `.auditbox` are all "a bordered container with a heading", with
+different padding, radius and border rules between them.
+
+The editor's four cards became one shell with dividers on 2026-09-10 (§9 area),
+which fixed one view and widened the gap with the rest.
+
+**What it would take.** Probe the existing elements first and name the
+responsibilities actually present - surface, section, pane, field row, action
+bar - then write the rules down and reduce the classes to them. The document is
+the deliverable; the refactor follows it rather than preceding it.
+
+**Why it is worth doing before more UI work.** §9 (splitting New from Runs) and
+§16 (showing inputs as consumed) both add layout, and adding it without rules
+means two more dialects.

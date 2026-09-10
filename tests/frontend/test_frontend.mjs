@@ -1263,5 +1263,39 @@ await atest('list cards can render every field type their specs declare', async 
   assert.ok(control.length > 0);
 });
 
+console.log('\npose autosave');
+await atest('a drag does not queue a render per frame', async () => {
+  // save_poses re-renders every skeleton and every depth map, measured 77ms
+  // for four entries. Cheap enough to autosave, not cheap enough to queue: a
+  // drag is many edits and they all arrive at the same place.
+  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
+  const fn = /export function poseAutosaver[\s\S]*?\n\}\n/.exec(src)[0];
+
+  assert.match(fn, /if \(saving\) \{ again = true; return; \}/,
+    'a second save can start while the first is in flight');
+  assert.match(fn, /if \(again\) \{ again = false; flush\(\); \}/,
+    'the last edit is dropped instead of replayed');
+  assert.match(fn, /clearTimeout\(timer\)/);
+});
+
+await atest('leaving the step does not outrun the debounce', async () => {
+  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
+  const settle = /async settle\(\)[\s\S]*?\n    \}/.exec(src)[0];
+  assert.match(settle, /clearTimeout/, 'a pending timer still fires after leaving');
+  assert.match(settle, /await flush\(\)/);
+  assert.match(settle, /while \(saving\)/,
+    'settle returns before an in-flight save finishes');
+});
+
+await atest('the unsaved-edits dialog is gone, not just hidden', async () => {
+  const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  assert.doesNotMatch(src, /Unsaved skeleton edits/,
+    'the dialog still asks a question whose answer is never yes');
+  assert.doesNotMatch(src, /rigDirty/, 'the dirty flag it guarded still exists');
+  assert.match(src, /rigSaver\.settle\(\)/, 'leaving no longer flushes the edit');
+  // Without a button there must be something saying whether it saved.
+  assert.match(src, /savestate/);
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

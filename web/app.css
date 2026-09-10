@@ -1250,3 +1250,8 @@ input.wide { width: 100%; max-width: 420px; }
   border-radius: 5px; background: none; cursor: pointer;
 }
 .control input.num.mono { width: 92px; }
+
+/* Without a Save button, this line is the only thing that distinguishes
+   "saved" from "the app is ignoring me". */
+.savestate { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.savestate.bad { color: rgb(194,55,44); }

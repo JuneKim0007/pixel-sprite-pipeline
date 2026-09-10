@@ -14,7 +14,7 @@ import { orderProblems } from '../../fields.js';
 import { ROLES } from '../input/input.js';
 import { HelpTip } from '../../ui/index.js';
 import { annotator } from './annotate.js';
-import { rigEditor, savePoses } from './rig.js';
+import { poseAutosaver, rigEditor } from './rig.js';
 import { el } from '../../core/dom.js';
 import { clearDraft, draft, draftConfig, state, toast } from '../../store.js';
 import { confirmDialog } from '../../ui/dialog.js';
@@ -26,7 +26,7 @@ const STEPS = [
   { key: 'confirm', label: 'Confirm' },
 ];
 
-let rigDirty = false;
+let rigSaver = null;
 
 function stepper(onGo) {
   const bar = el('ol', { className: 'stepper' });
@@ -237,23 +237,24 @@ function rigStep() {
     load();
     return box;
   }
-  const save = el('button', { className: 'btn', textContent: 'Save pose guides', disabled: true });
+  /* No Save button. Edits persist as they are made - see poseAutosaver.
+   *
+   * The status line is not decoration: without a button there is nothing else
+   * on screen that distinguishes "saved" from "this app is ignoring me". */
+  const save = el('span', { className: 'mini savestate', textContent: runId
+    ? 'Edits save themselves' : '' });
 
-  const editor = rigEditor({
-    runId,
-    onDirty: () => { rigDirty = true; save.disabled = false; },
+  rigSaver = poseAutosaver(runId, (phase, detail) => {
+    save.classList.toggle('bad', phase === 'error');
+    save.textContent = {
+      pending: 'Saving…',
+      saving: 'Saving…',
+      saved: 'Saved',
+      error: `Not saved — ${detail}`,
+    }[phase] || '';
   });
 
-  save.onclick = async () => {
-    try {
-      if (await savePoses(runId)) {
-        rigDirty = false;
-        save.disabled = true;
-      }
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  };
+  const editor = rigEditor({ runId, onDirty: () => rigSaver.touch() });
 
   box.append(
     el('h2', {}, 'Rig editor', seg,
@@ -324,15 +325,16 @@ export function renderRun(host, { onStarted, goTo }) {
   const rerender = () => renderRun(host, { onStarted, goTo });
   host.replaceChildren();
 
+  /* Leaving the rig step waits for the last edit rather than asking about it.
+   *
+   * There used to be a dialog here warning that leaving would discard unsaved
+   * skeleton edits, which is a question worth asking only if the answer can be
+   * yes - nobody drags a joint into place meaning to throw it away. It also
+   * named "the rig" while the reference annotator shares this step and keeps
+   * its own unsaved state, so it could fire for one and describe the other. */
   const go = async (index) => {
-    if (index > state.wizardStep && rigDirty && STEPS[state.wizardStep].key === 'rig') {
-      const { ok } = await confirmDialog({
-        title: 'Unsaved skeleton edits',
-        body: '<p>You changed the rig but have not saved it. Leaving now discards those edits.</p>',
-        confirmLabel: 'Discard and continue',
-      });
-      if (!ok) return;
-      rigDirty = false;
+    if (index !== state.wizardStep && STEPS[state.wizardStep].key === 'rig' && rigSaver) {
+      await rigSaver.settle();
     }
     state.wizardStep = Math.max(0, Math.min(STEPS.length - 1, index));
     rerender();
