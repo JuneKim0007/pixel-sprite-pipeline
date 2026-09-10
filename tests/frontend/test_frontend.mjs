@@ -1271,38 +1271,87 @@ await atest('list cards can render every field type their specs declare', async 
   assert.ok(control.length > 0);
 });
 
-console.log('\npose autosave');
-await atest('a drag does not queue a render per frame', async () => {
-  // save_poses re-renders every skeleton and every depth map, measured 77ms
-  // for four entries. Cheap enough to autosave, not cheap enough to queue: a
-  // drag is many edits and they all arrive at the same place.
-  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
-  const fn = /export function poseAutosaver[\s\S]*?\n\}\n/.exec(src)[0];
+console.log('\nautosave');
+await atest('a drag does not queue one save per frame', async () => {
+  const { autosaver } = await import(join(JS, 'core/autosave.js'));
+  let inflight = 0, peak = 0, calls = 0;
+  const s = autosaver(async () => {
+    calls++; inflight++; peak = Math.max(peak, inflight);
+    await new Promise((r) => setTimeout(r, 25));
+    inflight--;
+  }, { wait: 5 });
 
-  assert.match(fn, /if \(saving\) \{ again = true; return; \}/,
-    'a second save can start while the first is in flight');
-  assert.match(fn, /if \(again\) \{ again = false; flush\(\); \}/,
-    'the last edit is dropped instead of replayed');
-  assert.match(fn, /clearTimeout\(timer\)/);
+  for (let i = 0; i < 8; i++) s.touch();
+  await s.settle();
+  assert.equal(peak, 1, 'two saves overlapped');
+  assert.ok(calls <= 2, `a drag of eight edits made ${calls} saves`);
 });
 
-await atest('leaving the step does not outrun the debounce', async () => {
-  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
-  const settle = /async settle\(\)[\s\S]*?\n    \}/.exec(src)[0];
-  assert.match(settle, /clearTimeout/, 'a pending timer still fires after leaving');
-  assert.match(settle, /await flush\(\)/);
-  assert.match(settle, /while \(saving\)/,
-    'settle returns before an in-flight save finishes');
+await atest('the last edit is not the one that is lost', async () => {
+  const { autosaver } = await import(join(JS, 'core/autosave.js'));
+  const seen = [];
+  let value = 0;
+  const s = autosaver(async () => {
+    const v = value;
+    await new Promise((r) => setTimeout(r, 20));
+    seen.push(v);
+  }, { wait: 1 });
+
+  value = 1; s.touch();
+  await new Promise((r) => setTimeout(r, 5));
+  value = 2; s.touch();
+  await s.settle();
+  assert.equal(seen[seen.length - 1], 2, `saved ${seen} - the last edit was dropped`);
 });
 
-await atest('the unsaved-edits dialog is gone, not just hidden', async () => {
-  const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
-  assert.doesNotMatch(src, /Unsaved skeleton edits/,
-    'the dialog still asks a question whose answer is never yes');
-  assert.doesNotMatch(src, /rigDirty/, 'the dirty flag it guarded still exists');
-  assert.match(src, /rigSaver\.settle\(\)/, 'leaving no longer flushes the edit');
-  // Without a button there must be something saying whether it saved.
-  assert.match(src, /savestate/);
+await atest('settle waits for a save already in flight', async () => {
+  const { autosaver } = await import(join(JS, 'core/autosave.js'));
+  let done = false;
+  const s = autosaver(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+    done = true;
+  }, { wait: 1 });
+  s.touch();
+  await s.settle();
+  assert.equal(done, true, 'settle returned before the save finished');
+});
+
+await atest('a failed save says so and does not wedge', async () => {
+  const { autosaver, saveLabel } = await import(join(JS, 'core/autosave.js'));
+  const phases = [];
+  let fail = true;
+  const s = autosaver(async () => { if (fail) throw new Error('nope'); },
+                      { wait: 1, onState: (p, d) => phases.push(saveLabel(p, d)) });
+  s.touch();
+  await s.settle();
+  assert.ok(phases.includes('Not saved: nope'), phases.join(','));
+
+  fail = false;
+  s.touch();
+  await s.settle();
+  assert.equal(phases[phases.length - 1], 'Saved', 'it never recovered');
+});
+
+await atest('both editors save through the one autosaver', async () => {
+  for (const view of ['views/run/rig.js', 'views/run/annotate.js']) {
+    const src = readFileSync(join(JS, view), 'utf8');
+    assert.match(src, /from '\.\.\/\.\.\/core\/autosave\.js'/,
+      `${view} does not use the shared autosaver`);
+  }
+  const ann = readFileSync(join(JS, 'views/run/annotate.js'), 'utf8');
+  assert.doesNotMatch(ann, /Save annotation/, 'the annotation save button is back');
+  assert.doesNotMatch(ann, /\bdirty\b/, 'the dirty flag it drove is back');
+  assert.match(ann, /savestate/, 'nothing on screen says whether it saved');
+
+  const run = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
+  assert.doesNotMatch(run, /Unsaved skeleton edits/);
+  assert.match(run, /rigSaver\.settle\(\)/, 'leaving no longer flushes the edit');
+});
+
+await atest('a library preview has no run to write to', async () => {
+  const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
+  assert.match(src, /if \(!runId\) return \{ touch/,
+    'previewing the library would POST a null run id');
 });
 
 console.log('\nnavigation history');

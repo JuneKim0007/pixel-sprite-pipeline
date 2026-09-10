@@ -11,6 +11,7 @@
  */
 
 import { api } from '../../api.js';
+import { autosaver } from '../../core/autosave.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import {
@@ -467,42 +468,8 @@ export async function savePoses(runId) {
   return true;
 }
 
-const AUTOSAVE_MS = 600;
-
 export function poseAutosaver(runId, onState) {
-  let timer = null;
-  let saving = false;
-  let again = false;
-
-  const report = (phase, detail) => onState && onState(phase, detail);
-
-  async function flush() {
-    if (!runId) return;
-    if (saving) { again = true; return; }
-    saving = true;
-    report('saving');
-    try {
-      await api.savePoses(runId, state.poseEntries);
-      report('saved');
-    } catch (e) {
-      report('error', e.message);
-    } finally {
-      saving = false;
-      if (again) { again = false; flush(); }
-    }
-  }
-
-  return {
-    touch() {
-      if (!runId) return;
-      report('pending');
-      clearTimeout(timer);
-      timer = setTimeout(flush, AUTOSAVE_MS);
-    },
-    async settle() {
-      clearTimeout(timer);
-      await flush();
-      while (saving) await new Promise((r) => setTimeout(r, 30));
-    },
-  };
+  // Previewing the library has no run to write to.
+  if (!runId) return { touch() {}, async settle() {}, cancel() {} };
+  return autosaver(() => api.savePoses(runId, state.poseEntries), { onState });
 }

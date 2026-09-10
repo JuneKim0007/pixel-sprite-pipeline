@@ -18,6 +18,7 @@
  */
 
 import { api } from '../../api.js';
+import { autosaver, saveLabel } from '../../core/autosave.js';
 import { drawFaceGuide, drawFaceLegend } from './faceguide.js';
 import { projectPoint } from '../../features/pose.js';
 import { el } from '../../core/dom.js';
@@ -46,7 +47,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
   let rigDef = null;
   let points = {};
   let next = null;
-  let dirty = false;
   let showGuide = true;
   let drag = null;      // the joint under the pointer while the button is down
   let hover = null;     // the joint the pointer is over, named on the canvas
@@ -54,7 +54,17 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
   const jointSel = el('select', { className: 'select' });
   const placedList = el('div', { className: 'placedlist' });
   const derived = el('div', { className: 'derived' });
-  const saveBtn = el('button', { className: 'btn primary', textContent: 'Save annotation', disabled: true });
+  const saveState = el('span', { className: 'mini savestate' });
+  const saver = autosaver(async () => {
+    const data = await api.saveAnnotation(imagePath, rigName, points);
+    showDerived(data);
+    onSaved?.(data);
+  }, {
+    onState: (phase, detail) => {
+      saveState.classList.toggle('bad', phase === 'error');
+      saveState.textContent = saveLabel(phase, detail);
+    },
+  });
   const counter = el('span', { className: 'mini' });
 
   /* ------------------------------------------------------------- drawing */
@@ -154,8 +164,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
 
   const mark = (joint, pos) => {
     points[joint] = [Number(pos[0].toFixed(4)), Number(pos[1].toFixed(4))];
-    dirty = true;
-    saveBtn.disabled = false;
+    saver.touch();
   };
 
   canvas.onpointerdown = (e) => {
@@ -233,8 +242,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
         drop.onclick = (e) => {
           e.stopPropagation();
           delete points[joint];
-          dirty = true;
-          saveBtn.disabled = false;
+          saver.touch();
           // Aim at what was just removed. Without this the next click landed on
           // an unrelated joint, which is what made a deletion feel permanent.
           target(joint);
@@ -294,18 +302,6 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
     }
   })();
 
-  saveBtn.onclick = async () => {
-    try {
-      const data = await api.saveAnnotation(imagePath, rigName, points);
-      dirty = false;
-      saveBtn.disabled = true;
-      showDerived(data);
-      toast(`Annotation saved — ${data.placed} point(s)`);
-      onSaved?.(data);
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  };
 
   const guideBox = el('input', { type: 'checkbox', checked: showGuide });
   guideBox.onchange = () => { showGuide = guideBox.checked; draw(); };
@@ -325,8 +321,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
         toast(fit.notes?.[0] || 'nothing to fit', 'warn');
       } else {
         points = { ...fit.points, ...points };   // never overwrite your own work
-        dirty = true;
-        saveBtn.disabled = false;
+        saver.touch();
         const pct = Math.round((fit.confidence || 0) * 100);
         toast(`Proposed ${Object.keys(fit.points).length} joints (${pct}% confidence) — check them`);
         for (const note of fit.notes || []) toast(note, 'warn');
@@ -355,8 +350,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       const [x, y] = projectPoint(p3, 0);
       points[joint] = [Number(x.toFixed(4)), Number(y.toFixed(4))];
     }
-    dirty = true;
-    saveBtn.disabled = false;
+    saver.touch();
     toast('Neutral pose placed — drag each joint onto the figure');
     render();
   };
@@ -364,8 +358,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
   const clear = el('button', { className: 'btn ghost', textContent: 'Clear' });
   clear.onclick = () => {
     points = {};
-    dirty = true;
-    saveBtn.disabled = false;
+    saver.touch();
     next = orderJoints(rigDef?.joints || []).find(() => true) || null;
     jointSel.value = next || '';
     render();
@@ -376,7 +369,7 @@ export function annotator({ imagePath, rigName = 'humanoid', onSaved } = {}) {
       el('span', { className: 'mini', textContent: 'Place' }), jointSel,
       counter,
       guideToggle,
-      el('span', { className: 'sep' }), auto, tpose, clear, saveBtn),
+      el('span', { className: 'sep' }), auto, tpose, clear, saveState),
     el('p', { className: 'help', textContent:
       'Click where each part is in this image, or drag a dot that is already '
       + 'there. Skip anything cropped or hidden — absent is a real answer, and a '

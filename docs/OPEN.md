@@ -276,15 +276,28 @@ leave under 4%. Correct here, and worth remembering as the thing to check first
 if a sheet ever does lose its figures.
 
 
-## 13. The annotation still saves by hand, and nothing says which save is durable
+## 13. Two editors, one autosaver
 
-**Half done.** The rig side closed on 2026-09-10: pose edits autosave and the
-dialog is gone. `annotate.js` still keeps its own `dirty` and `Save annotation`.
+**Done 2026-09-10.** The annotation editor kept a `dirty` flag, a Save button
+and five places that set both. It now saves as you draw, through the same
+module the rig editor uses.
 
-Poses belong to a run; annotations are a `<image>.rig.json` sidecar reused by
-every run that uses that image. Moving annotations into `out/runs/<id>/` would
-copy them per run and break that reuse, so the split stays. What is missing is
-anything on screen saying which of the two outlives the run.
+`poseAutosaver` was debounce, coalesce, settle and status reporting, with only
+the run id and the endpoint specific to poses. That is `core/autosave.js` now,
+and both editors pass their own save. Measured before deciding: an annotation
+save is 3.3ms and writes a 193-byte sidecar, against 77ms for a pose save that
+re-renders skeletons and depth maps. Both are cheap enough; neither needed
+splitting.
+
+The tests moved with it and got better. They asserted on `rig.js` source and
+would have passed while testing nothing; they now run the autosaver and check
+that eight edits make at most two saves, that two never overlap, that an edit
+arriving mid-save replays after it, and that a failure reports and recovers.
+
+**Unchanged, and correct.** A pose belongs to its run and an annotation to its
+image, so they still save to different places. That divergence is deliberate;
+what was missing was only that nothing said which outlives the run, and a
+status line on each now does.
 
 
 ## 14. Bone lengths are fixed, and a rig cannot be made to fit a body
