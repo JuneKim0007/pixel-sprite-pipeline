@@ -26,7 +26,10 @@ echo "$(date '+%F %H:%M') scored $scored/96  supervisor $sup  comfy $comfy  gene
 [ "$state" = healthy ] && exit 0
 
 if [ "$sup" = down ]; then
-  nohup ./tools/keep_sweeping.sh > /dev/null 2>&1 < /dev/null &
-  echo "  restarted the supervisor"
+  # Restarting without the variants it was narrowed to would quietly widen the
+  # sweep back to the whole plan.
+  arms=$(cat var/sweep.arms 2>/dev/null || true)
+  nohup ./tools/keep_sweeping.sh $arms > /dev/null 2>&1 < /dev/null &
+  echo "  restarted the supervisor${arms:+ on $arms}"
 fi
 exit 1
