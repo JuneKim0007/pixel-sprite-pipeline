@@ -190,7 +190,8 @@ rendering — gradients, soft edges, anti-aliasing — which is the opposite of 
 sprite. Identity goes through IP-Adapter only; the pixelation comes from
 generation. `comfy.encode_image` is kept for the illustrate → pixelise pass,
 which is a different thing: there the source is already in the target style and
-tracing it is the point.
+tracing it is the point. That pass is the `pixelise` stage as of 2026-09-11,
+and its source is the run's own canonical, not a reference.
 
 ### The canonical anchors every frame, *and* stacks with the reference
 
@@ -214,6 +215,11 @@ a costume at a fidelity the canonical cannot hold at sprite resolution).
 a front-facing sheet — and the front reference was then measured 90° away and
 down-weighted for being a poor match. It was a poor match only because the
 target had been chosen wrongly. It now falls through to `pose.set[0].view`.
+
+Corrected again 2026-09-11: `pose.view` was read through `ctx.settings`, which
+fills it in from the schema default of `side`, so a DEFAULT outranked the
+config's own `pose.set` and every sheet was anchored in profile regardless. The
+raw config decides whether it was set at all.
 
 ---
 
