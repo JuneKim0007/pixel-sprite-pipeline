@@ -121,10 +121,9 @@ settings:
     # and bleed 0.0326 against 0.0593, which is the lavender-hair problem
     # nearly halved. Pushing the other way (style 0.5, identity 0.6) scored
     # worst of everything tried.
-    # 1.15 measured 0.82 likeness against the reference by copying it as an
-    # ILLUSTRATION - which is what CLIP likeness rewards and not what a sprite
-    # is. 1.0 keeps the character and leaves the model room to render it.
-    from_reference: {weight_type: linear, weight: 1.0}
+    # 1.15 copied the reference as an ILLUSTRATION - 0.82 likeness, which is
+    # what CLIP rewards and not what a sprite is. 0.9 leaves more to the model.
+    from_reference: {weight_type: linear, weight: 0.9}
     style_weight: 0.12
     # 1.2 is the pixel-art-xl author's recommendation and it is wrong for this
     # canvas. Measured on char8, strength against the grid the model draws and
