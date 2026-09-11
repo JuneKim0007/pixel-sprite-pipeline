@@ -1,0 +1,36 @@
+module: character_sheet
+subject: a woman with long silver white hair, a black tactical vest, an olive cape,
+  black thigh socks and black boots
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+references:
+  identity:
+  - path: library/refs/char7/front.png
+    view: front
+  - path: library/refs/char7/side.png
+    view: side
+  - path: library/refs/char7/side_right.png
+    view: 270
+  - path: library/refs/char7/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - pixelise
+  stop_after: pixelise
+cooling:
+  enabled: true
+  seconds: 60
+pixelise:
+  denoise: 0.6

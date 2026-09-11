@@ -84,25 +84,25 @@ SUBJECTS = {
 # Round three. The defaults now carry what rounds one and two measured - lora
 # 0.8, identity 1.15, style 0.12, background auto - so `shipped` IS the
 # baseline and each variant moves one thing off it.
+# Round four. `shipped` is the control; the rest are the balance the pixelise
+# pass has to strike. Quantising alone reaches block 8 and 83% fill, but it
+# compacts detail - the denoise that follows decides how much comes back
+# before the model re-invents a finer grid than the sprite has room for.
 VARIANTS = {
     "shipped": {},
-    # Either side of the new default of 1.0. 1.15 measured 0.82 likeness by
-    # reproducing the reference gradients and all - which is what the metric
-    # asks for and not what a sprite is - so the range is worth having.
-    "identity_085": {"canonical": {"from_reference": {"weight": 0.85}}},
-    "identity_14": {"canonical": {"from_reference": {"weight": 1.4}}},
-    # The block question. Never run: the quantiser is measured, the sampling
-    # that follows it is not.
-    "pixelised": {"pipeline": {"stages": ["pose", "depth", "canonical",
-                                          "pixelise"],
-                               "stop_after": "pixelise"}},
-    # hi_fidelity carries three style exemplars, two of them silver-and-purple
-    # Frieren frames, applied with weight_type "style transfer" - which the
-    # IPAdapter docs say copies COLOUR along with texture and lighting. crisp
-    # carries none. This is the colour question, asked directly.
-    # lora_strength pinned: hi_fidelity inherits retro_jrpg's 1.2, so without
-    # this the variant would move the exemplars AND the LoRA at once and a
-    # difference would name neither.
+    "pix_030": {"pixelise": {"denoise": 0.30},
+                "pipeline": {"stages": ["pose", "depth", "canonical",
+                                        "pixelise"], "stop_after": "pixelise"}},
+    "pix_045": {"pixelise": {"denoise": 0.45},
+                "pipeline": {"stages": ["pose", "depth", "canonical",
+                                        "pixelise"], "stop_after": "pixelise"}},
+    "pix_060": {"pixelise": {"denoise": 0.60},
+                "pipeline": {"stages": ["pose", "depth", "canonical",
+                                        "pixelise"], "stop_after": "pixelise"}},
+    # char8_lora_08 was the most pixel-like result recorded - block 3.0 against
+    # everything else's 2.0 - and it had hi_fidelity's exemplars. crisp has
+    # none. If the exemplars were supplying the RENDERING rather than only the
+    # colour, this is where it shows.
     "with_exemplars": {"styles": ["hi_fidelity"],
                        "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
 }

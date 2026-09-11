@@ -189,6 +189,12 @@ FIELDS: list[ConfigField] = [
              "equal to palette.factor: this is the grid the sprite will be "
              "reduced on, and handing the model a different one asks it to "
              "draw a grid that will then be resampled."),
+    ConfigField(key="pixelise.fill", label="Pixelise headroom", kind="float",
+     default=0.82, min=0.0, max=1.0, step=0.02, group="Pixelise",
+     help="The share of the frame the subject is shrunk to before the "
+             "re-render. The sampler fills whatever canvas it is handed, so a "
+             "margin cannot be asked for at generation - it has to be in the "
+             "latent already. 0 leaves the framing alone."),
     ConfigField(key="pixelise.timeout", label="Pixelise timeout", kind="int",
      default=900, min=60, max=3600, step=60, group="Pixelise",
      help="Seconds to wait for the re-render before giving up."),

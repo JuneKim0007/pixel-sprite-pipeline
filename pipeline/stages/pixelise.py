@@ -12,7 +12,35 @@ from ..looks import vocabulary
 BLOCK_FLOOR = 2
 
 
-def blocked(source: Path, dst: Path, factor: int) -> tuple[int, int]:
+def framed(image, fill: float):
+    """Shrink the subject to `fill` of the frame, padding with its own backdrop.
+
+    The sampler fills whatever canvas it is given - measured three times, a
+    guide at 0.815, 0.706 and 0.887 of frame height all came back at 0.999 -
+    so margin cannot be asked for at generation. Here it can be handed over:
+    the latent already has it, and a low denoise keeps it.
+    """
+    from PIL import Image
+
+    from ..geometry import framing
+
+    box = framing.measure(image)
+    if box is None or fill <= 0:
+        return image
+    scale = min(1.0, fill / max(box.fill, 1e-6))
+    if scale >= 0.995:
+        return image
+
+    small = image.resize((max(1, round(image.width * scale)),
+                          max(1, round(image.height * scale))), Image.LANCZOS)
+    canvas = Image.new("RGB", image.size, box.backdrop)
+    canvas.paste(small, ((image.width - small.width) // 2,
+                         (image.height - small.height) // 2))
+    return canvas
+
+
+def blocked(source: Path, dst: Path, factor: int,
+            fill: float = 0.0) -> tuple[int, int]:
     """Quantise to the sprite grid and back, so the latent carries whole blocks.
 
     Measured across 24 runs, the model draws a 1.75 to 2.00 pixel block on a
@@ -23,7 +51,7 @@ def blocked(source: Path, dst: Path, factor: int) -> tuple[int, int]:
     from PIL import Image
 
     with Image.open(source) as handle:
-        image = handle.convert("RGB")
+        image = framed(handle.convert("RGB"), fill)
     cells = (max(1, image.width // factor), max(1, image.height // factor))
     small = image.resize(cells, Image.BOX)
     small.resize(image.size, Image.NEAREST).save(dst)
@@ -36,7 +64,7 @@ class PixeliseStage(Stage):
     resource = Resource.GPU
     gives = frozenset({"pixel_anchor"})
     needs = frozenset({"canonical"})
-    DEFAULTS = {"denoise": 0.45, "factor": 8, "timeout": 900}
+    DEFAULTS = {"denoise": 0.45, "factor": 8, "timeout": 900, "fill": 0.82}
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("pixelise")
@@ -45,7 +73,7 @@ class PixeliseStage(Stage):
 
         factor = int(cfg["factor"])
         staged = outdir / "blocked.png"
-        cells = blocked(source, staged, factor)
+        cells = blocked(source, staged, factor, float(cfg["fill"]))
         print(f"   {source.name} quantised to {cells[0]}x{cells[1]} cells "
               f"and back, block {factor}")
 

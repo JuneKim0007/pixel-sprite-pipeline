@@ -1,0 +1,36 @@
+module: character_sheet
+subject: a young woman with long straight black hair, a white shirt with a red necktie,
+  a black jacket, a black pleated skirt, black knee socks and black loafers
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+references:
+  identity:
+  - path: library/refs/char1/front.png
+    view: front
+  - path: library/refs/char1/side.png
+    view: side
+  - path: library/refs/char1/side_right.png
+    view: 270
+  - path: library/refs/char1/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - pixelise
+  stop_after: pixelise
+cooling:
+  enabled: true
+  seconds: 60
+pixelise:
+  denoise: 0.6
