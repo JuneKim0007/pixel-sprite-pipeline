@@ -397,3 +397,218 @@ Deliberately excluded, with reasons: `rail-cell`, `nav li`, `subnav-item` and
 is shown rather than what is set, and collapsing them would put a form
 primitive in the chrome. `.seg` and `.segmented` also carry two different
 radius tokens, which is the part worth settling first.
+
+---
+
+The entries below were measured 2026-09-11, from one pass tracing every
+declared field to the place that reads it. The method is repeatable: wrap
+`Context.settings` in a recording dict, run the suite, and diff what was read
+against `SCHEMA.fields`. All 852 tests pass with every one of these present, so
+the tests are not the thing that would have caught them.
+
+## 22. The validator and the pipeline disagree about which settings exist
+
+**Measured 2026-09-11.** `SCHEMA.check` is called from `api/configs.py` and
+nowhere else. `run.py` never calls it. So a config is validated when it is
+saved through the editor and not when it is run from the CLI, and ten paths the
+pipeline reads are refused by the half that validates:
+
+| path | read at | set by |
+|---|---|---|
+| `canonical.from_reference.weight_type` | `canonical.py:106` | `styles/base_pixel.yaml:96` |
+| `canonical.from_reference.start_at` | `canonical.py:107` | — |
+| `canonical.from_reference.enabled` | `canonical.py:186` | — |
+| `canonical.prompt` | `canonical.py:173` | `configs/experiments/_illu_cfg{40,50,60}.yaml:34` |
+| `frames.prompt` | `frames.py:82` | — |
+| `pose.views` | `pose.py:109` | `PoseStage.DEFAULTS` |
+| `detect.host` | `detect.py:95` | — |
+| `detect.model` → `keep_alive` | `detect.py:97` | — |
+| `detect.attempts` | `detect.py:106` | — |
+| `palette.llm.*` | `palette.py:148` | — |
+
+`pose.views` is the sharpest of them. `PoseStage.DEFAULTS` declares it,
+`cfg["views"]` reads it, and `pose.py:188` raises an error whose text tells the
+user to set it — while the validator answers `'pose.views' is not a setting
+this pipeline has.`
+
+`references.images` is refused too, but that one is correct by accident: it
+exists only as a deprecation guard at `references.py:108` that explains the
+move to typed roles. The cost is that the editor answers with the generic
+"not a setting" instead of that explanation.
+
+This is not the same problem as §3. §3 measured that no `settings()` *prefix*
+lacks a declaration, which is still true; the gap is one level down, at the
+leaves the block is then indexed with.
+
+**What it would take.** Call `SCHEMA.check` in `run.py` as well, which will
+fail immediately on `base_pixel.yaml` — that failure is the table above.
+Then declare the ten, which is mostly mechanical: three of the four
+`from_reference` siblings are already fields, and `detect.*` should probably
+not exist at all (§24).
+
+## 23. A declared default makes the consumption site's fallback dead code
+
+**Measured 2026-09-11.** `Context.settings(block)` merges
+`SCHEMA.defaults_under(block)` under the config before handing the dict over.
+Once a field declares a default, the key is always present, so
+`opt(block, "key", literal)` at the consumption site can never reach its
+literal. Whichever default wins depends on whether the field happens to declare
+one — which is a coin toss, not a rule.
+
+It has already cost one hyperparameter. `palette.py:148` merges `pose.llm`
+under `palette.llm` and then asks for a lower temperature for palette
+selection:
+
+```python
+llm_cfg = {**(ctx.settings("pose").get("llm") or {}), **(cfg.get("llm") or {})}
+temperature=opt(llm_cfg, "temperature", 0.4)
+```
+
+`pose.llm.temperature` declares `0.7`, so the merged dict already carries it
+and the `0.4` never fires. Measured:
+
+```
+palette LLM block actually used: {'temperature': 0.7, 'model': 'qwen3:4b', ...}
+  temperature the code asks for: 0.4
+  temperature actually applied : 0.7
+```
+
+The same pattern is load-bearing and *correct* two files away, for the opposite
+reason. `canonical.py:129` wants a different ControlNet strength per channel —
+`0.55` for pose, `0.30` for depth — and gets it only because
+`canonical.controlnet.strength` declares no default. Adding one to that field,
+which looks like an improvement, silently collapses both channels onto it.
+
+**What it would take.** A test over the AST: for every `opt(block, key, lit)`
+and `block.get(key, lit)` whose `key` resolves to a declared field, assert the
+field declares no default. It is the same shape as
+`test_the_form_s_default_is_what_the_pipeline_reads`, run from the other end,
+and it catches both the dead fallback and the drift. The pass that found this
+took about thirty lines.
+
+## 24. `detect.*` is a second LLM block that the settings stack never reaches
+
+**Measured 2026-09-11.** `resources.py:45` passes raw `ctx.config` into
+`detect.resolve`, and `detect.py:93` reads `config.get("detect")` directly. So
+that block skips global defaults, module defaults and field defaults, and only
+the clamp in `Context.__post_init__` touches it. It is a third copy of a
+configuration shape that already exists twice — `pose.llm` declared, and the
+`palette.llm` of §23 undeclared.
+
+The concrete loss: the help on `pose.llm.keep_alive` says *"Read by pose.py,
+palette.py and refs/detect.py."* `detect.py` does not read it. It reads
+`detect.keep_alive`, which is undeclared and unsaveable (§22). So the one knob
+that exists to stop a vision model sitting resident beside SDXL on a 16 GB
+machine does not reach the vision model it was written for.
+
+Second, smaller: `detect.model` and `detect.min_confidence` are scoped
+`modules=["character_sheet"]`, but `_detected()` runs for every module. An
+`animation` config with `rig: auto` consumes both while the form hides them.
+
+**What it would take.** Either point `detect.py` at `ctx.settings("detect")`
+and declare the three missing keys, or fold the block into `pose.llm` and
+delete it. The second is the better shape and the larger change, because the
+vision model and the text model are genuinely different models and `pose.llm`
+would need to say which is which. This is also one of the ten reads counted in
+§8, and the only one there that is a mistake rather than a deliberate
+different fallback.
+
+## 25. Six fields whose real default is a literal somewhere in the code
+
+**Measured 2026-09-11.** A field with no declared default renders as an empty
+row. That is honest when there is no default. For these six there is one, and
+it lives at the consumption site:
+
+| field | form shows | actually used | source |
+|---|---|---|---|
+| `canonical.style_weight` | blank | **0.35** | `DEFAULT_WEIGHT["style"]` |
+| `frames.style_weight` | blank | **0.35** | same |
+| `canonical.controlnet.strength` | blank | **0.55** pose / **0.30** depth | `canonical.py:129` |
+| `canonical.controlnet.end_percent` | blank | **0.40** / **0.35** | `canonical.py:132` |
+| `detect.model` | blank | `qwen2.5vl:3b` | `detect.py:96` |
+| `frames.seed` | blank | `canonical.seed` | `frames.py:134` |
+
+`canonical.style_weight`'s own help cites 0.18 and 0.35 as the values that
+matter and declares neither, which is the entry arguing with itself.
+
+The two `controlnet` rows cannot simply be filled in — that is the trap in
+§23, and filling them is what collapses the per-channel split. They want the
+declaration to carry the split, or the form to say "0.55 pose / 0.30 depth"
+without pretending it is one number.
+
+Related: nothing in the suite reads `style_weight` at all. The recording pass
+never saw either field, because no test builds a run with a style exemplar
+attached, so the whole `_with_style` path in `canonical.py:115` and
+`frames.py:203` is untested — including the 0.6 clamp §18 mentions.
+
+## 26. `proportions` is never empty, so the rig is always rebuilt
+
+**Measured 2026-09-11.** All nine `PROPORTION_GROUPS` declare a default of
+`1.0`, so `ctx.settings("proportions")` always returns nine entries and
+`rigs.scale`'s `if not factors: return rig` can never be taken. Every run
+rebuilds the rig to apply nine identity transforms, and every rig label comes
+out as
+
+```
+Humanoid (arms x1, head x1, legs x1, neck x1, segments x1, tail x1,
+          tentacles x1, torso x1, wings x1)
+```
+
+which is what every log line and every run record then carries. The rebuild
+also converts each `neutral` value from a tuple to a list; the numbers are
+identical and nothing currently depends on the type, which is why it has not
+shown up.
+
+`rigs.groups_of(rig)` — *"Proportion groups this rig actually has"* — is
+called from nowhere. It is exactly the function that would stop a humanoid
+config from offering Wing span, Tentacle length and Segment length, all three
+of which the help text already admits are ignored. It is a §10-shaped
+primitive with a caller waiting for it in `fields_for`, rather than one with
+no use.
+
+**What it would take.** Either drop the nine declared defaults and let the
+absent key mean 1.0, or compare against 1.0 rather than truthiness before
+rebuilding. The first is cleaner and changes what the form shows, so it is a
+product call. Wiring `groups_of` into `fields_for` is independent of both, and
+is the half worth doing first — §16 will add a tenth group and make the
+unfiltered list worse.
+
+## 27. `references.emphasis` offers four sources and has three
+
+**Found 2026-09-11, against `4f9c438`.** Found while the change was still
+uncommitted and landed anyway, so it is carried here rather than folded into
+the commit that introduced it. Small enough to close in one pass; it is in this
+file because it is now shipped behaviour, not because it is deferred.
+
+`weightmap.resolve` ends:
+
+```python
+saved = load(image)
+if source == "painted":
+    return saved
+return saved
+```
+
+`auto` and `painted` are the same code path. Measured against a reference with
+and without a sidecar, the two are indistinguishable in all four states.
+
+`floor` and `ceiling` apply only when `source: subject`. Measured at
+`floor=0.25, ceiling=0.75`: `subject` returns `0.250 … 0.750`, `painted` and
+`auto` return the painted values untouched. The help on `floor` says "when the
+map is derived"; the help on `ceiling` — *"Lower it to soften a reference"* —
+does not, and it is the one a person reaches for.
+
+The default `auto / 0.0 / 1.0` now exists in four places: the three
+`ConfigField`s, `weightmap.FLOOR`/`CEILING`, `resolve()`'s signature, and
+`cfg.get("source", "auto")` in `canonical.py:60`. The last is already dead by
+§23, since `settings()` fills the block.
+
+Two smaller things in the same change: `describe()` reports `"painted": True`
+for a derived map, and `frames.py:47` imports a private `_emphasis_mask` out of
+`canonical.py`. That function resolves config into a mask and is not canonical's
+work; it belongs in `weightmap` beside `resolve`.
+
+Not a problem, measured so it does not get raised again: `from_subject` re-runs
+per frame at ~140 ms on a 437x1106 reference, against ~280 s of generation. The
+redundant ComfyUI upload beside it is worth memoising on the reference path;
+the recompute is noise and predates nothing.

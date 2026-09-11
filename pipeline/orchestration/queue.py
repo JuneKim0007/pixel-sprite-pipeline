@@ -182,6 +182,17 @@ def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
         return {}, [str(e)]
 
 
+def _check_settings(merged: dict) -> list[str]:
+    """A key no field declares, before the run rather than minutes into it."""
+    from ..generation.schema import SCHEMA
+
+    try:
+        SCHEMA.check(merged)
+    except Invalid as e:
+        return [str(e)]
+    return []
+
+
 def _check_stack(merged: dict) -> list[str]:
     from .. import stages  # noqa: F401  (importing registers them)
     from ..generation import runner
@@ -265,6 +276,7 @@ def preflight(root: Path, job: Job) -> Preflight:
         merged, unreadable = _resolve(root, job, cfg_path)
         if unreadable:
             return Preflight(False, unreadable)
+        problems += _check_settings(merged)
         problems += _check_stack(merged)
         problems += _check_rig(merged)
         problems += _check_references(root, merged)

@@ -18,6 +18,8 @@ sys.stdout.reconfigure(line_buffering=True)
 from pipeline.orchestration import artifacts as artifacts_io  # noqa: E402
 from pipeline import stages  # noqa: E402,F401  (importing registers them)
 from pipeline.generation import runner, stage as stage_mod  # noqa: E402
+from pipeline.generation.schema import SCHEMA  # noqa: E402
+from pipeline.shared.errors import Invalid  # noqa: E402
 from pipeline.looks import styles  # noqa: E402
 from pipeline.refs import references as refs_mod  # noqa: E402
 from pipeline.shared import settings  # noqa: E402
@@ -120,6 +122,10 @@ def main() -> int:
         ROOT, raw_cfg, picks=raw_cfg.get("style_picks"))
     if style_record["styles"]:
         print(f"styles: {' + '.join(style_record['styles'])}")
+    try:
+        SCHEMA.check(cfg)
+    except Invalid as e:
+        raise SystemExit("\n".join(filter(None, [e.message, e.hint])))
     apply_compute(cfg)
 
     order = cfg["pipeline"]["stages"]

@@ -106,6 +106,31 @@ def test_a_config_without_stages_is_refused(home, calls, monkeypatch):
     assert calls == []
 
 
+def test_a_setting_no_field_declares_stops_the_run_and_names_its_fix(
+        home, calls, monkeypatch):
+    """Until 2026-09-11 only the editor checked, so the CLI ran the typo."""
+    bad = config(home, canonical={"stps": 30})
+    with pytest.raises(SystemExit, match="canonical.steps"):
+        main(monkeypatch, str(bad))
+    assert calls == []
+
+
+def test_a_setting_a_style_sheet_supplies_is_checked_too(home, calls, monkeypatch):
+    """106 of 110 shipped configs failed on a key base_pixel sets, not their own."""
+    import yaml
+
+    from pipeline.shared import paths
+
+    sheet = paths.resolve(home, "styles") / "typo_sheet"
+    sheet.mkdir(parents=True, exist_ok=True)
+    (sheet / "style.yaml").write_text(yaml.safe_dump(
+        {"label": "Typo", "settings": {"canonical": {"stps": 30}}}))
+
+    with pytest.raises(SystemExit, match="canonical.steps"):
+        main(monkeypatch, str(config(home, styles=["typo_sheet"])))
+    assert calls == []
+
+
 def test_list_stages_prints_and_exits_without_running(home, calls, monkeypatch,
                                                       capsys):
     assert main(monkeypatch, "--list-stages") == 0

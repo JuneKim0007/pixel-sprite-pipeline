@@ -262,3 +262,59 @@ def test_a_field_named_for_a_stage_belongs_to_one_that_exists():
     barren = sorted(s for s in stages
                     if not [f for f in FIELDS if f.key.startswith(f"{s}.")])
     assert not barren, f"{barren} run with settings nobody can see or bound"
+
+
+# Every path below is read by the pipeline and was refused by SCHEMA.check
+# until 2026-09-11, because check ran only where the editor saved.
+READ_BY_THE_PIPELINE = [
+    "canonical.from_reference.enabled",
+    "canonical.from_reference.start_at",
+    "canonical.from_reference.weight_type",
+    "canonical.prompt",
+    "frames.prompt",
+    "pose.views",
+    "detect.host",
+    "detect.keep_alive",
+    "detect.attempts",
+]
+
+
+@pytest.mark.parametrize("path", READ_BY_THE_PIPELINE)
+def test_a_path_the_pipeline_reads_is_a_path_a_config_may_set(path):
+    from pipeline.generation.schema import SCHEMA
+
+    assert SCHEMA.field(path) is not None, (
+        f"{path} is read while a run builds its graph and no field declares "
+        f"it, so the editor refuses to save a config that sets it")
+
+
+def test_the_deprecation_guard_answers_before_the_validator_does():
+    """`references.images` is a migration message, not a setting."""
+    from pipeline.generation.schema import SCHEMA
+
+    SCHEMA.check({"references": {"images": ["a.png"]}})
+    assert SCHEMA.field("references.images") is None
+
+
+def _shipped_configs():
+    import pathlib
+
+    return sorted(pathlib.Path("library/configs").rglob("*.yaml"))
+
+
+@pytest.mark.parametrize("path", _shipped_configs(), ids=lambda p: p.stem)
+def test_every_shipped_config_passes_the_check_a_run_now_makes(path):
+    """106 of 110 failed this on 2026-09-11, all on one key in base_pixel."""
+    import pathlib
+
+    from pipeline.generation.schema import SCHEMA
+    from pipeline.looks import styles
+    from pipeline.shared import settings
+
+    root = pathlib.Path(".")
+    raw = settings.read_yaml(path)
+    if path.stem == settings.GLOBAL_NAME:
+        SCHEMA.check(raw)
+        return
+    merged, _ = styles.effective(root, raw, picks=raw.get("style_picks"))
+    SCHEMA.check(merged)

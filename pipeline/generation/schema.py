@@ -26,6 +26,22 @@ FIELDS: list[ConfigField] = [
      help="Used only when Creature is 'auto'. Must be a vision model in "
              "Ollama, e.g. qwen2.5vl:3b. Classification only — a VLM is a poor "
              "judge of joint positions but a good judge of body plan."),
+    ConfigField(modules=["character_sheet"], key="detect.host",
+     default="http://127.0.0.1:11434", label="Vision Ollama host", kind="text",
+     group="Asset",
+     help="Where the vision model is served. A second copy of pose.llm.host "
+             "because refs/detect.py reads its own block; OPEN.md 24 is "
+             "whether these two blocks should be one."),
+    ConfigField(modules=["character_sheet"], key="detect.keep_alive",
+     default=0, label="Keep the vision model loaded", kind="int",
+     min=0, max=3600, step=30, group="Asset",
+     help="Seconds Ollama holds the VISION model after classifying. 0 unloads "
+             "it, which is what a 16 GB machine sharing memory with SDXL "
+             "wants. pose.llm.keep_alive does NOT reach this model, whatever "
+             "its help said before 2026-09-11."),
+    ConfigField(modules=["character_sheet"], key="detect.attempts", default=3,
+     label="Vision retry attempts", kind="int", min=1, max=8, group="Asset",
+     help="A reply naming no known rig is fed back with the list and retried."),
     ConfigField(modules=["character_sheet"], key="detect.min_confidence", label="Min confidence", kind="float",
      min=0.0, max=1.0, step=0.05, group="Asset",
      help="Below this the detection is discarded and humanoid is used. 0 "
@@ -58,6 +74,17 @@ FIELDS: list[ConfigField] = [
              "magenta chroma key' produced a pale blue-grey studio card with "
              "zero magenta pixels in it."),
 
+    ConfigField(key="canonical.prompt", label="Canonical prompt override",
+     kind="textarea", group="Canonical",
+     help="Replaces the prompt built from subject, style and backdrop for "
+             "this stage only. Blank builds it, which is what keeps one "
+             "subject in one place; set it when comparing checkpoints, which "
+             "is what configs/experiments/_illu_cfg*.yaml do."),
+    ConfigField(key="frames.prompt", label="Frames prompt override",
+     kind="textarea", group="Frames",
+     help="The same override for the frames stage. Setting one and not the "
+             "other is how the anchor and the frames come to describe two "
+             "different characters."),
     ConfigField(key="depth.view", label="Depth view", kind="select",
      options=list(VIEWS_FOR_UI), group="Depth",
      help="Which angle the depth map is rendered from. Blank follows pose.view, "
@@ -70,8 +97,9 @@ FIELDS: list[ConfigField] = [
      help="Seconds Ollama holds the model in memory after answering. 0 unloads "
              "immediately, which is what a 16 GB machine sharing VRAM with "
              "SDXL wants; raise it when several LLM calls run back to back. "
-             "Read by pose.py, palette.py and refs/detect.py, and declared "
-             "nowhere until 2026-09-10."),
+             "Read by pose.py and palette.py. NOT by refs/detect.py, which "
+             "has its own detect.keep_alive; this help claimed it did until "
+             "2026-09-11."),
 
     ConfigField(key="pose.thickness", label="Skeleton line width", kind="float",
      min=0.5, max=24.0, step=0.5, group="Pose",
@@ -102,6 +130,14 @@ FIELDS: list[ConfigField] = [
              "you placed become the control image, so the generation "
              "reproduces that composition with your character in it. Mark one "
              "up in the Run tab under 'Annotate reference'."),
+    ConfigField(key="pose.views", default="", label="Views from", kind="select",
+     options=["", "from_references"], group="Pose",
+     help="Blank poses the views this config lists. 'from_references' takes "
+             "one view per supplied reference, at the angle that reference "
+             "shows, so a sheet matches the references it was given. "
+             "pose.py:109 has read this and pose.py:188 has recommended it "
+             "since they were written, while the editor called it a setting "
+             "this pipeline does not have."),
     ConfigField(modules=["animation"], key="pose.name", default='idle', label="Library pose", kind="select",
      options_from="poses", group="Pose", when={"pose.source": "library"},
      help="A file in poses/. Regenerate with tools/make_poses.py."),
@@ -694,6 +730,27 @@ FIELDS: list[ConfigField] = [
      help="When the identity reference stops voting, as a fraction of "
              "sampling. Holding to 1.0 keeps the likeness tightest; releasing "
              "early lets the last steps sharpen without it pulling detail back."),
+    ConfigField(key="canonical.from_reference.enabled", default=True,
+     label="Use the identity reference", kind="bool", group="Canonical",
+     help="Off generates the anchor from the prompt alone, which is what you "
+             "want when the references describe a look rather than a person. "
+             "Read by canonical.py and declared nowhere until 2026-09-11, so "
+             "the editor refused to save a config that turned it off."),
+    ConfigField(key="canonical.from_reference.start_at", default=0.0,
+     label="Identity start %", kind="float", min=0.0, max=1.0, step=0.05,
+     group="Canonical",
+     help="When the identity reference starts voting. 0.0 lets it steer the "
+             "composition the first steps settle; raising it hands those "
+             "steps to the prompt and keeps the likeness for the detail."),
+    ConfigField(key="canonical.from_reference.weight_type", default="linear",
+     label="Identity transfer", kind="select",
+     options=["linear", "standard", "prompt is more important",
+              "style transfer", "composition", "style and composition"],
+     group="Canonical",
+     help="How the identity reference is blended in — the same argument as "
+             "frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml "
+             "has set this since it was written and no config carrying that "
+             "sheet could be saved through the editor until 2026-09-11."),
     ConfigField(key="canonical.style.end_at", default=0.8,
      label="Style end %", kind="float", min=0.0, max=1.0, step=0.05,
      group="Canonical",
@@ -1010,6 +1067,7 @@ STRUCTURAL: frozenset[str] = frozenset({
     "paths", "models", "proportions",
     "ui", "compute", "cooling.note",
     "pose.set", "softbody.nodes",
+    "references.images",
     "references.identity", "references.style", "references.pose",
     "references.palette", "references.style_exemplars", "references.from_run",
 })

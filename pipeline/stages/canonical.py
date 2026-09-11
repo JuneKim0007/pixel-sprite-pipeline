@@ -103,9 +103,9 @@ class _AnchorGraph:
         return comfy.apply_ipadapter(
             g, model, comfy.load_image(g, self.client.upload_image(chosen.path)),
             weight=float(opt(self.from_ref, "weight", None) or chosen.base_weight),
-            weight_type=opt(self.from_ref, "weight_type", "linear"),
-            start_at=float(opt(self.from_ref, "start_at", 0.0)),
-            end_at=float(opt(self.from_ref, "end_at", 1.0)),
+            weight_type=self.from_ref["weight_type"],
+            start_at=float(self.from_ref["start_at"]),
+            end_at=float(self.from_ref["end_at"]),
             models=self.ctx.settings("models"),
             attn_mask=self._emphasis(g, chosen.path),
         )
@@ -158,7 +158,6 @@ class _AnchorGraph:
 class CanonicalStage(Stage):
     name = "canonical"
     resource = Resource.GPU
-    DEFAULTS = {"from_reference": {}}
     optional = frozenset({"skeletons", "depthmaps", "pose_frames"})
     gives = frozenset({"canonical", "canonicals"})
     needs = frozenset({"references", "rig"})
@@ -174,7 +173,7 @@ class CanonicalStage(Stage):
             subject, ctx.need("rig").prompt_hint, style, backdrop)
 
         lib = ctx.need("references")
-        from_ref = cfg["from_reference"] or {}
+        from_ref = ctx.settings("canonical.from_reference")
         want_view = resolve_view(_anchor_view(ctx, cfg))
 
         skeletons = ctx.artifacts.get("skeletons") or []
@@ -183,7 +182,7 @@ class CanonicalStage(Stage):
 
         def _conditioning(view: float) -> _Conditioning:
             chosen = None
-            if lib.identity and opt(from_ref, "enabled", True):
+            if lib.identity and from_ref["enabled"]:
                 chosen, _, away = refs_mod.pick(lib.identity, view, tolerance=180.0)
                 print(f"   identity from {chosen.label} ({away:.0f}deg away)")
 

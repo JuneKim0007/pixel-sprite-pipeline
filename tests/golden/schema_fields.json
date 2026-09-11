@@ -51,6 +51,20 @@
    "type": "textarea"
   },
   {
+   "group": "Canonical",
+   "help": "Replaces the prompt built from subject, style and backdrop for this stage only. Blank builds it, which is what keeps one subject in one place; set it when comparing checkpoints, which is what configs/experiments/_illu_cfg*.yaml do.",
+   "label": "Canonical prompt override",
+   "path": "canonical.prompt",
+   "type": "textarea"
+  },
+  {
+   "group": "Frames",
+   "help": "The same override for the frames stage. Setting one and not the other is how the anchor and the frames come to describe two different characters.",
+   "label": "Frames prompt override",
+   "path": "frames.prompt",
+   "type": "textarea"
+  },
+  {
    "group": "Depth",
    "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
    "label": "Depth view",
@@ -68,7 +82,7 @@
   {
    "default": 0,
    "group": "Pose",
-   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py and palette.py. NOT by refs/detect.py, which has its own detect.keep_alive; this help claimed it did until 2026-09-11.",
    "label": "Keep the model loaded",
    "max": 3600,
    "min": 0,
@@ -113,6 +127,18 @@
     "annotation"
    ],
    "path": "pose.source",
+   "type": "select"
+  },
+  {
+   "default": "",
+   "group": "Pose",
+   "help": "Blank poses the views this config lists. 'from_references' takes one view per supplied reference, at the angle that reference shows, so a sheet matches the references it was given. pose.py:109 has read this and pose.py:188 has recommended it since they were written, while the editor called it a setting this pipeline does not have.",
+   "label": "Views from",
+   "options": [
+    "",
+    "from_references"
+   ],
+   "path": "pose.views",
    "type": "select"
   },
   {
@@ -1345,6 +1371,41 @@
    "path": "canonical.from_reference.end_at",
    "step": 0.05,
    "type": "float"
+  },
+  {
+   "default": true,
+   "group": "Canonical",
+   "help": "Off generates the anchor from the prompt alone, which is what you want when the references describe a look rather than a person. Read by canonical.py and declared nowhere until 2026-09-11, so the editor refused to save a config that turned it off.",
+   "label": "Use the identity reference",
+   "path": "canonical.from_reference.enabled",
+   "type": "bool"
+  },
+  {
+   "default": 0.0,
+   "group": "Canonical",
+   "help": "When the identity reference starts voting. 0.0 lets it steer the composition the first steps settle; raising it hands those steps to the prompt and keeps the likeness for the detail.",
+   "label": "Identity start %",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "canonical.from_reference.start_at",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": "linear",
+   "group": "Canonical",
+   "help": "How the identity reference is blended in \u2014 the same argument as frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml has set this since it was written and no config carrying that sheet could be saved through the editor until 2026-09-11.",
+   "label": "Identity transfer",
+   "options": [
+    "linear",
+    "standard",
+    "prompt is more important",
+    "style transfer",
+    "composition",
+    "style and composition"
+   ],
+   "path": "canonical.from_reference.weight_type",
+   "type": "select"
   },
   {
    "default": 0.8,
@@ -1575,6 +1636,44 @@
    "type": "text"
   },
   {
+   "default": "http://127.0.0.1:11434",
+   "group": "Asset",
+   "help": "Where the vision model is served. A second copy of pose.llm.host because refs/detect.py reads its own block; OPEN.md 24 is whether these two blocks should be one.",
+   "label": "Vision Ollama host",
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.host",
+   "type": "text"
+  },
+  {
+   "default": 0,
+   "group": "Asset",
+   "help": "Seconds Ollama holds the VISION model after classifying. 0 unloads it, which is what a 16 GB machine sharing memory with SDXL wants. pose.llm.keep_alive does NOT reach this model, whatever its help said before 2026-09-11.",
+   "label": "Keep the vision model loaded",
+   "max": 3600,
+   "min": 0,
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.keep_alive",
+   "step": 30,
+   "type": "int"
+  },
+  {
+   "default": 3,
+   "group": "Asset",
+   "help": "A reply naming no known rig is fed back with the list and retried.",
+   "label": "Vision retry attempts",
+   "max": 8,
+   "min": 1,
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.attempts",
+   "type": "int"
+  },
+  {
    "group": "Asset",
    "help": "Below this the detection is discarded and humanoid is used. 0 accepts any answer.",
    "label": "Min confidence",
@@ -1630,6 +1729,20 @@
    "type": "textarea"
   },
   {
+   "group": "Canonical",
+   "help": "Replaces the prompt built from subject, style and backdrop for this stage only. Blank builds it, which is what keeps one subject in one place; set it when comparing checkpoints, which is what configs/experiments/_illu_cfg*.yaml do.",
+   "label": "Canonical prompt override",
+   "path": "canonical.prompt",
+   "type": "textarea"
+  },
+  {
+   "group": "Frames",
+   "help": "The same override for the frames stage. Setting one and not the other is how the anchor and the frames come to describe two different characters.",
+   "label": "Frames prompt override",
+   "path": "frames.prompt",
+   "type": "textarea"
+  },
+  {
    "group": "Depth",
    "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
    "label": "Depth view",
@@ -1647,7 +1760,7 @@
   {
    "default": 0,
    "group": "Pose",
-   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py and palette.py. NOT by refs/detect.py, which has its own detect.keep_alive; this help claimed it did until 2026-09-11.",
    "label": "Keep the model loaded",
    "max": 3600,
    "min": 0,
@@ -1692,6 +1805,18 @@
     "annotation"
    ],
    "path": "pose.source",
+   "type": "select"
+  },
+  {
+   "default": "",
+   "group": "Pose",
+   "help": "Blank poses the views this config lists. 'from_references' takes one view per supplied reference, at the angle that reference shows, so a sheet matches the references it was given. pose.py:109 has read this and pose.py:188 has recommended it since they were written, while the editor called it a setting this pipeline does not have.",
+   "label": "Views from",
+   "options": [
+    "",
+    "from_references"
+   ],
+   "path": "pose.views",
    "type": "select"
   },
   {
@@ -2794,6 +2919,41 @@
    "type": "float"
   },
   {
+   "default": true,
+   "group": "Canonical",
+   "help": "Off generates the anchor from the prompt alone, which is what you want when the references describe a look rather than a person. Read by canonical.py and declared nowhere until 2026-09-11, so the editor refused to save a config that turned it off.",
+   "label": "Use the identity reference",
+   "path": "canonical.from_reference.enabled",
+   "type": "bool"
+  },
+  {
+   "default": 0.0,
+   "group": "Canonical",
+   "help": "When the identity reference starts voting. 0.0 lets it steer the composition the first steps settle; raising it hands those steps to the prompt and keeps the likeness for the detail.",
+   "label": "Identity start %",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "canonical.from_reference.start_at",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": "linear",
+   "group": "Canonical",
+   "help": "How the identity reference is blended in \u2014 the same argument as frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml has set this since it was written and no config carrying that sheet could be saved through the editor until 2026-09-11.",
+   "label": "Identity transfer",
+   "options": [
+    "linear",
+    "standard",
+    "prompt is more important",
+    "style transfer",
+    "composition",
+    "style and composition"
+   ],
+   "path": "canonical.from_reference.weight_type",
+   "type": "select"
+  },
+  {
    "default": 0.8,
    "group": "Canonical",
    "help": "When the style exemplar stops voting. Diffusion settles broad layout early and texture late, so an exemplar holding to 0.8 is still voting through the steps that draw linework - which is what a style sheet asking for a 'thick dark outline' is competing with. Lowering it hands those steps to the prompt.",
@@ -3022,6 +3182,44 @@
    "type": "text"
   },
   {
+   "default": "http://127.0.0.1:11434",
+   "group": "Asset",
+   "help": "Where the vision model is served. A second copy of pose.llm.host because refs/detect.py reads its own block; OPEN.md 24 is whether these two blocks should be one.",
+   "label": "Vision Ollama host",
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.host",
+   "type": "text"
+  },
+  {
+   "default": 0,
+   "group": "Asset",
+   "help": "Seconds Ollama holds the VISION model after classifying. 0 unloads it, which is what a 16 GB machine sharing memory with SDXL wants. pose.llm.keep_alive does NOT reach this model, whatever its help said before 2026-09-11.",
+   "label": "Keep the vision model loaded",
+   "max": 3600,
+   "min": 0,
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.keep_alive",
+   "step": 30,
+   "type": "int"
+  },
+  {
+   "default": 3,
+   "group": "Asset",
+   "help": "A reply naming no known rig is fed back with the list and retried.",
+   "label": "Vision retry attempts",
+   "max": 8,
+   "min": 1,
+   "modules": [
+    "character_sheet"
+   ],
+   "path": "detect.attempts",
+   "type": "int"
+  },
+  {
    "group": "Asset",
    "help": "Below this the detection is discarded and humanoid is used. 0 accepts any answer.",
    "label": "Min confidence",
@@ -3077,6 +3275,20 @@
    "type": "textarea"
   },
   {
+   "group": "Canonical",
+   "help": "Replaces the prompt built from subject, style and backdrop for this stage only. Blank builds it, which is what keeps one subject in one place; set it when comparing checkpoints, which is what configs/experiments/_illu_cfg*.yaml do.",
+   "label": "Canonical prompt override",
+   "path": "canonical.prompt",
+   "type": "textarea"
+  },
+  {
+   "group": "Frames",
+   "help": "The same override for the frames stage. Setting one and not the other is how the anchor and the frames come to describe two different characters.",
+   "label": "Frames prompt override",
+   "path": "frames.prompt",
+   "type": "textarea"
+  },
+  {
    "group": "Depth",
    "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
    "label": "Depth view",
@@ -3094,7 +3306,7 @@
   {
    "default": 0,
    "group": "Pose",
-   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py and palette.py. NOT by refs/detect.py, which has its own detect.keep_alive; this help claimed it did until 2026-09-11.",
    "label": "Keep the model loaded",
    "max": 3600,
    "min": 0,
@@ -3139,6 +3351,18 @@
     "annotation"
    ],
    "path": "pose.source",
+   "type": "select"
+  },
+  {
+   "default": "",
+   "group": "Pose",
+   "help": "Blank poses the views this config lists. 'from_references' takes one view per supplied reference, at the angle that reference shows, so a sheet matches the references it was given. pose.py:109 has read this and pose.py:188 has recommended it since they were written, while the editor called it a setting this pipeline does not have.",
+   "label": "Views from",
+   "options": [
+    "",
+    "from_references"
+   ],
+   "path": "pose.views",
    "type": "select"
   },
   {
@@ -4382,6 +4606,41 @@
    "path": "canonical.from_reference.end_at",
    "step": 0.05,
    "type": "float"
+  },
+  {
+   "default": true,
+   "group": "Canonical",
+   "help": "Off generates the anchor from the prompt alone, which is what you want when the references describe a look rather than a person. Read by canonical.py and declared nowhere until 2026-09-11, so the editor refused to save a config that turned it off.",
+   "label": "Use the identity reference",
+   "path": "canonical.from_reference.enabled",
+   "type": "bool"
+  },
+  {
+   "default": 0.0,
+   "group": "Canonical",
+   "help": "When the identity reference starts voting. 0.0 lets it steer the composition the first steps settle; raising it hands those steps to the prompt and keeps the likeness for the detail.",
+   "label": "Identity start %",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "canonical.from_reference.start_at",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": "linear",
+   "group": "Canonical",
+   "help": "How the identity reference is blended in \u2014 the same argument as frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml has set this since it was written and no config carrying that sheet could be saved through the editor until 2026-09-11.",
+   "label": "Identity transfer",
+   "options": [
+    "linear",
+    "standard",
+    "prompt is more important",
+    "style transfer",
+    "composition",
+    "style and composition"
+   ],
+   "path": "canonical.from_reference.weight_type",
+   "type": "select"
   },
   {
    "default": 0.8,
@@ -4644,6 +4903,20 @@
    "type": "textarea"
   },
   {
+   "group": "Canonical",
+   "help": "Replaces the prompt built from subject, style and backdrop for this stage only. Blank builds it, which is what keeps one subject in one place; set it when comparing checkpoints, which is what configs/experiments/_illu_cfg*.yaml do.",
+   "label": "Canonical prompt override",
+   "path": "canonical.prompt",
+   "type": "textarea"
+  },
+  {
+   "group": "Frames",
+   "help": "The same override for the frames stage. Setting one and not the other is how the anchor and the frames come to describe two different characters.",
+   "label": "Frames prompt override",
+   "path": "frames.prompt",
+   "type": "textarea"
+  },
+  {
    "group": "Depth",
    "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
    "label": "Depth view",
@@ -4661,7 +4934,7 @@
   {
    "default": 0,
    "group": "Pose",
-   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py and palette.py. NOT by refs/detect.py, which has its own detect.keep_alive; this help claimed it did until 2026-09-11.",
    "label": "Keep the model loaded",
    "max": 3600,
    "min": 0,
@@ -4706,6 +4979,18 @@
     "annotation"
    ],
    "path": "pose.source",
+   "type": "select"
+  },
+  {
+   "default": "",
+   "group": "Pose",
+   "help": "Blank poses the views this config lists. 'from_references' takes one view per supplied reference, at the angle that reference shows, so a sheet matches the references it was given. pose.py:109 has read this and pose.py:188 has recommended it since they were written, while the editor called it a setting this pipeline does not have.",
+   "label": "Views from",
+   "options": [
+    "",
+    "from_references"
+   ],
+   "path": "pose.views",
    "type": "select"
   },
   {
@@ -5795,6 +6080,41 @@
    "path": "canonical.from_reference.end_at",
    "step": 0.05,
    "type": "float"
+  },
+  {
+   "default": true,
+   "group": "Canonical",
+   "help": "Off generates the anchor from the prompt alone, which is what you want when the references describe a look rather than a person. Read by canonical.py and declared nowhere until 2026-09-11, so the editor refused to save a config that turned it off.",
+   "label": "Use the identity reference",
+   "path": "canonical.from_reference.enabled",
+   "type": "bool"
+  },
+  {
+   "default": 0.0,
+   "group": "Canonical",
+   "help": "When the identity reference starts voting. 0.0 lets it steer the composition the first steps settle; raising it hands those steps to the prompt and keeps the likeness for the detail.",
+   "label": "Identity start %",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "canonical.from_reference.start_at",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": "linear",
+   "group": "Canonical",
+   "help": "How the identity reference is blended in \u2014 the same argument as frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml has set this since it was written and no config carrying that sheet could be saved through the editor until 2026-09-11.",
+   "label": "Identity transfer",
+   "options": [
+    "linear",
+    "standard",
+    "prompt is more important",
+    "style transfer",
+    "composition",
+    "style and composition"
+   ],
+   "path": "canonical.from_reference.weight_type",
+   "type": "select"
   },
   {
    "default": 0.8,
@@ -6057,6 +6377,20 @@
    "type": "textarea"
   },
   {
+   "group": "Canonical",
+   "help": "Replaces the prompt built from subject, style and backdrop for this stage only. Blank builds it, which is what keeps one subject in one place; set it when comparing checkpoints, which is what configs/experiments/_illu_cfg*.yaml do.",
+   "label": "Canonical prompt override",
+   "path": "canonical.prompt",
+   "type": "textarea"
+  },
+  {
+   "group": "Frames",
+   "help": "The same override for the frames stage. Setting one and not the other is how the anchor and the frames come to describe two different characters.",
+   "label": "Frames prompt override",
+   "path": "frames.prompt",
+   "type": "textarea"
+  },
+  {
    "group": "Depth",
    "help": "Which angle the depth map is rendered from. Blank follows pose.view, which is what keeps the two guides describing the same body. depth.size beside it was declared and this was not, so a config could set it and never see it in the form.",
    "label": "Depth view",
@@ -6074,7 +6408,7 @@
   {
    "default": 0,
    "group": "Pose",
-   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py, palette.py and refs/detect.py, and declared nowhere until 2026-09-10.",
+   "help": "Seconds Ollama holds the model in memory after answering. 0 unloads immediately, which is what a 16 GB machine sharing VRAM with SDXL wants; raise it when several LLM calls run back to back. Read by pose.py and palette.py. NOT by refs/detect.py, which has its own detect.keep_alive; this help claimed it did until 2026-09-11.",
    "label": "Keep the model loaded",
    "max": 3600,
    "min": 0,
@@ -6119,6 +6453,18 @@
     "annotation"
    ],
    "path": "pose.source",
+   "type": "select"
+  },
+  {
+   "default": "",
+   "group": "Pose",
+   "help": "Blank poses the views this config lists. 'from_references' takes one view per supplied reference, at the angle that reference shows, so a sheet matches the references it was given. pose.py:109 has read this and pose.py:188 has recommended it since they were written, while the editor called it a setting this pipeline does not have.",
+   "label": "Views from",
+   "options": [
+    "",
+    "from_references"
+   ],
+   "path": "pose.views",
    "type": "select"
   },
   {
@@ -7208,6 +7554,41 @@
    "path": "canonical.from_reference.end_at",
    "step": 0.05,
    "type": "float"
+  },
+  {
+   "default": true,
+   "group": "Canonical",
+   "help": "Off generates the anchor from the prompt alone, which is what you want when the references describe a look rather than a person. Read by canonical.py and declared nowhere until 2026-09-11, so the editor refused to save a config that turned it off.",
+   "label": "Use the identity reference",
+   "path": "canonical.from_reference.enabled",
+   "type": "bool"
+  },
+  {
+   "default": 0.0,
+   "group": "Canonical",
+   "help": "When the identity reference starts voting. 0.0 lets it steer the composition the first steps settle; raising it hands those steps to the prompt and keeps the likeness for the detail.",
+   "label": "Identity start %",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "canonical.from_reference.start_at",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": "linear",
+   "group": "Canonical",
+   "help": "How the identity reference is blended in \u2014 the same argument as frames.ip_adapter.weight_type, on the anchor. base_pixel.yaml has set this since it was written and no config carrying that sheet could be saved through the editor until 2026-09-11.",
+   "label": "Identity transfer",
+   "options": [
+    "linear",
+    "standard",
+    "prompt is more important",
+    "style transfer",
+    "composition",
+    "style and composition"
+   ],
+   "path": "canonical.from_reference.weight_type",
+   "type": "select"
   },
   {
    "default": 0.8,
