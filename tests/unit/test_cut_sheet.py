@@ -91,7 +91,8 @@ def test_a_cut_view_is_square_and_the_figure_never_touches_an_edge(tmp_path):
     from PIL import Image
 
     from pipeline.geometry.framing import measure
-    from tools.cut_sheet import SHARE, _squared
+    from pipeline.geometry import framing
+    from tools.cut_sheet import SHARE
 
     art = np.full((900, 200, 3), (240, 90, 150), dtype=np.uint8)
     art[:, :] = (20, 20, 20)
@@ -99,7 +100,8 @@ def test_a_cut_view_is_square_and_the_figure_never_touches_an_edge(tmp_path):
     Image.fromarray(art).save(src)
 
     with Image.open(src) as handle:
-        out = _squared(handle.convert("RGB"), (0, 0, 199, 899), (240, 90, 150))
+        crop = handle.convert("RGB").crop((0, 0, 200, 900))
+    out = framing.seat(crop, framing.square_for(crop, SHARE), SHARE, (240, 90, 150))
     saved = tmp_path / "sq.png"
     out.save(saved)
 

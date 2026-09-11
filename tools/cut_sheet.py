@@ -10,6 +10,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from pipeline.geometry import framing  # noqa: E402
 from pipeline.geometry.framing import backdrop_of  # noqa: E402
 
 TOLERANCE = 45
@@ -160,16 +161,6 @@ def _extent(mask: np.ndarray, column: tuple[int, int], band: tuple[int, int],
             box[0] + int(cols[-1]), box[1] + int(rows[-1]))
 
 
-def _squared(image: Image.Image, box: tuple[int, int, int, int],
-             backdrop: tuple[int, int, int]) -> Image.Image:
-    """The figure centred on a square, at the same share of it every time."""
-    crop = image.crop((box[0], box[1], box[2] + 1, box[3] + 1))
-    edge = round(max(crop.width, crop.height) / SHARE)
-    canvas = Image.new("RGB", (edge, edge), backdrop)
-    canvas.paste(crop, ((edge - crop.width) // 2, (edge - crop.height) // 2))
-    return canvas
-
-
 def cut(sheet: Path, outdir: Path, views: int = 0) -> list[str]:
     with Image.open(sheet) as handle:
         image = handle.convert("RGB")
@@ -201,7 +192,9 @@ def cut(sheet: Path, outdir: Path, views: int = 0) -> list[str]:
         lo = 0 if i == 0 else (found[i - 1][1] + left) // 2
         hi = image.width if i + 1 >= len(found) else (right + found[i + 1][0]) // 2
         box = _extent(mask, (left, right), band, (lo, hi), blobs)
-        out = _squared(image, box, backdrop)
+        crop = image.crop((box[0], box[1], box[2] + 1, box[3] + 1))
+        out = framing.seat(crop, framing.square_for(crop, SHARE),
+                           SHARE, backdrop)
         out.save(outdir / f"{names[i]}.png")
         written.append(f"{names[i]:11} figure {box[2] - box[0]}x{box[3] - box[1]}"
                        f" -> {out.width}x{out.height} square")

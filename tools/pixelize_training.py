@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """Reduce a cleaned training image to a sprite canvas on at most N colours.
 
-Two orders are possible and they are not equivalent. Reducing first averages
-full-colour detail into each output pixel and then picks a palette that suits
-what survived. Quantising first picks a palette from detail that is about to
-be thrown away, and the reduction then averages palette entries into colours
-that are no longer in the palette, so it has to be fitted twice.
+Why the two orders differ: docs/downloaded-art-to-sprites.md.
 """
 
 from __future__ import annotations
@@ -20,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from pipeline.definitive import pixelize as px  # noqa: E402
+from pipeline.geometry import framing  # noqa: E402
 
 COLOURS = 12
 FILL = 0.92
@@ -39,38 +36,6 @@ def _crop_to_subject(im: Image.Image) -> Image.Image:
     return im.crop(box) if box else im
 
 
-def _seat(im: Image.Image, canvas: tuple[int, int],
-          resample: int = Image.BOX, binary: bool = True) -> Image.Image:
-    """Fit the figure into the canvas at FILL, centred, on transparency.
-
-    Premultiplied, because resizing RGBA straight blends each edge pixel with
-    the transparent black beside it and leaves a dark fringe. Alpha is then
-    thresholded: a sprite's edge is in or out, and a half-transparent pixel is
-    a colour the palette did not choose.
-    """
-    cw, ch = canvas
-    w, h = im.size
-    k = min(cw * FILL / w, ch * FILL / h)
-    size = (max(1, round(w * k)), max(1, round(h * k)))
-
-    a = np.asarray(im).astype(np.float32)
-    alpha = a[..., 3:4] / 255.0
-    pre = Image.fromarray(np.dstack([a[..., :3] * alpha,
-                                     a[..., 3:4]]).astype(np.uint8), "RGBA")
-    small = np.asarray(pre.resize(size, resample)).astype(np.float32)
-    back = np.clip(small[..., 3:4] / 255.0, 1e-6, None)
-    rgb = np.clip(small[..., :3] / back, 0, 255)
-    out_a = small[..., 3]
-    if binary:
-        out_a = np.where(out_a >= 128, 255, 0)
-    seated = Image.fromarray(
-        np.dstack([rgb, out_a]).astype(np.uint8), "RGBA")
-
-    out = Image.new("RGBA", canvas, (0, 0, 0, 0))
-    out.paste(seated, ((cw - size[0]) // 2, (ch - size[1]) // 2))
-    return out
-
-
 def _quantise(rgba: np.ndarray, colours: int) -> np.ndarray:
     rgb, alpha = rgba[..., :3], rgba[..., 3]
     if not (alpha > 0).any():
@@ -80,16 +45,14 @@ def _quantise(rgba: np.ndarray, colours: int) -> np.ndarray:
     return np.dstack([fitted, alpha])
 
 
-def reduce_then_quantise(im: Image.Image, canvas, colours=COLOURS,
-                         resample=Image.BOX) -> np.ndarray:
-    seated = _seat(_crop_to_subject(im), canvas, resample)
+def reduce_then_quantise(im: Image.Image, canvas, colours=COLOURS) -> np.ndarray:
+    seated = framing.seat(_crop_to_subject(im), canvas, FILL)
     return _quantise(np.asarray(seated), colours)
 
 
-def quantise_then_reduce(im: Image.Image, canvas, colours=COLOURS,
-                         resample=Image.BOX) -> np.ndarray:
+def quantise_then_reduce(im: Image.Image, canvas, colours=COLOURS) -> np.ndarray:
     big = _quantise(np.asarray(_crop_to_subject(im)), colours)
-    seated = _seat(Image.fromarray(big, "RGBA"), canvas, resample)
+    seated = framing.seat(Image.fromarray(big, "RGBA"), canvas, FILL)
     # Averaging palette entries invents colours between them; fit again.
     return _quantise(np.asarray(seated), colours)
 

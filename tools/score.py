@@ -42,12 +42,11 @@ def likeness(reference: Path, generated: Path) -> float:
 
 
 def subject(image: Path, tolerance: int = 60) -> tuple[np.ndarray, np.ndarray]:
-    from pipeline.geometry.framing import backdrop_of
+    from pipeline.geometry import framing
 
     with Image.open(image) as handle:
         pixels = np.asarray(handle.convert("RGB")).astype(int)
-    bg = backdrop_of(pixels)
-    return pixels, np.abs(pixels - bg).sum(axis=2) > tolerance
+    return pixels, framing.stands_out(pixels, framing.backdrop_of(pixels), tolerance)
 
 
 def bleed(image: Path, key: tuple[int, int, int], within: int = 110) -> float:
