@@ -1,0 +1,36 @@
+module: character_sheet
+subject: a woman with very long pink hair, a cream off the shoulder blouse, purple
+  belt straps, purple thigh socks and white knee boots
+style: pixel art, game sprite
+styles:
+- hi_fidelity
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  lora_strength: 0.8
+  style_weight: 0.12
+references:
+  identity:
+  - path: library/refs/char4/front.png
+    view: front
+  - path: library/refs/char4/side.png
+    view: side
+  - path: library/refs/char4/side_right.png
+    view: 270
+  - path: library/refs/char4/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60

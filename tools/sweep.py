@@ -81,48 +81,51 @@ SUBJECTS = {
 # would not have finished; these five are the ones whose answer is not already
 # known. `wide` and `hold_control` were both run against experiment_slim, and
 # `no_style` is the degenerate end of `identity_led`.
+# Round three. The defaults now carry what rounds one and two measured - lora
+# 0.8, identity 1.15, style 0.12, background auto - so `shipped` IS the
+# baseline and each variant moves one thing off it.
 VARIANTS = {
-    "baseline": {},
-    "no_key": {"background": {"enabled": False}},
-    "identity_led": {"canonical": {"from_reference": {"weight": 1.15},
-                                   "style_weight": 0.12}},
-    "emphasis": {"_paint": True},
-    # identity_led scores best on both numbers and brings the reference sheet's
-    # own backdrop with it - a horizon on char7, a halo on char8. The mask is
-    # the fix that costs nothing else.
-    "identity_masked": {"canonical": {"from_reference": {"weight": 1.15},
-                                      "style_weight": 0.12},
-                        "_paint": True},
-    # Same weights, off the retro chain.
-    "crisp": {"styles": ["crisp"],
-              "canonical": {"from_reference": {"weight": 1.15},
-                            "style_weight": 0.12}},
-
-    # The block ladder. Every variant above measures block 2.0 on char8, so
-    # conditioning does not move the grid the model draws and the LoRA's grip
-    # is the next thing to try. 1.2 is the baseline and is already measured;
-    # 0.8 is here to show the metric responds at all, in the direction that
-    # should make it finer.
-    "lora_08": {"canonical": {"lora_strength": 0.8}},
-    "lora_16": {"canonical": {"lora_strength": 1.6}},
-    "lora_20": {"canonical": {"lora_strength": 2.0}},
+    "shipped": {},
+    # hi_fidelity carries three style exemplars, two of them silver-and-purple
+    # Frieren frames, applied with weight_type "style transfer" - which the
+    # IPAdapter docs say copies COLOUR along with texture and lighting. crisp
+    # carries none. This is the colour question, asked directly.
+    # lora_strength pinned: hi_fidelity inherits retro_jrpg's 1.2, so without
+    # this the variant would move the exemplars AND the LoRA at once and a
+    # difference would name neither.
+    "with_exemplars": {"styles": ["hi_fidelity"],
+                       "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
+    # Identity against the prompt, with no exemplar in the way.
+    "identity_14": {"canonical": {"from_reference": {"weight": 1.4}}},
+    "identity_14_exemplars": {"styles": ["hi_fidelity"],
+                              "canonical": {"lora_strength": 0.8,
+                                            "style_weight": 0.12,
+                                            "from_reference": {"weight": 1.4}}},
+    # The block question. Never run: the quantiser is measured, the sampling
+    # that follows it is not.
+    "pixelised": {"pipeline": {"stages": ["pose", "depth", "canonical",
+                                          "pixelise"],
+                               "stop_after": "pixelise"}},
 }
 
 
 def base(char: str) -> dict:
+    """Only what a sweep needs: one front anchor, this character's references.
+
+    Everything else is left to base_pixel and the style sheet on purpose. The
+    earlier rounds pinned proportions, background.colour, style_weight and
+    style.end_at here, which meant the sweep measured its own settings rather
+    than the ones a real run would inherit.
+    """
     return {
         "module": "character_sheet",
         "subject": SUBJECTS[char],
         "style": "pixel art, game sprite",
-        "styles": ["hi_fidelity"],
+        "styles": ["crisp"],
         "props": [],
         "props_enabled": False,
-        "proportions": {"legs": 1.15, "torso": 1.1},
-        "background": {"colour": "242, 94, 147"},
-        "pose": {"source": "tpose", "size": 1024, "fill": 0.69,
-                 "margin": 0.14, "set": [{"view": "front"}]},
-        "canonical": {"candidates": 1, "style": {"end_at": 0.65},
-                      "style_weight": 0.28},
+        "pose": {"source": "tpose", "size": 1024, "set": [{"view": "front"}]},
+        "canonical": {"candidates": 1},
         "references": {"identity": [
             {"path": f"library/refs/{char}/{name}.png", "view": view}
             for name, view in VIEWS.items()

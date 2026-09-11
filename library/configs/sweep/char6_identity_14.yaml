@@ -1,0 +1,36 @@
+module: character_sheet
+subject: a dark skinned man with a white head veil, bare chest, navy and gold patterned
+  wrap trousers, gold jewellery and brown boots
+style: pixel art, game sprite
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  from_reference:
+    weight: 1.4
+references:
+  identity:
+  - path: library/refs/char6/front.png
+    view: front
+  - path: library/refs/char6/side.png
+    view: side
+  - path: library/refs/char6/side_right.png
+    view: 270
+  - path: library/refs/char6/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60

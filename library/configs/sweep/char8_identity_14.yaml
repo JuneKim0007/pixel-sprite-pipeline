@@ -1,0 +1,36 @@
+module: character_sheet
+subject: a woman with long black hair, dark red and navy armour, a red cape and navy
+  thigh boots
+style: pixel art, game sprite
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  from_reference:
+    weight: 1.4
+references:
+  identity:
+  - path: library/refs/char8/front.png
+    view: front
+  - path: library/refs/char8/side.png
+    view: side
+  - path: library/refs/char8/side_right.png
+    view: 270
+  - path: library/refs/char8/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
