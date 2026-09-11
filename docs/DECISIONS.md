@@ -548,3 +548,25 @@ regressing the exact bug it exists to prevent, in the name of tidying it up. The
 table's comment now says what it actually is, permanent rather than
 transitional, and a parametrized test locks the four entries and their statuses
 in place instead of chasing a raise site that was never coming.
+
+### Fix the generation before the reduction
+
+The sprite that ships is a 1024 canvas reduced by 8. When it reads soft there
+are two places to reach for, and only one of them is the cause.
+
+Measured across 24 runs: `estimate_block_size` on the canonical the model drew
+reports a native block of **1.75 to 2.00**. A crisp 128 sprite off a 1024
+canvas needs **8**. So the model is drawing roughly 512 cells where 128 were
+asked for, and the reduction averages four native pixels into each output
+pixel. The frames measured finer than the canonical on the same settings,
+which is why they always looked worse than the anchor they were matched to.
+
+Changing `palette.reduce` makes that averaging prettier - `salient` keeps a
+character's eye where `median` erases it - but it is still averaging detail
+that should never have been drawn at that scale. The definitive layer is the
+last place to look, not the first, and a change there can hide the measurement
+that would have found the real fault.
+
+The order is: what the model draws, then what conditions it, then how it is
+reduced. `score.json` carries `block` beside `likeness` so the first question
+is answerable from any run without re-deriving it.

@@ -156,7 +156,19 @@ def run_audit(run_dir: Path) -> dict:
         "steps": canonical.get("steps"),
         "palette": {"source": palette.get("source"), "size": palette.get("size"),
                     "factor": palette.get("factor"), "match": palette.get("match")},
+        "score": _score(run_dir),
     }
+
+
+def _score(run: Path) -> dict:
+    """What a run measured against its reference, if anything scored it."""
+    path = run / "score.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def _consumed(run: Path, stage_names: list[str]) -> dict[str, list[str]]:

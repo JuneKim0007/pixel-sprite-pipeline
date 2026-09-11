@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 CONFIGS = ROOT / "library/configs/sweep"
-RESULTS = ROOT / "var/sweep.jsonl"
+RUNS = ROOT / "out/runs"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one -
 # the rest has to sit between runs or the machine works 56 of them back to back.
@@ -184,39 +184,49 @@ def plan() -> list[tuple[str, str, Path]]:
     return out
 
 
-def done() -> set[str]:
-    """Only runs that actually SCORED count as done.
+def scored() -> dict[str, dict]:
+    """Every run that carries a score, read from the runs themselves.
 
-    A run killed part-way still appended its row, and treating that as done
-    meant an interrupted sweep skipped the character it was interrupted on.
+    A private results file was a second record of something each run already
+    keeps beside its artifacts.json, and only this tool could read it.
     """
-    if not RESULTS.exists():
-        return set()
-    rows = [json.loads(line) for line in RESULTS.read_text().splitlines() if line]
-    return {r["id"] for r in rows if "likeness" in r}
+    out: dict[str, dict] = {}
+    for path in sorted(RUNS.glob("*/score.json")):
+        try:
+            row = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        variant = row.get("variant")
+        char = Path(row.get("reference", "")).parent.name
+        if variant and char:
+            row["run"] = path.parent.name
+            out[f"{char}_{variant}"] = row
+    return out
+
+
+def done() -> set[str]:
+    return set(scored())
 
 
 def score_run(char: str, name: str, run_dir: Path) -> dict | None:
     """Scored in a subprocess: CLIP-ViT-H-14 is 2.35 GB, ComfyUI holds 5.6 of
-    the machine's 16, and keeping the encoder resident for the whole sweep is
-    what put the machine under memory pressure and had the sweep killed."""
-    made = sorted(run_dir.glob("*_canonical/canonical*.png"))
-    if not made:
-        return None
+    the machine's 16, and keeping the encoder resident is what got this killed."""
     out = subprocess.run(
         [str(ROOT / "ComfyUI/.venv/bin/python"), str(ROOT / "tools/score.py"),
-         str(ROOT / f"library/refs/{char}/front.png"), str(made[0])],
+         str(ROOT / f"library/refs/{char}/front.png"), str(run_dir)],
         cwd=ROOT, capture_output=True, text=True)
-    for line in reversed(out.stdout.splitlines()):
-        if line.startswith("{"):
-            return json.loads(line)
-    return None
+    path = run_dir / "score.json"
+    if out.returncode != 0 or not path.exists():
+        return None
+    row = json.loads(path.read_text())
+    row["variant"] = name
+    path.write_text(json.dumps(row, indent=1) + "\n")
+    return row
 
 
 def run_all() -> int:
     from pipeline.geometry import framing
 
-    RESULTS.parent.mkdir(parents=True, exist_ok=True)
     # An interrupted emphasis run leaves its maps behind, and every later
     # variant would then be scored with a regional weight it never asked for.
     for char in SUBJECTS:
@@ -254,8 +264,6 @@ def run_all() -> int:
             made = sorted(out.glob("*_canonical/canonical*.png"))[0]
             box = framing.measure(made)
             row["clipped"] = ",".join(box.clipped) if box else "?"
-        with RESULTS.open("a") as handle:
-            handle.write(json.dumps(row) + "\n")
         print(f"  {row['id']:26} {row.get('likeness', '-')}  "
               f"bleed {row.get('bleed', '-')}  {row['seconds']}s", flush=True)
         if job is not jobs[-1]:
@@ -264,31 +272,30 @@ def run_all() -> int:
 
 
 def report_table() -> int:
-    if not RESULTS.exists():
-        print("nothing run yet")
+    rows = list(scored().values())
+    if not rows:
+        print("nothing scored yet")
         return 1
-    rows = [json.loads(line) for line in RESULTS.read_text().splitlines() if line]
-    scored = [r for r in rows if "likeness" in r]
 
-    print(f"\n{len(scored)} scored of {len(rows)} run\n")
-    print("by variant, mean likeness to the character's own reference:")
+    print(f"\n{len(rows)} scored runs\n")
+    print("by variant:")
     for name in VARIANTS:
-        mine = [r for r in scored if r["variant"] == name]
+        mine = [r for r in rows if r.get("variant") == name]
         if not mine:
             continue
-        like = sum(r["likeness"] for r in mine) / len(mine)
-        bled = sum(r["bleed"] for r in mine) / len(mine)
-        cut = sum(1 for r in mine if r.get("clipped"))
-        print(f"  {name:14} likeness {like:.4f}  bleed {bled:.3f}  "
-              f"clipped {cut}/{len(mine)}")
+        avg = lambda k: sum(r.get(k, 0) for r in mine) / len(mine)  # noqa: E731
+        print(f"  {name:16} n={len(mine):2}  likeness {avg('likeness'):.4f}  "
+              f"bleed {avg('bleed'):.4f}  block {avg('block'):.2f}")
 
     print("\nbest variant per character:")
-    for char in sorted({r["char"] for r in scored}):
-        mine = sorted((r for r in scored if r["char"] == char),
-                      key=lambda r: -r["likeness"])
+    chars = sorted({Path(r.get("reference", "")).parent.name for r in rows})
+    for char in chars:
+        mine = sorted((r for r in rows
+                       if Path(r.get("reference", "")).parent.name == char),
+                      key=lambda r: -r.get("likeness", 0))
         if mine:
-            top = mine[0]
-            print(f"  {char}: {top['variant']:14} {top['likeness']:.4f}")
+            print(f"  {char}: {mine[0].get('variant', '?'):16} "
+                  f"{mine[0].get('likeness', 0):.4f}")
     return 0
 
 

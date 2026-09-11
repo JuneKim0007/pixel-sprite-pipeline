@@ -82,25 +82,68 @@ def build(image: Path) -> float:
     return height / max(widest, 1)
 
 
+def block(image: Path) -> float:
+    """The pixel grid the MODEL drew, before any reduction.
+
+    For a crisp 128 sprite off a 1024 canvas this wants to be 8. Below that the
+    reduction is averaging native pixels away, and the sprite reads softer than
+    its grid.
+    """
+    import numpy as np
+    from PIL import Image
+
+    from pipeline.definitive.pixelize import estimate_block_size
+
+    with Image.open(image) as handle:
+        pixels = np.asarray(handle.convert("RGB"))
+    try:
+        return float(estimate_block_size(pixels))
+    except Exception:                                   # noqa: BLE001
+        return 0.0
+
+
 def report(reference: Path, generated: Path,
            key: tuple[int, int, int] = (242, 94, 147)) -> dict:
     return {
         "likeness": round(likeness(reference, generated), 4),
         "bleed": round(bleed(generated, key), 4),
         "build": round(build(generated), 2),
+        "block": block(generated),
     }
 
 
+SIDECAR = "score.json"
+
+
+def score_into(run_dir: Path, reference: Path,
+               key: tuple[int, int, int] = (242, 94, 147)) -> dict | None:
+    """Write the score into the run's own record, beside artifacts.json."""
+    import json
+
+    made = sorted(run_dir.glob("*_canonical/canonical*.png"))
+    if not made:
+        return None
+    out = report(reference, made[0], key)
+    out["reference"] = str(reference)
+    (run_dir / SIDECAR).write_text(json.dumps(out, indent=1) + "\n")
+    return out
+
+
 def main() -> int:
+    import json
+
     if len(sys.argv) < 3:
         print(__doc__)
         return 2
-    import json
-
     key = (242, 94, 147)
     if len(sys.argv) >= 6:
         key = tuple(int(v) for v in sys.argv[3:6])
-    print(json.dumps(report(Path(sys.argv[1]), Path(sys.argv[2]), key)))
+
+    target = Path(sys.argv[2])
+    if target.is_dir():
+        print(json.dumps(score_into(target, Path(sys.argv[1]), key)))
+        return 0
+    print(json.dumps(report(Path(sys.argv[1]), target, key)))
     return 0
 
 
