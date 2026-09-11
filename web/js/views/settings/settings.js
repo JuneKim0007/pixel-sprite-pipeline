@@ -2,6 +2,7 @@
 
 import { api, delPath, getPath, setPath } from '../../api.js';
 import { showError } from '../../core/errors.js';
+import { housekeepingSection } from './housekeeping.js';
 import { Button } from '../../ui/index.js';
 import { renderGroup } from '../../fields.js';
 import { el } from '../../core/dom.js';
@@ -14,11 +15,11 @@ const ORDER = [
   'Asset', 'Proportions', 'Pipeline', 'Pose', 'Depth', 'Canonical', 'Frames',
   'Pose control', 'Identity', 'References', 'Props', 'Softbody', 'Pixelise',
   'Palette', 'Quality', 'Export', 'LLM', 'Models', 'Compute', 'Services',
-  'Paths',
+  'Paths', 'Housekeeping',
 ];
 
 // Groups with no schema fields; their editor is hand-written, not generated.
-const ALWAYS = new Set(['Paths', 'Softbody', 'References']);
+const ALWAYS = new Set(['Paths', 'Softbody', 'References', 'Housekeeping']);
 
 function sectionOrder(counts) {
   const known = new Set(ORDER);
@@ -120,7 +121,9 @@ export function renderSettings(host, { onSaved }) {
       GLOBAL_ONLY.has(section) && !isGlobal
         ? el('span', { className: 'headnote', textContent: 'usually set globally' })
         : null),
-    section === 'Paths'
+    section === 'Housekeeping'
+      ? housekeepingSection(host, () => renderSettings(host, { onSaved }))
+      : section === 'Paths'
       ? pathsSection(isGlobal, onChange, isGlobal ? null : onReset)
       : renderGroup(section, cfg, {
           onChange, onReset: isGlobal ? null : onReset,

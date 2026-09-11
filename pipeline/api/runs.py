@@ -317,6 +317,29 @@ class Runs(BaseRouter):
                            req.get("resume") or None, req.get("picks") or None)
         return {"run_id": run_id}
 
+    @get("/housekeeping", "what each scope would remove",
+         returns=Shape(scopes=list))
+    def housekeeping(self, req):
+        from ..orchestration import housekeeping as hk
+
+        found = hk.counts(ROOT)
+        return {"scopes": [{"name": name, "label": s.label, "note": s.note,
+                            "count": found.get(name, 0)}
+                           for name, s in hk.SCOPES.items()]}
+
+    @post("/housekeeping", "remove the named scopes", returns=Shape(removed=dict))
+    def wipe(self, req):
+        from ..orchestration import housekeeping as hk
+
+        # A wipe while a run is writing removes the directory underneath it and
+        # leaves a manifest describing files that are gone.
+        live = _in_flight()
+        if live:
+            raise Conflict(f"'{live}' is still running.",
+                           hint="Stop it first; a wipe would delete what it is "
+                                "writing.")
+        return {"removed": hk.wipe(ROOT, list(req.get("scopes") or []))}
+
     @post("/stop", "stop a running pipeline", returns=Shape(stopped=str))
     def stop(self, req):
         rid = req.get("run_id", "") or guard.run_in_flight() or ""

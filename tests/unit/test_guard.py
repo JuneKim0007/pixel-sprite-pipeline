@@ -417,3 +417,20 @@ def test_a_restarted_service_is_picked_up_again(monkeypatch):
     watched = [t.pid for t in guard_mod.GUARD.watched.values() if t.name == "comfy"]
     assert watched == [800], "the dead pid was still being watched"
     guard_mod.GUARD.watched.clear()
+
+
+def test_a_wipe_is_refused_while_a_run_is_writing(monkeypatch):
+    """It would delete the directory the run is writing into and leave a
+    manifest describing files that are gone."""
+    from pipeline.api import runs as runs_mod
+    from pipeline.shared import errors, guard as guard_mod
+
+    class Out:
+        stdout = "  711 python /x/run.py cfg --run-id 20260101_000000_a\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    monkeypatch.setattr(runs_mod, "_ACTIVE", {})
+
+    router = runs_mod.Runs()
+    with pytest.raises(errors.Conflict):
+        router.wipe(type("R", (), {"get": lambda self, k, d=None: ["logs"]})())

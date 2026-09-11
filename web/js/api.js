@@ -61,6 +61,8 @@ export const api = {
   run:      (id) => call(`/api/run?id=${encodeURIComponent(id)}`),
   start:    (payload) => json('POST', '/api/run', payload),
   stop:     (run_id) => json('POST', '/api/stop', { run_id }),
+  housekeeping: () => call('/api/housekeeping'),
+  wipe:     (scopes) => json('POST', '/api/housekeeping', { scopes }),
 
   poses:    () => call('/api/poses'),
   runPoses: (runId) => call(`/api/run/poses?run=${encodeURIComponent(runId)}`),

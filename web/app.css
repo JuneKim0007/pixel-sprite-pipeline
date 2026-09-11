@@ -1303,3 +1303,8 @@ input.wide { width: 100%; max-width: 420px; }
 .progressbox { display: grid; gap: 12px; }
 
 .undobar { display: inline-flex; gap: 4px; align-items: center; }
+
+.houserow { display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.houserow:last-child { border-bottom: none; }
+.houserow.wipeall { margin-top: 6px; border-top: 1px solid var(--line); }
