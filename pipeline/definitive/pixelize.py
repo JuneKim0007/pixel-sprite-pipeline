@@ -431,6 +431,74 @@ def _uses(pixels: np.ndarray, corner: tuple[int, int, int], near: int) -> float:
     return float((pixels.min(axis=1) >= 255 - near).mean())
 
 
+def ramp_palette(rgb: np.ndarray, colours: int, *,
+                 alpha: np.ndarray | None = None,
+                 method: str = "weighted", ramps: int = 0,
+                 chunk: int | None = None) -> list[tuple[int, int, int]]:
+    """Colour families first, then shades within each, instead of one flat k-means.
+
+    Plain clustering minimises within-cluster variance weighted by pixel count,
+    so it spends entries where pixels are DENSE rather than where they are
+    distinct - several near-identical tones for the largest garment and none
+    left for an accent. Grouping by chroma first and taking shades inside each
+    group is how a pixel artist builds a ramp, and it gives every family its
+    own value range.
+    """
+    pixels = rgb.reshape(-1, 3)
+    if alpha is not None:
+        pixels = pixels[alpha.reshape(-1) > 0]
+    if len(pixels) == 0:
+        raise ValueError("no opaque pixels to build a palette from")
+
+    colours = max(1, min(int(colours), _distinct(pixels)))
+    if ramps <= 0:
+        ramps = max(2, int(round(colours ** 0.5)))
+    ramps = max(1, min(ramps, colours))
+
+    lum = pixels.astype(np.float32) @ LUMA
+    chroma = pixels.astype(np.float32) - lum[:, None]
+
+    families = generate_palette(
+        (chroma + 128.0).clip(0, 255).astype(np.uint8).reshape(-1, 1, 3),
+        ramps, method="rgb", chunk=chunk)
+    centres = np.asarray(families, np.float32) - 128.0
+    which = np.abs(chroma[:, None, :] - centres[None, :, :]).sum(axis=2).argmin(axis=1)
+
+    shares = np.array([(which == k).sum() for k in range(len(centres))], np.float64)
+    budget = _shared_out(shares, colours)
+
+    out: list[tuple[int, int, int]] = []
+    for k, want in enumerate(budget):
+        member = pixels[which == k]
+        if want <= 0 or not len(member):
+            continue
+        value = member.astype(np.float32) @ LUMA
+        edges = np.quantile(value, np.linspace(0.0, 1.0, want + 1))
+        for i in range(want):
+            lo, hi = edges[i], edges[i + 1]
+            band = member[(value >= lo) & (value <= hi)]
+            if len(band):
+                out.append(tuple(int(v) for v in band.mean(axis=0).round()))
+    return out or [tuple(int(v) for v in pixels[0])]
+
+
+def _shared_out(shares: np.ndarray, total: int) -> list[int]:
+    """Every family gets at least one entry; the rest go by how much art it covers."""
+    live = shares > 0
+    n = int(live.sum())
+    if n == 0:
+        return [0] * len(shares)
+    out = np.where(live, 1, 0)
+    spare = total - n
+    if spare > 0:
+        weight = np.where(live, shares, 0.0)
+        extra = np.floor(weight / weight.sum() * spare).astype(int)
+        out = out + extra
+        for k in np.argsort(-weight)[:spare - int(extra.sum())]:
+            out[k] += 1
+    return [int(v) for v in out]
+
+
 def anchored_palette(rgb: np.ndarray, colours: int, *,
                      alpha: np.ndarray | None = None,
                      method: str = "weighted",

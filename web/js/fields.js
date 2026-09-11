@@ -62,10 +62,12 @@ export function control(field, value, onChange) {
   if (field.type === 'int' || field.type === 'float') {
     const isFloat = field.type === 'float';
     const step = field.step ?? (isFloat ? 0.05 : 1);
+    // An inherited field is not "auto": say whose value it is showing.
+    const unset = field.inherits ? `= ${field.inherits.split('.')[0]}` : 'auto';
     const spanOk = field.min != null && field.max != null && field.max - field.min <= 5000;
     if (spanOk) {
       wrap.append(Range(value ?? null, {
-        min: field.min, max: field.max, step, readout: 'box', placeholder: 'auto',
+        min: field.min, max: field.max, step, readout: 'box', placeholder: unset,
         park: field.default,
         onChange: (v) => onChange(v === null ? null : (isFloat ? v : Math.round(v))),
       }));
@@ -74,7 +76,7 @@ export function control(field, value, onChange) {
 
     const num = el('input', {
       type: 'number', className: 'num', step,
-      value: value ?? '', placeholder: 'auto',
+      value: value ?? '', placeholder: unset,
     });
     if (field.min != null) num.min = field.min;
     if (field.max != null) num.max = field.max;

@@ -26,10 +26,13 @@ def rescaled(art, factor: float):
         np.where(small[..., 3] >= 128, 255, 0)]).astype(np.uint8), "RGBA")
 
 
-def seat(art, canvas: tuple[int, int], fill: float, background=None):
+def seat(art, canvas: tuple[int, int], fill: float, background=None,
+         shrink_only: bool = False):
     from PIL import Image
 
     factor = min(canvas[0] * fill / art.width, canvas[1] * fill / art.height)
+    if shrink_only:
+        factor = min(factor, 1.0)
     if abs(factor - 1.0) > 1e-3:
         art = rescaled(art, factor)
     out = Image.new(art.mode, canvas, background if background else (0, 0, 0, 0))

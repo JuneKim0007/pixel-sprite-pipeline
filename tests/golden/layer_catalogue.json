@@ -268,6 +268,43 @@
     }
    },
    {
+    "default": "clusters",
+    "help": "Clustering minimises variance weighted by pixel COUNT, so it spends entries where pixels are dense rather than where they differ: several near-identical tones for the largest garment and none left for an accent. Ramps group by chroma first and take shades inside each group, which is how a pixel artist builds a palette and gives every family its own value range.",
+    "key": "build",
+    "kind": "select",
+    "label": "Built as",
+    "max": null,
+    "min": null,
+    "options": [
+     [
+      "clusters",
+      "Clusters, one pass over every pixel"
+     ],
+     [
+      "ramps",
+      "Ramps, colour families then shades"
+     ]
+    ],
+    "step": null,
+    "when": {
+     "source": "generate"
+    }
+   },
+   {
+    "default": 0,
+    "help": "0 takes the square root of the colour count - 3 families for 10 colours. Raise it for a character carrying many distinct materials, lower it for a limited one.",
+    "key": "ramps",
+    "kind": "int",
+    "label": "Colour families",
+    "max": 16,
+    "min": 0,
+    "options": [],
+    "step": 1,
+    "when": {
+     "build": "ramps"
+    }
+   },
+   {
     "default": false,
     "help": "Pins 0,0,0 as an entry when the art actually uses it, and withholds those pixels from the clustering. Without it k-means puts a centre NEAR black - 8,6,10 - and every dark pixel lands on it, so black spreads: measured 12.4% of one sprite becoming 18.5%. Pinning the corner more than halved the error against the source.",
     "key": "preserve_black",
@@ -296,8 +333,8 @@
     }
    },
    {
-    "default": "weighted",
-    "help": "How 'nearest colour' is decided. Luma matches brightness first and is the one built for sprites, because a sprite reads by its value structure and an entry of the wrong lightness collapses the form even when the hue is right.",
+    "default": "rgb",
+    "help": "How 'nearest colour' is decided, and what the clustering measures distance in. Measured over 35 sprites at 10 colours: rgb separated its entries best (nearest pair 55) at the best fidelity (7.76). weighted came second on both (42, 7.77); luma, which this help used to recommend, was worst at separating (40) and worse on fidelity (8.34).",
     "key": "match",
     "kind": "select",
     "label": "Matching",

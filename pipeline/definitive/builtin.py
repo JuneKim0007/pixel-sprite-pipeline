@@ -127,9 +127,13 @@ def _palette_prepare(inputs, cfg) -> dict:
             return {"palette": None}
         return {"palette": None, "file": name}
     alpha = img[..., 3] if img.shape[2] == 4 else None
+    if cfg.get("build") == "ramps":
+        return {"palette": px.ramp_palette(
+            img[..., :3], int(cfg.get("colours", 24)), alpha=alpha,
+            method=cfg.get("match", "rgb"), ramps=int(cfg.get("ramps", 0)))}
     return {"palette": px.anchored_palette(
         img[..., :3], int(cfg.get("colours", 24)), alpha=alpha,
-        method=cfg.get("match", "weighted"),
+        method=cfg.get("match", "rgb"),
         keep_black=bool(cfg.get("preserve_black", False)),
         keep_white=bool(cfg.get("preserve_white", False)))}
 
@@ -157,6 +161,22 @@ def _palette_prepare(inputs, cfg) -> dict:
                    "measured luminances 52,144,145,145,145,145,148,227, a "
                    "palette with almost no value range for a medium that "
                    "reads by value."),
+        Field("build", "Built as", "select", default="clusters",
+              options=[("clusters", "Clusters, one pass over every pixel"),
+                       ("ramps", "Ramps, colour families then shades")],
+              when={"source": "generate"},
+              help="Clustering minimises variance weighted by pixel COUNT, so "
+                   "it spends entries where pixels are dense rather than where "
+                   "they differ: several near-identical tones for the largest "
+                   "garment and none left for an accent. Ramps group by chroma "
+                   "first and take shades inside each group, which is how a "
+                   "pixel artist builds a palette and gives every family its "
+                   "own value range."),
+        Field("ramps", "Colour families", "int", min=0, max=16, step=1, default=0,
+              when={"build": "ramps"},
+              help="0 takes the square root of the colour count - 3 families "
+                   "for 10 colours. Raise it for a character carrying many "
+                   "distinct materials, lower it for a limited one."),
         Field("preserve_black", "Keep pure black", "bool", default=False,
               when={"source": "generate"},
               help="Pins 0,0,0 as an entry when the art actually uses it, and "
@@ -171,11 +191,13 @@ def _palette_prepare(inputs, cfg) -> dict:
                    "only claims it when at least 0.5% of the art is already "
                    "within 16 of the corner - so a stray compression pixel "
                    "does not buy a slot."),
-        Field("match", "Matching", "select", default="weighted", options=MATCHERS,
-              help="How 'nearest colour' is decided. Luma matches brightness "
-                   "first and is the one built for sprites, because a sprite "
-                   "reads by its value structure and an entry of the wrong "
-                   "lightness collapses the form even when the hue is right."),
+        Field("match", "Matching", "select", default="rgb", options=MATCHERS,
+              help="How 'nearest colour' is decided, and what the clustering "
+                   "measures distance in. Measured over 35 sprites at 10 "
+                   "colours: rgb separated its entries best (nearest pair 55) "
+                   "at the best fidelity (7.76). weighted came second on both "
+                   "(42, 7.77); luma, which this help used to recommend, was "
+                   "worst at separating (40) and worse on fidelity (8.34)."),
         Field("fit", "Fit to the palette's range", "bool", default=False,
               help="Stretches the picture's value range onto the palette's "
                    "before snapping. Nearest matching is absolute and cannot "

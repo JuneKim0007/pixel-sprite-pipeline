@@ -71,11 +71,21 @@ class Context:
         if field is not None:
             if here is not None:
                 return here
+            if field.inherits:
+                return self.settings(field.inherits)
             return self._module_default(path, field.default)
         merged = deep_merge(defaults_for(path), _set(here or {}))
         for key, value in self._module_defaults().items():
             if key.startswith(f"{path}.") and get_path(self.config, key) is None:
                 _set_path(merged, key[len(path) + 1:], value)
+        # A block read does not visit its leaves, so inheritance has to be
+        # applied here too or frames would read canonical's only one way in.
+        for field in SCHEMA.fields:
+            if not (field.inherits and field.key.startswith(f"{path}.")):
+                continue
+            if get_path(self.config, field.key) is None:
+                _set_path(merged, field.key[len(path) + 1:],
+                          self.settings(field.inherits))
         return merged
 
     def _module_defaults(self) -> dict[str, Any]:

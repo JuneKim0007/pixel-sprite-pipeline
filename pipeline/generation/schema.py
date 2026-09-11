@@ -338,16 +338,16 @@ FIELDS: list[ConfigField] = [
              "drawn as bones — while depth alone gave armoured legs and boots. "
              "Leave it on for attack, hit and fall, where the pose is the "
              "point."),
-    ConfigField(key="frames.controlnet.strength", default=0.75, label="ControlNet strength",
+    ConfigField(key="frames.controlnet.strength", inherits="canonical.controlnet.strength", label="ControlNet strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
-     help="How hard the pose guide is enforced. Above ~0.85 the model starts "
-             "tracing the guide instead of using it, which is what produces "
-             "stick-figure or skeletal output."),
-    ConfigField(key="frames.controlnet.end_percent", default=0.55, label="ControlNet end %",
+     help="How hard the pose guide is enforced. Follows the anchor unless "
+             "set. Above ~0.85 the model traces the guide instead of using "
+             "it, which is what produces stick-figure or skeletal output."),
+    ConfigField(key="frames.controlnet.end_percent", inherits="canonical.controlnet.end_percent", label="ControlNet end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
-     help="Fraction of sampling the guide steers for. 0.55 lands the pose "
-             "and leaves the second half for the LoRA to render a character "
-             "over it; holding it longer produces a traced stick figure."),
+     help="Fraction of sampling the guide steers for. Follows the anchor "
+             "unless set: held longer than the anchor held it, a frame traces "
+             "the skeleton the anchor drew a body over."),
     ConfigField(key="frames.ip_adapter.weight", default=0.85, label="IP-Adapter weight",
      kind="float", min=0.0, max=1.5, step=0.05, group="Identity",
      help="0.3-0.5 style nudge | 0.6 mixed | 0.8-1.0 identity lock. Too "
@@ -900,24 +900,24 @@ FIELDS: list[ConfigField] = [
              "always what you want. Name one only to override, and know "
              "that naming the wrong one means the skeleton is quietly "
              "ignored rather than refused."),
-    ConfigField(key="frames.controlnet.start_percent", default=0.0, label="ControlNet start %",
+    ConfigField(key="frames.controlnet.start_percent", inherits="canonical.controlnet.start_percent", label="ControlNet start %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Fraction of sampling before the pose control begins. The pose is "
              "the whole reason a frame differs from the anchor, so this "
              "normally starts at 0 — a late start gives the model time "
              "to commit to a pose of its own first."),
-    ConfigField(key="frames.depth_controlnet.strength", default=0.45, label="Depth strength",
+    ConfigField(key="frames.depth_controlnet.strength", inherits="canonical.depth_controlnet.strength", label="Depth strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Pose control",
      help="Depth is the ONLY channel that carries the viewing angle — a 2D "
              "skeleton cannot express yaw. But the capsules are a bare body, "
              "so pushing this hard makes a costumed character collapse toward "
              "the naked silhouette: at 0.75 a veiled figure came back columnar."),
-    ConfigField(key="frames.depth_controlnet.start_percent", default=0.0, label="Depth start %",
+    ConfigField(key="frames.depth_controlnet.start_percent", inherits="canonical.depth_controlnet.start_percent", label="Depth start %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="When the depth channel joins. Depth is what carries the viewing "
              "angle, which a 2D skeleton cannot express, so a late "
              "start means the early steps commit to the wrong yaw."),
-    ConfigField(key="frames.depth_controlnet.end_percent", default=0.6, label="Depth end %",
+    ConfigField(key="frames.depth_controlnet.end_percent", inherits="canonical.depth_controlnet.end_percent", label="Depth end %",
      kind="float", min=0.0, max=1.0, step=0.05, group="Pose control",
      help="Hold it long enough to survive the anchor, which runs to 100%."),
     ConfigField(key="frames.ip_adapter.start_at", default=0.0, label="Identity start %",
@@ -1045,6 +1045,8 @@ def _render(field: ConfigField) -> dict:
         base["options_from"] = options_from
     if free_numeric:
         base["free_numeric"] = free_numeric
+    if not base.get("inherits"):
+        base.pop("inherits", None)
     return base
 
 

@@ -52,7 +52,9 @@ def test_a_nested_block_keeps_the_siblings_the_config_left_alone(root):
                   config={"frames": {"controlnet": {"strength": 0.1}}})
     cn = ctx.settings("frames")["controlnet"]
     assert cn["strength"] == 0.1
-    assert cn["enabled"] is True and cn["end_percent"] == 0.55
+    # end_percent is inherited, so name the source rather than a literal.
+    assert cn["enabled"] is True
+    assert cn["end_percent"] == ctx.settings("canonical.controlnet.end_percent")
 
 
 @pytest.mark.parametrize("name", sorted(REGISTRY))
@@ -107,3 +109,27 @@ def test_the_anchors_two_control_channels_resolve_separately(root):
     depth = ctx.settings("canonical.depth_controlnet")
     assert pose["strength"] > depth["strength"]
     assert pose["end_percent"] and depth["end_percent"]
+
+
+def test_frames_conditioning_follows_the_anchor_until_it_is_told_not_to(root):
+    """Frames held the guide 71% longer than the anchor by declaring its own
+    defaults, so the anchor drew a body and the frames traced the skeleton."""
+    same = Context(root=root, outdir=root, config={})
+    for block in ("controlnet", "depth_controlnet"):
+        anchor = same.settings(f"canonical.{block}")
+        frames = same.settings("frames")[block]
+        assert frames["strength"] == anchor["strength"], block
+        assert frames["end_percent"] == anchor["end_percent"], block
+
+
+def test_moving_the_anchor_moves_the_frames_with_it(root):
+    ctx = Context(root=root, outdir=root,
+                  config={"canonical": {"depth_controlnet": {"strength": 0.11}}})
+    assert ctx.settings("frames")["depth_controlnet"]["strength"] == 0.11
+
+
+def test_a_frames_value_set_by_hand_still_wins(root):
+    ctx = Context(root=root, outdir=root,
+                  config={"canonical": {"depth_controlnet": {"strength": 0.11}},
+                          "frames": {"depth_controlnet": {"strength": 0.88}}})
+    assert ctx.settings("frames")["depth_controlnet"]["strength"] == 0.88
