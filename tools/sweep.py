@@ -90,16 +90,6 @@ VARIANTS = {
                   "frames": {"lora_strength": 0.9}},
     "lora_10": {"canonical": {"lora_strength": 1.0},
                   "frames": {"lora_strength": 1.0}},
-    # Frames with no pixelise: the `neither` arm.
-    "frames_08": {"canonical": {"lora_strength": 0.8},
-                    "frames": {"lora_strength": 0.8},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
-    "frames_10": {"canonical": {"lora_strength": 1.0},
-                    "frames": {"lora_strength": 1.0},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
-    "frames_12": {"canonical": {"lora_strength": 1.2},
-                    "frames": {"lora_strength": 1.2},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
     # The context arm. Each reintroduces the identity reference, now square
     # and padded, and moves exactly one thing about how it is consumed.
     # weight_type decides which SDXL attention blocks the adapter writes to:
@@ -116,6 +106,16 @@ VARIANTS = {
     "ctx_linear_04": {"_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
+    # Frames with no pixelise: the `neither` arm.
+    "frames_08": {"canonical": {"lora_strength": 0.8},
+                    "frames": {"lora_strength": 0.8},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    "frames_10": {"canonical": {"lora_strength": 1.0},
+                    "frames": {"lora_strength": 1.0},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    "frames_12": {"canonical": {"lora_strength": 1.2},
+                    "frames": {"lora_strength": 1.2},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
     # Scale AND grid, then frames: the `both` arm.
     "pixel_08": {"canonical": {"lora_strength": 0.8},
                    "frames": {"lora_strength": 0.8},
