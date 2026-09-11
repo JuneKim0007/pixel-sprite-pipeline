@@ -33,3 +33,6 @@ context/
 
 # Material the LoRA trains on. Untracked whole: it is data, not source.
 training_set/
+
+# The running answer sheet. Working notes, not a deliverable.
+experiment.md
