@@ -27,6 +27,30 @@ RESULTS = ROOT / "var/sweep.jsonl"
 # A run here is a single GPU job, so cooling.seconds never fires inside one -
 # the rest has to sit between runs or the machine works 56 of them back to back.
 REST = 120
+COMFY_WAIT = 30
+COMFY_TRIES = 40
+
+
+def comfy_up(host: str = "http://127.0.0.1:8188") -> bool:
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{host}/system_stats", timeout=5):
+            return True
+    except (urllib.error.URLError, OSError, TimeoutError):
+        return False
+
+
+def wait_for_comfy() -> bool:
+    """ComfyUI going down overnight turned every remaining run into a 2 second
+    failure, so a crash at run five silently consumed the other thirty-one."""
+    for attempt in range(COMFY_TRIES):
+        if comfy_up():
+            return True
+        print(f"  waiting for ComfyUI ({attempt + 1}/{COMFY_TRIES})", flush=True)
+        time.sleep(COMFY_WAIT)
+    return False
 
 # The file is named for the drawing; the config wants the angle, and there is
 # no named view for the far side - `side` is 90, so its mirror is 270.
@@ -188,6 +212,10 @@ def run_all() -> int:
 
     for job in jobs:
         char, name, cfg = job
+        if not wait_for_comfy():
+            print("ComfyUI never came back; stopping with the sweep resumable",
+                  flush=True)
+            return 1
         painted = VARIANTS[name].get("_paint")
         if painted:
             paint_emphasis(char)
