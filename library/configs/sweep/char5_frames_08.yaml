@@ -31,7 +31,7 @@ pipeline:
   - frames
   - palette
   - export
-  stop_after: canonical
+  stop_after: export
 cooling:
   enabled: true
   seconds: 60

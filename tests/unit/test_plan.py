@@ -89,3 +89,23 @@ def test_a_caller_supplies_its_own_words_and_its_own_way_forward():
                     hint=lambda p: f"move {p.node} after {p.producer}")
     assert caught.value.message == "b before a"
     assert caught.value.hint == "move b after a"
+
+
+def test_a_variant_that_adds_stages_moves_the_gate_with_them():
+    """The gate was stated beside the stage list and did not follow it, so
+    every frames and pixel variant stopped at the anchor."""
+    import sys
+
+    import yaml
+
+    sys.path.insert(0, ".")
+    from tools.sweep import plan
+
+    seen = 0
+    for _char, name, path in plan(["char1"]):
+        pipeline = yaml.safe_load(path.read_text())["pipeline"]
+        assert pipeline["stop_after"] == pipeline["stages"][-1], name
+        if "frames" in pipeline["stages"]:
+            assert pipeline["stop_after"] != "canonical", name
+            seen += 1
+    assert seen, "no variant exercises the frames stage"

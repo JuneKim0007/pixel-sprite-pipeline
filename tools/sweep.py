@@ -141,8 +141,7 @@ def base(char: str) -> dict:
             for name, view in VIEWS.items()
             if (ROOT / f"library/refs/{char}/{name}.png").exists()
         ]},
-        "pipeline": {"stages": ["pose", "depth", "canonical"],
-                     "stop_after": "canonical"},
+        "pipeline": {"stages": ["pose", "depth", "canonical"]},
         "cooling": {"enabled": True, "seconds": 60},
     }
 
@@ -196,6 +195,10 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
     for name, extra in VARIANTS.items():
         for char in chars:
             cfg = merge(base(char), extra)
+            # Stated twice, the gate and the stage list disagree: every frames
+            # and pixel variant lengthened the list and still stopped at the
+            # anchor, so the arm would have rerun canonicals for nine hours.
+            cfg["pipeline"]["stop_after"] = cfg["pipeline"]["stages"][-1]
             path = CONFIGS / f"{char}_{name}.yaml"
             path.write_text(yaml.safe_dump(cfg, sort_keys=False))
             out.append((char, name, path))
