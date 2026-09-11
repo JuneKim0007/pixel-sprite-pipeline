@@ -106,6 +106,50 @@ def test_a_painted_reference_reaches_the_adapter_as_a_mask(comfy_fake, stage_ctx
     assert any(u.endswith(weightmap.SUFFIX) for u in comfy_fake.uploads)
 
 
+def test_regional_weight_defaults_to_the_whole_image(comfy_fake, stage_ctx, tmp_path):
+    """The handler's default is plain IPAdapter: no mask, the reference entire."""
+    from pipeline.refs import references as refs_mod
+
+    ctx = stage_ctx()
+    ctx.resources["references"] = refs_mod.Library(identity=[_identity_ref(tmp_path)])
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.count("ImageToMask") == 0
+    for node in comfy_fake.inputs_of("IPAdapterAdvanced"):
+        assert "attn_mask" not in node
+
+
+def test_a_derived_region_reaches_the_adapter(comfy_fake, stage_ctx, tmp_path):
+    """references.emphasis.source: subject, so no one has to paint by hand."""
+    from pipeline.refs import references as refs_mod
+
+    ctx = stage_ctx(references={"emphasis": {"source": "subject"}})
+    ctx.resources["references"] = refs_mod.Library(identity=[_identity_ref(tmp_path)])
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.count("ImageToMask") == 1
+    masked = [n for n in comfy_fake.inputs_of("IPAdapterAdvanced") if "attn_mask" in n]
+    assert len(masked) == 1
+
+
+def test_none_refuses_a_map_that_was_painted(comfy_fake, stage_ctx, tmp_path):
+    """Turning the handler off has to beat a sidecar left on disk."""
+    import numpy as np
+
+    from pipeline.geometry import weightmap
+    from pipeline.refs import references as refs_mod
+
+    ref = _identity_ref(tmp_path)
+    weightmap.save(ref.path, np.full((weightmap.EDGE, weightmap.EDGE), 0.5,
+                                     dtype=np.float32))
+
+    ctx = stage_ctx(references={"emphasis": {"source": "none"}})
+    ctx.resources["references"] = refs_mod.Library(identity=[ref])
+    get("canonical")().run(ctx, {})
+
+    assert comfy_fake.count("ImageToMask") == 0, "a painted map beat the config"
+
+
 def test_canonical_without_a_skeleton_applies_no_control(comfy_fake, stage_ctx):
     get("canonical")().run(stage_ctx(), {})
     assert comfy_fake.count("ControlNetApplyAdvanced") == 0

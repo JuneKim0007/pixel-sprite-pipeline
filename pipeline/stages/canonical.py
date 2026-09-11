@@ -52,6 +52,22 @@ def _anchor_view(ctx, cfg) -> str | float:
     return opt(ctx.settings("pose"), "view", None) or "side"
 
 
+def _emphasis_mask(g, ctx, client, image):
+    """Config decides where the map comes from; `none` means attend to it all."""
+    from ..geometry import weightmap
+
+    cfg = ctx.settings("references.emphasis")
+    weights = weightmap.resolve(image, cfg.get("source", "auto"),
+                                float(cfg.get("floor", weightmap.FLOOR)),
+                                float(cfg.get("ceiling", weightmap.CEILING)))
+    if weights is None:
+        return None
+    sidecar = weightmap.save(ctx.outdir / f"emphasis_{image.stem}.png", weights)
+    print(f"   emphasis {cfg.get('source', 'auto')} on {image.name}: "
+          f"{weightmap.describe(weights)['mean']:.2f} mean")
+    return comfy.image_as_mask(g, client.upload_image(sidecar))
+
+
 def _report_framing(image, ctx) -> None:
     """A guide the model overflowed is silent otherwise, and crops the head."""
     from ..geometry import framing
@@ -80,14 +96,8 @@ class _AnchorGraph:
         self.lcm = bool(cfg["lcm"])
 
     def _emphasis(self, g, image):
-        """The map painted on this reference, as a MASK, or None if unpainted."""
-        from ..geometry import weightmap
-
-        if not weightmap.sidecar_for(image).exists():
-            return None
-        print(f"   emphasis map from {weightmap.sidecar_for(image).name}")
-        return comfy.image_as_mask(
-            g, self.client.upload_image(weightmap.sidecar_for(image)))
+        """This reference's regional weight as a MASK, or None for the whole image."""
+        return _emphasis_mask(g, self.ctx, self.client, image)
 
     def _with_identity(self, g, model, chosen):
         return comfy.apply_ipadapter(
