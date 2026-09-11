@@ -33,7 +33,20 @@ PLAN
   fi
 
   echo "$(date '+%H:%M:%S') supervisor: $left left, starting" >> $LOG
-  $PY -u tools/sweep.py run >> $LOG 2>&1
+  $PY -u tools/sweep.py run >> $LOG 2>&1 &
+  sweep=$!
+
+  # Watch rather than block: a sweep that dies mid-run should be noticed in
+  # seconds, not whenever the next thing happens to look.
+  while kill -0 $sweep 2>/dev/null; do
+    sleep 30
+    if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
+      echo "$(date '+%H:%M:%S') supervisor: ComfyUI went down mid-sweep" >> $LOG
+      nohup ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null &
+      sleep 40
+    fi
+  done
+  wait $sweep 2>/dev/null
   echo "$(date '+%H:%M:%S') supervisor: sweep exited, waiting 60s" >> $LOG
   sleep 60
 done
