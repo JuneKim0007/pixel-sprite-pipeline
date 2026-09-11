@@ -95,6 +95,15 @@ def frame_fit(
     }
 
 
+def spread_of(spread: float | Mapping[str, float] | None, joint: str) -> float:
+    """How far out one joint sits, per proportion group; shaped like depth.build."""
+    if spread is None:
+        return 1.0
+    if isinstance(spread, Mapping):
+        return float(spread.get(_rigs.group_of(joint, joint) or "", 1.0))
+    return float(spread)
+
+
 def project(
     pose: Mapping[str, Sequence[float]],
     yaw_deg: float,
@@ -102,6 +111,7 @@ def project(
     centre: float = 0.5,
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
+    spread: float | Mapping[str, float] | None = None,
     fill: float = 0.0,
     margin: float = MARGIN,
     rig=None,
@@ -119,7 +129,8 @@ def project(
             out.append(None)
             continue
         lateral, depth, height = pose[joint]
-        x = centre + depth * depth_scale * sin_y - lateral * lateral_scale * cos_y
+        across = lateral_scale * spread_of(spread, joint)
+        x = centre + depth * depth_scale * sin_y - lateral * across * cos_y
         out.append([x, height])
     return out
 

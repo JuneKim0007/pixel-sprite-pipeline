@@ -192,6 +192,17 @@
    "type": "float"
   },
   {
+   "default": 1.0,
+   "group": "Pose",
+   "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
+   "label": "Build (lateral)",
+   "max": 2.5,
+   "min": 0.3,
+   "path": "pose.spread",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -1754,6 +1765,17 @@
    "type": "float"
   },
   {
+   "default": 1.0,
+   "group": "Pose",
+   "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
+   "label": "Build (lateral)",
+   "max": 2.5,
+   "min": 0.3,
+   "path": "pose.spread",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -3226,6 +3248,17 @@
    "min": 0.0,
    "path": "pose.margin",
    "step": 0.01,
+   "type": "float"
+  },
+  {
+   "default": 1.0,
+   "group": "Pose",
+   "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
+   "label": "Build (lateral)",
+   "max": 2.5,
+   "min": 0.3,
+   "path": "pose.spread",
+   "step": 0.05,
    "type": "float"
   },
   {
@@ -4757,6 +4790,17 @@
    "type": "float"
   },
   {
+   "default": 1.0,
+   "group": "Pose",
+   "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
+   "label": "Build (lateral)",
+   "max": 2.5,
+   "min": 0.3,
+   "path": "pose.spread",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
    "default": 1024,
    "group": "Pose",
    "help": "Should match the generation resolution.",
@@ -6167,6 +6211,17 @@
    "min": 0.0,
    "path": "pose.margin",
    "step": 0.01,
+   "type": "float"
+  },
+  {
+   "default": 1.0,
+   "group": "Pose",
+   "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
+   "label": "Build (lateral)",
+   "max": 2.5,
+   "min": 0.3,
+   "path": "pose.spread",
+   "step": 0.05,
    "type": "float"
   },
   {

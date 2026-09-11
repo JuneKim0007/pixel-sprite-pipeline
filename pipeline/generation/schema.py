@@ -141,6 +141,15 @@ FIELDS: list[ConfigField] = [
              "canvas. The rest falls under the feet. Raise it when hair or a "
              "hat keeps reaching the top: the model grows past the guide once "
              "ControlNet stops steering, and it grows upward."),
+    ConfigField(key="pose.spread", label="Build (lateral)", kind="float",
+     default=1.0, min=0.3, max=2.5, step=0.05, group="Pose",
+     help="How far out from the spine a joint sits, which is what decides "
+             "whether a figure reads broad. Takes one number for the whole "
+             "body, or a mapping per proportion group like depth.build does - "
+             "{arms: 1.4, torso: 1.4} broadens the shoulders and chest and "
+             "leaves the face alone, where one number widens the head with "
+             "everything else. depth.build is the other half: this moves the "
+             "joints apart, that thickens the limb between them."),
     ConfigField(key="pose.size", default=1024, label="Skeleton size", kind="int",
      min=256, max=2048, step=64, group="Pose",
      help="Should match the generation resolution."),

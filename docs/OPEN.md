@@ -284,32 +284,36 @@ and nothing else until 2026-09-10, so `12, 34, 56` and `#abc` silently disabled
 keying; it asks `shared.colour.parse_colour` now, which is what the Definitive
 editor's background layer always used.
 
-## 16. A rig can be lengthened but not broadened
+## 16. A broad body and a broad face are one dial in the depth map
 
-**Measured 2026-09-10 against a reference sheet.** The generated sprites read as
-too slim, and the cause is not the one that looked obvious.
+**Rewritten 2026-09-11; the entry it replaces was wrong.** It said no lever
+made a body broader and asked for a tenth proportion group. Two levers already
+existed, and one of them hits the reference exactly:
 
-Height against shoulder width, which is the ratio that says "slim":
+| | h/shoulder | head/shoulder |
+|---|---|---|
+| reference sheet, front figure | **4.42** | |
+| humanoid neutral | 6.26 | 0.545 |
+| `pose.lateral_scale: 1.4` | **4.47** | 0.545 |
+| `pose.spread: {arms: 1.4, torso: 1.4}` | **4.47** | **0.390** |
 
-| | h/shoulder |
-|---|---|
-| reference sheet, front figure | **4.42** |
-| humanoid rig as shipped | **6.17** |
-| humanoid with the style sheet's legs 1.6, torso 1.2 | **8.37** |
-| humanoid at legs 1.0, torso 1.0 | **6.17** |
+`lateral_scale` is a uniform horizontal scale - head-over-shoulder is identical
+at 1.0 and 1.4 - so it broadens the shoulders and the face together. That is
+the whole of what was missing, and `pose.spread` is now the per-group form,
+shaped like `depth.build` because it answers the same shape of question. The
+two are halves of one idea: spread moves the joints apart, build thickens the
+limb between them.
 
-So `base_pixel.yaml`'s 1.6/1.2 makes it worse, but zeroing them does not fix it:
-the rig's own neutral is 6.17 before anything scales it. Every one of the nine
-`PROPORTION_GROUPS` scales bone LENGTH along a chain, and none scales lateral
-offset, so there is no way to make a body broader - only shorter.
+`depth.build` was itself unusable until 2026-09-10: `Field.clamp` coerced
+before it bounded, a mapping cannot coerce to a float, and the failure path
+returned the field's default of None. Eighteen runs set it and none applied it,
+which is most of why this entry read as "no lever exists".
 
-Scaling the lateral axis of the shoulder and hip joints by 1.4 gives 4.41,
-which is the reference. That wants a tenth group, `width` or `build`, applied to
-the x component rather than to a bone length. `rigs.scale` walks parent to child
-applying a factor to a distance; a width group is a different operation on the
-same tree and should not be forced through the same function.
-
-Experiment images live in `library/refs/experiment_slim/`.
+**What is left.** Nothing in the pipeline sets `pose.spread` yet, so no shipped
+config is broader than it was; the numbers above are measured off the rig, not
+off a generation. Whether 1.4 survives the model - ControlNet stops steering at
+`canonical.controlnet.end_percent` and the figure drifts after that - is
+unmeasured.
 
 ## 17. Reasoning lives beside the code instead of in docs
 

@@ -43,6 +43,7 @@ def render_entries(ctx: Context, frames: list[dict], outdir: Path) -> list[Path]
             build=cfg.get("build"),
             depth_scale=pose_cfg["depth_scale"],
             lateral_scale=pose_cfg["lateral_scale"],
+            spread=pose_cfg.get("spread"),
             margin=pose_cfg["margin"],
             rig=rig,
             props=props,
