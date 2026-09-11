@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -237,7 +238,37 @@ def score_run(char: str, name: str, run_dir: Path) -> dict | None:
     return row
 
 
+LOCK = ROOT / "var" / "sweep.pid"
+
+
+def already_sweeping() -> int | None:
+    """Another sweep's pid, or None. Two at once share one GPU and interleave
+    their variant sets - which is how a run from a previous round appeared in
+    the middle of this one."""
+    if not LOCK.exists():
+        return None
+    try:
+        pid = int(LOCK.read_text().strip())
+        os.kill(pid, 0)
+    except (OSError, ValueError):
+        return None
+    return pid if pid != os.getpid() else None
+
+
 def run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
+    running = already_sweeping()
+    if running:
+        print(f"a sweep is already going as pid {running}", flush=True)
+        return 1
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    LOCK.write_text(str(os.getpid()))
+    try:
+        return _run_all(only, variants)
+    finally:
+        LOCK.unlink(missing_ok=True)
+
+
+def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
     from pipeline.geometry import framing
 
     # An interrupted emphasis run leaves its maps behind, and every later variant would.
