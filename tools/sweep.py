@@ -289,8 +289,9 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
         if job is not jobs[-1]:
             if (jobs.index(job) + 1) % FREE_EVERY == 0:
                 from pipeline.generation import comfy
-            print(f"  freeing ComfyUI's models: "
-                  f"{comfy.Client().free_models()}", flush=True)
+
+                print(f"  freeing ComfyUI's models: "
+                      f"{comfy.Client().free_models()}", flush=True)
             time.sleep(REST)
     return 0
 

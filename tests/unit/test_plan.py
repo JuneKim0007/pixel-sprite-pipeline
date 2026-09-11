@@ -138,3 +138,26 @@ def test_the_ground_truth_lives_outside_what_the_model_can_be_given():
     assert "refs" not in TRUTH.parts
     assert "training_set" not in TRUTH.parts
     assert TRUTH.name == "characters"
+
+
+def test_the_rest_between_runs_is_not_conditional_on_freeing():
+    """An import guarded by `every sixth run` once left the print beside it
+    unguarded, so the sweep raised UnboundLocalError after every other run."""
+    import ast
+    import pathlib
+
+    tree = ast.parse(pathlib.Path("tools/sweep.py").read_text())
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "_run_all")
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.If):
+            continue
+        names = {a.asname or a.name for s in node.body
+                 if isinstance(s, ast.ImportFrom) for a in s.names}
+        if not names:
+            continue
+        used = {n.id for s in node.body for n in ast.walk(s)
+                if isinstance(n, ast.Name)}
+        after = {n.id for s in fn.body for n in ast.walk(s)
+                 if isinstance(n, ast.Name)} - used
+        assert not (names & after), f"{names & after} used outside its import"
