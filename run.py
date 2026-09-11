@@ -18,19 +18,10 @@ sys.stdout.reconfigure(line_buffering=True)
 from pipeline.orchestration import artifacts as artifacts_io  # noqa: E402
 from pipeline import stages  # noqa: E402,F401  (importing registers them)
 from pipeline.generation import runner, stage as stage_mod  # noqa: E402
-from pipeline.orchestration import admission  # noqa: E402
+from pipeline.orchestration import admission, launch  # noqa: E402
+from pipeline.shared.errors import Invalid  # noqa: E402
 from pipeline.looks import styles  # noqa: E402
 from pipeline.shared import settings  # noqa: E402
-
-
-def load_config(path: Path) -> dict:
-    cfg = settings.read_yaml(path)
-    if "pipeline" not in cfg or "stages" not in cfg["pipeline"]:
-        raise SystemExit(
-            f"{path} must define pipeline.stages, e.g.\n"
-            f"  pipeline:\n    stages: [pose, canonical, frames, palette, export]"
-        )
-    return cfg
 
 
 def apply_compute(cfg: dict) -> None:
@@ -79,21 +70,6 @@ def _resume(a) -> tuple[Path, Path, dict, set[str]]:
     return outdir, config_path, seeded, set(completed)
 
 
-def _fresh(a, cfg: dict, config_path: Path) -> tuple[Path, str]:
-    """A new run directory, carrying a copy of the config it was started from."""
-    name = a.name or cfg.get("name") or config_path.stem
-    run_id = a.run_id or f"{time.strftime('%Y%m%d_%H%M%S')}_{name}"
-    base = a.outdir or settings.resolve_dir(
-        ROOT, (cfg.get("paths") or {}).get("output_dir"), "out/runs"
-    )
-    outdir = base / run_id
-    outdir.mkdir(parents=True, exist_ok=True)
-    snapshot = outdir / "config.yaml"
-    if config_path.resolve() != snapshot.resolve():
-        shutil.copy2(config_path, snapshot)
-    return outdir, run_id
-
-
 def main() -> int:
     ap, a = _parse()
 
@@ -115,16 +91,11 @@ def main() -> int:
             raise SystemExit(f"no such config: {a.config}")
         config_path = a.config
 
-    raw_cfg = load_config(config_path)
-    cfg, style_record = styles.effective(
-        ROOT, raw_cfg, picks=raw_cfg.get("style_picks"))
-    if style_record["styles"]:
-        print(f"styles: {' + '.join(style_record['styles'])}")
-    # A dead reference path used to survive every gate and fail minutes into a
-    # run. The check was added to --explain, which runs nothing.
-    refused = admission.problems(ROOT, cfg)
-
     if a.explain:
+        _, cfg, record = launch.effective(ROOT, config_path)
+        refused = admission.problems(ROOT, cfg)
+        if record["styles"]:
+            print(f"styles: {' + '.join(record['styles'])}")
         if refused:
             print("this config cannot run:")
             for line in refused:
@@ -133,17 +104,26 @@ def main() -> int:
         print(runner.describe(runner.build(cfg["pipeline"]["stages"])))
         return 0
 
-    if refused:
-        raise SystemExit("\n".join(refused))
+    if a.resume:
+        cfg = styles.effective(ROOT, settings.read_yaml(config_path))[0]
+    else:
+        # The same preparation the Run button and autopilot do, so a run does
+        # not depend on which of the three started it.
+        try:
+            ready = launch.prepare(ROOT, config_path, run_id=a.run_id,
+                                   name=a.name, base=a.outdir)
+        except Invalid as e:
+            raise SystemExit("\n".join(filter(None, [e.message, e.hint])))
+        cfg, outdir, run_id = ready.cfg, ready.outdir, ready.run_id
+        if ready.styles:
+            print(f"styles: {' + '.join(ready.styles)}")
+
     apply_compute(cfg)
 
     order = cfg["pipeline"]["stages"]
     built = runner.build(order)
 
     gate = None if a.no_gate else (a.stop_after or (cfg.get("pipeline") or {}).get("stop_after"))
-
-    if not a.resume:
-        outdir, run_id = _fresh(a, cfg, config_path)
 
     ctx = stage_mod.Context(
         root=ROOT, outdir=outdir, config=cfg, run_id=run_id, artifacts=seeded

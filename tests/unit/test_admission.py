@@ -48,19 +48,31 @@ def test_the_deprecation_message_has_one_source():
                            {**GOOD, "references": {"images": ["a.png"]}}))
 
 
-LAUNCHERS = ["run.py", "pipeline/api/runs.py", "pipeline/orchestration/queue.py"]
-
-
-@pytest.mark.parametrize("path", LAUNCHERS)
-def test_every_launcher_reaches_the_one_gate(path):
-    """A fourth way to start a run must go through it too."""
-    tree = ast.parse(pathlib.Path(path).read_text())
-    reached = any(
+def _calls(path: str, module: str, func: str) -> bool:
+    return any(
         isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-        and n.func.attr == "problems"
-        and isinstance(n.func.value, ast.Name) and n.func.value.id == "admission"
-        for n in ast.walk(tree))
-    assert reached, f"{path} starts a run without asking admission.problems"
+        and n.func.attr == func and isinstance(n.func.value, ast.Name)
+        and n.func.value.id == module
+        for n in ast.walk(ast.parse(pathlib.Path(path).read_text())))
+
+
+@pytest.mark.parametrize("path", ["run.py", "pipeline/api/runs.py",
+                                  "autopilot.py"])
+def test_every_way_to_start_a_run_prepares_it_the_same_way(path):
+    """A fourth launcher must go through prepare, not roll its own sequence."""
+    assert _calls(path, "launch", "prepare"), (
+        f"{path} starts a run without launch.prepare, so it decides the runs "
+        f"directory, the run id and the snapshot name for itself")
+
+
+def test_preparing_a_run_is_what_puts_it_through_the_gate():
+    assert _calls("pipeline/orchestration/launch.py", "admission", "problems")
+
+
+def test_the_queue_asks_the_gate_without_preparing_anything():
+    """preflight reports on a job it is not starting, so it must not mkdir."""
+    assert _calls("pipeline/orchestration/queue.py", "admission", "problems")
+    assert not _calls("pipeline/orchestration/queue.py", "launch", "prepare")
 
 
 

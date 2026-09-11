@@ -21,11 +21,20 @@ def _settings(cfg: dict) -> list[str]:
     return []
 
 
+NO_STAGES = ("a config must define pipeline.stages, e.g.\n"
+             "  pipeline:\n"
+             "    stages: [pose, canonical, frames, palette, export]")
+
+
 def _stages(cfg: dict) -> list[str]:
     from .. import stages  # noqa: F401  (importing registers them)
     from ..generation import runner
 
     order = (cfg.get("pipeline") or {}).get("stages") or []
+    if not order:
+        # Only the CLI refused this, in load_config. A queued job reached
+        # run.py before anything said so.
+        return [NO_STAGES]
     try:
         runner.validate(runner.build(list(order)), seeded=set())
     except Exception as e:                       # noqa: BLE001

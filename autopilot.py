@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(line_buffering=True)
 
-from pipeline.orchestration import queue as q  # noqa: E402
+from pipeline.orchestration import launch, queue as q  # noqa: E402
 from pipeline.shared import paths
 from pipeline.shared import settings  # noqa: E402
 
@@ -43,29 +43,22 @@ def reclaim(queue: q.Queue) -> None:
 
 def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
     """Execute one job. Returns (ok, run_id, detail)."""
-    import yaml
-
-    from pipeline.generation import schema
-
     cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
-    raw = settings.read_yaml(cfg_path)
-    schema.apply_overrides(raw, job.data.get("overrides"))
 
-    runs = settings.resolve_dir(
-        root, (settings.load_global(root).get("paths") or {}).get("output_dir"),
-        "out/runs")
-    run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{job.id}"
-    outdir = runs / run_id
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    effective = outdir / "config.yaml"
-    effective.write_text(yaml.safe_dump(raw, sort_keys=False))
+    # The same preparation the CLI and the Run button do. It resolved the runs
+    # directory from _global here and from the effective config in run.py, so
+    # a config setting paths.output_dir split the two apart.
+    ready = launch.prepare(
+        root, cfg_path, overrides=job.data.get("overrides"),
+        run_id=f"{time.strftime('%Y%m%d_%H%M%S')}_{job.id}")
+    run_id, outdir = ready.run_id, ready.outdir
 
     log_path = outdir / "run.log"
     with log_path.open("w") as fh:
         proc = subprocess.Popen(
-            [sys.executable, "-u", str(root / "run.py"), str(effective),
-             "--run-id", run_id],
+            [sys.executable, "-u", str(root / "run.py"),
+             str(ready.config_path), "--run-id", run_id,
+             "--outdir", str(outdir.parent)],
             cwd=root, stdout=fh, stderr=subprocess.STDOUT,
         )
         try:
