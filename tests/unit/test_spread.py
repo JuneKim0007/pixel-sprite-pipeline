@@ -59,3 +59,15 @@ def test_the_skeleton_and_the_depth_map_are_given_the_same_spread():
 
     assert "spread" in inspect.signature(render_depth).parameters
     assert "spread" in inspect.signature(bs.project).parameters
+
+
+def test_the_figure_is_centred_rather_than_hung_from_the_top():
+    """The leftover used to go entirely under the feet, so every overflow
+    cut the head and never the boots."""
+    from pipeline.geometry import bodyspace, rigs
+
+    pose = rigs.tpose(rigs.HUMANOID)
+    for fill in (0.80, 0.70, 0.62):
+        fitted = bodyspace.frame_fit(pose, fill=fill)
+        heights = [p[2] for p in fitted.values()]
+        assert abs(min(heights) - (1.0 - max(heights))) < 0.01, fill
