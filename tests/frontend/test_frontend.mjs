@@ -1809,9 +1809,12 @@ await atest('the conditioning paths are real schema fields', async () => {
   const listed = /const CONDITIONING = \[([\s\S]*?)\]/.exec(run)[1];
   const paths = [...listed.matchAll(/'([\w.]+)'/g)].map((m) => m[1]);
 
-  const golden = JSON.parse(
-    readFileSync(join(ROOT, 'tests/golden/schema_fields.json'), 'utf8'));
-  const known = new Set(golden.null.map((f) => f.path));
+  // One line per field: module, path, then the field as compact JSON.
+  const known = new Set(
+    readFileSync(join(ROOT, 'tests/golden/schema_fields.txt'), 'utf8')
+      .split('\n')
+      .filter((l) => l.startsWith('null\t'))
+      .map((l) => l.split('\t')[1]));
   for (const p of paths) {
     assert.ok(known.has(p), `${p} is not a declared field`);
   }

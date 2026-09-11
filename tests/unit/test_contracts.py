@@ -135,20 +135,31 @@ def test_every_config_field_is_a_config_field():
 
 
 def test_the_settings_form_is_unchanged_by_the_migration():
-    """Every declared field renders, and none changed shape."""
-    import json
+    """Every declared field renders, and none changed shape.
+
+    One line per field, so the failure names the paths rather than diffing two
+    eight-thousand-line dicts, and two branches declaring different fields do
+    not collide.
+    """
+    import importlib.util
     import pathlib
 
-    from pipeline.generation import schema
+    spec = importlib.util.spec_from_file_location(
+        "schema_golden", pathlib.Path("tools/schema_golden.py"))
+    golden = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(golden)
 
-    from pipeline.shared import modules
+    want = golden.GOLDEN.read_text().splitlines()
+    got = golden.lines()
+    key = lambda row: tuple(row.split("\t", 2)[:2])   # noqa: E731
+    before, after = {key(r): r for r in want}, {key(r): r for r in got}
 
-    want = json.loads(pathlib.Path("tests/golden/schema_fields.json").read_text())
-    got = json.loads(json.dumps(
-        {("null" if m is None else m): schema.fields_for(m)
-         for m in [None, *modules.BUILTIN]},
-        sort_keys=True, default=str))
-    assert got == want
+    added = sorted(set(after) - set(before))
+    removed = sorted(set(before) - set(after))
+    changed = sorted(k for k in set(before) & set(after) if before[k] != after[k])
+    assert not (added or removed or changed), (
+        f"added {added}, removed {removed}, changed {changed}; "
+        f"run tools/schema_golden.py --write when the change is intended")
 
 
 def test_contracts_depends_on_nothing_but_errors():

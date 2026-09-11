@@ -12,8 +12,9 @@ import { state, toast } from '../../store.js';
 // An ordering hint, not a whitelist.
 const ORDER = [
   'Asset', 'Proportions', 'Pipeline', 'Pose', 'Depth', 'Canonical', 'Frames',
-  'Pose control', 'Identity', 'References', 'Props', 'Softbody', 'Palette',
-  'Quality', 'Export', 'LLM', 'Models', 'Compute', 'Services', 'Paths',
+  'Pose control', 'Identity', 'References', 'Props', 'Softbody', 'Pixelise',
+  'Palette', 'Quality', 'Export', 'LLM', 'Models', 'Compute', 'Services',
+  'Paths',
 ];
 
 // Groups with no schema fields; their editor is hand-written, not generated.
