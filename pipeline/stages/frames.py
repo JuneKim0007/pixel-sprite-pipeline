@@ -201,6 +201,7 @@ class FramesStage(Stage):
                 g, model, ref,
                 weight=weight,
                 weight_type=ip["weight_type"],
+                weight_composition=opt(ip, "weight_composition", None),
                 start_at=ip["start_at"],
                 end_at=ip["end_at"],
                 models=models,

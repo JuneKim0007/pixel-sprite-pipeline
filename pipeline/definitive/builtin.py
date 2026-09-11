@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 import numpy as np
+from PIL import Image
 
 from . import pixelize as px
 from .layers import Field, layer
@@ -125,8 +126,12 @@ def _palette_prepare(inputs, cfg) -> dict:
         if not name:
             return {"palette": None}
         return {"palette": None, "file": name}
-    return {"palette": px.generate_palette(img[..., :3], int(cfg.get("colours", 24)),
-                                           method=cfg.get("match", "weighted"))}
+    alpha = img[..., 3] if img.shape[2] == 4 else None
+    return {"palette": px.anchored_palette(
+        img[..., :3], int(cfg.get("colours", 24)), alpha=alpha,
+        method=cfg.get("match", "weighted"),
+        keep_black=bool(cfg.get("preserve_black", False)),
+        keep_white=bool(cfg.get("preserve_white", False)))}
 
 
 @layer(
@@ -152,6 +157,20 @@ def _palette_prepare(inputs, cfg) -> dict:
                    "measured luminances 52,144,145,145,145,145,148,227, a "
                    "palette with almost no value range for a medium that "
                    "reads by value."),
+        Field("preserve_black", "Keep pure black", "bool", default=False,
+              when={"source": "generate"},
+              help="Pins 0,0,0 as an entry when the art actually uses it, and "
+                   "withholds those pixels from the clustering. Without it "
+                   "k-means puts a centre NEAR black - 8,6,10 - and every dark "
+                   "pixel lands on it, so black spreads: measured 12.4% of one "
+                   "sprite becoming 18.5%. Pinning the corner more than halved "
+                   "the error against the source."),
+        Field("preserve_white", "Keep pure white", "bool", default=False,
+              when={"source": "generate"},
+              help="The same for 255,255,255. Costs one of the entries, and "
+                   "only claims it when at least 0.5% of the art is already "
+                   "within 16 of the corner - so a stray compression pixel "
+                   "does not buy a slot."),
         Field("match", "Matching", "select", default="weighted", options=MATCHERS,
               help="How 'nearest colour' is decided. Luma matches brightness "
                    "first and is the one built for sprites, because a sprite "
@@ -197,13 +216,17 @@ def _palette(inputs, cfg, prep):
         img = px.quantize_median_cut(img[..., :3], len(palette), True)
 
     method = cfg.get("match", "weighted")
+    alpha = img[..., 3:] if img.shape[2] == 4 else None
     if cfg.get("fit"):
-        alpha = img[..., 3] if img.shape[2] == 4 else None
-        return {"image": px.fit_to_palette(
-            img[..., :3], palette, method=method, alpha=alpha,
-            strength=float(cfg.get("fit_strength", 1.0))), **said}
-    return {"image": px.apply_fixed_palette(img[..., :3], palette,
-                                            method=method), **said}
+        fitted = px.fit_to_palette(
+            img[..., :3], palette, method=method,
+            alpha=None if alpha is None else alpha[..., 0],
+            strength=float(cfg.get("fit_strength", 1.0)))
+    else:
+        fitted = px.apply_fixed_palette(img[..., :3], palette, method=method)
+    if alpha is not None:
+        fitted = np.dstack([fitted, alpha])
+    return {"image": fitted, **said}
 
 
 @layer(
@@ -236,6 +259,43 @@ def _background(inputs, cfg, prep):
     key = parse_colour(cfg.get("colour"))
     out = px.background_to_alpha(img[..., :3], int(cfg.get("tolerance", 14)), key=key)
     return {"image": out, "kept": float((out[..., 3] > 0).mean())}
+
+
+@layer(
+    "canvas", label="Canvas", order=25,
+    summary="The subject, seated on a fixed sprite canvas",
+    fields=[
+        Field("width", "Width", "int", min=0, max=1024, step=8, default=0,
+              help="0 leaves the image its own size. Set it with height to "
+                   "seat the subject on a fixed sprite canvas, which is what "
+                   "a sheet needs and what Scale cannot do - Scale multiplies, "
+                   "it does not frame."),
+        Field("height", "Height", "int", min=0, max=1024, step=8, default=0,
+              help="Taller than the width suits a standing figure. A square "
+                   "canvas spends its corners on backdrop."),
+        Field("fill", "Fill", "float", min=0.1, max=1.0, step=0.02, default=0.92,
+              help="Fraction of the tightest axis the subject spans. Below 1 "
+                   "leaves the margin a sprite sheet needs to avoid clipping "
+                   "when a neighbouring frame is wider."),
+        Field("binary_alpha", "Hard edges", "bool", default=True,
+              help="A sprite edge is in or out. A half-transparent pixel is a "
+                   "colour the palette never chose, and it survives every "
+                   "later layer as a fringe."),
+    ],
+)
+def _canvas(inputs, cfg, prep):
+    from ..shared.canvas import seat
+
+    img = inputs["image"]
+    width, height = int(cfg.get("width", 0)), int(cfg.get("height", 0))
+    if width <= 0 or height <= 0:
+        return {"image": img}
+    art = Image.fromarray(np.ascontiguousarray(img))
+    out = seat(art, (width, height), float(cfg.get("fill", 0.92)))
+    a = np.asarray(out).copy()
+    if a.shape[2] == 4 and cfg.get("binary_alpha", True):
+        a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
+    return {"image": a}
 
 
 @layer(

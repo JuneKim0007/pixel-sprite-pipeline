@@ -418,6 +418,60 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
     return out or [tuple(int(v) for v in pixels[0])]
 
 
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+ANCHOR_NEAR = 16
+ANCHOR_SHARE = 0.005
+
+
+def _uses(pixels: np.ndarray, corner: tuple[int, int, int], near: int) -> float:
+    """Share of the art within `near` of a corner of the cube, per channel."""
+    if corner == BLACK:
+        return float((pixels.max(axis=1) <= near).mean())
+    return float((pixels.min(axis=1) >= 255 - near).mean())
+
+
+def anchored_palette(rgb: np.ndarray, colours: int, *,
+                     alpha: np.ndarray | None = None,
+                     method: str = "weighted",
+                     keep_black: bool = False, keep_white: bool = False,
+                     near: int = ANCHOR_NEAR,
+                     min_share: float = ANCHOR_SHARE) -> list[tuple[int, int, int]]:
+    """A palette with pure black and white pinned, when the art actually uses them.
+
+    k-means returns cluster means, so an outline drawn in black comes back as
+    the average of the outline and whatever it was merged with - a dark grey
+    shared with the shadow. Pinning the corner keeps the outline an outline.
+
+    Anchored pixels are withheld from the clustering: without that the free
+    centres spend one of themselves re-deriving a near-black that is already
+    in the palette.
+    """
+    pixels = rgb.reshape(-1, 3)
+    if alpha is not None:
+        pixels = pixels[alpha.reshape(-1) > 0]
+    if len(pixels) == 0:
+        raise ValueError("no opaque pixels to build a palette from")
+
+    fixed: list[tuple[int, int, int]] = []
+    for want, corner in ((keep_black, BLACK), (keep_white, WHITE)):
+        if want and _uses(pixels, corner, near) >= min_share:
+            fixed.append(corner)
+    if not fixed:
+        return generate_palette(rgb, colours, method=method, alpha=alpha)
+
+    keep = np.ones(len(pixels), dtype=bool)
+    for corner in fixed:
+        keep &= np.abs(pixels.astype(np.int16)
+                       - np.asarray(corner, np.int16)).max(axis=1) > near
+
+    free = colours - len(fixed)
+    if free <= 0 or not keep.any():
+        return fixed[:colours]
+    rest = generate_palette(pixels[keep].reshape(-1, 1, 3), free, method=method)
+    return fixed + rest
+
+
 def _luminance_range(source: np.ndarray, mask: np.ndarray | None,
                      chunk: int) -> tuple[float, float]:
     """The darkest and brightest the subject gets, read a block at a time."""

@@ -555,6 +555,16 @@ FIELDS: list[ConfigField] = [
      help="sgm_uniform under LCM, karras otherwise, matching the anchor. The "
              "scheduler decides where the steps are spent, and LCM's "
              "distillation assumes the uniform spacing."),
+    ConfigField(key="canonical.from_reference.weight_composition", default=None,
+     label="Shape weight", kind="float", min=0.0, max=2.0, step=0.05,
+     group="Canonical",
+     help="How much of the reference's SHAPE to take, separately from its "
+             "colour. IPAdapter writes colour and material through one SDXL "
+             "attention block and layout and structure through another, so "
+             "'style and composition' takes two numbers: the weight above is "
+             "the colour half and this is the shape half. Blank uses the same "
+             "number for both. Only the composition weight types read it - on "
+             "'linear' every block gets the weight above and this is ignored."),
     ConfigField(key="canonical.controlnet.enabled", default=True, label="Condition the anchor",
      kind="bool", group="Canonical",
      help="Send the pose guide and depth map to the anchor as well as to "
@@ -651,6 +661,11 @@ FIELDS: list[ConfigField] = [
              "downscaled painting. Every other default here is tuned "
              "around it, so swapping it means re-tuning both "
              "lora_strength dials."),
+    ConfigField(key="frames.ip_adapter.weight_composition", default=None,
+     label="Shape weight", kind="float", min=0.0, max=2.0, step=0.05,
+     group="Frames",
+     help="The shape half of the identity reference's weight, as on the "
+             "anchor. Blank uses the colour weight for both."),
     ConfigField(key="frames.ip_adapter.anchor", default=True, label="Anchor to canonical",
      kind="bool", group="Identity",
      help="Apply the canonical sprite to every frame at equal weight, "

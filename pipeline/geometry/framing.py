@@ -14,6 +14,7 @@ QUANTISE = 4
 MIN_SHARE = 0.04
 MAX_COLOURS = 6
 MIN_PART = 0.04
+NEAR = 0.03
 KEY_TOLERANCE = 30
 ROUNDS = 3
 MIN_PANEL = 0.20
@@ -185,53 +186,44 @@ def touching_border(mask: np.ndarray) -> np.ndarray:
     return np.isin(labels, [i for i in np.unique(edge) if i])
 
 
-def largest_parts(mask: np.ndarray, min_part: float = MIN_PART) -> np.ndarray:
-    """Keep the subject and anything of its size; drop text, marks and sparkles."""
+def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
+                  near: float = NEAR) -> np.ndarray:
+    """Keep the subject and what belongs to it; drop marks and sparkles.
+
+    Size alone cannot tell a crown from a watermark. A crown sits against the
+    head and a watermark sits off in a corner, so proximity decides what size
+    cannot: 256.jpg lost her boots at 2.4% of the figure and the points of her
+    crown, both touching the silhouette, while the captions this is meant to
+    remove sit well clear of it.
+    """
     from scipy import ndimage
 
     labels, n = ndimage.label(mask > 0)
     if n <= 1:
         return mask
     sizes = ndimage.sum(mask > 0, labels, range(1, n + 1))
-    keep = [i + 1 for i, size in enumerate(sizes) if size >= sizes.max() * min_part]
-    return np.where(np.isin(labels, keep), mask, 0).astype(mask.dtype)
+    main = int(np.argmax(sizes)) + 1
+    ys, xs = np.nonzero(labels == main)
+    top, bottom, left, right = ys.min(), ys.max(), xs.min(), xs.max()
+    reach = near * max(bottom - top, right - left)
+
+    # True pixel distance, not a bounding-box gap. Measured on the set: parts
+    # that belong - boots 11px, a crown 1-4px, a chandelier's candles 2-8px -
+    # sit against the silhouette, while the captions this removes sit 111-130px
+    # clear of it. A bbox gap cannot tell those apart; a distance map can.
+    gaps = ndimage.distance_transform_edt(labels != main)
+
+    keep = {main}
+    for i, size in enumerate(sizes, start=1):
+        if i == main:
+            continue
+        part = labels == i
+        if size >= sizes.max() * min_part or gaps[part].min() <= reach:
+            keep.add(i)
+    return np.where(np.isin(labels, list(keep)), mask, 0).astype(mask.dtype)
 
 
-def _rescaled(art, factor: float):
-    """Premultiplied: resizing RGBA straight leaves a dark fringe at every edge."""
-    from PIL import Image
-
-    size = (max(1, round(art.width * factor)), max(1, round(art.height * factor)))
-    if art.mode != "RGBA":
-        return art.resize(size, Image.LANCZOS if factor > 1 else Image.BOX)
-
-    a = np.asarray(art).astype(np.float32)
-    alpha = a[..., 3:4] / 255.0
-    pre = Image.fromarray(
-        np.dstack([a[..., :3] * alpha, a[..., 3:4]]).astype(np.uint8), "RGBA")
-    small = np.asarray(pre.resize(size, Image.BOX)).astype(np.float32)
-    back = np.clip(small[..., 3:4] / 255.0, 1e-6, None)
-    return Image.fromarray(np.dstack([
-        np.clip(small[..., :3] / back, 0, 255),
-        np.where(small[..., 3] >= 128, 255, 0)]).astype(np.uint8), "RGBA")
-
-
-def square_for(art, fill: float) -> tuple[int, int]:
-    """The square on which `art` would span `fill`, without resampling it."""
-    edge = round(max(art.width, art.height) / fill)
-    return edge, edge
-
-
-def seat(art, canvas: tuple[int, int], fill: float, background=None):
-    """Centre `art` on `canvas`, its longest side scaled to span `fill` of it."""
-    from PIL import Image
-
-    factor = min(canvas[0] * fill / art.width, canvas[1] * fill / art.height)
-    if abs(factor - 1.0) > 1e-3:
-        art = _rescaled(art, factor)
-    out = Image.new(art.mode, canvas, background if background else (0, 0, 0, 0))
-    out.paste(art, ((canvas[0] - art.width) // 2, (canvas[1] - art.height) // 2))
-    return out
+from ..shared.canvas import rescaled as _rescaled, seat, square_for  # noqa: F401
 
 
 def key_backdrop(pixels: np.ndarray, tolerance: int = KEY_TOLERANCE,

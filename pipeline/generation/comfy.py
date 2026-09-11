@@ -257,6 +257,7 @@ def apply_ipadapter(
     g: Graph, model: Link, reference_image: Link, *, weight: float,
     weight_type: str, start_at: float, end_at: float,
     models: dict | None = None, attn_mask: Link | None = None,
+    weight_composition: float | None = None,
 ) -> Link:
     models = models or {}
     ip_model = g.add("IPAdapterModelLoader",
@@ -265,6 +266,8 @@ def apply_ipadapter(
                         clip_name=model_name(models, "clip_vision"))
     # attn_mask is interpolated to the latent attention grid and multiplied into this.
     optional = {"attn_mask": attn_mask} if attn_mask is not None else {}
+    if weight_composition is not None:
+        optional["weight_composition"] = float(weight_composition)
     node = g.add(
         "IPAdapterAdvanced",
         model=model,
