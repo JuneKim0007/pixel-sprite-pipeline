@@ -86,6 +86,11 @@ SUBJECTS = {
 # baseline and each variant moves one thing off it.
 VARIANTS = {
     "shipped": {},
+    # The block question. Never run: the quantiser is measured, the sampling
+    # that follows it is not.
+    "pixelised": {"pipeline": {"stages": ["pose", "depth", "canonical",
+                                          "pixelise"],
+                               "stop_after": "pixelise"}},
     # hi_fidelity carries three style exemplars, two of them silver-and-purple
     # Frieren frames, applied with weight_type "style transfer" - which the
     # IPAdapter docs say copies COLOUR along with texture and lighting. crisp
@@ -101,11 +106,6 @@ VARIANTS = {
                               "canonical": {"lora_strength": 0.8,
                                             "style_weight": 0.12,
                                             "from_reference": {"weight": 1.4}}},
-    # The block question. Never run: the quantiser is measured, the sampling
-    # that follows it is not.
-    "pixelised": {"pipeline": {"stages": ["pose", "depth", "canonical",
-                                          "pixelise"],
-                               "stop_after": "pixelise"}},
 }
 
 

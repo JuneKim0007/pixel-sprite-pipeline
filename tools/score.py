@@ -102,6 +102,23 @@ def block(image: Path) -> float:
         return 0.0
 
 
+def cells(image: Path) -> int:
+    """How many cells the model drew, canvas over block.
+
+    `block` alone cannot be compared between canvases: the target art is 192
+    pixels with a block of 1, which is 192 cells and IS a sprite; ours is 1024
+    with a block of 2, which is 512 cells on a canvas that will be reduced to
+    128. A 128 sprite wants 128 cells.
+    """
+    from PIL import Image
+
+    found = block(image)
+    if not found:
+        return 0
+    with Image.open(image) as handle:
+        return int(round(handle.width / found))
+
+
 def report(reference: Path, generated: Path,
            key: tuple[int, int, int] = (242, 94, 147)) -> dict:
     return {
@@ -109,6 +126,7 @@ def report(reference: Path, generated: Path,
         "bleed": round(bleed(generated, key), 4),
         "build": round(build(generated), 2),
         "block": block(generated),
+        "cells": cells(generated),
     }
 
 
