@@ -93,8 +93,10 @@ SUBJECTS = {
 # Each variant moves ONE thing away from the baseline, so a score difference names a.
 # Round five. pose.set holds one view, so a full run is two GPU jobs rather
 # than four and the frames questions are affordable across all eight.
-# Round six: the pixel LoRA's whole usable range, then the pixelise
-# question at three points on it. Ordered so the ladder answers first.
+# Round six: the ladder is cut at 1.0. Style reads best at 0.8 and the block
+# the model draws on the head did not move between 0.8 and 1.1 on any of the
+# eight, so the top of the range was buying nothing. What is left is the
+# pixelise question, which is where the cell count actually lives.
 VARIANTS = {
     "lora_08": {"canonical": {"lora_strength": 0.8},
                   "frames": {"lora_strength": 0.8}},
@@ -102,12 +104,6 @@ VARIANTS = {
                   "frames": {"lora_strength": 0.9}},
     "lora_10": {"canonical": {"lora_strength": 1.0},
                   "frames": {"lora_strength": 1.0}},
-    "lora_11": {"canonical": {"lora_strength": 1.1},
-                  "frames": {"lora_strength": 1.1}},
-    "lora_12": {"canonical": {"lora_strength": 1.2},
-                  "frames": {"lora_strength": 1.2}},
-    "lora_14": {"canonical": {"lora_strength": 1.4},
-                  "frames": {"lora_strength": 1.4}},
     # Frames with no pixelise: the `neither` arm.
     "frames_08": {"canonical": {"lora_strength": 0.8},
                     "frames": {"lora_strength": 0.8},

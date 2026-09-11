@@ -42,7 +42,10 @@ settings:
   # snapping are untouched, and the tightest axis decides so a wingspan
   # cannot run off the sides.
   pose:
-    fill: 0.88
+    # 0.88 drew a subject spanning 98% of the canvas against the training
+    # set's ~80%, so the figure crowded both edges with no margin. With no
+    # identity reference left to overrule the guide, this is testable again.
+    fill: 0.80
 
     # Lifts the hands off the hip. 0 leaves no gap in the silhouette, 90 is a
     # full T and reads as a weapon stance.
