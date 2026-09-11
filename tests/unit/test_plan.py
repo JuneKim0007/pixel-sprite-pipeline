@@ -133,4 +133,5 @@ def test_the_ground_truth_lives_outside_what_the_model_can_be_given():
     from tools.sweep import TRUTH
 
     assert "refs" not in TRUTH.parts
-    assert TRUTH.name == "training_set"
+    assert "training_set" not in TRUTH.parts
+    assert TRUTH.name == "context"

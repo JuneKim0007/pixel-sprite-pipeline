@@ -78,7 +78,12 @@ def _columns(mask: np.ndarray, band: tuple[int, int], span: float) -> list[tuple
 
 
 OVERSIZE = 1.6
-MARGIN = 0.16
+# A blob shorter than this is a caption, a colour chip or a stray ornament.
+CAPTION = 0.45
+# How much of a blob must lie in a column before it belongs to that figure.
+SHARED = 0.5
+# The share of the square the figure spans, so every view is padded alike.
+SHARE = 0.82
 
 
 def _columns_reach(mask: np.ndarray, band: tuple[int, int]) -> np.ndarray:
@@ -112,14 +117,39 @@ def _resplit(reach: np.ndarray, picked: list[tuple[int, int]]) -> list[tuple[int
     return out
 
 
+def _blobs(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
+    from scipy import ndimage
+
+    labelled, _ = ndimage.label(ndimage.binary_closing(mask, np.ones((9, 9))))
+    height = mask.shape[0]
+    out = []
+    for slab in ndimage.find_objects(labelled):
+        if slab[0].stop - slab[0].start < height * CAPTION:
+            continue
+        out.append((slab[1].start, slab[0].start, slab[1].stop, slab[0].stop))
+    return out
+
+
 def _extent(mask: np.ndarray, column: tuple[int, int], band: tuple[int, int],
-            bounds: tuple[int, int]) -> tuple[int, int, int, int]:
-    """The column plus a margin for the arms, trimmed back to real ink."""
+            bounds: tuple[int, int],
+            blobs: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
+    """The figure this column sits in, at its own full extent.
+
+    A margin measured off the column cut char4's hair at x=129 when the hair
+    began at x=64: whatever the figure is made of reaches past its dense middle,
+    so the parts decide the box and the column only says which parts.
+    """
     left, right = column
-    top, bottom = band
-    margin = int((right - left) * MARGIN)
-    box = (max(bounds[0], left - margin), top,
-           min(bounds[1], right + margin), bottom)
+    mine = [b for b in blobs
+            if min(b[2], right) - max(b[0], left) > (b[2] - b[0]) * SHARED
+            and b[0] < bounds[1] and b[2] > bounds[0]]
+    if mine:
+        box = (max(bounds[0], min(b[0] for b in mine)),
+               min(b[1] for b in mine),
+               min(bounds[1], max(b[2] for b in mine)),
+               max(b[3] for b in mine))
+    else:
+        box = (max(bounds[0], left), band[0], min(bounds[1], right), band[1])
 
     window = mask[box[1]:box[3], box[0]:box[2]]
     cols = np.nonzero(window.any(axis=0))[0]
@@ -128,6 +158,16 @@ def _extent(mask: np.ndarray, column: tuple[int, int], band: tuple[int, int],
         return box
     return (box[0] + int(cols[0]), box[1] + int(rows[0]),
             box[0] + int(cols[-1]), box[1] + int(rows[-1]))
+
+
+def _squared(image: Image.Image, box: tuple[int, int, int, int],
+             backdrop: tuple[int, int, int]) -> Image.Image:
+    """The figure centred on a square, at the same share of it every time."""
+    crop = image.crop((box[0], box[1], box[2] + 1, box[3] + 1))
+    edge = round(max(crop.width, crop.height) / SHARE)
+    canvas = Image.new("RGB", (edge, edge), backdrop)
+    canvas.paste(crop, ((edge - crop.width) // 2, (edge - crop.height) // 2))
+    return canvas
 
 
 def cut(sheet: Path, outdir: Path, views: int = 0) -> list[str]:
@@ -154,14 +194,17 @@ def cut(sheet: Path, outdir: Path, views: int = 0) -> list[str]:
     outdir.mkdir(parents=True, exist_ok=True)
     image.save(outdir / "_source_sheet.png")
 
+    blobs = _blobs(mask)
+    backdrop = tuple(int(v) for v in backdrop_of(np.asarray(image).astype(int)))
     written = []
     for i, (left, right) in enumerate(picked):
         lo = 0 if i == 0 else (found[i - 1][1] + left) // 2
         hi = image.width if i + 1 >= len(found) else (right + found[i + 1][0]) // 2
-        box = _extent(mask, (left, right), band, (lo, hi))
-        image.crop((box[0], box[1], box[2] + 1, box[3] + 1)).save(
-            outdir / f"{names[i]}.png")
-        written.append(f"{names[i]:11} {box[2] - box[0]}x{box[3] - box[1]}")
+        box = _extent(mask, (left, right), band, (lo, hi), blobs)
+        out = _squared(image, box, backdrop)
+        out.save(outdir / f"{names[i]}.png")
+        written.append(f"{names[i]:11} figure {box[2] - box[0]}x{box[3] - box[1]}"
+                       f" -> {out.width}x{out.height} square")
 
     # One side drawing answers for both, rather than a missing reference.
     if wanted == 3:

@@ -43,7 +43,10 @@ def test_a_detail_panel_is_not_taken_for_a_figure(tmp_path):
     """The panel is the same colour and beside them; it is simply shorter."""
     out = tmp_path / "out"
     cut_sheet.cut(sheet(tmp_path, panel=True), out)
-    widths = {p.stem: Image.open(p).size[0] for p in out.glob("*.png")
+    # The view is padded to a square, so the figure inside it is what to measure.
+    from pipeline.geometry.framing import measure
+
+    widths = {p.stem: measure(p).box_width for p in out.glob("*.png")
               if p.stem != "_source_sheet"}
     assert max(widths.values()) < 260, f"a crop swallowed the panel: {widths}"
 
@@ -79,3 +82,28 @@ def test_a_column_far_wider_than_its_siblings_is_split(tmp_path):
     picked = [(100, 200), (400, 500), (700, 1000)]
     out = cut_sheet._resplit(reach, picked)
     assert out[2][1] - out[2][0] < 200, "the merged column kept its panel"
+
+
+def test_a_cut_view_is_square_and_the_figure_never_touches_an_edge(tmp_path):
+    """A reference whose subject runs to the frame edge teaches the model to
+    draw one that does, and IPAdapter centre-crops anything not square."""
+    import numpy as np
+    from PIL import Image
+
+    from pipeline.geometry.framing import measure
+    from tools.cut_sheet import SHARE, _squared
+
+    art = np.full((900, 200, 3), (240, 90, 150), dtype=np.uint8)
+    art[:, :] = (20, 20, 20)
+    src = tmp_path / "tall.png"
+    Image.fromarray(art).save(src)
+
+    with Image.open(src) as handle:
+        out = _squared(handle.convert("RGB"), (0, 0, 199, 899), (240, 90, 150))
+    saved = tmp_path / "sq.png"
+    out.save(saved)
+
+    assert out.width == out.height
+    box = measure(saved)
+    assert box.clipped == []
+    assert abs(box.fill - SHARE) < 0.02

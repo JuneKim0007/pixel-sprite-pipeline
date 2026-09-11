@@ -17,9 +17,10 @@ sys.path.insert(0, str(ROOT))
 CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
-# The character art is ground truth for scoring only. It is deliberately not
-# under library/refs, because anything there can be handed to the model.
-TRUTH = ROOT / "training_set"
+# The character sheets and the views cut from them. Deliberately not under
+# library/refs, because anything there can be handed to the model, and not
+# under training_set, which is the LoRA's material.
+TRUTH = ROOT / "context"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
 REST = 480
