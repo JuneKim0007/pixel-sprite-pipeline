@@ -95,7 +95,12 @@ def main() -> int:
     if len(sys.argv) < 3:
         print(__doc__)
         return 2
-    print(report(Path(sys.argv[1]), Path(sys.argv[2])))
+    import json
+
+    key = (242, 94, 147)
+    if len(sys.argv) >= 6:
+        key = tuple(int(v) for v in sys.argv[3:6])
+    print(json.dumps(report(Path(sys.argv[1]), Path(sys.argv[2]), key)))
     return 0
 
 

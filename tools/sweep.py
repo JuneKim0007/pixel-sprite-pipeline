@@ -190,12 +190,20 @@ def done() -> set[str]:
 
 
 def score_run(char: str, name: str, run_dir: Path) -> dict | None:
-    from tools.score import report
-
+    """Scored in a subprocess: CLIP-ViT-H-14 is 2.35 GB, ComfyUI holds 5.6 of
+    the machine's 16, and keeping the encoder resident for the whole sweep is
+    what put the machine under memory pressure and had the sweep killed."""
     made = sorted(run_dir.glob("*_canonical/canonical*.png"))
     if not made:
         return None
-    return report(ROOT / f"library/refs/{char}/front.png", made[0])
+    out = subprocess.run(
+        [str(ROOT / "ComfyUI/.venv/bin/python"), str(ROOT / "tools/score.py"),
+         str(ROOT / f"library/refs/{char}/front.png"), str(made[0])],
+        cwd=ROOT, capture_output=True, text=True)
+    for line in reversed(out.stdout.splitlines()):
+        if line.startswith("{"):
+            return json.loads(line)
+    return None
 
 
 def run_all() -> int:
