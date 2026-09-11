@@ -1,13 +1,13 @@
-# Context images
+# Character sheets
 
 The character sheets and the four views cut from each one. Read this before
-touching `context/`, `tools/cut_sheet.py`, or anything that reads either.
+touching `characters/`, `tools/cut_sheet.py`, or anything that reads either.
 
 ## Where things live, and why the split matters
 
 | directory | holds | who reads it |
 |---|---|---|
-| `context/` | character sheets and their cut views | the sweep, for scoring; the pipeline, when a run asks for an identity reference |
+| `characters/` | character sheets and their cut views | the sweep, for scoring; the pipeline, when a run asks for an identity reference |
 | `training_set/` | material the LoRA trains on | training only |
 | `library/refs/` | anything a run may be handed as a reference | the pipeline |
 
@@ -16,7 +16,7 @@ questions, and because a file in `library/refs/` can reach the model by
 accident — that is what the directory is for. A character sheet that is only
 ground truth for a score must not sit there.
 
-`context/<char>/` contains:
+`characters/<char>/` contains:
 
 ```
 _source_sheet.png   the sheet as downloaded, never modified
@@ -72,7 +72,7 @@ One sheet at a time. A batch pass shares a vertical band and neighbour
 midpoints across four figures, and those are the decisions that go wrong.
 
 ```
-./ComfyUI/.venv/bin/python tools/cut_sheet.py context/char4/_source_sheet.png context/char4
+./ComfyUI/.venv/bin/python tools/cut_sheet.py characters/char4/_source_sheet.png characters/char4
 ```
 
 It prints the figure box and the square it was padded to. Check the output

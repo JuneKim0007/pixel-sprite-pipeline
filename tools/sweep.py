@@ -17,10 +17,10 @@ sys.path.insert(0, str(ROOT))
 CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
-# The character sheets and the views cut from them. Deliberately not under
-# library/refs, because anything there can be handed to the model, and not
-# under training_set, which is the LoRA's material.
-TRUTH = ROOT / "context"
+# The character sheets you supplied, and the views cut from them.
+# Deliberately not under library/refs, because anything there can be
+# handed to the model, and not under training_set, which is the LoRA's.
+TRUTH = ROOT / "characters"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
 REST = 480
@@ -173,7 +173,7 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             # plan() answers - the same trick the old _paint marker used.
             if extra.get("_refs"):
                 cfg["references"]["identity"] = [
-                    {"path": f"context/{char}/{name}.png", "view": view}
+                    {"path": f"characters/{char}/{name}.png", "view": view}
                     for name, view in VIEWS.items()
                     if (TRUTH / char / f"{name}.png").exists()]
             # Stated twice, the gate and the stage list disagree: every frames

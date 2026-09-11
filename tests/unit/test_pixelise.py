@@ -79,3 +79,32 @@ def test_headroom_of_zero_leaves_the_framing_alone(tmp_path):
     dst = tmp_path / "out.png"
     blocked(src, dst, 8, 0.0)
     assert Image.open(dst).size == (256, 256)
+
+
+def _grid_image(factor=8, cells=40, seed=3):
+    """Art actually drawn on a lattice, offset so phase 0 is the wrong answer."""
+    import numpy as np
+    from PIL import Image
+
+    rng = np.random.default_rng(seed)
+    small = rng.integers(0, 256, (cells, cells, 3)).astype(np.uint8)
+    big = np.repeat(np.repeat(small, factor, 0), factor, 1)
+    return Image.fromarray(big)
+
+
+def test_framing_does_not_resample_the_art(tmp_path):
+    """Any non-integer rescale smears the grid: LANCZOS and NEAREST measured
+    within 1% of each other, both 4x muddier than not rescaling at all."""
+    import numpy as np
+    from PIL import Image
+
+    from pipeline.definitive.pixelize import find_phase
+    from pipeline.stages.pixelise import framed
+
+    factor = 8
+    art = _grid_image(factor)
+    canvas = Image.new("RGB", (art.width + 160, art.height + 160), (240, 90, 150))
+    canvas.paste(art, (80, 80))
+
+    out = framed(canvas, 0.5, factor)
+    assert find_phase(np.asarray(out), factor) == (0, 0)

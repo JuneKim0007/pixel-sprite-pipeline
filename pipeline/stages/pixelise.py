@@ -12,25 +12,29 @@ from ..looks import vocabulary
 BLOCK_FLOOR = 2
 
 
-def framed(image, fill: float):
-    """Shrink the subject to `fill` of the frame, padding with its own backdrop."""
-    from PIL import Image
+# SDXL's latent wants a multiple of 64 and the block grid wants a multiple of
+# the factor; 64 satisfies both for every factor this stage accepts.
+LATTICE = 64
 
+
+def framed(image, fill: float, factor: int = 8):
+    """Give the subject room by growing the canvas, not by shrinking the art:
+    a non-integer rescale smears the grid the model drew, measured 4x."""
     from ..geometry import framing
 
     box = framing.measure(image)
-    if box is None or fill <= 0:
-        return image
-    scale = min(1.0, fill / max(box.fill, 1e-6))
-    if scale >= 0.995:
+    if box is None or fill <= 0 or box.fill <= fill:
         return image
 
-    small = image.resize((max(1, round(image.width * scale)),
-                          max(1, round(image.height * scale))), Image.LANCZOS)
-    canvas = Image.new("RGB", image.size, box.backdrop)
-    canvas.paste(small, ((image.width - small.width) // 2,
-                         (image.height - small.height) // 2))
-    return canvas
+    left, top = (box.left // factor) * factor, (box.top // factor) * factor
+    right = min(-(-(box.right + 1) // factor) * factor, image.width)
+    bottom = min(-(-(box.bottom + 1) // factor) * factor, image.height)
+    crop = image.crop((left, top, right, bottom))
+    canvas = framing.square_for(crop, fill, lattice=LATTICE)
+    # shrink_only: square_for already sized the canvas so the art spans `fill`,
+    # and letting seat scale it up to hit that exactly would undo the point.
+    return framing.seat(crop, canvas, fill, box.backdrop,
+                        shrink_only=True, lattice=factor)
 
 
 def blocked(source: Path, dst: Path, factor: int, fill: float = 0.0,
@@ -39,7 +43,7 @@ def blocked(source: Path, dst: Path, factor: int, fill: float = 0.0,
     from PIL import Image
 
     with Image.open(source) as handle:
-        image = framed(handle.convert("RGB"), fill)
+        image = framed(handle.convert("RGB"), fill, factor)
     cells = (max(1, image.width // factor), max(1, image.height // factor))
     if not grid:
         # Scale without quantising, so the two halves can be told apart.

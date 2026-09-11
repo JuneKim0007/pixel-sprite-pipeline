@@ -137,4 +137,4 @@ def test_the_ground_truth_lives_outside_what_the_model_can_be_given():
 
     assert "refs" not in TRUTH.parts
     assert "training_set" not in TRUTH.parts
-    assert TRUTH.name == "context"
+    assert TRUTH.name == "characters"

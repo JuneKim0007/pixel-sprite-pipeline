@@ -3,8 +3,10 @@ from __future__ import annotations
 import numpy as np
 
 
-def square_for(art, fill: float) -> tuple[int, int]:
+def square_for(art, fill: float, lattice: int = 0) -> tuple[int, int]:
     edge = round(max(art.width, art.height) / fill)
+    if lattice:
+        edge = -(-edge // lattice) * lattice
     return edge, edge
 
 
@@ -27,7 +29,8 @@ def rescaled(art, factor: float):
 
 
 def seat(art, canvas: tuple[int, int], fill: float, background=None,
-         shrink_only: bool = False):
+         shrink_only: bool = False, lattice: int = 0):
+    """`lattice` snaps the paste offset, so art drawn on a grid keeps its phase."""
     from PIL import Image
 
     factor = min(canvas[0] * fill / art.width, canvas[1] * fill / art.height)
@@ -36,5 +39,8 @@ def seat(art, canvas: tuple[int, int], fill: float, background=None,
     if abs(factor - 1.0) > 1e-3:
         art = rescaled(art, factor)
     out = Image.new(art.mode, canvas, background if background else (0, 0, 0, 0))
-    out.paste(art, ((canvas[0] - art.width) // 2, (canvas[1] - art.height) // 2))
+    left, top = (canvas[0] - art.width) // 2, (canvas[1] - art.height) // 2
+    if lattice:
+        left, top = (left // lattice) * lattice, (top // lattice) * lattice
+    out.paste(art, (left, top))
     return out
