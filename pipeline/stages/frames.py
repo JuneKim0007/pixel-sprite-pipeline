@@ -57,8 +57,7 @@ def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
     depthmaps: list[Path] = ctx.artifacts.get("depthmaps") or []
     if depthmaps and len(depthmaps) != len(skeletons):
         raise RuntimeError(
-            # not-a-message: both lists are written one file per pose entry, so a
-            # mismatch is a partial write or a version skew, not a config fault.
+            # not-a-message: both lists are written one file per pose entry, so a.
             f"{len(depthmaps)} depth maps for {len(skeletons)} skeletons — "
             f"they must correspond one to one.")
     return skeletons, ctx.require("canonical"), depthmaps
@@ -107,8 +106,6 @@ class FramesStage(Stage):
         lib = ctx.need("references")
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.settings("canonical")))
         # The pixelise stage re-renders the anchor onto the sprite's own grid.
-        # Frames inherit their block from whatever they are anchored to, so
-        # preferring it here is what carries that grid into every view.
         pixel_anchor = ctx.artifacts.get("pixel_anchor")
         anchor = Reference(path=pixel_anchor or canonical, yaw=anchor_yaw,
                            label="pixel anchor" if pixel_anchor else "canonical")

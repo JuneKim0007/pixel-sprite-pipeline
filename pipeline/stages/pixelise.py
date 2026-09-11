@@ -13,13 +13,7 @@ BLOCK_FLOOR = 2
 
 
 def framed(image, fill: float):
-    """Shrink the subject to `fill` of the frame, padding with its own backdrop.
-
-    The sampler fills whatever canvas it is given - measured three times, a
-    guide at 0.815, 0.706 and 0.887 of frame height all came back at 0.999 -
-    so margin cannot be asked for at generation. Here it can be handed over:
-    the latent already has it, and a low denoise keeps it.
-    """
+    """Shrink the subject to `fill` of the frame, padding with its own backdrop."""
     from PIL import Image
 
     from ..geometry import framing
@@ -41,13 +35,7 @@ def framed(image, fill: float):
 
 def blocked(source: Path, dst: Path, factor: int,
             fill: float = 0.0) -> tuple[int, int]:
-    """Quantise to the sprite grid and back, so the latent carries whole blocks.
-
-    Measured across 24 runs, the model draws a 1.75 to 2.00 pixel block on a
-    1024 canvas where a 128 sprite wants 8, and no conditioning moved it. What
-    it will not invent it can be handed: sampling from this traces the block
-    structure instead of inventing a finer one.
-    """
+    """Quantise to the sprite grid and back, so the latent carries whole blocks."""
     from PIL import Image
 
     with Image.open(source) as handle:

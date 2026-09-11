@@ -372,9 +372,7 @@ def test_a_run_survives_the_web_server_that_started_it(monkeypatch):
 
 
 def test_a_service_is_found_by_what_it_runs_not_by_a_file(monkeypatch):
-    """.run/comfy.pid named a dead process while the live ComfyUI held 15 GB of
-    16, because adopt_pidfiles ran once at server start and start.sh writes no
-    pidfile at all."""
+    """.run/comfy.pid named a dead process while the live ComfyUI held 15 GB of 16."""
     from pipeline.shared import guard as guard_mod
 
     class Out:

@@ -28,10 +28,7 @@ class Rig:
     skeleton_control: str | None
     depth_control: str = "depth"
     face_joints: tuple[str, ...] = ()
-    # Joints the depth map draws and the skeleton does not. The 18-point order
-    # in `joints` is the OpenPose protocol its ControlNet was trained on, so a
-    # foot cannot be added there; without one the ankle is a leaf and the depth
-    # map ends the leg in a sphere, which is what stretches a foot.
+    # Joints the depth map draws and the skeleton does not.
     extra: tuple[str, ...] = ()
     head_joint: str = ""
     head_radius: float = 0.062
@@ -767,9 +764,6 @@ def tpose(rig: Rig, symmetric: bool = False, spread: float | None = None
         return pose
 
     # Assigning the ankle's x directly stretched the shin: 0.1600 to 0.1607.
-    # Everything BELOW the hip swings with it, from the tree rather than a
-    # list: naming knee and ankle left the toe where it was and stretched the
-    # foot to 0.042 against a bone declared 0.030.
     for hip in ("l_hip", "r_hip"):
         if hip not in pose:
             continue

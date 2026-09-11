@@ -317,8 +317,7 @@ export function weightPainter({ imagePath, onChange, initial = null } = {}) {
   refreshBar();
   draw();
 
-  // Scoped to the panel, not the document: the map lives inside a disclosure on
-  // a tab, and a global Ctrl+Z would rewind it from anywhere in the app.
+  // Scoped to the panel, not the document: the map lives inside a disclosure on a tab.
   const node = el('div', { className: 'weightpanel', tabIndex: -1 }, bar, canvas);
   const releaseKeys = undoKeys(history, { target: node });
 

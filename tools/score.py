@@ -1,9 +1,4 @@
-"""How close a generated sprite is to the reference it was drawn from.
-
-Three numbers, kept apart because they fail independently: a sprite can match
-the reference's colours and be the wrong shape, or be the right shape in the
-backdrop's colours.
-"""
+"""How close a generated sprite is to the reference it was drawn from."""
 
 from __future__ import annotations
 
@@ -56,12 +51,7 @@ def subject(image: Path, tolerance: int = 60) -> tuple[np.ndarray, np.ndarray]:
 
 
 def bleed(image: Path, key: tuple[int, int, int], within: int = 110) -> float:
-    """The share of the SUBJECT wearing the backdrop's colour.
-
-    A chroma key that reaches the character is the failure this measures: the
-    reference's black hair came back lavender and its red tie came back
-    magenta, and every pixel of that is inside the silhouette.
-    """
+    """The share of the SUBJECT wearing the backdrop's colour."""
     pixels, mask = subject(image)
     if not mask.any():
         return 0.0
@@ -83,12 +73,7 @@ def build(image: Path) -> float:
 
 
 def block(image: Path) -> float:
-    """The pixel grid the MODEL drew, before any reduction.
-
-    For a crisp 128 sprite off a 1024 canvas this wants to be 8. Below that the
-    reduction is averaging native pixels away, and the sprite reads softer than
-    its grid.
-    """
+    """The pixel grid the MODEL drew, before any reduction."""
     import numpy as np
     from PIL import Image
 
@@ -103,13 +88,7 @@ def block(image: Path) -> float:
 
 
 def cells(image: Path) -> int:
-    """How many cells the model drew, canvas over block.
-
-    `block` alone cannot be compared between canvases: the target art is 192
-    pixels with a block of 1, which is 192 cells and IS a sprite; ours is 1024
-    with a block of 2, which is 512 cells on a canvas that will be reduced to
-    128. A 128 sprite wants 128 cells.
-    """
+    """How many cells the model drew, canvas over block."""
     from PIL import Image
 
     found = block(image)

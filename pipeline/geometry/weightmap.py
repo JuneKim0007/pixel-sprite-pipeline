@@ -64,11 +64,7 @@ CEILING = 1.0
 
 
 def from_subject(image: Path, edge: int = EDGE) -> np.ndarray:
-    """A map that says the figure and not the ground it was cut from.
-
-    The identity references are cut from character sheets and carry their
-    sheet's own backdrop, which IPAdapter pulls in with the character.
-    """
+    """A map that says the figure and not the ground it was cut from."""
     from PIL import Image
 
     from .framing import backdrop_of
@@ -78,8 +74,7 @@ def from_subject(image: Path, edge: int = EDGE) -> np.ndarray:
     with Image.open(image) as handle:
         pixels = np.asarray(handle.convert("RGB")).astype(int)
     subject = np.abs(pixels - backdrop_of(pixels)).sum(axis=2) > 60
-    # A navy dress on a purple sheet is within the threshold, so the figure
-    # came back hollow. What the border cannot reach is the figure.
+    # A navy dress on a purple sheet is within the threshold, so the figure came back.
     subject = ndimage.binary_fill_holes(
         ndimage.binary_closing(subject, np.ones((5, 5))))
     small = np.asarray(

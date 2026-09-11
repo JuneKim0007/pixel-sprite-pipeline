@@ -1,13 +1,4 @@
-"""Turning a named config into a run directory, once, for three callers.
-
-The CLI, the Run button and autopilot each did this sequence with their own
-expressions for four of its steps - which runs directory, which run id, which
-filename to snapshot under, and whether overrides applied at all. The runs
-directory was the one that bit: a launcher resolved it from _global while
-run.py resolved it from the effective config, so a config setting
-paths.output_dir had its log tailed in one directory and its artifacts written
-to another.
-"""
+"""Turning a named config into a run directory, once, for three callers."""
 
 from __future__ import annotations
 
@@ -71,8 +62,7 @@ def prepare(root: Path, config_path: Path, *, overrides: dict | None = None,
     outdir = (base or runs_base(root, cfg)) / rid
     outdir.mkdir(parents=True, exist_ok=True)
 
-    # The snapshot is the RAW config: resume layers styles over it again, and
-    # a style token appended twice is a prompt that names the look twice.
+    # The snapshot is the RAW config: resume layers styles over it again, and a style.
     snapshot = outdir / SNAPSHOT
     if config_path.resolve() != snapshot.resolve():
         snapshot.write_text(yaml.safe_dump(raw, sort_keys=False))

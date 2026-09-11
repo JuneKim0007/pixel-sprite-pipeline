@@ -1,13 +1,4 @@
-"""Cut a character sheet into one image per view.
-
-    python tools/cut_sheet.py ~/Downloads/Char_sheet/char2.png library/refs/char2
-    python tools/cut_sheet.py sheet.png out --views 3
-
-A figure is a column whose ink spans most of the height the figures share.
-Detail panels, palettes and captions are shorter, so they fall out without
-reading a single label - which matters because these sheets put their panel on
-the left, on the right, or nowhere.
-"""
+"""Cut a character sheet into one image per view."""
 
 from __future__ import annotations
 
@@ -28,8 +19,7 @@ MIN_WIDE = 0.04
 BASELINE_SLACK = 0.12
 JOIN = 10
 
-# Raised only when a sheet yields too few figures: at 0.55 two figures drawn
-# close together merge into one column, and at 0.75 they separate.
+# Raised only when a sheet yields too few figures: at 0.55 two figures drawn close.
 SPANS = (0.55, 0.75, 0.85)
 
 THREE = ("front", "side", "rear")
@@ -103,12 +93,7 @@ def _columns_reach(mask: np.ndarray, band: tuple[int, int]) -> np.ndarray:
 
 
 def _resplit(reach: np.ndarray, picked: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """A column far wider than its siblings has caught a full-height panel.
-
-    Figures on one sheet are drawn at one scale, so a run 1.6x the median is
-    two things joined by a frame line. Split it at its thinnest point and keep
-    whichever half is the usual width - the panel may sit on either side.
-    """
+    """A column far wider than its siblings has caught a full-height panel."""
     if len(picked) < 3:
         return picked
     widths = sorted(b - a for a, b in picked)
@@ -129,13 +114,7 @@ def _resplit(reach: np.ndarray, picked: list[tuple[int, int]]) -> list[tuple[int
 
 def _extent(mask: np.ndarray, column: tuple[int, int], band: tuple[int, int],
             bounds: tuple[int, int]) -> tuple[int, int, int, int]:
-    """The column plus a margin for the arms, trimmed back to real ink.
-
-    Measuring a blob instead was tried and is worse: closed loosely a sleeve
-    detaches, closed tightly the panel beside the figure joins it, and the
-    sheets carry both a caption inside the figure's rows and a palette strip
-    beside them.
-    """
+    """The column plus a margin for the arms, trimmed back to real ink."""
     left, right = column
     top, bottom = band
     margin = int((right - left) * MARGIN)
@@ -168,9 +147,7 @@ def cut(sheet: Path, outdir: Path, views: int = 0) -> list[str]:
         wanted = 4 if len(found) >= 4 else 3
 
     picked = _resplit(_columns_reach(mask, band), found[:wanted])
-    # The blob pass finds the top reliably and can lose the feet: on a sheet
-    # whose legs are pale on a strong ground they break into their own blobs
-    # and the baseline lands at the knee. The picked columns know better.
+    # The blob pass finds the top reliably and can lose the feet: on a sheet whose legs.
     floor = max(int(np.nonzero(mask[:, a:b].any(axis=1))[0][-1]) for a, b in picked)
     band = (band[0], max(band[1], floor) + 1)
     names = FOUR if wanted == 4 else THREE

@@ -80,9 +80,7 @@ class Field:
 
     def clamp(self, value):
         """A zoom declared max=16 accepted 64: a request is not a form."""
-        # A per-group mapping is bounded entry by entry, exactly as check reads
-        # it. Coercing the mapping itself fails, and the default it fell back to
-        # was None - silently discarding depth.build, the only width control.
+        # A per-group mapping is bounded entry by entry, exactly as check reads it.
         if isinstance(value, dict) and self.kind in ("float", "int"):
             return {name: self.clamp(each) for name, each in value.items()}
         value, ok = self._coerce(value)

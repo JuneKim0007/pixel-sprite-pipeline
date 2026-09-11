@@ -251,8 +251,7 @@ def apply_ipadapter(
                      ipadapter_file=model_name(models, "ipadapter"))
     clip_vision = g.add("CLIPVisionLoader",
                         clip_name=model_name(models, "clip_vision"))
-    # attn_mask is interpolated to the latent attention grid and multiplied into
-    # this adapter's contribution, so it says WHERE the reference steers.
+    # attn_mask is interpolated to the latent attention grid and multiplied into this.
     optional = {"attn_mask": attn_mask} if attn_mask is not None else {}
     node = g.add(
         "IPAdapterAdvanced",

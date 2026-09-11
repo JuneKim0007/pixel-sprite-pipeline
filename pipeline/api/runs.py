@@ -277,8 +277,7 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
         cfg_path = CONFIGS / f"{config_name}.yaml"
         if not cfg_path.exists():
             raise NotFound("config", config_name)
-        # The same preparation the CLI and autopilot do. It refuses before it
-        # mints a run id, so a rejected run leaves no directory behind.
+        # The same preparation the CLI and autopilot do.
         ready = launch.prepare(
             ROOT, cfg_path, overrides=overrides, style_picks=style_picks,
             run_id=f"{time.strftime('%Y%m%d_%H%M%S')}_{config_name}")
@@ -326,8 +325,7 @@ class Runs(BaseRouter):
         if proc and proc.poll() is None:
             proc.terminate()
             return {"stopped": rid}
-        # _ACTIVE is this process's memory of what it started. A run outlives a
-        # web server restart, so a reload used to make Stop a 404.
+        # _ACTIVE is this process's memory of what it started.
         if not guard.stop_run(rid):
             raise NotFound("running job", rid)
         return {"stopped": rid}

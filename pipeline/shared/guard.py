@@ -244,12 +244,6 @@ EXPECTED_LARGE = {"comfy", "ollama"}
 
 
 # A service is found by what it is running, not by a file someone wrote once.
-# start.sh execs ComfyUI and writes no pidfile at all, so .run/comfy.pid was a
-# relic of an older launcher: it named a dead pid while the live ComfyUI held
-# 15 GB of 16, and the guard watched nothing.
-# Every needle must appear. start.sh does `cd ComfyUI` before exec, so the
-# command line reads `main.py`, not `ComfyUI/main.py`; the port is the part the
-# pipeline actually depends on and the part that cannot drift.
 SERVICES: dict[str, tuple[str, ...]] = {
     "comfy": ("main.py", "--port 8188"),
     "ollama": ("ollama", "serve"),
@@ -318,11 +312,7 @@ def adopt_pidfiles(run_dir) -> list[str]:
 
 
 def find_run(run_id: str | None = None) -> tuple[int, str] | None:
-    """A live `run.py` as (pid, run_id), found from its own command line.
-
-    Discovery rather than bookkeeping, because it is the only answer that
-    survives the web server restarting under a run that is still going.
-    """
+    """A live `run.py` as (pid, run_id), found from its own command line."""
     try:
         out = subprocess.run(["ps", "-axo", "pid=,args="],
                              capture_output=True, text=True, timeout=5)

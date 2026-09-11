@@ -135,12 +135,7 @@ def test_every_config_field_is_a_config_field():
 
 
 def test_the_settings_form_is_unchanged_by_the_migration():
-    """Every declared field renders, and none changed shape.
-
-    One line per field, so the failure names the paths rather than diffing two
-    eight-thousand-line dicts, and two branches declaring different fields do
-    not collide.
-    """
+    """Every declared field renders, and none changed shape."""
     import importlib.util
     import pathlib
 
@@ -275,8 +270,7 @@ def test_a_field_named_for_a_stage_belongs_to_one_that_exists():
     assert not barren, f"{barren} run with settings nobody can see or bound"
 
 
-# Every path below is read by the pipeline and was refused by SCHEMA.check
-# until 2026-09-11, because check ran only where the editor saved.
+# Every path below is read by the pipeline and was refused by SCHEMA.check until.
 READ_BY_THE_PIPELINE = [
     "canonical.from_reference.enabled",
     "canonical.from_reference.start_at",

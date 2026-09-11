@@ -17,16 +17,9 @@ REDUCE_MODES = ("mean", "median", "mode", "clipped", "salient")
 
 
 def _blocks(arr: np.ndarray, factor: int, ox: int, oy: int) -> np.ndarray:
-    """Crop to the phase (ox, oy) and reshape into (bh, bw, factor, factor, C).
-
-    The tail block is completed by repeating the edge rather than dropped. At
-    1024 and factor 8 a phase of (4, 4) - which is what the sampler actually
-    lands on - otherwise yields 127 blocks, and the sprite everyone asked to be
-    128 comes out one pixel short on both axes.
-    """
+    """Crop to the phase (ox, oy) and reshape into (bh, bw, factor, factor, C)."""
     h, w = arr.shape[:2]
-    # Refused on WHOLE blocks: a factor bigger than the image would otherwise
-    # pass as one block made mostly of padding.
+    # Refused on WHOLE blocks: a factor bigger than the image would otherwise pass as one.
     if (h - oy) // factor < 1 or (w - ox) // factor < 1:
         raise Invalid(f"factor {factor} too large for image {w}x{h}", field="factor")
     bh = -(-(h - oy) // factor)
@@ -59,8 +52,7 @@ def _phases(height: int, width: int, factor: int):
             if columns < 1:
                 continue
             yield oy, ox, rows, columns
-    # Scoring stays on whole blocks: a padded tail is the same for every phase
-    # and would tell them apart by nothing.
+    # Scoring stays on whole blocks: a padded tail is the same for every phase and would.
 
 
 def _rects(table: np.ndarray, top: np.ndarray, bottom: np.ndarray,

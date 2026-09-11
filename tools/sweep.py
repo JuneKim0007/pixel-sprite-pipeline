@@ -1,12 +1,4 @@
-"""Generate and run one canonical per character per variant, then score them.
-
-    python tools/sweep.py plan          write the configs and print the plan
-    python tools/sweep.py run           run everything not yet run, scoring as it goes
-    python tools/sweep.py report        rebuild the leaderboard from what exists
-
-Each run is a single front anchor so a variant costs one GPU job, and every
-output is scored against the character's own front reference.
-"""
+"""Generate and run one canonical per character per variant, then score them."""
 
 from __future__ import annotations
 
@@ -24,35 +16,28 @@ sys.path.insert(0, str(ROOT))
 CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
-# A run here is a single GPU job, so cooling.seconds never fires inside one -
-# the rest has to sit between runs or the machine works 56 of them back to back.
+# A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
 REST = 120
 
-# ComfyUI's resident size grows across a long sweep - measured at 15 GB of 16
-# after roughly thirty runs, with 12.2 GB of swap in use and the machine's own
-# pressure gauge reading critical. A restart between batches bounds it; the
-# next run waits for the service to come back, which wait_for_comfy already
-# does.
-RESTART_EVERY = 8
+# ComfyUI holds model weights in CPU RAM between runs by design - it unloads from GPU.
+FREE_EVERY = 6
 
-
-def restart_comfy() -> None:
-    from pipeline.shared import guard
-
-    pid = guard.find_service(guard.SERVICES["comfy"])
-    if pid is None:
-        return
-    print(f"  restarting ComfyUI (pid {pid}) to give its memory back", flush=True)
-    subprocess.run(["kill", str(pid)], check=False)
-    for _ in range(30):
-        if guard.find_service(guard.SERVICES["comfy"]) is None:
-            break
-        time.sleep(1)
-    subprocess.Popen([str(ROOT / "start.sh")], cwd=ROOT,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     start_new_session=True)
 COMFY_WAIT = 30
 COMFY_TRIES = 40
+
+
+def free_comfy(host: str = "http://127.0.0.1:8188") -> bool:
+    import urllib.error
+    import urllib.request
+
+    body = json.dumps({"unload_models": True, "free_memory": True}).encode()
+    request = urllib.request.Request(
+        f"{host}/free", data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=30):
+            return True
+    except (urllib.error.URLError, OSError, TimeoutError):
+        return False
 
 
 def comfy_up(host: str = "http://127.0.0.1:8188") -> bool:
@@ -76,8 +61,7 @@ def wait_for_comfy() -> bool:
         time.sleep(COMFY_WAIT)
     return False
 
-# The file is named for the drawing; the config wants the angle, and there is
-# no named view for the far side - `side` is 90, so its mirror is 270.
+# The file is named for the drawing; the config wants the angle, and there is no named.
 VIEWS = {"front": "front", "side": "side", "side_right": 270, "rear": "rear"}
 
 SUBJECTS = {
@@ -100,18 +84,7 @@ SUBJECTS = {
              "cape and navy thigh boots",
 }
 
-# Each variant moves ONE thing away from the baseline, so a score difference
-# names a cause. Measured at 510s a run, seven variants needed 11.7 hours and
-# would not have finished; these five are the ones whose answer is not already
-# known. `wide` and `hold_control` were both run against experiment_slim, and
-# `no_style` is the degenerate end of `identity_led`.
-# Round three. The defaults now carry what rounds one and two measured - lora
-# 0.8, identity 1.15, style 0.12, background auto - so `shipped` IS the
-# baseline and each variant moves one thing off it.
-# Round four. `shipped` is the control; the rest are the balance the pixelise
-# pass has to strike. Quantising alone reaches block 8 and 83% fill, but it
-# compacts detail - the denoise that follows decides how much comes back
-# before the model re-invents a finer grid than the sprite has room for.
+# Each variant moves ONE thing away from the baseline, so a score difference names a.
 VARIANTS = {
     "shipped": {},
     "pix_030": {"pixelise": {"denoise": 0.30},
@@ -123,23 +96,14 @@ VARIANTS = {
     "pix_060": {"pixelise": {"denoise": 0.60},
                 "pipeline": {"stages": ["pose", "depth", "canonical",
                                         "pixelise"], "stop_after": "pixelise"}},
-    # char8_lora_08 was the most pixel-like result recorded - block 3.0 against
-    # everything else's 2.0 - and it had hi_fidelity's exemplars. crisp has
-    # none. If the exemplars were supplying the RENDERING rather than only the
-    # colour, this is where it shows.
+    # char8_lora_08 was the most pixel-like result recorded - block 3.0 against.
     "with_exemplars": {"styles": ["hi_fidelity"],
                        "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
 }
 
 
 def base(char: str) -> dict:
-    """Only what a sweep needs: one front anchor, this character's references.
-
-    Everything else is left to base_pixel and the style sheet on purpose. The
-    earlier rounds pinned proportions, background.colour, style_weight and
-    style.end_at here, which meant the sweep measured its own settings rather
-    than the ones a real run would inherit.
-    """
+    """Only what a sweep needs: one front anchor, this character's references."""
     return {
         "module": "character_sheet",
         "subject": SUBJECTS[char],
@@ -199,12 +163,7 @@ def clear_emphasis(char: str) -> None:
 
 
 def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
-    """Variant-major: every character is reached before any is repeated.
-
-    A sweep this long will be read before it finishes, and character-major
-    ordering would spend the first hours on char1 and answer nothing about the
-    other seven.
-    """
+    """Variant-major: every character is reached before any is repeated."""
     CONFIGS.mkdir(parents=True, exist_ok=True)
     chars = [c for c in sorted(SUBJECTS)
              if (ROOT / f"library/refs/{c}/front.png").exists()
@@ -220,11 +179,7 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
 
 
 def scored() -> dict[str, dict]:
-    """Every run that carries a score, read from the runs themselves.
-
-    A private results file was a second record of something each run already
-    keeps beside its artifacts.json, and only this tool could read it.
-    """
+    """Every run that carries a score, read from the runs themselves."""
     out: dict[str, dict] = {}
     for path in sorted(RUNS.glob("*/score.json")):
         try:
@@ -262,8 +217,7 @@ def score_run(char: str, name: str, run_dir: Path) -> dict | None:
 def run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
     from pipeline.geometry import framing
 
-    # An interrupted emphasis run leaves its maps behind, and every later
-    # variant would then be scored with a regional weight it never asked for.
+    # An interrupted emphasis run leaves its maps behind, and every later variant would.
     for char in SUBJECTS:
         clear_emphasis(char)
     already = done()
@@ -303,8 +257,8 @@ def run_all(only: list[str] | None = None, variants: list[str] | None = None) ->
         print(f"  {row['id']:26} {row.get('likeness', '-')}  "
               f"bleed {row.get('bleed', '-')}  {row['seconds']}s", flush=True)
         if job is not jobs[-1]:
-            if (jobs.index(job) + 1) % RESTART_EVERY == 0:
-                restart_comfy()
+            if (jobs.index(job) + 1) % FREE_EVERY == 0:
+                print(f"  freeing ComfyUI's models: {free_comfy()}", flush=True)
             time.sleep(REST)
     return 0
 

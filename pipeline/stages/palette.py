@@ -70,11 +70,7 @@ class PaletteStage(Stage):
 
     @staticmethod
     def _key_colour(ctx: Context, source: Path) -> tuple[int, int, int] | None:
-        """The colour to key: what was asked for, or what was actually painted.
-
-        Three runs measured 0.0% of the requested magenta, so `auto` reads the
-        colour off the image's own corners rather than trusting the prompt.
-        """
+        """The colour to key: what was asked for, or what was actually painted."""
         from ..geometry.framing import backdrop_of
         from ..shared.colour import parse_colour
 

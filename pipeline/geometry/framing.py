@@ -86,12 +86,7 @@ def measure(image: Path | np.ndarray, tolerance: int = TOLERANCE) -> Framing | N
 
 
 def recentre(image: Path, target: float = 0.0, tolerance: int = TOLERANCE) -> str | None:
-    """Centre the subject in its frame, padding with the backdrop it already has.
-
-    Returns a note on what moved, or None when there was nothing to do. A
-    subject that touches an edge is left alone: shifting it would move the cut
-    rather than undo it, and the caller needs to know the pixels are gone.
-    """
+    """Centre the subject in its frame, padding with the backdrop it already has."""
     from PIL import Image
 
     box = measure(image, tolerance)

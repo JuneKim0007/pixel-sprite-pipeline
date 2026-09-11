@@ -54,9 +54,7 @@ def test_every_block_is_one_colour(tmp_path):
 
 
 def test_headroom_is_handed_over_rather_than_asked_for(tmp_path):
-    """The sampler fills whatever canvas it is given - a guide at 0.815, 0.706
-    and 0.887 of frame height all came back at 0.999 - so the margin has to be
-    in the latent before sampling starts."""
+    """The sampler fills whatever canvas it is given - a guide at 0.815, 0.706 and."""
     from pipeline.geometry.framing import measure
     from pipeline.stages.pixelise import blocked
 

@@ -105,8 +105,7 @@ def main() -> int:
     if a.resume:
         cfg = styles.effective(ROOT, settings.read_yaml(config_path))[0]
     else:
-        # The same preparation the Run button and autopilot do, so a run does
-        # not depend on which of the three started it.
+        # The same preparation the Run button and autopilot do, so a run does not depend.
         try:
             ready = launch.prepare(ROOT, config_path, run_id=a.run_id,
                                    name=a.name, base=a.outdir)

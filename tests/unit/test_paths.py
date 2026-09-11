@@ -8,17 +8,13 @@ from pipeline.shared import paths, settings
 
 
 def test_the_config_keys_and_the_layout_agree(tmp_path):
-    """DEFAULT_GLOBAL restated three directories the layout already declared,
-    and a third set of fallbacks was inlined at the API's call sites - where
-    input_dir defaulted to 'inputs' against a layout saying 'library/refs'."""
+    """DEFAULT_GLOBAL restated three directories the layout already declared, and a."""
     for key, name in paths.GLOBAL_KEYS.items():
         assert settings.DEFAULT_GLOBAL["paths"][key] == paths.LAYOUT[name], key
 
 
 def test_a_config_that_moves_the_runs_moves_where_they_are_read(tmp_path):
-    """The launcher read the effective config and the API read _global, so a
-    config setting output_dir had its artifacts written to one directory and
-    its log tailed in another."""
+    """The launcher read the effective config and the API read _global, so a config."""
     from pipeline.orchestration import launch
 
     cfg = {"paths": {"output_dir": "out/elsewhere"}}

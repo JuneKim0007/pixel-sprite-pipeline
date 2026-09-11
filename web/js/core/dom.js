@@ -12,8 +12,7 @@ export const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-// el() drops null and false; the native append and replaceChildren stringify
-// them, which is how the overview printed the word "null" under its counters.
+// el() drops null and false; the native append and replaceChildren stringify them, which.
 export const kids = (...children) =>
   children.flat().filter((c) => c != null && c !== false);
 

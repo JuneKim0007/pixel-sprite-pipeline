@@ -1,8 +1,7 @@
 export const ENTRIES = 30;
 export const BYTES = 8 << 20;
 
-// Bounded by both, because the two surfaces differ by orders of magnitude: a
-// pose snapshot is under a kilobyte, an emphasis map is sixty-four.
+// Bounded by both, because the two surfaces differ by orders of magnitude: a pose.
 export function boundedStack({ entries = ENTRIES, bytes = BYTES,
                                sizeOf = () => 0 } = {}) {
   const items = [];

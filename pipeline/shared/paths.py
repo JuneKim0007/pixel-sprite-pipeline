@@ -22,9 +22,6 @@ LAYOUT: dict[str, str] = {
 
 
 # The three directories a config may override, and the layout entry each names.
-# They were declared twice - here and in DEFAULT_GLOBAL - with a third set of
-# fallbacks inlined at the API's call sites, where `input_dir` defaulted to
-# "inputs" against a layout that says "library/refs".
 GLOBAL_KEYS: dict[str, str] = {
     "input_dir": "refs",
     "output_dir": "runs",

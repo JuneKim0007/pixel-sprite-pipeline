@@ -412,9 +412,7 @@ FIELDS: list[ConfigField] = [
 
     ConfigField(key="background.colour", label="Backdrop colour", kind="colour",
      default=colour_mod.BACKDROP, group="Palette",
-     # `auto` is a choice about WHERE the colour comes from, not a colour, so
-     # it lives here rather than in BACKDROP_PRESETS - which the Definitive
-     # editor reads expecting every entry to have a name.
+     # `auto` is a choice about WHERE the colour comes from, not a colour, so it lives.
      options=[["auto", "Whatever the model actually painted, from the corners"]]
              + [list(o) for o in colour_mod.BACKDROP_PRESETS],
      help="Named in the prompt and removed by the keyer, so the two agree. "

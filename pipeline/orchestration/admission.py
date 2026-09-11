@@ -1,9 +1,4 @@
-"""Everything wrong with a config that is knowable before the run starts.
-
-One answer for three callers. `run.py` refuses, `api.runs.start_run` refuses,
-and `queue.preflight` reports - and until 2026-09-11 each checked a different
-subset, so a job the queue would not take was one the Run button started.
-"""
+"""Everything wrong with a config that is knowable before the run starts."""
 
 from __future__ import annotations
 
@@ -32,8 +27,7 @@ def _stages(cfg: dict) -> list[str]:
 
     order = (cfg.get("pipeline") or {}).get("stages") or []
     if not order:
-        # Only the CLI refused this, in load_config. A queued job reached
-        # run.py before anything said so.
+        # Only the CLI refused this, in load_config.
         return [NO_STAGES]
     try:
         runner.validate(runner.build(list(order)), seeded=set())

@@ -39,9 +39,7 @@ def _anchor_view(ctx, cfg) -> str | float:
     if explicit is not None:
         return explicit
 
-    # The raw config, not settings(): settings fills pose.view in from the
-    # schema default, and a default that outranks the config's own pose.set is
-    # not "most specific first" - it anchored every sheet on side regardless.
+    # The raw config, not settings(): settings fills pose.view in from the schema.
     named = get_path(ctx.config, "pose.view")
     if named is not None:
         return named

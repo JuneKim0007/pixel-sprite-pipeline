@@ -1,14 +1,4 @@
-"""The settings form as one line per field, so two branches can both edit it.
-
-    python tools/schema_golden.py            print
-    python tools/schema_golden.py --write    rewrite the golden
-
-Expanded JSON put seven lines on screen for every field and repeated all 162 of
-them across seven asset types: 8092 lines, regenerated whole by any branch that
-declares a field. Two branches doing that at once is 686 lines for git to
-reconcile over a file nobody reads. One sorted line per field means two
-branches adding different fields touch different lines.
-"""
+"""The settings form as one line per field, so two branches can both edit it."""
 
 from __future__ import annotations
 

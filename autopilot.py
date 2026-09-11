@@ -45,9 +45,7 @@ def run_job(root: Path, job: q.Job, timeout: float) -> tuple[bool, str, str]:
     """Execute one job. Returns (ok, run_id, detail)."""
     cfg_path = paths.resolve(root, "configs") / f"{job.config}.yaml"
 
-    # The same preparation the CLI and the Run button do. It resolved the runs
-    # directory from _global here and from the effective config in run.py, so
-    # a config setting paths.output_dir split the two apart.
+    # The same preparation the CLI and the Run button do.
     ready = launch.prepare(
         root, cfg_path, overrides=job.data.get("overrides"),
         run_id=f"{time.strftime('%Y%m%d_%H%M%S')}_{job.id}")
