@@ -30,3 +30,6 @@ __pycache__/
 
 # Character sheets and the views cut from them.
 context/
+
+# Material the LoRA trains on. Untracked whole: it is data, not source.
+training_set/
