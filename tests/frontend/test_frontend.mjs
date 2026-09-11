@@ -13,7 +13,7 @@
  */
 
 import assert from 'node:assert';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -2239,6 +2239,24 @@ test('no conditional child reaches a DOM method unfiltered', () => {
     }
   }
   assert.deepEqual(bad, [], `pass these through kids(): ${bad.join(', ')}`);
+});
+
+test('every relative import resolves to a file that exists', () => {
+  // The suite checked that an import is USED, never that it points anywhere.
+  // A regex rewriting `../../core/dom.js` kept only the last repetition of
+  // (\.\./)* and wrote `../core/dom.js`, which loads nothing and takes the
+  // whole app down - a blank page, every route answering 200.
+  const files = readdirSync(JS, { recursive: true })
+    .filter((f) => String(f).endsWith('.js'));
+  const broken = [];
+  for (const f of files) {
+    const dir = dirname(join(JS, String(f)));
+    const src = readFileSync(join(JS, String(f)), 'utf8');
+    for (const m of src.matchAll(/from\s+'(\.[^']+)'/g)) {
+      if (!existsSync(join(dir, m[1]))) broken.push(`${f} -> ${m[1]}`);
+    }
+  }
+  assert.deepEqual(broken, [], `dangling imports: ${broken.join(', ')}`);
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

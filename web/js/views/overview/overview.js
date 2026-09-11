@@ -2,7 +2,7 @@
 
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
-import { el, kids } from '../core/dom.js';
+import { el, kids } from '../../core/dom.js';
 import { Button, Empty, PanelHead } from '../../ui/index.js';
 import { promptEditor } from '../../features/prompts.js';
 import { state, toast } from '../../store.js';
