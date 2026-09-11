@@ -1,0 +1,46 @@
+module: character_sheet
+subject: a dark skinned woman with long black hair, a deep red veil and headscarf,
+  a red and gold layered dress and gold sandals
+style: pixel art, game sprite
+styles:
+- hi_fidelity
+props: []
+props_enabled: false
+proportions:
+  legs: 1.15
+  torso: 1.1
+background:
+  colour: 242, 94, 147
+pose:
+  source: tpose
+  size: 1024
+  fill: 0.69
+  margin: 0.14
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  style:
+    end_at: 0.9
+  style_weight: 0.5
+  from_reference:
+    weight: 0.6
+references:
+  identity:
+  - path: library/refs/char3/front.png
+    view: front
+  - path: library/refs/char3/side.png
+    view: side
+  - path: library/refs/char3/side_right.png
+    view: 270
+  - path: library/refs/char3/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60

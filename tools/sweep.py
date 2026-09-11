@@ -26,7 +26,7 @@ RESULTS = ROOT / "var/sweep.jsonl"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one -
 # the rest has to sit between runs or the machine works 56 of them back to back.
-REST = 240
+REST = 120
 
 # The file is named for the drawing; the config wants the angle, and there is
 # no named view for the far side - `side` is 90, so its mirror is 270.
@@ -53,17 +53,18 @@ SUBJECTS = {
 }
 
 # Each variant moves ONE thing away from the baseline, so a score difference
-# names a cause. The exception is `wide`, where build and width are one idea.
+# names a cause. Measured at 510s a run, seven variants needed 11.7 hours and
+# would not have finished; these five are the ones whose answer is not already
+# known. `wide` and `hold_control` were both run against experiment_slim, and
+# `no_style` is the degenerate end of `identity_led`.
 VARIANTS = {
     "baseline": {},
     "no_key": {"background": {"enabled": False}},
     "identity_led": {"canonical": {"from_reference": {"weight": 1.15},
                                    "style_weight": 0.12}},
-    "no_style": {"canonical": {"style_weight": 0.0}},
-    "hold_control": {"canonical": {"controlnet": {"end_percent": 0.75}}},
-    "wide": {"pose": {"lateral_scale": 1.35},
-             "depth": {"build": {"torso": 1.55, "arms": 1.4, "legs": 1.3,
-                                 "neck": 1.2}}},
+    "style_led": {"canonical": {"from_reference": {"weight": 0.6},
+                                "style_weight": 0.5,
+                                "style": {"end_at": 0.9}}},
     "emphasis": {"_paint": True},
 }
 
@@ -153,9 +154,15 @@ def plan() -> list[tuple[str, str, Path]]:
 
 
 def done() -> set[str]:
+    """Only runs that actually SCORED count as done.
+
+    A run killed part-way still appended its row, and treating that as done
+    meant an interrupted sweep skipped the character it was interrupted on.
+    """
     if not RESULTS.exists():
         return set()
-    return {json.loads(line)["id"] for line in RESULTS.read_text().splitlines() if line}
+    rows = [json.loads(line) for line in RESULTS.read_text().splitlines() if line]
+    return {r["id"] for r in rows if "likeness" in r}
 
 
 def score_run(char: str, name: str, run_dir: Path) -> dict | None:
