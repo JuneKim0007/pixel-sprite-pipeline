@@ -8,6 +8,7 @@ from ..geometry import annotate as ann
 from ..geometry import rigs as rigs_mod
 from ..refs import detect
 from ..refs import references as refs_mod
+from ..shared import paths
 from ..shared import settings as settings_mod
 
 
@@ -15,9 +16,8 @@ def _references(ctx) -> Any:
     """The typed reference library for this run."""
     cfg = ctx.settings("references")
     cfg.setdefault("_name", ctx.settings("name") or "")
-    cfg.setdefault("_runs_dir", str(settings_mod.resolve_dir(
-        ctx.root, (ctx.config.get("paths") or {}).get("output_dir"),
-        "out/runs")))
+    cfg.setdefault("_runs_dir", str(paths.from_config(
+        ctx.root, ctx.config, "output_dir")))
     lib = refs_mod.load(ctx.root, cfg)
 
     for path in cfg.get("style_exemplars") or []:

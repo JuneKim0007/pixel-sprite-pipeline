@@ -5,17 +5,25 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
-from .context import CONFIGS, ROOT
+from .context import CONFIGS, ROOT, runs_dir
 from .contracts import Shape
 from .routing import BaseRouter, get, post
-from .context import runs_dir
 from ..shared import errors, guard
 
 
 _AUTOPILOT: dict[str, Any] = {"proc": None, "started": None}
 AUTOPILOT_LOG = "autopilot.log"
+
+
+def autopilot_log_path() -> Path:
+    """A log belongs with the logs. This was runs_dir().parent, so it moved
+    whenever a config moved the runs, and `rm -rf out/` deleted it."""
+    from ..shared import paths
+
+    return paths.resolve(ROOT, "logs") / AUTOPILOT_LOG
 
 
 def _queue():
@@ -112,7 +120,7 @@ def autopilot(action: str, args: dict | None = None) -> dict:
         for flag in ("drain", "once"):
             if (args or {}).get(flag):
                 cmd.append(f"--{flag}")
-        log = open(runs_dir().parent / AUTOPILOT_LOG, "a")
+        log = open(autopilot_log_path(), "a")
         started = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
                                    stderr=subprocess.STDOUT)
         guard.GUARD.watch(started.pid, "autopilot")
@@ -132,7 +140,7 @@ def autopilot(action: str, args: dict | None = None) -> dict:
 
 
 def autopilot_log(tail: int = 4000) -> str:
-    path = runs_dir().parent / AUTOPILOT_LOG
+    path = autopilot_log_path()
     if not path.exists():
         return ""
     text = path.read_text(errors="replace")

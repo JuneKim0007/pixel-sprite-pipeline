@@ -39,21 +39,15 @@ def global_cfg() -> dict:
 
 
 def runs_dir() -> Path:
-    return settings.resolve_dir(
-        ROOT, (global_cfg().get("paths") or {}).get("output_dir"), "out/runs"
-    )
+    return paths.from_config(ROOT, global_cfg(), "output_dir")
 
 
 def input_dir() -> Path:
-    return settings.resolve_dir(
-        ROOT, (global_cfg().get("paths") or {}).get("input_dir"), "inputs"
-    )
+    return paths.from_config(ROOT, global_cfg(), "input_dir")
 
 
 def download_dir() -> Path:
-    return settings.resolve_dir(
-        ROOT, (global_cfg().get("paths") or {}).get("download_dir"), "exports"
-    )
+    return paths.from_config(ROOT, global_cfg(), "download_dir")
 
 
 def allowed_roots() -> list[Path]:

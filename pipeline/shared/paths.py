@@ -21,6 +21,23 @@ LAYOUT: dict[str, str] = {
 }
 
 
+# The three directories a config may override, and the layout entry each names.
+# They were declared twice - here and in DEFAULT_GLOBAL - with a third set of
+# fallbacks inlined at the API's call sites, where `input_dir` defaulted to
+# "inputs" against a layout that says "library/refs".
+GLOBAL_KEYS: dict[str, str] = {
+    "input_dir": "refs",
+    "output_dir": "runs",
+    "download_dir": "exports",
+}
+
+
+def from_config(root: Path, cfg: dict | None, key: str) -> Path:
+    """A directory a config may override, by the key a config uses for it."""
+    given = ((cfg or {}).get("paths") or {}).get(key)
+    return resolve(root, GLOBAL_KEYS[key], {GLOBAL_KEYS[key]: given} if given else None)
+
+
 def resolve(root: Path, name: str, overrides: dict | None = None) -> Path:
     raw = str((overrides or {}).get(name) or LAYOUT[name]).strip()
     path = Path(raw)

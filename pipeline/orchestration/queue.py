@@ -187,8 +187,7 @@ def _await_source_run(root: Path, merged: dict) -> list[str]:
     from_run = (merged.get("references") or {}).get("from_run")
     if not from_run:
         return []
-    runs = settings.resolve_dir(
-        root, (merged.get("paths") or {}).get("output_dir"), "out/runs")
+    runs = paths.from_config(root, merged, "output_dir")
     return [] if (runs / from_run).is_dir() else [
         f"run '{from_run}' does not exist yet"]
 

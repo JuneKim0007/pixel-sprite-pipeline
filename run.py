@@ -21,7 +21,7 @@ from pipeline.generation import runner, stage as stage_mod  # noqa: E402
 from pipeline.orchestration import admission, launch  # noqa: E402
 from pipeline.shared.errors import Invalid  # noqa: E402
 from pipeline.looks import styles  # noqa: E402
-from pipeline.shared import settings  # noqa: E402
+from pipeline.shared import paths, settings  # noqa: E402
 
 
 def apply_compute(cfg: dict) -> None:
@@ -56,10 +56,8 @@ def _parse(argv=None):
 
 def _resume(a) -> tuple[Path, Path, dict, set[str]]:
     """A run directory to continue, and what its last attempt left behind."""
-    base = a.outdir or settings.resolve_dir(
-        ROOT, (settings.load_global(ROOT).get("paths") or {}).get("output_dir"),
-        "out/runs",
-    )
+    base = a.outdir or paths.from_config(
+        ROOT, settings.load_global(ROOT), "output_dir")
     outdir = base / a.resume
     if not outdir.is_dir():
         raise SystemExit(f"no such run to resume: {outdir}")

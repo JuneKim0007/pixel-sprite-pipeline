@@ -105,14 +105,3 @@ def unset(cfg: dict, dotted: str) -> bool:
         del node[parts[-1]]
         return True
     return False
-
-
-def resolve_dir(root: Path, value: str | None, fallback: str) -> Path:
-    """Turn a configured directory into an absolute path, creating it."""
-    raw = (value or fallback).strip()
-    path = Path(raw)
-    if not path.is_absolute():
-        path = root / path
-    path = path.resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path

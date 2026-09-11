@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from ..shared import settings
+from ..shared import paths, settings
 from ..shared.errors import Invalid
 from . import admission
 
@@ -38,8 +38,7 @@ class Prepared:
 
 def runs_base(root: Path, cfg: dict) -> Path:
     """Where runs go, read from the config that will run - not from _global."""
-    return settings.resolve_dir(
-        root, (cfg.get("paths") or {}).get("output_dir"), "out/runs")
+    return paths.from_config(root, cfg, "output_dir")
 
 
 def effective(root: Path, config_path: Path, overrides: dict | None = None,
