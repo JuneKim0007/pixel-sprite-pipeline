@@ -86,6 +86,11 @@ SUBJECTS = {
 # baseline and each variant moves one thing off it.
 VARIANTS = {
     "shipped": {},
+    # Either side of the new default of 1.0. 1.15 measured 0.82 likeness by
+    # reproducing the reference gradients and all - which is what the metric
+    # asks for and not what a sprite is - so the range is worth having.
+    "identity_085": {"canonical": {"from_reference": {"weight": 0.85}}},
+    "identity_14": {"canonical": {"from_reference": {"weight": 1.4}}},
     # The block question. Never run: the quantiser is measured, the sampling
     # that follows it is not.
     "pixelised": {"pipeline": {"stages": ["pose", "depth", "canonical",
@@ -100,12 +105,6 @@ VARIANTS = {
     # difference would name neither.
     "with_exemplars": {"styles": ["hi_fidelity"],
                        "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
-    # Identity against the prompt, with no exemplar in the way.
-    "identity_14": {"canonical": {"from_reference": {"weight": 1.4}}},
-    "identity_14_exemplars": {"styles": ["hi_fidelity"],
-                              "canonical": {"lora_strength": 0.8,
-                                            "style_weight": 0.12,
-                                            "from_reference": {"weight": 1.4}}},
 }
 
 
@@ -120,7 +119,6 @@ def base(char: str) -> dict:
     return {
         "module": "character_sheet",
         "subject": SUBJECTS[char],
-        "style": "pixel art, game sprite",
         "styles": ["crisp"],
         "props": [],
         "props_enabled": False,

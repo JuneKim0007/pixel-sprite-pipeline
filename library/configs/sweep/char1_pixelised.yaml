@@ -1,7 +1,6 @@
 module: character_sheet
 subject: a young woman with long straight black hair, a white shirt with a red necktie,
   a black jacket, a black pleated skirt, black knee socks and black loafers
-style: pixel art, game sprite
 styles:
 - crisp
 props: []

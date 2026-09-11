@@ -18,9 +18,7 @@ vocabulary:
   style:
     - detailed pixel art
     - fine pixel clusters
-    - clean readable shapes
   shading:
-    - soft cel shading
     - three tone shading
     - rim light
   outline:
@@ -30,6 +28,18 @@ vocabulary:
   palette_words:
     - rich color
     - high contrast
+
+modules:
+  # base_pixel's template expands {medium} and {render} and nothing else, so
+  # the style, shading, outline and palette groups every sheet declares were
+  # never sent to the model. And {render} is "flat colors, hard edges, limited
+  # palette", which is a request for exactly the flattening it produced:
+  # measured against its own reference the output carried 64% of the edge
+  # energy and 69% of the colours.
+  character_sheet:
+    style: "{medium}, {style}, {shading}, {outline}, full body"
+  animation:
+    style: "{medium}, {style}, {shading}, {outline}, full body"
 
 settings:
   cooling:

@@ -1,7 +1,6 @@
 module: character_sheet
 subject: a woman with very long pink hair, a cream off the shoulder blouse, purple
   belt straps, purple thigh socks and white knee boots
-style: pixel art, game sprite
 styles:
 - crisp
 props: []
