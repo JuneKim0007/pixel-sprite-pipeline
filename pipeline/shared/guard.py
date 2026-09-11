@@ -148,6 +148,7 @@ class Guard:
 
     def check(self) -> dict:
         """One pass. Separated from the loop so a test can run it directly."""
+        adopt_services()
         with self._lock:
             targets = list(self.watched.values())
         alive = {t.pid: t for t in targets}
@@ -240,6 +241,61 @@ GUARD = Guard()
 
 
 EXPECTED_LARGE = {"comfy", "ollama"}
+
+
+# A service is found by what it is running, not by a file someone wrote once.
+# start.sh execs ComfyUI and writes no pidfile at all, so .run/comfy.pid was a
+# relic of an older launcher: it named a dead pid while the live ComfyUI held
+# 15 GB of 16, and the guard watched nothing.
+# Every needle must appear. start.sh does `cd ComfyUI` before exec, so the
+# command line reads `main.py`, not `ComfyUI/main.py`; the port is the part the
+# pipeline actually depends on and the part that cannot drift.
+SERVICES: dict[str, tuple[str, ...]] = {
+    "comfy": ("main.py", "--port 8188"),
+    "ollama": ("ollama", "serve"),
+}
+
+
+def find_service(needles: tuple[str, ...] | str) -> int | None:
+    if isinstance(needles, str):
+        needles = (needles,)
+    try:
+        out = subprocess.run(["ps", "-axo", "pid=,args="],
+                             capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    mine = {os.getpid(), os.getppid()}
+    for line in out.stdout.splitlines():
+        if not all(n in line for n in needles):
+            continue
+        try:
+            pid = int(line.split()[0])
+        except (ValueError, IndexError):
+            continue
+        # A process asking the question has the needle in its own arguments.
+        if pid in mine:
+            continue
+        return pid
+    return None
+
+
+def adopt_services() -> list[str]:
+    """Re-read which services are alive. Cheap, and a restart is invisible
+    otherwise: the old adoption ran once at server start."""
+    found = []
+    with GUARD._lock:
+        known = {t.name: t.pid for t in GUARD.watched.values()}
+    for name, needles in SERVICES.items():
+        pid = find_service(needles)
+        if pid is None:
+            continue
+        if known.get(name) == pid:
+            continue
+        if known.get(name) is not None:
+            GUARD.forget(known[name])
+        GUARD.watch(pid, name, expected_large=name in EXPECTED_LARGE)
+        found.append(f"{name}:{pid}")
+    return found
 
 
 def adopt_pidfiles(run_dir) -> list[str]:

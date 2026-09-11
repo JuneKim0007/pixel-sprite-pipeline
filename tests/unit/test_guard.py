@@ -369,3 +369,53 @@ def test_a_run_survives_the_web_server_that_started_it(monkeypatch):
     assert runs_mod._in_flight() == "20260101_000000_a"
     assert guard_mod.stop_run("20260101_000000_a") is True
     assert sent == [711], "stop fell back to a handle it does not have"
+
+
+def test_a_service_is_found_by_what_it_runs_not_by_a_file(monkeypatch):
+    """.run/comfy.pid named a dead process while the live ComfyUI held 15 GB of
+    16, because adopt_pidfiles ran once at server start and start.sh writes no
+    pidfile at all."""
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = ("  700 /x/.venv/bin/python main.py --listen 127.0.0.1 --port 8188\n"
+                  "  701 /bin/zsh -c something\n")
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    assert guard_mod.find_service(("main.py", "--port 8188")) == 700
+    assert guard_mod.find_service(("main.py", "--port 9999")) is None
+
+
+def test_the_process_asking_is_not_the_process_found(monkeypatch):
+    """A caller carries the needle in its own arguments and matched itself."""
+    from pipeline.shared import guard as guard_mod
+
+    class Out:
+        stdout = f"  {os.getpid()} python -c SERVICES main.py --port 8188\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    assert guard_mod.find_service(("main.py", "--port 8188")) is None
+
+
+def test_a_restarted_service_is_picked_up_again(monkeypatch):
+    """The old adoption ran once, so a service restarted afterwards was
+    invisible for the life of the server."""
+    from pipeline.shared import guard as guard_mod
+
+    seen = {"pid": 700}
+
+    class Out:
+        @property
+        def stdout(self):
+            return f"  {seen['pid']} python main.py --listen 127.0.0.1 --port 8188\n"
+
+    monkeypatch.setattr(guard_mod.subprocess, "run", lambda *a, **k: Out())
+    guard_mod.GUARD.watched.clear()
+    guard_mod.adopt_services()
+    assert [t.pid for t in guard_mod.GUARD.watched.values() if t.name == "comfy"] == [700]
+
+    seen["pid"] = 800
+    guard_mod.adopt_services()
+    watched = [t.pid for t in guard_mod.GUARD.watched.values() if t.name == "comfy"]
+    assert watched == [800], "the dead pid was still being watched"
+    guard_mod.GUARD.watched.clear()

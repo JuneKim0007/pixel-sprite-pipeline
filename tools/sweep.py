@@ -27,6 +27,30 @@ RUNS = ROOT / "out/runs"
 # A run here is a single GPU job, so cooling.seconds never fires inside one -
 # the rest has to sit between runs or the machine works 56 of them back to back.
 REST = 120
+
+# ComfyUI's resident size grows across a long sweep - measured at 15 GB of 16
+# after roughly thirty runs, with 12.2 GB of swap in use and the machine's own
+# pressure gauge reading critical. A restart between batches bounds it; the
+# next run waits for the service to come back, which wait_for_comfy already
+# does.
+RESTART_EVERY = 8
+
+
+def restart_comfy() -> None:
+    from pipeline.shared import guard
+
+    pid = guard.find_service(guard.SERVICES["comfy"])
+    if pid is None:
+        return
+    print(f"  restarting ComfyUI (pid {pid}) to give its memory back", flush=True)
+    subprocess.run(["kill", str(pid)], check=False)
+    for _ in range(30):
+        if guard.find_service(guard.SERVICES["comfy"]) is None:
+            break
+        time.sleep(1)
+    subprocess.Popen([str(ROOT / "start.sh")], cwd=ROOT,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
 COMFY_WAIT = 30
 COMFY_TRIES = 40
 
@@ -279,6 +303,8 @@ def run_all(only: list[str] | None = None, variants: list[str] | None = None) ->
         print(f"  {row['id']:26} {row.get('likeness', '-')}  "
               f"bleed {row.get('bleed', '-')}  {row['seconds']}s", flush=True)
         if job is not jobs[-1]:
+            if (jobs.index(job) + 1) % RESTART_EVERY == 0:
+                restart_comfy()
             time.sleep(REST)
     return 0
 
