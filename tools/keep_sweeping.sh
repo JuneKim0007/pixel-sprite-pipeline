@@ -24,6 +24,14 @@ PLAN
     exit 0
   fi
 
+  # The sweep waits for ComfyUI but cannot start it, so it waited twenty
+  # minutes for something nobody was going to fix.
+  if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
+    echo "$(date '+%H:%M:%S') supervisor: ComfyUI is down, starting it" >> $LOG
+    nohup ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null &
+    sleep 40
+  fi
+
   echo "$(date '+%H:%M:%S') supervisor: $left left, starting" >> $LOG
   $PY -u tools/sweep.py run >> $LOG 2>&1
   echo "$(date '+%H:%M:%S') supervisor: sweep exited, waiting 60s" >> $LOG
