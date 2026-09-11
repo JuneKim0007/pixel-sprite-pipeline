@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from ..shared.errors import Invalid
+from . import admission
 
 PENDING, RUNNING, DONE, FAILED, HELD = "pending", "running", "done", "failed", "held"
 STATES = (PENDING, RUNNING, DONE, FAILED, HELD)
@@ -182,53 +183,6 @@ def _resolve(root: Path, job: Job, cfg_path: Path) -> tuple[dict, list[str]]:
         return {}, [str(e)]
 
 
-def _check_settings(merged: dict) -> list[str]:
-    """A key no field declares, before the run rather than minutes into it."""
-    from ..generation.schema import SCHEMA
-
-    try:
-        SCHEMA.check(merged)
-    except Invalid as e:
-        return [str(e)]
-    return []
-
-
-def _check_stack(merged: dict) -> list[str]:
-    from .. import stages  # noqa: F401  (importing registers them)
-    from ..generation import runner
-
-    order = (merged.get("pipeline") or {}).get("stages") or []
-    try:
-        runner.validate(runner.build(list(order)), seeded=set())
-    except Exception as e:                       # noqa: BLE001
-        return [str(e).split("\n")[0]]
-    return []
-
-
-def _check_rig(merged: dict) -> list[str]:
-    rig = merged.get("rig")
-    if not rig or rig == "auto":
-        return []
-    from ..geometry import rigs
-
-    return [] if rig in rigs.REGISTRY else [f"unknown rig '{rig}'"]
-
-
-def _check_references(root: Path, merged: dict) -> list[str]:
-    from ..refs import references as refs_mod
-
-    ref_cfg = merged.get("references") or {}
-    found = []
-    if "images" in ref_cfg:
-        found.append("references.images was replaced by typed roles: identity, "
-                     "style, pose, palette")
-    for role in refs_mod.ROLES:
-        for rel in _entry_paths(ref_cfg.get(role)):
-            if rel and not (root / rel).exists():
-                found.append(f"references.{role} missing: {rel}")
-    return found
-
-
 def _await_source_run(root: Path, merged: dict) -> list[str]:
     from_run = (merged.get("references") or {}).get("from_run")
     if not from_run:
@@ -276,10 +230,7 @@ def preflight(root: Path, job: Job) -> Preflight:
         merged, unreadable = _resolve(root, job, cfg_path)
         if unreadable:
             return Preflight(False, unreadable)
-        problems += _check_settings(merged)
-        problems += _check_stack(merged)
-        problems += _check_rig(merged)
-        problems += _check_references(root, merged)
+        problems += admission.problems(root, merged)
         waiting += _await_source_run(root, merged)
         waiting += _await_annotations(root, merged)
 

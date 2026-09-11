@@ -12,7 +12,9 @@ from pathlib import Path
 from .. import stages as _stages  # noqa: F401  - registers them
 from ..generation import comfy, runner
 from ..shared import guard, settings
-from ..shared.errors import Conflict, NotFound
+from ..orchestration import admission
+from ..looks import styles
+from ..shared.errors import Conflict, Invalid, NotFound
 from .context import CONFIGS, ROOT, runs_dir
 from .contracts import Shape
 from .routing import BaseRouter, get, post
@@ -276,16 +278,23 @@ def start_run(config_name: str, overrides: dict | None, resume: str | None,
         cfg_path = CONFIGS / f"{config_name}.yaml"
         if not cfg_path.exists():
             raise NotFound("config", config_name)
+        merged = schema.apply_overrides(settings.read_yaml(cfg_path), overrides)
+        if style_picks:
+            merged["style_picks"] = style_picks
+
+        # The queue refused what this route started and let fail minutes in.
+        refused = admission.problems(
+            ROOT, styles.effective(ROOT, merged,
+                                   picks=merged.get("style_picks"))[0])
+        if refused:
+            raise Invalid(refused[0], hint="; ".join(refused[1:]))
+
         run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{config_name}"
         out = runs_dir() / run_id
         out.mkdir(parents=True, exist_ok=True)
 
         effective = cfg_path
         if overrides or style_picks:
-            merged = schema.apply_overrides(
-                settings.read_yaml(cfg_path), overrides)
-            if style_picks:
-                merged["style_picks"] = style_picks
             effective = out / "config.effective.yaml"
             effective.write_text(yaml.safe_dump(merged, sort_keys=False))
         cmd += [str(effective), "--run-id", run_id]

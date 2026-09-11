@@ -87,6 +87,13 @@ def _one(root: Path, entry: Any, role: str, index: int) -> Reference:
     )
 
 
+IMAGES_REPLACED = (
+    "references.images was replaced by typed roles. Use "
+    "references.identity for who the character is, references.style "
+    "for the art style to imitate, references.pose for a composition "
+    "to match, and references.palette for colours.")
+
+
 def unresolved(root: Path, cfg: dict | None) -> list[str]:
     """Every listed reference path that names no file, in declaration order."""
     out: list[str] = []
@@ -106,13 +113,7 @@ def load(root: Path, cfg: dict | None) -> Library:
     cfg = cfg or {}
 
     if "images" in cfg:
-        raise Invalid(
-            "references.images was replaced by typed roles. Use "
-            "references.identity for who the character is, references.style "
-            "for the art style to imitate, references.pose for a composition "
-            "to match, and references.palette for colours.",
-            field="images",
-        )
+        raise Invalid(IMAGES_REPLACED, field="images")
 
     lib = Library()
     for role in ROLES:

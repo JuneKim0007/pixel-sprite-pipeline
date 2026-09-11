@@ -18,10 +18,8 @@ sys.stdout.reconfigure(line_buffering=True)
 from pipeline.orchestration import artifacts as artifacts_io  # noqa: E402
 from pipeline import stages  # noqa: E402,F401  (importing registers them)
 from pipeline.generation import runner, stage as stage_mod  # noqa: E402
-from pipeline.generation.schema import SCHEMA  # noqa: E402
-from pipeline.shared.errors import Invalid  # noqa: E402
+from pipeline.orchestration import admission  # noqa: E402
 from pipeline.looks import styles  # noqa: E402
-from pipeline.refs import references as refs_mod  # noqa: E402
 from pipeline.shared import settings  # noqa: E402
 
 
@@ -122,27 +120,25 @@ def main() -> int:
         ROOT, raw_cfg, picks=raw_cfg.get("style_picks"))
     if style_record["styles"]:
         print(f"styles: {' + '.join(style_record['styles'])}")
-    try:
-        SCHEMA.check(cfg)
-    except Invalid as e:
-        raise SystemExit("\n".join(filter(None, [e.message, e.hint])))
+    # A dead reference path used to survive every gate and fail minutes into a
+    # run. The check was added to --explain, which runs nothing.
+    refused = admission.problems(ROOT, cfg)
+
+    if a.explain:
+        if refused:
+            print("this config cannot run:")
+            for line in refused:
+                print(f"  {line}")
+            return 1
+        print(runner.describe(runner.build(cfg["pipeline"]["stages"])))
+        return 0
+
+    if refused:
+        raise SystemExit("\n".join(refused))
     apply_compute(cfg)
 
     order = cfg["pipeline"]["stages"]
     built = runner.build(order)
-
-    if a.explain:
-        runner.validate(built, seeded=set())
-        # A dead reference path used to survive every gate and fail minutes into a run.
-        dead = refs_mod.unresolved(ROOT, cfg.get("references"))
-        if dead:
-            print(runner.describe(built))
-            print("\nreferences that name no file:")
-            for line in dead:
-                print(f"  {line}")
-            return 1
-        print(runner.describe(built))
-        return 0
 
     gate = None if a.no_gate else (a.stop_after or (cfg.get("pipeline") or {}).get("stop_after"))
 
