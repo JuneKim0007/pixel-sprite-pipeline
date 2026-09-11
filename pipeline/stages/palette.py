@@ -38,7 +38,7 @@ class PaletteStage(Stage):
     def prepare(self, ctx: Context) -> dict[str, Any]:
         cfg = ctx.settings("palette")
         canonical: Path = ctx.require("canonical")
-        key_colour = self._key_colour(ctx)
+        key_colour = self._key_colour(ctx, canonical)
 
         # Frames of a run share a grid: measured, 6/6 frames identical.
         arr = np.asarray(Image.open(canonical).convert("RGB"))
@@ -66,14 +66,27 @@ class PaletteStage(Stage):
 
         return {"palette": palette, "phase": phase, "key_colour": key_colour}
 
+    AUTO = "auto"
+
     @staticmethod
-    def _key_colour(ctx: Context) -> tuple[int, int, int] | None:
-        """The colour to key, in the forms `parse_colour` accepts."""
+    def _key_colour(ctx: Context, source: Path) -> tuple[int, int, int] | None:
+        """The colour to key: what was asked for, or what was actually painted.
+
+        Three runs measured 0.0% of the requested magenta, so `auto` reads the
+        colour off the image's own corners rather than trusting the prompt.
+        """
+        from ..geometry.framing import backdrop_of
         from ..shared.colour import parse_colour
 
         bg = ctx.settings("background")
         if opt(bg, "enabled", True) is False:
             return None
+        asked = str(opt(bg, "colour", "") or "").strip().lower()
+        if asked == PaletteStage.AUTO:
+            found = backdrop_of(np.asarray(Image.open(source).convert("RGB")).astype(int))
+            picked = tuple(int(v) for v in found)
+            print(f"   keying the backdrop the model painted: rgb{picked}")
+            return picked
         try:
             return parse_colour(opt(bg, "colour", ""))
         except Invalid:

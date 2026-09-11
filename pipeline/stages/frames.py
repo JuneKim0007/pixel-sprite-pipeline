@@ -91,7 +91,7 @@ def _base_prompt(ctx: Context, cfg: dict) -> tuple[str, str | None]:
 class FramesStage(Stage):
     name = "frames"
     resource = Resource.GPU
-    optional = frozenset({"depthmaps", "canonicals"})
+    optional = frozenset({"depthmaps", "canonicals", "pixel_anchor"})
     gives = frozenset({"frames"})
     needs = frozenset({"canonical", "pose_frames", "references", "rig", "skeletons"})
 
@@ -106,9 +106,14 @@ class FramesStage(Stage):
         ip = cfg["ip_adapter"]
         lib = ctx.need("references")
         anchor_yaw = resolve_view(_anchor_view(ctx, ctx.settings("canonical")))
-        anchor = Reference(path=canonical, yaw=anchor_yaw, label="canonical")
+        # The pixelise stage re-renders the anchor onto the sprite's own grid.
+        # Frames inherit their block from whatever they are anchored to, so
+        # preferring it here is what carries that grid into every view.
+        pixel_anchor = ctx.artifacts.get("pixel_anchor")
+        anchor = Reference(path=pixel_anchor or canonical, yaw=anchor_yaw,
+                           label="pixel anchor" if pixel_anchor else "canonical")
 
-        per_view: dict = ctx.artifacts.get("canonicals") or {}
+        per_view: dict = {} if pixel_anchor else (ctx.artifacts.get("canonicals") or {})
         if len(per_view) > 1:
             print(f"   {len(per_view)} per-view anchors")
 

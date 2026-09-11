@@ -177,6 +177,37 @@ FIELDS: list[ConfigField] = [
              "canvas. The rest falls under the feet. Raise it when hair or a "
              "hat keeps reaching the top: the model grows past the guide once "
              "ControlNet stops steering, and it grows upward."),
+    ConfigField(key="pixelise.denoise", label="Pixelise denoise", kind="float",
+     default=0.45, min=0.0, max=1.0, step=0.05, group="Pixelise",
+     help="How far the re-render is allowed from the blocked image it starts "
+             "from. Low keeps the grid and changes little; high recovers "
+             "detail and invents a finer grid again, which is the thing this "
+             "pass exists to stop."),
+    ConfigField(key="pixelise.factor", label="Pixelise block", kind="int",
+     default=8, min=2, max=32, step=1, group="Pixelise",
+     help="The block the anchor is quantised to before re-rendering. Keep it "
+             "equal to palette.factor: this is the grid the sprite will be "
+             "reduced on, and handing the model a different one asks it to "
+             "draw a grid that will then be resampled."),
+    ConfigField(key="pixelise.timeout", label="Pixelise timeout", kind="int",
+     default=900, min=60, max=3600, step=60, group="Pixelise",
+     help="Seconds to wait for the re-render before giving up."),
+    ConfigField(key="pose.arm_angle", label="Arm angle", kind="float",
+     default=40.0, min=0.0, max=90.0, step=5.0, group="Pose",
+     help="Degrees the arms swing out from hanging straight down. 0 puts them "
+             "against the body and leaves no gap in the silhouette; 90 is a "
+             "full T and reads as a weapon stance. Raising it also lifts the "
+             "hands, which is the cheap way to stop short arms ending at the "
+             "hip."),
+    ConfigField(key="pose.spread", label="Build (lateral)", kind="float",
+     default=1.0, min=0.3, max=2.5, step=0.05, group="Pose",
+     help="How far out from the spine a joint sits, which is what decides "
+             "whether a figure reads broad. Takes one number for the whole "
+             "body, or a mapping per proportion group like depth.build does - "
+             "{arms: 1.4, torso: 1.4} broadens the shoulders and chest and "
+             "leaves the face alone, where one number widens the head with "
+             "everything else. depth.build is the other half: this moves the "
+             "joints apart, that thickens the limb between them."),
     ConfigField(key="pose.size", default=1024, label="Skeleton size", kind="int",
      min=256, max=2048, step=64, group="Pose",
      help="Should match the generation resolution."),
@@ -375,7 +406,11 @@ FIELDS: list[ConfigField] = [
 
     ConfigField(key="background.colour", label="Backdrop colour", kind="colour",
      default=colour_mod.BACKDROP, group="Palette",
-     options=[list(o) for o in colour_mod.BACKDROP_PRESETS],
+     # `auto` is a choice about WHERE the colour comes from, not a colour, so
+     # it lives here rather than in BACKDROP_PRESETS - which the Definitive
+     # editor reads expecting every entry to have a name.
+     options=[["auto", "Whatever the model actually painted, from the corners"]]
+             + [list(o) for o in colour_mod.BACKDROP_PRESETS],
      help="Named in the prompt and removed by the keyer, so the two agree. "
              "Asking for a 'plain' background gets a lit studio card with a "
              "cast shadow, because that is what the words describe. Magenta "

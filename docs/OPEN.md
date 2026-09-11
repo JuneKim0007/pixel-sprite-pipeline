@@ -109,29 +109,35 @@ documented and ignored; since 2026-09-09 it resolves both weights through
 **Why not.** Inventing controls for the two is a product decision, not a
 cleanup.
 
-## 5. The illustrate to pixelise pass is wired for and not wired up
+## 5. The pixelise pass is wired up and unmeasured
 
-Three pieces exist and nothing connects them: `comfy.encode_image` has no
-caller, `sample_and_save` takes a `latent` nobody passes so every sample starts
-from `EmptyLatentImage`, and `frames.denoise` is exposed as a setting that every
-config in the library leaves at 1.0. Together they are one img2img path.
+**Wired 2026-09-11.** The three pieces the old entry named - `encode_image`
+with no caller, `sample_and_save`'s unused `latent`, and a `denoise` every
+config left at 1.0 - are one img2img path, and they are connected now by a
+`pixelise` stage between `canonical` and `frames`.
 
-**Why they are here.** `DECISIONS.md` argues against img2img from an *identity*
-reference — denoising from an illustration traces its gradients and soft edges,
-which is the opposite of a sprite — and keeps `encode_image` for the different
-case where the source is already in the target style and tracing it is the
-point.
+**What it is for.** `estimate_block_size` on what the model draws reads 1.75 to
+2.00 on a 1024 canvas where a 128 sprite wants 8, measured across 24 runs, and
+no conditioning moved it: char8 reads 2.0 under baseline, no_key and
+identity_led alike. What the model will not draw it can be handed. The stage
+quantises the canonical to the sprite's own grid and back, then samples from
+that latent, so the re-render traces a block structure instead of inventing a
+finer one. Verified on a real canonical: block 2.0 in, 8.0 out, 128x128 cells,
+canvas unchanged.
 
-**Why this note exists.** That reasoning lives inside a decision about something
-else, so the three pieces read as dead code to anyone who finds them first. They
-are a capability that was never wired up, which AGENTS.md says not to delete.
-Deleting `encode_image` also would not be caught: it is a module-level export,
-so no linter reports it.
+`DECISIONS.md` argues against img2img from an identity reference because
+denoising from an illustration traces its gradients. It keeps `encode_image`
+for exactly this case - the source is already in the target style and tracing
+it is the point - and the source here is the model's own canonical.
 
-**What finishing it would take.** A caller that encodes a source image, passes
-the latent to `sample_and_save`, and reads `denoise` below 1.0 — plus a decision
-about which stage owns it, since neither `canonical` nor `frames` should grow a
-second mode.
+Frames prefer `pixel_anchor` over `canonical` when the stage has run, because a
+frame inherits its block from what it is anchored to.
+
+**What is left, and it is the whole question.** No generation has run through
+it. The quantiser is measured and the wiring is tested; whether sampling at
+denoise 0.45 keeps the 8px grid or melts back to 2 is unknown, and that is the
+only thing that decides whether the pass is worth its GPU minute. `pixelise` is
+in no config's `pipeline.stages` until it is.
 
 ## 6. The stylelog writes half of what it reads
 
@@ -142,22 +148,7 @@ would leave live readers for a format nothing can produce.
 
 **Why not.** Finishing or removing it is a product call.
 
-## 7. Ten write routes are declared but never driven
-
-Every route carries a response contract, checked at import. Seven of seventeen
-write routes are also driven against a live body. The other ten cannot be,
-each for a stated reason: a subprocess (`POST /run`), a network fetch
-(`POST /download`), an untransactional queue (`/queue/submit`, `/queue/job`),
-a precondition that cannot be staged (`POST /stop`), multipart into
-`input_dir()` (`POST /upload`), or a file the repository tracks
-(`PUT /global`, the three `/style/*` writers).
-
-The `http` fixture checks every call any test makes, so each is picked up free
-the moment something exercises it.
-
-Detail: `docs/superpowers/specs/2026-08-14-vertical-sweep-design.md` §5.
-
-## 8. Ten raw `ctx.config` reads remain
+## 7. Ten raw `ctx.config` reads remain
 
 Down from 28. Each remaining one is either not a schema field (`props`,
 `paths.*`) or wants a different fallback than the schema would give —
@@ -172,7 +163,7 @@ The entries below were opened 2026-09-10, from one session of using the editor
 and the run wizard. Several are things the code does that nobody asked it to;
 those say so rather than being written up as features.
 
-## 9. Only one asset type says what its settings start from
+## 8. Only one asset type says what its settings start from
 
 **Surveyed 2026-09-10.** `ModuleSpec` carries `defaults`, and precedence is
 config, then asset type, then field. One type declares one entry:
@@ -183,45 +174,37 @@ all three `animation` configs set `pose.source: library` by hand, which is what
 the declaration exists to stop. Worth a survey the next time one of them bites,
 not a speculative sweep now.
 
-## 10. Four primitives with no caller, and a card base for a view that does not exist
+## 9. Three primitives with no caller
 
-**Checked one at a time 2026-09-10.** `Mono` takes its text at construction and
-all three candidate spans are live readouts mutated later; it would work and it
-would not remove anything. `Note`, `Check` and `LabelWithTip` are the same story
-at smaller scale. `BaseCard` has no caller and nothing resembling one; whether
-views want a card base is a question about a view that does not exist yet.
+**Re-counted 2026-09-11.** `Mono`, `LabelWithTip` and `BaseCard` have no use
+outside `web/js/ui/`. `Note`, `Check`, `Fact` and `FactGrid` were on this list
+and have callers now.
 
-**This is a decision, not a task.** A primitive nothing needs is not
-half-finished work. Each should either grow to fit what views actually build —
-which is what happened to `Range`, adopted by four callers once it took a
-readout — or be deleted. Both are product calls and neither is urgent. The
-dead-CSS test already stops the rules from drifting again.
+Each needs the check `Section` failed - does its CSS match what a view actually
+needs - before it is adopted or deleted. Do not sweep them as a batch; that is
+how `Section` came to be documented as a bordered container without anyone
+reading the rule.
 
-## 11. `background.colour` names a colour the model does not paint
+## 10. The prompt cannot choose a backdrop, and now does not have to
 
-**Measured 2026-09-10.** The clean run of 15:49 — one background asked for, by
-name, with nothing contradicting it and no background words anywhere in the
-style vocabulary — produced a pale blue-grey card. 0.0% near-magenta at
-tolerance 60, corners (191, 208, 218). Three corrections to what was asked, and
-no change in what came back, so the prompt is not the lever.
+**Measured 2026-09-10, worked around 2026-09-11.** A run asking for magenta by
+name, with nothing contradicting it, produced a pale blue-grey card: 0.0%
+near-magenta at tolerance 60, corners (191, 208, 218). Three corrections to the
+ask changed nothing about the answer. What the sprite sits on matches the style
+exemplars, which IPAdapter carries along with the style, with no text to argue
+with.
 
-What the sprite actually sits on matches the `hi_fidelity` exemplars, which are
-white, off-white and dark purple. IPAdapter style transfer runs at 0.0-0.8 of
-sampling and carries the backdrop along with the style, applied per exemplar
-with no text to argue with.
+`background.colour: auto` is the default now: the prompt still names magenta,
+and the keyer reads the corners of what the model actually painted. Turning the
+backdrop off instead was measured and is worse - it drops the ground shadow but
+leaves bleed at 0.1295 against 0.1316.
 
-**What is worth trying, in order.** Restrict style transfer's end_at so the
-backdrop is decided after it stops — `canonical.style.end_at` is a declared
-field now, so that is a config edit and a look at the result. Or key on what the
-model actually produces rather than on a colour it was asked for, which is §15.
-§13's emphasis map is a third option and the most expensive.
+**What is left.** The prompt still cannot *choose* the colour, so a run that
+needs a specific backdrop has no lever. Restricting `canonical.style.end_at` so
+the backdrop is decided after style transfer stops is the untried option, and
+it is a config edit.
 
-**Not a bug in the keyer.** It removed 78-80% of both canonicals correctly, and
-`background_to_alpha` floods from the corners, which is why the pipeline works
-at all despite this. The gap is only that `background.colour` claims to name
-what the model will paint, and it does not.
-
-## 12. Whether a sheet's rear view is better for naming the prop is unmeasured
+## 11. Whether a sheet's rear view is better for naming the prop is unmeasured
 
 **Open since 2026-09-10.** `props.wanted` is geometry and `props.named` is
 words, so a `character_sheet` names what the character carries without being
@@ -234,7 +217,7 @@ config.yaml was snapshotted before the archers were cleaned, so it carries the
 old subject clause and the props words and asks for the bow twice, which makes
 it the wrong control. The next clean run is the one to look at.
 
-## 13. A painted emphasis map applies to identity, not to style or pose
+## 12. A painted emphasis map applies to identity, not to style or pose
 
 **Consumed 2026-09-10; what is left is narrower than the entry it replaces.**
 A map painted on a reference now reaches the graph as `IPAdapterAdvanced`'s
@@ -260,7 +243,7 @@ kept it out of this change.
 Unmeasured: whether a mask on identity actually changes an output, and by how
 much. The wiring is tested; the effect is not.
 
-## 14. The outline `retro_jrpg` asks for is drawn by the steps style transfer owns
+## 13. The outline `retro_jrpg` asks for is drawn by the steps style transfer owns
 
 **Untried since 2026-09-10.** `retro_jrpg` asks the prompt for a "thick dark
 outline around the whole figure" while the style exemplar votes to 0.8 of
@@ -271,70 +254,47 @@ sampling, which covers the steps that draw linework. Lowering
 beside the rig canvas, each defaulting to exactly the literal it replaced - so
 this is a slider and a look at the result rather than a code change.
 
-## 15. The keyer can be told a colour and cannot be asked to find one
+## 14. A broad body and a broad face are one dial in the depth map
 
-**Found 2026-09-10.** `background.colour: auto`, sampling the canonical's own
-corners. Three runs measured 0.0% near-magenta whatever the prompt asked, so the
-colour the model actually produced is the only reliable key, and the corners are
-where it is. Deterministic and exact; an LLM round for the same question would
-return a name that needs parsing back to a number and can differ between runs.
+**Rewritten 2026-09-11; the entry it replaces was wrong.** It said no lever
+made a body broader and asked for a tenth proportion group. Two levers already
+existed, and one of them hits the reference exactly:
 
-Parsing is no longer part of this. `palette.py:_key_colour` took six hex digits
-and nothing else until 2026-09-10, so `12, 34, 56` and `#abc` silently disabled
-keying; it asks `shared.colour.parse_colour` now, which is what the Definitive
-editor's background layer always used.
-
-## 16. A rig can be lengthened but not broadened
-
-**Measured 2026-09-10 against a reference sheet.** The generated sprites read as
-too slim, and the cause is not the one that looked obvious.
-
-Height against shoulder width, which is the ratio that says "slim":
-
-| | h/shoulder |
-|---|---|
-| reference sheet, front figure | **4.42** |
-| humanoid rig as shipped | **6.17** |
-| humanoid with the style sheet's legs 1.6, torso 1.2 | **8.37** |
-| humanoid at legs 1.0, torso 1.0 | **6.17** |
-
-So `base_pixel.yaml`'s 1.6/1.2 makes it worse, but zeroing them does not fix it:
-the rig's own neutral is 6.17 before anything scales it. Every one of the nine
-`PROPORTION_GROUPS` scales bone LENGTH along a chain, and none scales lateral
-offset, so there is no way to make a body broader - only shorter.
-
-Scaling the lateral axis of the shoulder and hip joints by 1.4 gives 4.41,
-which is the reference. That wants a tenth group, `width` or `build`, applied to
-the x component rather than to a bone length. `rigs.scale` walks parent to child
-applying a factor to a distance; a width group is a different operation on the
-same tree and should not be forced through the same function.
-
-Experiment images live in `library/refs/experiment_slim/`.
-
-## 17. Reasoning lives beside the code instead of in docs
-
-**Measured 2026-09-10.** The rule is one line per comment, two per docstring;
-anything longer belongs in `docs/` or the commit that made the decision.
-
-| | blocks over the limit | lines |
+| | h/shoulder | head/shoulder |
 |---|---|---|
-| `web/js` comment blocks over 1 line | 144 | 796 |
-| `pipeline` + `tests` docstrings over 2 lines | 57 | 321 |
-| `pipeline` + `tests` comment blocks over 1 line | 27 | 74 |
+| reference sheet, front figure | **4.42** | |
+| humanoid neutral | 6.26 | 0.545 |
+| `pose.lateral_scale: 1.4` | **4.47** | 0.545 |
+| `pose.spread: {arms: 1.4, torso: 1.4}` | **4.47** | **0.390** |
 
-Roughly 1200 lines. Most of the frontend's share is a file-header block on line
-1 of nearly every view, and those carry design reasoning that is not written
-down anywhere else - deleting them loses it, so each one is a move into
-`docs/FRONTEND.md` or `docs/UI.md`, not a `sed`. The Python docstrings are the
-same shape: `pixelize.py:65` is sixteen lines explaining a measurement.
+`lateral_scale` is a uniform horizontal scale - head-over-shoulder is identical
+at 1.0 and 1.4 - so it broadens the shoulders and the face together. That is
+the whole of what was missing, and `pose.spread` is now the per-group form,
+shaped like `depth.build` because it answers the same shape of question. The
+two are halves of one idea: spread moves the joints apart, build thickens the
+limb between them.
 
-What it would take: read each block, decide whether it states a decision (goes
-to docs, with the date), restates the code (delete), or is the one line worth
-keeping. Then a check in `make check` that refuses a new one, the way
-`tools/check_failures.py` refuses a builtin raise, so the sweep does not have to
-happen twice.
+`depth.build` was itself unusable until 2026-09-10: `Field.clamp` coerced
+before it bounded, a mapping cannot coerce to a float, and the failure path
+returned the field's default of None. Eighteen runs set it and none applied it,
+which is most of why this entry read as "no lever exists".
 
-## 18. "weight 1.00" on a reference card is not the weight
+**What is left.** Nothing in the pipeline sets `pose.spread` yet, so no shipped
+config is broader than it was; the numbers above are measured off the rig, not
+off a generation. Whether 1.4 survives the model - ControlNet stops steering at
+`canonical.controlnet.end_percent` and the figure drifts after that - is
+unmeasured.
+
+## 15. Eighteen comment blocks still over the limit
+
+**Swept 2026-09-10, re-counted 2026-09-11.** The rule is one line per comment
+and two per docstring. The sweep took 238 blocks over the limit down to 18, all
+in `web/app.css` and `tests/frontend/`, which neither pass covered.
+
+`make check` does not refuse a new one, so this can drift back. That check is
+the part worth doing, not the last eighteen.
+
+## 16. "weight 1.00" on a reference card is not the weight
 
 **Found 2026-09-10.** The number on each reference card is `weight_scale`, a
 multiplier. The weight IPAdapter actually receives is decided per frame by
@@ -366,7 +326,7 @@ multiplier. Same fix reaches the missing clamp, since the range is what makes
 The control is also a bare `<input type=range>` rather than the `Range`
 primitive, so it is one of the stragglers from the slider sweep.
 
-## 19. The latest output is shown but is not part of the history
+## 17. The latest output is shown but is not part of the history
 
 **Asked 2026-09-10.** The overview's third column shows the newest run's frames
 under "LATEST OUTPUT" with a "Refine in editor" button, and the styles view has
@@ -376,7 +336,7 @@ this produced over time" do not share a source. Whether that is one feed with a
 newest-first cursor or two genuinely different questions is the thing to decide
 before writing either.
 
-## 20. Terms cannot be weighted in a prompt
+## 18. Terms cannot be weighted in a prompt
 
 **Asked 2026-09-10, unanswered.** Whether "gender = girl" or a skin term can be
 made to count for more than the fragments around it. SDXL through ComfyUI
@@ -385,12 +345,11 @@ graph's encoder path preserves it, and whether a weighted term survives the
 IPAdapter and ControlNet conditioning that follow, is unmeasured. The style
 vocabulary is a flat list of equals today.
 
-## 21. Five segmented controls, and one primitive none of them use
+## 19. Two hand-rolled segmented controls remain
 
-**Enumerated 2026-09-10, not converted.** `Segmented` exists in `ui/kit.js:141`.
-Five controls build the same thing by hand: `queue.js` states, `result.js`
-Grid/Anim/Strip, `run.js` Author/Annotate, `styles.js` tabs, `settings.js`
-scope. A sixth appeared since: the reference role tabs in `input.js`.
+**Counted 2026-09-11.** `Segmented` is in `ui/kit.js` and most callers use it.
+Two build the markup by hand: `views/input/input.js` (reference role tabs) and
+`views/styles/styles.js`.
 
 Deliberately excluded, with reasons: `rail-cell`, `nav li`, `subnav-item` and
 `step` look the same but are navigation, not a value control - they change what

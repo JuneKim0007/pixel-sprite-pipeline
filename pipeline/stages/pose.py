@@ -51,6 +51,7 @@ def render_entries(ctx: Context, entries: list[dict], outdir: Path) -> list[Path
             entry["pose"], entry["yaw"],
             depth_scale=cfg["depth_scale"],
             lateral_scale=cfg["lateral_scale"],
+            spread=cfg.get("spread"),
             margin=cfg["margin"],
             fill=fill,
             rig=rig,
@@ -207,6 +208,7 @@ class PoseStage(Stage):
             return [rig_lib.tpose(
                 ctx.need("rig"),
                 symmetric=bool(cfg["symmetric"]),
+                spread=cfg.get("arm_angle"),
             )]
         if source == "library":
             return self._from_library(ctx, cfg, wanted)

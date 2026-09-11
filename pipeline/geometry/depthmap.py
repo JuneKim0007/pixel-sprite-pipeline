@@ -73,6 +73,7 @@ def render_depth(
     blur: float = 6.0,
     depth_scale: float = 1.0,
     lateral_scale: float = 1.0,
+    spread: float | dict | None = None,
     fill: float = 0.0,
     margin: float = MARGIN,
     build: float | dict | None = None,
@@ -88,7 +89,7 @@ def render_depth(
 
     keypoints = project(
         fitted, yaw_deg, depth_scale=depth_scale, lateral_scale=lateral_scale,
-        rig=rig,
+        spread=spread, rig=rig,
     )
     screen = {
         joint: (kp[0] * width, kp[1] * height)

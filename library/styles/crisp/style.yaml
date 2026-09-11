@@ -36,16 +36,18 @@ settings:
     seconds: 240
 
   canonical:
-    # Same argument hi_fidelity records: exemplars carry rendering, not colour,
-    # and at the 0.35 role default silver-haired exemplars pull a dark-haired
-    # character toward lavender.
-    style_weight: 0.18
+    # hi_fidelity reasons its way to 0.18 from the role default of 0.35:
+    # exemplars carry rendering, not colour, and silver-haired ones pull a
+    # dark-haired character toward lavender. Measured over eight characters,
+    # 0.12 against identity 1.15 goes further - likeness 0.7068 against 0.6829
+    # and bleed 0.0326 against 0.0593.
+    style_weight: 0.12
     steps: 60
     width: 1024
     height: 1024
     cfg: 8.0
   frames:
-    style_weight: 0.18
+    style_weight: 0.12
     steps: 60
     width: 1024
     height: 1024

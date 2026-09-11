@@ -44,7 +44,10 @@ def backdrop_colour(settings: dict | None) -> str | None:
 
     if opt(settings or {}, "enabled", True) is False:
         return None
-    return opt(settings or {}, "colour", BACKDROP)
+    asked = opt(settings or {}, "colour", BACKDROP)
+    # `auto` tells the KEYER to read the corners. The prompt still has to name
+    # a colour, or backdrop_prompt would ask the model to paint "auto".
+    return BACKDROP if str(asked).strip().lower() == "auto" else asked
 
 
 def prompt_for(subject: str, hint: str, style: str, backdrop: str | None,

@@ -44,6 +44,19 @@ settings:
   pose:
     fill: 0.88
 
+    # Lifts the hands off the hip. 0 leaves no gap in the silhouette, 90 is a
+    # full T and reads as a weapon stance.
+    arm_angle: 55.0
+
+    # Broad without a broad face. lateral_scale is a uniform horizontal scale -
+    # head-over-shoulder measures 0.545 at 1.0 and at 1.4 alike - so it widens
+    # the skull with the shoulders. Per group it does not: this moves
+    # h/shoulder from 6.26 to 5.44 against the reference sheet's 4.42, and
+    # leaves the ear exactly where it was.
+    spread:
+      arms: 1.15
+      torso: 1.15
+
   # Seven heads rather than five (6.94 measured). The shipped rig is 5.2,
   # which reads as stocky; the sprite sheets this aims at specify 7.
   #
@@ -56,6 +69,11 @@ settings:
   proportions:
     legs: 1.60
     torso: 1.20
+    # Measured 2026-09-11: legs 1.6 and torso 1.2 stretch the body and leave
+    # the arms, so shoulder-to-wrist falls from 30.4% of height to 22.5% and
+    # the hands end above the hip. 1.35 restores the ratio the rig was authored
+    # with; anatomy is nearer 38%, which a stylised sprite does not need.
+    arms: 1.35
 
   palette:
     reduce: median
@@ -74,7 +92,12 @@ settings:
   # tones, and every pixel it bleeds into along an edge costs a palette entry.
   background:
     enabled: true
-    colour: "#FF00FF"
+    # The prompt still asks for magenta; `auto` is about what the KEYER
+    # removes. Three runs measured 0.0% of the requested colour in the result,
+    # so the corners of what the model actually painted are the only reliable
+    # key. Disabling the backdrop instead was measured and is worse: it drops
+    # the ground shadow but leaves bleed at 0.1295 against 0.1316.
+    colour: auto
 
   # Identity conditioning, true of every look here.
   #
@@ -93,7 +116,21 @@ settings:
     width: 1024
     height: 1024
     negative: "{avoid}"
-    from_reference: {weight_type: linear}
+    # Measured over 8 characters: identity at 1.15 against style at 0.12 beat
+    # the 0.85/0.28 default on both numbers - likeness 0.7068 against 0.6829,
+    # and bleed 0.0326 against 0.0593, which is the lavender-hair problem
+    # nearly halved. Pushing the other way (style 0.5, identity 0.6) scored
+    # worst of everything tried.
+    from_reference: {weight_type: linear, weight: 1.15}
+    style_weight: 0.12
+    # 1.2 is the pixel-art-xl author's recommendation and it is wrong for this
+    # canvas. Measured on char8, strength against the grid the model draws and
+    # the likeness it reaches, both monotonic and both the other way round:
+    #   0.8 -> block 3.0, likeness 0.7538
+    #   1.2 -> block 2.0, likeness 0.6944
+    #   1.6 -> block 1.0, likeness 0.6529
+    # Higher strength buys denser dithering, not bigger pixels.
+    lora_strength: 0.8
   frames:
     width: 1024
     height: 1024
@@ -107,3 +144,8 @@ settings:
       # so `style and composition` makes every view inherit a front pose.
       anchor_weight_type: linear
       anchor_end_at: 1.0
+    # frames.lora_strength's own help says keep it equal to canonical's: the
+    # frames are matched against the anchor, and a different weight there is a
+    # different style to match.
+    lora_strength: 0.8
+    style_weight: 0.12
