@@ -126,7 +126,11 @@ settings:
     # nearly halved. Pushing the other way (style 0.5, identity 0.6) scored
     # worst of everything tried.
     # 1.15 copied the reference as an ILLUSTRATION - 0.82 likeness, which is
-    # what CLIP rewards and not what a sprite is. 0.9 leaves more to the model.
+    # what CLIP rewards and not what a sprite is. 0.9 does not fix that: on
+    # char2 it also reached 0.82 likeness and took the block the model draws
+    # from 8.0 down to 1.0. `linear` writes all eleven attention blocks,
+    # including the one that carries rendering, so weight alone cannot ask for
+    # shape without also asking for smoothness. weight_composition can.
     from_reference: {weight_type: linear, weight: 0.9}
     style_weight: 0.12
     # 1.2 is the pixel-art-xl author's recommendation and it is wrong for this

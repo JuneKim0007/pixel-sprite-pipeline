@@ -103,6 +103,14 @@ VARIANTS = {
     "ctx_comp_09": {"_refs": True,
                     "canonical": {"from_reference": {
                         "weight": 0.9, "weight_type": "composition"}}},
+    # Take the reference's SHAPE and leave its rendering alone: block 3 is
+    # layout and structure, block 6 is colour and material. Measured at linear
+    # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
+    # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
+    "ctx_shape_09": {"_refs": True,
+                     "canonical": {"from_reference": {
+                         "weight": 0.2, "weight_composition": 0.9,
+                         "weight_type": "style and composition"}}},
     "ctx_linear_04": {"_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
