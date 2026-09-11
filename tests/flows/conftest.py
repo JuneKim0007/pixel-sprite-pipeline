@@ -35,6 +35,11 @@ class FakeComfy:
         self.graphs: list[dict] = []
         self.alive_answer = True
         self.missing_nodes: set[str] = set()
+        self.freed = 0
+
+    def free_models(self, timeout: float = 30) -> bool:
+        self.freed += 1
+        return True
 
     def alive(self) -> bool:
         return self.alive_answer

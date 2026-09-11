@@ -46,6 +46,18 @@ class Client:
         with urllib.request.urlopen(f"{self.host}{path}", timeout=timeout) as r:
             return json.loads(r.read())
 
+    def free_models(self, timeout: float = 30) -> bool:
+        """Hand back the model weights ComfyUI keeps in RAM between prompts."""
+        body = json.dumps({"unload_models": True, "free_memory": True}).encode()
+        request = urllib.request.Request(
+            f"{self.host}/free", data=body,
+            headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout):
+                return True
+        except (urllib.error.URLError, OSError, TimeoutError):
+            return False
+
     def pending(self) -> int | None:
         """Prompts queued or running, or None if ComfyUI cannot be reached."""
         try:

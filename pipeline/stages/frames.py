@@ -142,6 +142,11 @@ class FramesStage(Stage):
         outdir = ctx.stage_dir("frames")
         written: list[Path] = []
 
+        # Canonical peaks near 14 GB of 16 and frames adds a second IPAdapter
+        # on top, which the OS answered by killing ComfyUI five times.
+        if client.free_models():
+            print("   freed the anchor stage's models")
+
         for i, skeleton in enumerate(skeletons):
             pose_name = client.upload_image(skeleton) if skeleton else None
 

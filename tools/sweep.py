@@ -32,20 +32,6 @@ COMFY_WAIT = 30
 COMFY_TRIES = 40
 
 
-def free_comfy(host: str = "http://127.0.0.1:8188") -> bool:
-    import urllib.error
-    import urllib.request
-
-    body = json.dumps({"unload_models": True, "free_memory": True}).encode()
-    request = urllib.request.Request(
-        f"{host}/free", data=body, headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=30):
-            return True
-    except (urllib.error.URLError, OSError, TimeoutError):
-        return False
-
-
 def comfy_up(host: str = "http://127.0.0.1:8188") -> bool:
     import urllib.error
     import urllib.request
@@ -279,7 +265,9 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
               f"bleed {row.get('bleed', '-')}  {row['seconds']}s", flush=True)
         if job is not jobs[-1]:
             if (jobs.index(job) + 1) % FREE_EVERY == 0:
-                print(f"  freeing ComfyUI's models: {free_comfy()}", flush=True)
+                from pipeline.generation import comfy
+            print(f"  freeing ComfyUI's models: "
+                  f"{comfy.Client().free_models()}", flush=True)
             time.sleep(REST)
     return 0
 
