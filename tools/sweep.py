@@ -97,6 +97,15 @@ VARIANTS = {
     "crisp": {"styles": ["crisp"],
               "canonical": {"from_reference": {"weight": 1.15},
                             "style_weight": 0.12}},
+
+    # The block ladder. Every variant above measures block 2.0 on char8, so
+    # conditioning does not move the grid the model draws and the LoRA's grip
+    # is the next thing to try. 1.2 is the baseline and is already measured;
+    # 0.8 is here to show the metric responds at all, in the direction that
+    # should make it finer.
+    "lora_08": {"canonical": {"lora_strength": 0.8}},
+    "lora_16": {"canonical": {"lora_strength": 1.6}},
+    "lora_20": {"canonical": {"lora_strength": 2.0}},
 }
 
 
@@ -164,7 +173,7 @@ def clear_emphasis(char: str) -> None:
             weightmap.clear(image)
 
 
-def plan() -> list[tuple[str, str, Path]]:
+def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
     """Variant-major: every character is reached before any is repeated.
 
     A sweep this long will be read before it finishes, and character-major
@@ -173,7 +182,8 @@ def plan() -> list[tuple[str, str, Path]]:
     """
     CONFIGS.mkdir(parents=True, exist_ok=True)
     chars = [c for c in sorted(SUBJECTS)
-             if (ROOT / f"library/refs/{c}/front.png").exists()]
+             if (ROOT / f"library/refs/{c}/front.png").exists()
+             and (not only or c in only)]
     out = []
     for name, extra in VARIANTS.items():
         for char in chars:
@@ -224,7 +234,7 @@ def score_run(char: str, name: str, run_dir: Path) -> dict | None:
     return row
 
 
-def run_all() -> int:
+def run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
     from pipeline.geometry import framing
 
     # An interrupted emphasis run leaves its maps behind, and every later
@@ -232,7 +242,8 @@ def run_all() -> int:
     for char in SUBJECTS:
         clear_emphasis(char)
     already = done()
-    jobs = [j for j in plan() if f"{j[0]}_{j[1]}" not in already]
+    jobs = [j for j in plan(only) if f"{j[0]}_{j[1]}" not in already
+            and (not variants or j[1] in variants)]
     print(f"{len(jobs)} to run, {len(already)} already scored", flush=True)
 
     for job in jobs:
@@ -309,7 +320,10 @@ def main() -> int:
             print(f"  {path.relative_to(ROOT)}")
         return 0
     if what == "run":
-        return run_all()
+        rest = sys.argv[2:]
+        chars = [a for a in rest if a.startswith("char")]
+        picks = [a for a in rest if not a.startswith("char")]
+        return run_all(chars or None, picks or None)
     if what == "report":
         return report_table()
     print(__doc__)

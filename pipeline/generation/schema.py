@@ -502,23 +502,24 @@ FIELDS: list[ConfigField] = [
              "produces a front-facing sprite that fights the pose; a weak hint "
              "leaves the model free to invent the unseen side."),
     ConfigField(key="references.emphasis.source", label="Regional weight", kind="select",
-     default="auto", options=["auto", "none", "subject", "painted"],
+     default="auto", options=["auto", "none", "subject"],
      group="References",
      help="Where the per-region weight on an identity reference comes from. "
              "`none` attends to the whole image, which is the plain IPAdapter "
              "behaviour. `subject` derives a map from the reference's own "
              "silhouette, which keeps the character sheet's backdrop from "
-             "coming in with the character. `painted` uses the map drawn in "
-             "the annotator, and `auto` uses one if it has been drawn."),
+             "coming in with the character. `auto` uses the map drawn in the "
+             "annotator when there is one, and attends to the whole image "
+             "when there is not."),
     ConfigField(key="references.emphasis.floor", label="Weight off the subject",
      kind="float", default=0.0, min=0.0, max=1.0, step=0.05, group="References",
-     help="What a cell outside the silhouette is worth when the map is "
-             "derived. 0 ignores the backdrop entirely; raise it if the "
-             "reference's setting is part of what you want copied."),
+     help="What the weakest cell of the map is worth, whatever drew it. 0 "
+             "ignores the backdrop entirely; raise it if the reference's "
+             "setting is part of what you want copied."),
     ConfigField(key="references.emphasis.ceiling", label="Weight on the subject",
      kind="float", default=1.0, min=0.0, max=1.0, step=0.05, group="References",
-     help="What a cell inside the silhouette is worth. Lower it to soften a "
-             "reference without lowering its overall weight."),
+     help="What the strongest cell is worth, whatever drew it. Lower it to "
+             "soften a reference without lowering its overall weight."),
     ConfigField(key="references.match.auto", default=True, label="Automatic falloff", kind="bool",
      group="References",
      help="On: weight is chosen per frame from angular distance. Off: the "

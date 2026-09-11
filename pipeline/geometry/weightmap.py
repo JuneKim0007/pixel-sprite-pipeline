@@ -57,14 +57,13 @@ def radial(centre: float = 0.9, edge_value: float = 0.8, falloff: float = 1.0,
     return (centre + (edge_value - centre) * reach).astype(np.float32)
 
 
-SOURCES = ("auto", "none", "subject", "painted")
+SOURCES = ("auto", "none", "subject")
 
 FLOOR = 0.0
 CEILING = 1.0
 
 
-def from_subject(image: Path, floor: float = FLOOR, ceiling: float = CEILING,
-                 edge: int = EDGE) -> np.ndarray:
+def from_subject(image: Path, edge: int = EDGE) -> np.ndarray:
     """A map that says the figure and not the ground it was cut from.
 
     The identity references are cut from character sheets and carry their
@@ -86,7 +85,15 @@ def from_subject(image: Path, floor: float = FLOOR, ceiling: float = CEILING,
     small = np.asarray(
         Image.fromarray((subject * 255).astype(np.uint8)).resize(
             (edge, edge), Image.BILINEAR)).astype(np.float32) / 255.0
-    return (floor + (ceiling - floor) * small).astype(np.float32)
+    return small.astype(np.float32)
+
+
+def rescale(weights: np.ndarray, floor: float, ceiling: float) -> np.ndarray:
+    """Put a map's range where the config asked for it, whatever drew it."""
+    lo, hi = float(weights.min()), float(weights.max())
+    if hi - lo < 1e-6:
+        return np.full_like(weights, (floor + ceiling) / 2.0)
+    return (floor + (ceiling - floor) * (weights - lo) / (hi - lo)).astype(np.float32)
 
 
 def resolve(image: Path, source: str = "auto", floor: float = FLOOR,
@@ -94,12 +101,10 @@ def resolve(image: Path, source: str = "auto", floor: float = FLOOR,
     """The map a run should use for one reference, or None for no masking."""
     if source == "none":
         return None
-    if source == "subject":
-        return from_subject(image, floor, ceiling)
-    saved = load(image)
-    if source == "painted":
-        return saved
-    return saved
+    weights = (from_subject(image) if source == "subject" else load(image))
+    if weights is None:
+        return None
+    return rescale(weights, floor, ceiling)
 
 
 def describe(weights: np.ndarray | None) -> dict:

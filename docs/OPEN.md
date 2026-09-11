@@ -365,7 +365,7 @@ declared field to the place that reads it. The method is repeatable: wrap
 against `SCHEMA.fields`. All 852 tests pass with every one of these present, so
 the tests are not the thing that would have caught them.
 
-## 22. The validator and the pipeline disagree about which settings exist
+## 20. The validator and the pipeline disagree about which settings exist
 
 **Measured 2026-09-11.** `SCHEMA.check` is called from `api/configs.py` and
 nowhere else. `run.py` never calls it. So a config is validated when it is
@@ -405,7 +405,7 @@ Then declare the ten, which is mostly mechanical: three of the four
 `from_reference` siblings are already fields, and `detect.*` should probably
 not exist at all (§24).
 
-## 23. A declared default makes the consumption site's fallback dead code
+## 21. A declared default makes the consumption site's fallback dead code
 
 **Measured 2026-09-11.** `Context.settings(block)` merges
 `SCHEMA.defaults_under(block)` under the config before handing the dict over.
@@ -445,7 +445,7 @@ field declares no default. It is the same shape as
 and it catches both the dead fallback and the drift. The pass that found this
 took about thirty lines.
 
-## 24. `detect.*` is a second LLM block that the settings stack never reaches
+## 22. `detect.*` is a second LLM block that the settings stack never reaches
 
 **Measured 2026-09-11.** `resources.py:45` passes raw `ctx.config` into
 `detect.resolve`, and `detect.py:93` reads `config.get("detect")` directly. So
@@ -472,7 +472,7 @@ would need to say which is which. This is also one of the ten reads counted in
 §8, and the only one there that is a mistake rather than a deliberate
 different fallback.
 
-## 25. Six fields whose real default is a literal somewhere in the code
+## 23. Six fields whose real default is a literal somewhere in the code
 
 **Measured 2026-09-11.** A field with no declared default renders as an empty
 row. That is honest when there is no default. For these six there is one, and
@@ -500,7 +500,7 @@ never saw either field, because no test builds a run with a style exemplar
 attached, so the whole `_with_style` path in `canonical.py:115` and
 `frames.py:203` is untested — including the 0.6 clamp §18 mentions.
 
-## 26. `proportions` is never empty, so the rig is always rebuilt
+## 24. `proportions` is never empty, so the rig is always rebuilt
 
 **Measured 2026-09-11.** All nine `PROPORTION_GROUPS` declare a default of
 `1.0`, so `ctx.settings("proportions")` always returns nine entries and
@@ -532,42 +532,3 @@ product call. Wiring `groups_of` into `fields_for` is independent of both, and
 is the half worth doing first — §16 will add a tenth group and make the
 unfiltered list worse.
 
-## 27. `references.emphasis` offers four sources and has three
-
-**Found 2026-09-11, against `4f9c438`.** Found while the change was still
-uncommitted and landed anyway, so it is carried here rather than folded into
-the commit that introduced it. Small enough to close in one pass; it is in this
-file because it is now shipped behaviour, not because it is deferred.
-
-`weightmap.resolve` ends:
-
-```python
-saved = load(image)
-if source == "painted":
-    return saved
-return saved
-```
-
-`auto` and `painted` are the same code path. Measured against a reference with
-and without a sidecar, the two are indistinguishable in all four states.
-
-`floor` and `ceiling` apply only when `source: subject`. Measured at
-`floor=0.25, ceiling=0.75`: `subject` returns `0.250 … 0.750`, `painted` and
-`auto` return the painted values untouched. The help on `floor` says "when the
-map is derived"; the help on `ceiling` — *"Lower it to soften a reference"* —
-does not, and it is the one a person reaches for.
-
-The default `auto / 0.0 / 1.0` now exists in four places: the three
-`ConfigField`s, `weightmap.FLOOR`/`CEILING`, `resolve()`'s signature, and
-`cfg.get("source", "auto")` in `canonical.py:60`. The last is already dead by
-§23, since `settings()` fills the block.
-
-Two smaller things in the same change: `describe()` reports `"painted": True`
-for a derived map, and `frames.py:47` imports a private `_emphasis_mask` out of
-`canonical.py`. That function resolves config into a mask and is not canonical's
-work; it belongs in `weightmap` beside `resolve`.
-
-Not a problem, measured so it does not get raised again: `from_subject` re-runs
-per frame at ~140 ms on a 437x1106 reference, against ~280 s of generation. The
-redundant ComfyUI upload beside it is worth memoising on the reference path;
-the recompute is noise and predates nothing.
