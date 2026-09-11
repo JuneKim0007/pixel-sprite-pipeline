@@ -86,10 +86,17 @@ VARIANTS = {
     "no_key": {"background": {"enabled": False}},
     "identity_led": {"canonical": {"from_reference": {"weight": 1.15},
                                    "style_weight": 0.12}},
-    "style_led": {"canonical": {"from_reference": {"weight": 0.6},
-                                "style_weight": 0.5,
-                                "style": {"end_at": 0.9}}},
     "emphasis": {"_paint": True},
+    # identity_led scores best on both numbers and brings the reference sheet's
+    # own backdrop with it - a horizon on char7, a halo on char8. The mask is
+    # the fix that costs nothing else.
+    "identity_masked": {"canonical": {"from_reference": {"weight": 1.15},
+                                      "style_weight": 0.12},
+                        "_paint": True},
+    # Same weights, off the retro chain.
+    "crisp": {"styles": ["crisp"],
+              "canonical": {"from_reference": {"weight": 1.15},
+                            "style_weight": 0.12}},
 }
 
 

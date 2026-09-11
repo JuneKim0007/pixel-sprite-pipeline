@@ -1,0 +1,52 @@
+name: crisp
+label: Crisp high-fidelity pixel art
+extends: [base_pixel]
+notes: >
+  hi_fidelity extends retro_jrpg, and vocabulary groups MERGE down the chain
+  rather than replace. So its resolved style group reads "snes sprite, chunky
+  pixels, bold black outline, detailed pixel art" — three SNES-era terms
+  against the one fidelity term it adds, and the retro half wins. A child
+  cannot take a word back, so the only way out of the idiom is to leave the
+  chain.
+
+  This sheet extends base_pixel alone. Measured against the reference art in
+  training_set: many shading tones rather than two, clusters fine enough to
+  render an eye, outlines thin and coloured rather than a bold black key line,
+  and a palette rich enough that skin carries more than one step.
+
+vocabulary:
+  style:
+    - detailed pixel art
+    - fine pixel clusters
+    - clean readable shapes
+  shading:
+    - soft cel shading
+    - three tone shading
+    - rim light
+  outline:
+    - thin dark outline
+  framing:
+    - full body
+  palette_words:
+    - rich color
+    - high contrast
+
+settings:
+  cooling:
+    seconds: 240
+
+  canonical:
+    # Same argument hi_fidelity records: exemplars carry rendering, not colour,
+    # and at the 0.35 role default silver-haired exemplars pull a dark-haired
+    # character toward lavender.
+    style_weight: 0.18
+    steps: 60
+    width: 1024
+    height: 1024
+    cfg: 8.0
+  frames:
+    style_weight: 0.18
+    steps: 60
+    width: 1024
+    height: 1024
+    cfg: 8.0

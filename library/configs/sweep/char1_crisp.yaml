@@ -1,0 +1,46 @@
+module: character_sheet
+subject: a young woman with long straight black hair, a white shirt with a red necktie,
+  a black jacket, a black pleated skirt, black knee socks and black loafers
+style: pixel art, game sprite
+styles:
+- crisp
+props: []
+props_enabled: false
+proportions:
+  legs: 1.15
+  torso: 1.1
+background:
+  colour: 242, 94, 147
+pose:
+  source: tpose
+  size: 1024
+  fill: 0.69
+  margin: 0.14
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  style:
+    end_at: 0.65
+  style_weight: 0.12
+  from_reference:
+    weight: 1.15
+references:
+  identity:
+  - path: library/refs/char1/front.png
+    view: front
+  - path: library/refs/char1/side.png
+    view: side
+  - path: library/refs/char1/side_right.png
+    view: 270
+  - path: library/refs/char1/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
