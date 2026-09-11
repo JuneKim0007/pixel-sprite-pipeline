@@ -32,11 +32,16 @@ cfg = styles.effective(ROOT, settings.read_yaml(RUN / "config.yaml"))[0]
 # and an inspector must not leave anything in the run it is reading.
 SCRATCH = Path(tempfile.mkdtemp(prefix="show_graph_"))
 ctx = Context(root=ROOT, outdir=SCRATCH, config=cfg, run_id=RUN.name)
-art = json.loads((RUN / "artifacts.json").read_text())["artifacts"]
+# A run that died before writing artifacts.json still has its pose on disk.
+saved = RUN / "artifacts.json"
+if saved.exists():
+    entries = json.loads(saved.read_text())["artifacts"]["pose_frames"]["value"]
+else:
+    entries = json.loads((RUN / "00_pose/pose.json").read_text())["entries"]
 ctx.artifacts = {
     "skeletons": sorted(RUN.glob("00_pose/skeleton_*.png")),
     "depthmaps": sorted(RUN.glob("01_depth/depth_*.png")),
-    "pose_frames": art["pose_frames"]["value"],
+    "pose_frames": entries,
 }
 
 from pipeline.stages.canonical import CanonicalStage

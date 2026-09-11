@@ -106,6 +106,7 @@ class _AnchorGraph:
             end_at=float(self.from_ref["end_at"]),
             models=self.ctx.settings("models"),
             attn_mask=self._emphasis(g, chosen.path),
+            weight_composition=opt(self.from_ref, "weight_composition", None),
         )
 
     def _with_style(self, g, model):

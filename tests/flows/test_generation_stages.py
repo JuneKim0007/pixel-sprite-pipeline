@@ -363,3 +363,16 @@ def test_identity_weight_falls_back_to_the_role_default(tmp_path):
     ctx = Context(root=Path("."), config={}, run_id="r", outdir=tmp_path)
     from_ref = ctx.settings("canonical.from_reference")
     assert (opt(from_ref, "weight", None) or 0.8) == 0.8
+
+
+def test_the_shape_weight_reaches_the_adapter_and_not_just_the_settings(
+        comfy_fake, frames_ctx):
+    """Resolving is not arriving. weight_composition resolved correctly and
+    reached no node, because the call site was never given it."""
+    get("frames")().run(frames_ctx(1, frames={
+        "ip_adapter": {"weight_type": "style and composition",
+                       "weight": 0.7, "weight_composition": 0.25}}), {})
+    seen = [i.get("weight_composition")
+            for i in comfy_fake.inputs_of("IPAdapterAdvanced")]
+    assert seen, "no IPAdapterAdvanced in the graph"
+    assert 0.25 in seen, seen
