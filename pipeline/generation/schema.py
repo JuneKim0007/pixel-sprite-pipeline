@@ -564,13 +564,29 @@ FIELDS: list[ConfigField] = [
              "strong the anchor traces the depth silhouette instead. The "
              "strengths below default lower than the frames stage's because "
              "the anchor has no anchor of its own to pull against."),
-    ConfigField(key="canonical.controlnet.strength", label="Anchor pose strength",
+    ConfigField(key="canonical.controlnet.strength", default=0.55,
+     label="Anchor pose strength",
      kind="float", min=0.0, max=1.5, step=0.05, group="Canonical",
      help="0 disables the pose channel without disabling depth."),
-    ConfigField(key="canonical.controlnet.end_percent", label="Anchor control end",
+    ConfigField(key="canonical.controlnet.end_percent", default=0.40,
+     label="Anchor control end",
      kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
      help="Fraction of sampling the control steers for. Held late, the "
              "model draws the guide rather than a character."),
+    ConfigField(key="canonical.depth_controlnet.strength", default=0.30,
+     label="Anchor depth strength",
+     kind="float", min=0.0, max=1.5, step=0.05, group="Canonical",
+     help="Kept below the pose strength, or the anchor traces the depth "
+             "silhouette instead of drawing a character into it."),
+    ConfigField(key="canonical.depth_controlnet.start_percent", default=0.0,
+     label="Anchor depth start",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
+     help="Fraction of sampling before the depth channel starts steering."),
+    ConfigField(key="canonical.depth_controlnet.end_percent", default=0.35,
+     label="Anchor depth end",
+     kind="float", min=0.0, max=1.0, step=0.05, group="Canonical",
+     help="Depth holds the body's mass, so it is safe to hold later than "
+             "pose; pose held that late draws the stick figure."),
     ConfigField(key="canonical.timeout", default=1800, label="Timeout (seconds)", kind="int",
      min=60, max=21600, step=60, group="Canonical",
      help="How long one image may take before the run gives up. Per image, "

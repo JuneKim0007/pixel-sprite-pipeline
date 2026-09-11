@@ -122,12 +122,13 @@ class _AnchorGraph:
 
     def _with_control(self, g, pos, neg, vae, control_names):
         for kind, (name, channel) in control_names.items():
-            strong = kind == "pose"
+            cn = self.cn if kind == "pose" else self.ctx.settings(
+                "canonical.depth_controlnet")
             pos, neg = comfy.apply_controlnet(
                 g, pos, neg, comfy.load_image(g, name), vae,
-                strength=opt(self.cn, "strength", 0.55 if strong else 0.30),
-                start_percent=self.cn["start_percent"],
-                end_percent=opt(self.cn, "end_percent", 0.40 if strong else 0.35),
+                strength=float(cn["strength"]),
+                start_percent=float(cn["start_percent"]),
+                end_percent=float(cn["end_percent"]),
                 union_type=channel,
                 controlnet=self.ctx.settings("models.controlnet"),
             )

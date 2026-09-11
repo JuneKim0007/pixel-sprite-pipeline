@@ -97,3 +97,13 @@ def test_a_stage_declaring_an_unresolvable_need_never_starts():
 
     with pytest.raises(runner.PipelineError, match="a_pony"):
         runner.validate([Impossible()], seeded=set())
+
+
+def test_the_anchors_two_control_channels_resolve_separately(root):
+    """One shared block made the stage tell pose from depth with a hardcoded
+    ternary, so neither schema field ever resolved."""
+    ctx = Context(root=root, outdir=root, config={})
+    pose = ctx.settings("canonical.controlnet")
+    depth = ctx.settings("canonical.depth_controlnet")
+    assert pose["strength"] > depth["strength"]
+    assert pose["end_percent"] and depth["end_percent"]
