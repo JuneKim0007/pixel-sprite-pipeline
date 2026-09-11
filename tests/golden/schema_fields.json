@@ -225,6 +225,17 @@
    "type": "int"
   },
   {
+   "default": 40.0,
+   "group": "Pose",
+   "help": "Degrees the arms swing out from hanging straight down. 0 puts them against the body and leaves no gap in the silhouette; 90 is a full T and reads as a weapon stance. Raising it also lifts the hands, which is the cheap way to stop short arms ending at the hip.",
+   "label": "Arm angle",
+   "max": 90.0,
+   "min": 0.0,
+   "path": "pose.arm_angle",
+   "step": 5.0,
+   "type": "float"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -705,6 +716,10 @@
    "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
    "label": "Backdrop colour",
    "options": [
+    [
+     "auto",
+     "Whatever the model actually painted, from the corners"
+    ],
     [
      "#FF00FF",
      "Magenta, furthest from skin and cloth"
@@ -1831,6 +1846,17 @@
    "type": "int"
   },
   {
+   "default": 40.0,
+   "group": "Pose",
+   "help": "Degrees the arms swing out from hanging straight down. 0 puts them against the body and leaves no gap in the silhouette; 90 is a full T and reads as a weapon stance. Raising it also lifts the hands, which is the cheap way to stop short arms ending at the hip.",
+   "label": "Arm angle",
+   "max": 90.0,
+   "min": 0.0,
+   "path": "pose.arm_angle",
+   "step": 5.0,
+   "type": "float"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -2207,6 +2233,10 @@
    "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
    "label": "Backdrop colour",
    "options": [
+    [
+     "auto",
+     "Whatever the model actually painted, from the corners"
+    ],
     [
      "#FF00FF",
      "Magenta, furthest from skin and cloth"
@@ -3350,6 +3380,17 @@
    "type": "int"
   },
   {
+   "default": 40.0,
+   "group": "Pose",
+   "help": "Degrees the arms swing out from hanging straight down. 0 puts them against the body and leaves no gap in the silhouette; 90 is a full T and reads as a weapon stance. Raising it also lifts the hands, which is the cheap way to stop short arms ending at the hip.",
+   "label": "Arm angle",
+   "max": 90.0,
+   "min": 0.0,
+   "path": "pose.arm_angle",
+   "step": 5.0,
+   "type": "float"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -3830,6 +3871,10 @@
    "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
    "label": "Backdrop colour",
    "options": [
+    [
+     "auto",
+     "Whatever the model actually painted, from the corners"
+    ],
     [
      "#FF00FF",
      "Magenta, furthest from skin and cloth"
@@ -4922,6 +4967,17 @@
    "type": "int"
   },
   {
+   "default": 40.0,
+   "group": "Pose",
+   "help": "Degrees the arms swing out from hanging straight down. 0 puts them against the body and leaves no gap in the silhouette; 90 is a full T and reads as a weapon stance. Raising it also lifts the hands, which is the cheap way to stop short arms ending at the hip.",
+   "label": "Arm angle",
+   "max": 90.0,
+   "min": 0.0,
+   "path": "pose.arm_angle",
+   "step": 5.0,
+   "type": "float"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -5298,6 +5354,10 @@
    "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
    "label": "Backdrop colour",
    "options": [
+    [
+     "auto",
+     "Whatever the model actually painted, from the corners"
+    ],
     [
      "#FF00FF",
      "Magenta, furthest from skin and cloth"
@@ -6379,6 +6439,17 @@
    "type": "int"
   },
   {
+   "default": 40.0,
+   "group": "Pose",
+   "help": "Degrees the arms swing out from hanging straight down. 0 puts them against the body and leaves no gap in the silhouette; 90 is a full T and reads as a weapon stance. Raising it also lifts the hands, which is the cheap way to stop short arms ending at the hip.",
+   "label": "Arm angle",
+   "max": 90.0,
+   "min": 0.0,
+   "path": "pose.arm_angle",
+   "step": 5.0,
+   "type": "float"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -6755,6 +6826,10 @@
    "help": "Named in the prompt and removed by the keyer, so the two agree. Asking for a 'plain' background gets a lit studio card with a cast shadow, because that is what the words describe. Magenta rather than chroma green: green sits close to skin and cloth tones, and every pixel it bleeds into is one the palette has to spend an entry on. Green is offered as a preset, not as the default, for that reason. Any RGB or hex value is accepted.",
    "label": "Backdrop colour",
    "options": [
+    [
+     "auto",
+     "Whatever the model actually painted, from the corners"
+    ],
     [
      "#FF00FF",
      "Magenta, furthest from skin and cloth"

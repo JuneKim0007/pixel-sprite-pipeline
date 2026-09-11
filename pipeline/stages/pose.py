@@ -209,6 +209,7 @@ class PoseStage(Stage):
             return [rig_lib.tpose(
                 ctx.need("rig"),
                 symmetric=bool(cfg["symmetric"]),
+                spread=cfg.get("arm_angle"),
             )]
         if source == "library":
             return self._from_library(ctx, cfg, wanted)

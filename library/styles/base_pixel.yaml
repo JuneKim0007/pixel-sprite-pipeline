@@ -44,6 +44,19 @@ settings:
   pose:
     fill: 0.88
 
+    # Lifts the hands off the hip. 0 leaves no gap in the silhouette, 90 is a
+    # full T and reads as a weapon stance.
+    arm_angle: 55.0
+
+    # Broad without a broad face. lateral_scale is a uniform horizontal scale -
+    # head-over-shoulder measures 0.545 at 1.0 and at 1.4 alike - so it widens
+    # the skull with the shoulders. Per group it does not: this moves
+    # h/shoulder from 6.26 to 5.44 against the reference sheet's 4.42, and
+    # leaves the ear exactly where it was.
+    spread:
+      arms: 1.15
+      torso: 1.15
+
   # Seven heads rather than five (6.94 measured). The shipped rig is 5.2,
   # which reads as stocky; the sprite sheets this aims at specify 7.
   #
@@ -56,6 +69,11 @@ settings:
   proportions:
     legs: 1.60
     torso: 1.20
+    # Measured 2026-09-11: legs 1.6 and torso 1.2 stretch the body and leave
+    # the arms, so shoulder-to-wrist falls from 30.4% of height to 22.5% and
+    # the hands end above the hip. 1.35 restores the ratio the rig was authored
+    # with; anatomy is nearer 38%, which a stylised sprite does not need.
+    arms: 1.35
 
   palette:
     reduce: median
