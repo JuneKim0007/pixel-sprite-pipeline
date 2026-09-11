@@ -1,6 +1,6 @@
 module: character_sheet
-subject: a woman with long black hair, dark red and navy armour, a red cape and navy
-  thigh boots
+subject: an elf woman with pale mint green hair tied up, a dark teal robe with gold
+  trim, a layered shoulder cape and black boots
 styles:
 - crisp
 props: []
@@ -12,16 +12,16 @@ pose:
   - view: front
 canonical:
   candidates: 1
-  lora_strength: 0.8
+  lora_strength: 1.1
 references:
   identity:
-  - path: library/refs/char8/front.png
+  - path: library/refs/char2/front.png
     view: front
-  - path: library/refs/char8/side.png
+  - path: library/refs/char2/side.png
     view: side
-  - path: library/refs/char8/side_right.png
+  - path: library/refs/char2/side_right.png
     view: 270
-  - path: library/refs/char8/rear.png
+  - path: library/refs/char2/rear.png
     view: rear
 pipeline:
   stages:
@@ -33,4 +33,4 @@ cooling:
   enabled: true
   seconds: 60
 frames:
-  lora_strength: 0.8
+  lora_strength: 1.1

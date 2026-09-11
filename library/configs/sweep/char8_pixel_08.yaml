@@ -28,6 +28,10 @@ pipeline:
   - pose
   - depth
   - canonical
+  - pixelise
+  - frames
+  - palette
+  - export
   stop_after: canonical
 cooling:
   enabled: true

@@ -195,6 +195,12 @@ FIELDS: list[ConfigField] = [
              "re-render. The sampler fills whatever canvas it is handed, so a "
              "margin cannot be asked for at generation - it has to be in the "
              "latent already. 0 leaves the framing alone."),
+    ConfigField(key="pixelise.grid", label="Pixelise quantise", kind="bool",
+     default=True, group="Pixelise",
+     help="Snap the anchor to the sprite's own cells before re-rendering. Off "
+             "leaves the image at full detail and only the headroom from "
+             "`fill` applies, so the two halves of this pass can be judged "
+             "apart: grid alone, scale alone, both, or neither."),
     ConfigField(key="pixelise.timeout", label="Pixelise timeout", kind="int",
      default=900, min=60, max=3600, step=60, group="Pixelise",
      help="Seconds to wait for the re-render before giving up."),

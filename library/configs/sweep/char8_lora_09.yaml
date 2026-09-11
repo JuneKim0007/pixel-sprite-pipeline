@@ -12,7 +12,7 @@ pose:
   - view: front
 canonical:
   candidates: 1
-  lora_strength: 0.8
+  lora_strength: 0.9
 references:
   identity:
   - path: library/refs/char8/front.png
@@ -33,4 +33,4 @@ cooling:
   enabled: true
   seconds: 60
 frames:
-  lora_strength: 0.8
+  lora_strength: 0.9

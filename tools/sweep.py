@@ -17,7 +17,7 @@ CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
-REST = 120
+REST = 480
 
 # ComfyUI holds model weights in CPU RAM between runs by design - it unloads from GPU.
 FREE_EVERY = 6
@@ -87,25 +87,41 @@ SUBJECTS = {
 # Each variant moves ONE thing away from the baseline, so a score difference names a.
 # Round five. pose.set holds one view, so a full run is two GPU jobs rather
 # than four and the frames questions are affordable across all eight.
+# Round six: the pixel LoRA's whole usable range, then the pixelise
+# question at three points on it. Ordered so the ladder answers first.
 VARIANTS = {
-    "shipped": {},
-    "pix_045": {"pipeline": {"stages": ["pose", "depth", "canonical",
-                                        "pixelise"], "stop_after": "pixelise"}},
-    # Regional weights were wired and inert: the only painted map in the tree
-    # belongs to char_1, an older character, so `auto` found nothing for any of
-    # char1..char8 and every run so far masked nothing. `subject` derives one
-    # from each reference's own silhouette, which needs no painting.
-    "regional": {"references": {"emphasis": {"source": "subject"}}},
-    "with_exemplars": {"styles": ["hi_fidelity"],
-                       "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
-    # The frames question, asked directly. frames anchor on the canonical, so
-    # whatever grid the anchor has is the grid they inherit - and no variant so
-    # far has run frames at all.
-    "frames_plain": {"pipeline": {"stages": ["pose", "depth", "canonical",
-                                             "frames", "palette", "export"]}},
-    "frames_pixel": {"pipeline": {"stages": ["pose", "depth", "canonical",
-                                             "pixelise", "frames", "palette",
-                                             "export"]}},
+    "lora_08": {"canonical": {"lora_strength": 0.8},
+                  "frames": {"lora_strength": 0.8}},
+    "lora_09": {"canonical": {"lora_strength": 0.9},
+                  "frames": {"lora_strength": 0.9}},
+    "lora_10": {"canonical": {"lora_strength": 1.0},
+                  "frames": {"lora_strength": 1.0}},
+    "lora_11": {"canonical": {"lora_strength": 1.1},
+                  "frames": {"lora_strength": 1.1}},
+    "lora_12": {"canonical": {"lora_strength": 1.2},
+                  "frames": {"lora_strength": 1.2}},
+    "lora_14": {"canonical": {"lora_strength": 1.4},
+                  "frames": {"lora_strength": 1.4}},
+    # Frames with no pixelise: the `neither` arm.
+    "frames_08": {"canonical": {"lora_strength": 0.8},
+                    "frames": {"lora_strength": 0.8},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    "frames_10": {"canonical": {"lora_strength": 1.0},
+                    "frames": {"lora_strength": 1.0},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    "frames_12": {"canonical": {"lora_strength": 1.2},
+                    "frames": {"lora_strength": 1.2},
+                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    # Scale AND grid, then frames: the `both` arm.
+    "pixel_08": {"canonical": {"lora_strength": 0.8},
+                   "frames": {"lora_strength": 0.8},
+                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
+    "pixel_10": {"canonical": {"lora_strength": 1.0},
+                   "frames": {"lora_strength": 1.0},
+                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
+    "pixel_12": {"canonical": {"lora_strength": 1.2},
+                   "frames": {"lora_strength": 1.2},
+                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
 }
 
 

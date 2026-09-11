@@ -33,14 +33,18 @@ def framed(image, fill: float):
     return canvas
 
 
-def blocked(source: Path, dst: Path, factor: int,
-            fill: float = 0.0) -> tuple[int, int]:
+def blocked(source: Path, dst: Path, factor: int, fill: float = 0.0,
+            grid: bool = True) -> tuple[int, int]:
     """Quantise to the sprite grid and back, so the latent carries whole blocks."""
     from PIL import Image
 
     with Image.open(source) as handle:
         image = framed(handle.convert("RGB"), fill)
     cells = (max(1, image.width // factor), max(1, image.height // factor))
+    if not grid:
+        # Scale without quantising, so the two halves can be told apart.
+        image.save(dst)
+        return (image.width, image.height)
     small = image.resize(cells, Image.BOX)
     small.resize(image.size, Image.NEAREST).save(dst)
     return cells
@@ -52,7 +56,7 @@ class PixeliseStage(Stage):
     resource = Resource.GPU
     gives = frozenset({"pixel_anchor"})
     needs = frozenset({"canonical"})
-    DEFAULTS = {"denoise": 0.45, "factor": 8, "timeout": 900, "fill": 0.82}
+    DEFAULTS = {"denoise": 0.45, "factor": 8, "timeout": 900, "fill": 0.82, "grid": True}
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("pixelise")
@@ -61,7 +65,8 @@ class PixeliseStage(Stage):
 
         factor = int(cfg["factor"])
         staged = outdir / "blocked.png"
-        cells = blocked(source, staged, factor, float(cfg["fill"]))
+        cells = blocked(source, staged, factor, float(cfg["fill"]),
+                        bool(cfg["grid"]))
         print(f"   {source.name} quantised to {cells[0]}x{cells[1]} cells "
               f"and back, block {factor}")
 

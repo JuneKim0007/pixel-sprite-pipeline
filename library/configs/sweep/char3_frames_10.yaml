@@ -1,0 +1,39 @@
+module: character_sheet
+subject: a dark skinned woman with long black hair, a deep red veil and headscarf,
+  a red and gold layered dress and gold sandals
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  lora_strength: 1.0
+references:
+  identity:
+  - path: library/refs/char3/front.png
+    view: front
+  - path: library/refs/char3/side.png
+    view: side
+  - path: library/refs/char3/side_right.png
+    view: 270
+  - path: library/refs/char3/rear.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  - frames
+  - palette
+  - export
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
+frames:
+  lora_strength: 1.0
