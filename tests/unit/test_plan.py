@@ -111,9 +111,10 @@ def test_a_variant_that_adds_stages_moves_the_gate_with_them():
     assert seen, "no variant exercises the frames stage"
 
 
-def test_a_sweep_config_carries_no_identity_reference():
+def test_only_the_context_variants_carry_an_identity_reference():
     """The reference brought its own background, its own arms and a centre
-    crop that removed the head; the sweep now measures without it."""
+    crop that removed the head, so it is off everywhere except the arm that
+    exists to measure what it does."""
     import sys
 
     import yaml
@@ -123,7 +124,9 @@ def test_a_sweep_config_carries_no_identity_reference():
 
     for _char, name, path in plan(["char1"]):
         cfg = yaml.safe_load(path.read_text())
-        assert cfg["references"]["identity"] == [], name
+        wanted = name.startswith("ctx_")
+        got = bool(cfg["references"]["identity"])
+        assert got is wanted, f"{name}: references {got}, asked {wanted}"
 
 
 def test_the_ground_truth_lives_outside_what_the_model_can_be_given():

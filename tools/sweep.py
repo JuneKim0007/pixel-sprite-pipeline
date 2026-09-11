@@ -100,6 +100,22 @@ VARIANTS = {
     "frames_12": {"canonical": {"lora_strength": 1.2},
                     "frames": {"lora_strength": 1.2},
                     "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
+    # The context arm. Each reintroduces the identity reference, now square
+    # and padded, and moves exactly one thing about how it is consumed.
+    # weight_type decides which SDXL attention blocks the adapter writes to:
+    # linear all eleven, `style transfer` only block 6, `composition` only 3.
+    "ctx_linear_09": {"_refs": True,
+                      "canonical": {"from_reference": {
+                          "weight": 0.9, "weight_type": "linear"}}},
+    "ctx_style_09": {"_refs": True,
+                     "canonical": {"from_reference": {
+                         "weight": 0.9, "weight_type": "style transfer"}}},
+    "ctx_comp_09": {"_refs": True,
+                    "canonical": {"from_reference": {
+                        "weight": 0.9, "weight_type": "composition"}}},
+    "ctx_linear_04": {"_refs": True,
+                      "canonical": {"from_reference": {
+                          "weight": 0.4, "weight_type": "linear"}}},
     # Scale AND grid, then frames: the `both` arm.
     "pixel_08": {"canonical": {"lora_strength": 0.8},
                    "frames": {"lora_strength": 0.8},
@@ -153,6 +169,13 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
     for name, extra in VARIANTS.items():
         for char in chars:
             cfg = merge(base(char), extra)
+            # A variant cannot name the character's own files, so it asks and
+            # plan() answers - the same trick the old _paint marker used.
+            if extra.get("_refs"):
+                cfg["references"]["identity"] = [
+                    {"path": f"context/{char}/{name}.png", "view": view}
+                    for name, view in VIEWS.items()
+                    if (TRUTH / char / f"{name}.png").exists()]
             # Stated twice, the gate and the stage list disagree: every frames
             # and pixel variant lengthened the list and still stopped at the
             # anchor, so the arm would have rerun canonicals for nine hours.
