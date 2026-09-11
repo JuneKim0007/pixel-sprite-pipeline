@@ -1,6 +1,6 @@
 module: character_sheet
-subject: a woman with long wavy silver green hair, a flower crown, a cream kimono
-  blouse, a navy floor length skirt and sandals
+subject: a woman with long black hair, dark red and navy armour, a red cape and navy
+  thigh boots
 styles:
 - crisp
 props: []
@@ -14,21 +14,23 @@ canonical:
   candidates: 1
 references:
   identity:
-  - path: library/refs/char5/front.png
+  - path: library/refs/char8/front.png
     view: front
-  - path: library/refs/char5/side.png
+  - path: library/refs/char8/side.png
     view: side
-  - path: library/refs/char5/side_right.png
+  - path: library/refs/char8/side_right.png
     view: 270
-  - path: library/refs/char5/rear.png
+  - path: library/refs/char8/rear.png
     view: rear
 pipeline:
   stages:
   - pose
   - depth
   - canonical
-  - pixelise
-  stop_after: pixelise
+  - frames
+  - palette
+  - export
+  stop_after: canonical
 cooling:
   enabled: true
   seconds: 60

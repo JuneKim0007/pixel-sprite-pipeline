@@ -32,5 +32,3 @@ pipeline:
 cooling:
   enabled: true
   seconds: 60
-pixelise:
-  denoise: 0.45

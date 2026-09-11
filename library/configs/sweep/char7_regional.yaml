@@ -22,13 +22,14 @@ references:
     view: 270
   - path: library/refs/char7/rear.png
     view: rear
+  emphasis:
+    source: subject
 pipeline:
   stages:
   - pose
   - depth
   - canonical
-  - pixelise
-  stop_after: pixelise
+  stop_after: canonical
 cooling:
   enabled: true
   seconds: 60

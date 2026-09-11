@@ -85,20 +85,27 @@ SUBJECTS = {
 }
 
 # Each variant moves ONE thing away from the baseline, so a score difference names a.
+# Round five. pose.set holds one view, so a full run is two GPU jobs rather
+# than four and the frames questions are affordable across all eight.
 VARIANTS = {
     "shipped": {},
-    "pix_030": {"pixelise": {"denoise": 0.30},
-                "pipeline": {"stages": ["pose", "depth", "canonical",
+    "pix_045": {"pipeline": {"stages": ["pose", "depth", "canonical",
                                         "pixelise"], "stop_after": "pixelise"}},
-    "pix_045": {"pixelise": {"denoise": 0.45},
-                "pipeline": {"stages": ["pose", "depth", "canonical",
-                                        "pixelise"], "stop_after": "pixelise"}},
-    "pix_060": {"pixelise": {"denoise": 0.60},
-                "pipeline": {"stages": ["pose", "depth", "canonical",
-                                        "pixelise"], "stop_after": "pixelise"}},
-    # char8_lora_08 was the most pixel-like result recorded - block 3.0 against.
+    # Regional weights were wired and inert: the only painted map in the tree
+    # belongs to char_1, an older character, so `auto` found nothing for any of
+    # char1..char8 and every run so far masked nothing. `subject` derives one
+    # from each reference's own silhouette, which needs no painting.
+    "regional": {"references": {"emphasis": {"source": "subject"}}},
     "with_exemplars": {"styles": ["hi_fidelity"],
                        "canonical": {"lora_strength": 0.8, "style_weight": 0.12}},
+    # The frames question, asked directly. frames anchor on the canonical, so
+    # whatever grid the anchor has is the grid they inherit - and no variant so
+    # far has run frames at all.
+    "frames_plain": {"pipeline": {"stages": ["pose", "depth", "canonical",
+                                             "frames", "palette", "export"]}},
+    "frames_pixel": {"pipeline": {"stages": ["pose", "depth", "canonical",
+                                             "pixelise", "frames", "palette",
+                                             "export"]}},
 }
 
 
