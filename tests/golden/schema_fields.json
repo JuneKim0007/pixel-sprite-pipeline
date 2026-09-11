@@ -192,6 +192,39 @@
    "type": "float"
   },
   {
+   "default": 0.45,
+   "group": "Pixelise",
+   "help": "How far the re-render is allowed from the blocked image it starts from. Low keeps the grid and changes little; high recovers detail and invents a finer grid again, which is the thing this pass exists to stop.",
+   "label": "Pixelise denoise",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "pixelise.denoise",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": 8,
+   "group": "Pixelise",
+   "help": "The block the anchor is quantised to before re-rendering. Keep it equal to palette.factor: this is the grid the sprite will be reduced on, and handing the model a different one asks it to draw a grid that will then be resampled.",
+   "label": "Pixelise block",
+   "max": 32,
+   "min": 2,
+   "path": "pixelise.factor",
+   "step": 1,
+   "type": "int"
+  },
+  {
+   "default": 900,
+   "group": "Pixelise",
+   "help": "Seconds to wait for the re-render before giving up.",
+   "label": "Pixelise timeout",
+   "max": 3600,
+   "min": 60,
+   "path": "pixelise.timeout",
+   "step": 60,
+   "type": "int"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -1765,6 +1798,39 @@
    "type": "float"
   },
   {
+   "default": 0.45,
+   "group": "Pixelise",
+   "help": "How far the re-render is allowed from the blocked image it starts from. Low keeps the grid and changes little; high recovers detail and invents a finer grid again, which is the thing this pass exists to stop.",
+   "label": "Pixelise denoise",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "pixelise.denoise",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": 8,
+   "group": "Pixelise",
+   "help": "The block the anchor is quantised to before re-rendering. Keep it equal to palette.factor: this is the grid the sprite will be reduced on, and handing the model a different one asks it to draw a grid that will then be resampled.",
+   "label": "Pixelise block",
+   "max": 32,
+   "min": 2,
+   "path": "pixelise.factor",
+   "step": 1,
+   "type": "int"
+  },
+  {
+   "default": 900,
+   "group": "Pixelise",
+   "help": "Seconds to wait for the re-render before giving up.",
+   "label": "Pixelise timeout",
+   "max": 3600,
+   "min": 60,
+   "path": "pixelise.timeout",
+   "step": 60,
+   "type": "int"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -3249,6 +3315,39 @@
    "path": "pose.margin",
    "step": 0.01,
    "type": "float"
+  },
+  {
+   "default": 0.45,
+   "group": "Pixelise",
+   "help": "How far the re-render is allowed from the blocked image it starts from. Low keeps the grid and changes little; high recovers detail and invents a finer grid again, which is the thing this pass exists to stop.",
+   "label": "Pixelise denoise",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "pixelise.denoise",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": 8,
+   "group": "Pixelise",
+   "help": "The block the anchor is quantised to before re-rendering. Keep it equal to palette.factor: this is the grid the sprite will be reduced on, and handing the model a different one asks it to draw a grid that will then be resampled.",
+   "label": "Pixelise block",
+   "max": 32,
+   "min": 2,
+   "path": "pixelise.factor",
+   "step": 1,
+   "type": "int"
+  },
+  {
+   "default": 900,
+   "group": "Pixelise",
+   "help": "Seconds to wait for the re-render before giving up.",
+   "label": "Pixelise timeout",
+   "max": 3600,
+   "min": 60,
+   "path": "pixelise.timeout",
+   "step": 60,
+   "type": "int"
   },
   {
    "default": 1.0,
@@ -4790,6 +4889,39 @@
    "type": "float"
   },
   {
+   "default": 0.45,
+   "group": "Pixelise",
+   "help": "How far the re-render is allowed from the blocked image it starts from. Low keeps the grid and changes little; high recovers detail and invents a finer grid again, which is the thing this pass exists to stop.",
+   "label": "Pixelise denoise",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "pixelise.denoise",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": 8,
+   "group": "Pixelise",
+   "help": "The block the anchor is quantised to before re-rendering. Keep it equal to palette.factor: this is the grid the sprite will be reduced on, and handing the model a different one asks it to draw a grid that will then be resampled.",
+   "label": "Pixelise block",
+   "max": 32,
+   "min": 2,
+   "path": "pixelise.factor",
+   "step": 1,
+   "type": "int"
+  },
+  {
+   "default": 900,
+   "group": "Pixelise",
+   "help": "Seconds to wait for the re-render before giving up.",
+   "label": "Pixelise timeout",
+   "max": 3600,
+   "min": 60,
+   "path": "pixelise.timeout",
+   "step": 60,
+   "type": "int"
+  },
+  {
    "default": 1.0,
    "group": "Pose",
    "help": "How far out from the spine a joint sits, which is what decides whether a figure reads broad. Takes one number for the whole body, or a mapping per proportion group like depth.build does - {arms: 1.4, torso: 1.4} broadens the shoulders and chest and leaves the face alone, where one number widens the head with everything else. depth.build is the other half: this moves the joints apart, that thickens the limb between them.",
@@ -6212,6 +6344,39 @@
    "path": "pose.margin",
    "step": 0.01,
    "type": "float"
+  },
+  {
+   "default": 0.45,
+   "group": "Pixelise",
+   "help": "How far the re-render is allowed from the blocked image it starts from. Low keeps the grid and changes little; high recovers detail and invents a finer grid again, which is the thing this pass exists to stop.",
+   "label": "Pixelise denoise",
+   "max": 1.0,
+   "min": 0.0,
+   "path": "pixelise.denoise",
+   "step": 0.05,
+   "type": "float"
+  },
+  {
+   "default": 8,
+   "group": "Pixelise",
+   "help": "The block the anchor is quantised to before re-rendering. Keep it equal to palette.factor: this is the grid the sprite will be reduced on, and handing the model a different one asks it to draw a grid that will then be resampled.",
+   "label": "Pixelise block",
+   "max": 32,
+   "min": 2,
+   "path": "pixelise.factor",
+   "step": 1,
+   "type": "int"
+  },
+  {
+   "default": 900,
+   "group": "Pixelise",
+   "help": "Seconds to wait for the re-render before giving up.",
+   "label": "Pixelise timeout",
+   "max": 3600,
+   "min": 60,
+   "path": "pixelise.timeout",
+   "step": 60,
+   "type": "int"
   },
   {
    "default": 1.0,

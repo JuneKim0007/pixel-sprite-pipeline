@@ -19,8 +19,10 @@ def test_no_stage_needs_what_nothing_gives():
 
 
 def test_gpu_stages_are_marked():
+    """The list is pinned because the runner batches by resource: a GPU stage
+    left marked cpu runs beside another and they compete for the same VRAM."""
     gpu = {n for n, s in REGISTRY.items() if s.resource == "gpu"}
-    assert gpu == {"canonical", "frames"}
+    assert gpu == {"canonical", "frames", "pixelise"}
 
 
 def test_blank_yaml_key_falls_back_to_the_default():

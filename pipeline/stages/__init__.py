@@ -1,5 +1,8 @@
 """Importing this package registers every stage."""
 
-from . import canonical, depth, export, frames, palette, pose, softbody  # noqa: F401
+from . import (  # noqa: F401
+    canonical, depth, export, frames, palette, pixelise, pose, softbody,
+)
 
-__all__ = ["canonical", "depth", "export", "frames", "palette", "pose", "softbody"]
+__all__ = ["canonical", "depth", "export", "frames", "palette", "pixelise",
+           "pose", "softbody"]

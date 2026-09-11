@@ -141,6 +141,21 @@ FIELDS: list[ConfigField] = [
              "canvas. The rest falls under the feet. Raise it when hair or a "
              "hat keeps reaching the top: the model grows past the guide once "
              "ControlNet stops steering, and it grows upward."),
+    ConfigField(key="pixelise.denoise", label="Pixelise denoise", kind="float",
+     default=0.45, min=0.0, max=1.0, step=0.05, group="Pixelise",
+     help="How far the re-render is allowed from the blocked image it starts "
+             "from. Low keeps the grid and changes little; high recovers "
+             "detail and invents a finer grid again, which is the thing this "
+             "pass exists to stop."),
+    ConfigField(key="pixelise.factor", label="Pixelise block", kind="int",
+     default=8, min=2, max=32, step=1, group="Pixelise",
+     help="The block the anchor is quantised to before re-rendering. Keep it "
+             "equal to palette.factor: this is the grid the sprite will be "
+             "reduced on, and handing the model a different one asks it to "
+             "draw a grid that will then be resampled."),
+    ConfigField(key="pixelise.timeout", label="Pixelise timeout", kind="int",
+     default=900, min=60, max=3600, step=60, group="Pixelise",
+     help="Seconds to wait for the re-render before giving up."),
     ConfigField(key="pose.spread", label="Build (lateral)", kind="float",
      default=1.0, min=0.3, max=2.5, step=0.05, group="Pose",
      help="How far out from the spine a joint sits, which is what decides "

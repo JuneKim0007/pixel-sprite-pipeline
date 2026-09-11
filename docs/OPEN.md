@@ -109,29 +109,35 @@ documented and ignored; since 2026-09-09 it resolves both weights through
 **Why not.** Inventing controls for the two is a product decision, not a
 cleanup.
 
-## 5. The illustrate to pixelise pass is wired for and not wired up
+## 5. The pixelise pass is wired up and unmeasured
 
-Three pieces exist and nothing connects them: `comfy.encode_image` has no
-caller, `sample_and_save` takes a `latent` nobody passes so every sample starts
-from `EmptyLatentImage`, and `frames.denoise` is exposed as a setting that every
-config in the library leaves at 1.0. Together they are one img2img path.
+**Wired 2026-09-11.** The three pieces the old entry named - `encode_image`
+with no caller, `sample_and_save`'s unused `latent`, and a `denoise` every
+config left at 1.0 - are one img2img path, and they are connected now by a
+`pixelise` stage between `canonical` and `frames`.
 
-**Why they are here.** `DECISIONS.md` argues against img2img from an *identity*
-reference — denoising from an illustration traces its gradients and soft edges,
-which is the opposite of a sprite — and keeps `encode_image` for the different
-case where the source is already in the target style and tracing it is the
-point.
+**What it is for.** `estimate_block_size` on what the model draws reads 1.75 to
+2.00 on a 1024 canvas where a 128 sprite wants 8, measured across 24 runs, and
+no conditioning moved it: char8 reads 2.0 under baseline, no_key and
+identity_led alike. What the model will not draw it can be handed. The stage
+quantises the canonical to the sprite's own grid and back, then samples from
+that latent, so the re-render traces a block structure instead of inventing a
+finer one. Verified on a real canonical: block 2.0 in, 8.0 out, 128x128 cells,
+canvas unchanged.
 
-**Why this note exists.** That reasoning lives inside a decision about something
-else, so the three pieces read as dead code to anyone who finds them first. They
-are a capability that was never wired up, which AGENTS.md says not to delete.
-Deleting `encode_image` also would not be caught: it is a module-level export,
-so no linter reports it.
+`DECISIONS.md` argues against img2img from an identity reference because
+denoising from an illustration traces its gradients. It keeps `encode_image`
+for exactly this case - the source is already in the target style and tracing
+it is the point - and the source here is the model's own canonical.
 
-**What finishing it would take.** A caller that encodes a source image, passes
-the latent to `sample_and_save`, and reads `denoise` below 1.0 — plus a decision
-about which stage owns it, since neither `canonical` nor `frames` should grow a
-second mode.
+Frames prefer `pixel_anchor` over `canonical` when the stage has run, because a
+frame inherits its block from what it is anchored to.
+
+**What is left, and it is the whole question.** No generation has run through
+it. The quantiser is measured and the wiring is tested; whether sampling at
+denoise 0.45 keeps the 8px grid or melts back to 2 is unknown, and that is the
+only thing that decides whether the pass is worth its GPU minute. `pixelise` is
+in no config's `pipeline.stages` until it is.
 
 ## 6. The stylelog writes half of what it reads
 
