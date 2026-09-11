@@ -17,6 +17,10 @@ sys.path.insert(0, str(ROOT))
 CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
+# The character art is ground truth for scoring only. It is deliberately not
+# under library/refs, because anything there can be handed to the model.
+TRUTH = ROOT / "training_set"
+
 # A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
 REST = 480
 
@@ -127,7 +131,7 @@ VARIANTS = {
 
 
 def base(char: str) -> dict:
-    """Only what a sweep needs: one front anchor, this character's references."""
+    """Only what a sweep needs: one front anchor, no identity reference."""
     return {
         "module": "character_sheet",
         "subject": SUBJECTS[char],
@@ -136,11 +140,10 @@ def base(char: str) -> dict:
         "props_enabled": False,
         "pose": {"source": "tpose", "size": 1024, "set": [{"view": "front"}]},
         "canonical": {"candidates": 1},
-        "references": {"identity": [
-            {"path": f"library/refs/{char}/{name}.png", "view": view}
-            for name, view in VIEWS.items()
-            if (ROOT / f"library/refs/{char}/{name}.png").exists()
-        ]},
+        # No identity reference: prompt, rig and LoRA alone. The reference was
+        # carrying its own background, its own arms and a centre crop that cut
+        # the head off, and every one of those reached the anchor.
+        "references": {"identity": []},
         "pipeline": {"stages": ["pose", "depth", "canonical"]},
         "cooling": {"enabled": True, "seconds": 60},
     }
@@ -157,39 +160,11 @@ def merge(into: dict, extra: dict) -> dict:
     return into
 
 
-def paint_emphasis(char: str) -> None:
-    """A map that says 'the figure, not the ground', from the reference itself."""
-    import numpy as np
-    from PIL import Image
-
-    from pipeline.geometry import weightmap
-    from tools.score import subject
-
-    for name in VIEWS:
-        image = ROOT / f"library/refs/{char}/{name}.png"
-        if not image.exists():
-            continue
-        _, mask = subject(image)
-        small = np.asarray(Image.fromarray((mask * 255).astype("uint8"))
-                           .resize((weightmap.EDGE, weightmap.EDGE), Image.BILINEAR))
-        weights = 0.45 + 0.55 * (small.astype("float32") / 255.0)
-        weightmap.save(image, weights)
-
-
-def clear_emphasis(char: str) -> None:
-    from pipeline.geometry import weightmap
-
-    for name in VIEWS:
-        image = ROOT / f"library/refs/{char}/{name}.png"
-        if image.exists():
-            weightmap.clear(image)
-
-
 def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
     """Variant-major: every character is reached before any is repeated."""
     CONFIGS.mkdir(parents=True, exist_ok=True)
     chars = [c for c in sorted(SUBJECTS)
-             if (ROOT / f"library/refs/{c}/front.png").exists()
+             if (TRUTH / c / "front.png").exists()
              and (not only or c in only)]
     out = []
     for name, extra in VARIANTS.items():
@@ -230,7 +205,7 @@ def score_run(char: str, name: str, run_dir: Path) -> dict | None:
     the machine's 16, and keeping the encoder resident is what got this killed."""
     out = subprocess.run(
         [str(ROOT / "ComfyUI/.venv/bin/python"), str(ROOT / "tools/score.py"),
-         str(ROOT / f"library/refs/{char}/front.png"), str(run_dir)],
+         str(TRUTH / char / "front.png"), str(run_dir)],
         cwd=ROOT, capture_output=True, text=True)
     path = run_dir / "score.json"
     if out.returncode != 0 or not path.exists():
@@ -274,9 +249,6 @@ def run_all(only: list[str] | None = None, variants: list[str] | None = None) ->
 def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
     from pipeline.geometry import framing
 
-    # An interrupted emphasis run leaves its maps behind, and every later variant would.
-    for char in SUBJECTS:
-        clear_emphasis(char)
     already = done()
     jobs = [j for j in plan(only) if f"{j[0]}_{j[1]}" not in already
             and (not variants or j[1] in variants)]
@@ -288,9 +260,6 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
             print("ComfyUI never came back; stopping with the sweep resumable",
                   flush=True)
             return 1
-        painted = VARIANTS[name].get("_paint")
-        if painted:
-            paint_emphasis(char)
         run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{char}_{name}"
         out = ROOT / "out/runs" / run_id
         out.mkdir(parents=True, exist_ok=True)
@@ -300,8 +269,6 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
                 [str(ROOT / "ComfyUI/.venv/bin/python"), "-u", str(ROOT / "run.py"),
                  str(cfg), "--run-id", run_id],
                 cwd=ROOT, stdout=log, stderr=subprocess.STDOUT).returncode
-        if painted:
-            clear_emphasis(char)
 
         row = {"id": f"{char}_{name}", "char": char, "variant": name,
                "run": run_id, "exit": code, "seconds": round(time.time() - started)}

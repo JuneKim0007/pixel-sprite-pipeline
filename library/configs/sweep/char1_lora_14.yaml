@@ -14,15 +14,7 @@ canonical:
   candidates: 1
   lora_strength: 1.4
 references:
-  identity:
-  - path: library/refs/char1/front.png
-    view: front
-  - path: library/refs/char1/side.png
-    view: side
-  - path: library/refs/char1/side_right.png
-    view: 270
-  - path: library/refs/char1/rear.png
-    view: rear
+  identity: []
 pipeline:
   stages:
   - pose

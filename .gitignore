@@ -27,3 +27,6 @@ __pycache__/
 
 # Mirrored side references cached beside their source.
 *__mirror.png
+
+# Ground truth for scoring, never fed to the model.
+training_set/

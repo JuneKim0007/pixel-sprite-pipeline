@@ -109,3 +109,28 @@ def test_a_variant_that_adds_stages_moves_the_gate_with_them():
             assert pipeline["stop_after"] != "canonical", name
             seen += 1
     assert seen, "no variant exercises the frames stage"
+
+
+def test_a_sweep_config_carries_no_identity_reference():
+    """The reference brought its own background, its own arms and a centre
+    crop that removed the head; the sweep now measures without it."""
+    import sys
+
+    import yaml
+
+    sys.path.insert(0, ".")
+    from tools.sweep import plan
+
+    for _char, name, path in plan(["char1"]):
+        cfg = yaml.safe_load(path.read_text())
+        assert cfg["references"]["identity"] == [], name
+
+
+def test_the_ground_truth_lives_outside_what_the_model_can_be_given():
+    import sys
+
+    sys.path.insert(0, ".")
+    from tools.sweep import TRUTH
+
+    assert "refs" not in TRUTH.parts
+    assert TRUTH.name == "training_set"
