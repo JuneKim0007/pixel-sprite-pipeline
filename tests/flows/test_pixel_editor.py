@@ -188,7 +188,9 @@ def test_the_caches_are_bounded(root, img, stack):
 
 
 def _reordered(stack, key):
-    return ([e for e in stack if e["layer"] == key]
+    """Moved to the front and switched on: a layer that ships off cannot be
+    caught running out of place."""
+    return ([dict(e, enabled=True) for e in stack if e["layer"] == key]
             + [e for e in stack if e["layer"] != key])
 
 

@@ -32,7 +32,7 @@ MATCHERS = [
               help="Redistributes values inside the range instead of shifting "
                    "the whole range. This is what 'the shadows are too dark "
                    "but the highlights are fine' actually needs."),
-        Field("contrast", "Contrast", "float", min=0.4, max=2.5, step=0.05, default=1.0,
+        Field("contrast", "Contrast", "float", min=0.4, max=2.5, step=0.05, default=1.05,
               help="Where this layer sits decides what it does. Before the "
                    "palette, lifting contrast pushes midtones out to the ends "
                    "of the ramp and the sprite takes up its light and dark "
@@ -236,6 +236,16 @@ def _palette(inputs, cfg, prep):
     fields=[
         Field("enabled", "Key out the backdrop", "bool", default=True,
               help="Off when the background is part of the art."),
+        Field("method", "How", "select", default="flood",
+              options=[("flood", "Flood from the frame's edge"),
+                       ("ring", "Census the border's colours first")],
+              when={"enabled": True},
+              help="Flood compares every pixel to its SEED, and on a JPEG the "
+                   "seeds are the most compressed pixels in the frame - it "
+                   "clears a two-pixel border and stops. Ring counts what "
+                   "colours the border is made of and floods their union, "
+                   "which crosses a checkerboard and reaches a panel inset "
+                   "behind a margin. Ring is the one the training tools use."),
         Field("tolerance", "Tolerance", "int", min=0, max=64, step=1, default=14,
               when={"enabled": True},
               help="Colour distance from the backdrop that still counts as "
@@ -256,8 +266,15 @@ def _background(inputs, cfg, prep):
     img = inputs["image"]
     if not cfg.get("enabled", True):
         return {"image": img}
-    key = parse_colour(cfg.get("colour"))
-    out = px.background_to_alpha(img[..., :3], int(cfg.get("tolerance", 14)), key=key)
+    tolerance = int(cfg.get("tolerance", 14))
+    if cfg.get("method") == "ring":
+        from ..shared import keying
+
+        alpha = keying.key_backdrop(img[..., :3], max(tolerance, 1))
+        out = np.dstack([img[..., :3], alpha])
+    else:
+        key = parse_colour(cfg.get("colour"))
+        out = px.background_to_alpha(img[..., :3], tolerance, key=key)
     return {"image": out, "kept": float((out[..., 3] > 0).mean())}
 
 
@@ -290,8 +307,11 @@ def _canvas(inputs, cfg, prep):
     width, height = int(cfg.get("width", 0)), int(cfg.get("height", 0))
     if width <= 0 or height <= 0:
         return {"image": img}
+    if width * height > img.shape[0] * img.shape[1]:
+        return {"image": img}
     art = Image.fromarray(np.ascontiguousarray(img))
-    out = seat(art, (width, height), float(cfg.get("fill", 0.92)))
+    out = seat(art, (width, height), float(cfg.get("fill", 0.92)),
+               shrink_only=True)
     a = np.asarray(out).copy()
     if a.shape[2] == 4 and cfg.get("binary_alpha", True):
         a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)

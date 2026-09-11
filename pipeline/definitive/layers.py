@@ -175,9 +175,15 @@ def catalogue() -> list[dict]:
             sorted(REGISTRY.values(), key=lambda s: s.order)]
 
 
+# What a sprite needs: lift the contrast, reduce to the grid, fit the palette.
+# canvas, background and scale stay in the catalogue and start switched off -
+# they answer questions a run has already answered by the time it gets here.
+ESSENTIAL = ("curves", "grid", "palette")
+
+
 def default_stack() -> list[dict]:
 
-    return [{"layer": s.key, "id": f"{s.key}0", "enabled": True,
+    return [{"layer": s.key, "id": f"{s.key}0", "enabled": s.key in ESSENTIAL,
              "config": s.defaults()}
             for s in sorted(REGISTRY.values(), key=lambda s: s.order)]
 

@@ -13,8 +13,9 @@ from pipeline.shared.errors import TooLarge
 
 
 def _stack(**scale_cfg):
-    """The default stack with the Scale layer reconfigured."""
-    return [dict(e, config={**e["config"], **scale_cfg})
+    """The default stack with Scale switched on and reconfigured: it ships off,
+    and these tests are about what it does when someone turns it on."""
+    return [dict(e, enabled=True, config={**e["config"], **scale_cfg})
             if e["layer"] == "scale" else e
             for e in definitive.default_stack()]
 

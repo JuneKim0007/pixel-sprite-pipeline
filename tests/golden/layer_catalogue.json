@@ -14,7 +14,7 @@
     "when": {}
    },
    {
-    "default": 1.0,
+    "default": 1.05,
     "help": "Where this layer sits decides what it does. Before the palette, lifting contrast pushes midtones out to the ends of the ramp and the sprite takes up its light and dark entries. After it, the same adjustment just moves colours off the palette again.",
     "key": "contrast",
     "kind": "float",
@@ -382,6 +382,29 @@
     "options": [],
     "step": null,
     "when": {}
+   },
+   {
+    "default": "flood",
+    "help": "Flood compares every pixel to its SEED, and on a JPEG the seeds are the most compressed pixels in the frame - it clears a two-pixel border and stops. Ring counts what colours the border is made of and floods their union, which crosses a checkerboard and reaches a panel inset behind a margin. Ring is the one the training tools use.",
+    "key": "method",
+    "kind": "select",
+    "label": "How",
+    "max": null,
+    "min": null,
+    "options": [
+     [
+      "flood",
+      "Flood from the frame's edge"
+     ],
+     [
+      "ring",
+      "Census the border's colours first"
+     ]
+    ],
+    "step": null,
+    "when": {
+     "enabled": true
+    }
    },
    {
     "default": 14,

@@ -323,3 +323,17 @@ def test_every_shipped_config_passes_the_check_a_run_now_makes(path):
         return
     merged, _ = styles.effective(root, raw, picks=raw.get("style_picks"))
     SCHEMA.check(merged)
+
+
+@pytest.mark.parametrize("spec", sorted(
+    __import__("pipeline.definitive", fromlist=["x"]).REGISTRY.values(),
+    key=lambda s: s.key), ids=lambda s: s.key)
+def test_a_layer_default_survives_its_own_clamp(spec):
+    """`canvas` declared width min=8 default=0, so 0 clamped to 8 and every
+    image was seated onto an 8x8 canvas."""
+    for field in spec.fields:
+        if field.default is None:
+            continue
+        assert field.clamp(field.default) == field.default, (
+            f"{spec.key}.{field.key} defaults to {field.default!r} and clamps "
+            f"to {field.clamp(field.default)!r}, so the default is unreachable")
