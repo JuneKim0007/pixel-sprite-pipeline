@@ -2,7 +2,7 @@
 
 Usage: tools/show_graph.py out/runs/<run_id>
 """
-import json, sys
+import json, shutil, sys, tempfile
 from pathlib import Path
 ROOT = Path("/Users/personal_jk/pixel"); sys.path.insert(0, str(ROOT))
 
@@ -28,7 +28,10 @@ class StubClient:
 comfy.connect = lambda *a, **k: StubClient()
 
 cfg = styles.effective(ROOT, settings.read_yaml(RUN / "config.yaml"))[0]
-ctx = Context(root=ROOT, outdir=RUN, config=cfg, run_id=RUN.name)
+# A scratch outdir: the stage makes its NN_canonical folder on the way past,
+# and an inspector must not leave anything in the run it is reading.
+SCRATCH = Path(tempfile.mkdtemp(prefix="show_graph_"))
+ctx = Context(root=ROOT, outdir=SCRATCH, config=cfg, run_id=RUN.name)
 art = json.loads((RUN / "artifacts.json").read_text())["artifacts"]
 ctx.artifacts = {
     "skeletons": sorted(RUN.glob("00_pose/skeleton_*.png")),
@@ -76,3 +79,5 @@ if GRAPHS:
         elif "Lora" in ct:
             ins = {k: v for k, v in node["inputs"].items() if not isinstance(v, list)}
             print(f"  [{nid}] {ct}  {ins}")
+
+shutil.rmtree(SCRATCH, ignore_errors=True)
