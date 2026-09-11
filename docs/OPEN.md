@@ -472,33 +472,25 @@ would need to say which is which. This is also one of the ten reads counted in
 §8, and the only one there that is a mistake rather than a deliberate
 different fallback.
 
-## 23. Six fields whose real default is a literal somewhere in the code
+## 23. Four fields whose real default is a literal somewhere in the code
 
-**Measured 2026-09-11.** A field with no declared default renders as an empty
-row. That is honest when there is no default. For these six there is one, and
-it lives at the consumption site:
+A field with no declared default renders as an empty row. That is honest when
+there is no default. For these four there is one, and it lives at the
+consumption site:
 
 | field | form shows | actually used | source |
 |---|---|---|---|
 | `canonical.style_weight` | blank | **0.35** | `DEFAULT_WEIGHT["style"]` |
 | `frames.style_weight` | blank | **0.35** | same |
-| `canonical.controlnet.strength` | blank | **0.55** pose / **0.30** depth | `canonical.py:129` |
-| `canonical.controlnet.end_percent` | blank | **0.40** / **0.35** | `canonical.py:132` |
 | `detect.model` | blank | `qwen2.5vl:3b` | `detect.py:96` |
 | `frames.seed` | blank | `canonical.seed` | `frames.py:134` |
 
 `canonical.style_weight`'s own help cites 0.18 and 0.35 as the values that
 matter and declares neither, which is the entry arguing with itself.
 
-The two `controlnet` rows cannot simply be filled in — that is the trap in
-§23, and filling them is what collapses the per-channel split. They want the
-declaration to carry the split, or the form to say "0.55 pose / 0.30 depth"
-without pretending it is one number.
-
-Related: nothing in the suite reads `style_weight` at all. The recording pass
-never saw either field, because no test builds a run with a style exemplar
-attached, so the whole `_with_style` path in `canonical.py:115` and
-`frames.py:203` is untested — including the 0.6 clamp §18 mentions.
+Nothing in the suite reads `style_weight` at all: no test builds a run with a
+style exemplar attached, so `_with_style` in `canonical.py` and `frames.py` is
+untested, including the 0.6 clamp §18 mentions.
 
 ## 24. `proportions` is never empty, so the rig is always rebuilt
 
