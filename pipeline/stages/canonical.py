@@ -67,6 +67,13 @@ def _report_framing(image, ctx) -> None:
               f"guide is only steered until canonical.controlnet.end_percent.")
 
 
+def _under_root(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
 def _record_references(ctx, used, rig) -> None:
     """Keep what this run was actually shown, beside what it produced.
     library/refs and characters/ can both be cleared; a run's own copy cannot."""
@@ -89,13 +96,13 @@ def _record_references(ctx, used, rig) -> None:
         row = {"view": view, "label": ref.label,
                "role": getattr(ref, "role", "identity"),
                "source": str(ref.path),
-               "kept": str(kept.relative_to(ctx.root))}
+               "kept": _under_root(kept, ctx.root)}
         # The joints that describe THIS image; a re-cut reference orphans them.
         sidecar = ref.path.with_suffix(ref.path.suffix + ".rig.json")
         if sidecar.is_file():
             beside = folder / sidecar.name
             shutil.copy2(sidecar, beside)
-            row["annotation"] = str(beside.relative_to(ctx.root))
+            row["annotation"] = _under_root(beside, ctx.root)
         rows.append(row)
     # The guide the rig drew, kept beside the references it is measured against.
     guides = []
@@ -103,7 +110,7 @@ def _record_references(ctx, used, rig) -> None:
         if guide and Path(guide).is_file():
             beside = folder / Path(guide).name
             shutil.copy2(guide, beside)
-            guides.append(str(beside.relative_to(ctx.root)))
+            guides.append(_under_root(beside, ctx.root))
 
     ref = ctx.settings("canonical.from_reference")
     (folder / "used.json").write_text(json.dumps(
@@ -301,7 +308,7 @@ class CanonicalStage(Stage):
             made[refs_mod.bearing(view)] = dst
             if primary is None:
                 primary = dst
-            print(f"   canonical -> {dst.relative_to(ctx.root)}  (seed {base_seed})")
+            print(f"   canonical -> {_under_root(dst, ctx.root)}  (seed {base_seed})")
             _report_framing(dst, ctx)
             if len(views) > 1:
                 cooling.rest(ctx.config, after=f"anchor {vi + 1}",
