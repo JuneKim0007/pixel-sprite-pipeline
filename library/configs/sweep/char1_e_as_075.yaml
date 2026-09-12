@@ -1,0 +1,44 @@
+module: character_sheet
+subject: a young woman with long straight black hair, a white shirt with a red necktie,
+  a black jacket, a black pleated skirt, black knee socks and black loafers
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: annotation
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  lora_strength: 0.9
+  controlnet:
+    end_percent: 0.75
+  from_reference:
+    weight: 1.25
+    weight_type: style transfer
+references:
+  identity:
+  - path: characters/char1/front_hc.png
+    view: front
+  - path: characters/char1/side_hc.png
+    view: side
+  - path: characters/char1/side_right_hc.png
+    view: 270
+  - path: characters/char1/rear_hc.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
+depth:
+  build:
+    chest: 1.15
+    thigh: 1.0
+    torso: 0.95
