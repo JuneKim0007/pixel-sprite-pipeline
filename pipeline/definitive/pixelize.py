@@ -119,6 +119,8 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
 
 BLOCK_MODES = ("auto", "exact", "periodic", "off")
 PERIOD_FLOOR = 0.35
+PROMINENCE = 2.0
+LATTICE_ERROR = 0.12
 
 
 def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
@@ -147,11 +149,32 @@ def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
                 scores[k] = scores.get(k, 0.0) + float(auto[k])
     if not scores:
         return 1
-    peak = max(scores.values())
-    if peak < floor:
-        return 1
-    strong = [k for k in sorted(scores) if scores[k] >= peak * 0.75]
-    return strong[0] if strong else 1
+    # A lattice is an isolated SPIKE - a true 8 scored 1.81 where 7 scored
+    # 0.02. Art with no grid decays smoothly: 1.80, 1.75, 1.72, 1.67 across
+    # 2 to 5, whose largest value is still not a peak. Taking the maximum
+    # reads that decay as a 2px grid, so a candidate must stand above its
+    # neighbours, not merely above the rest.
+    best, strength = 1, 0.0
+    for k in sorted(scores):
+        near = [scores[j] for j in (k - 1, k + 1) if j in scores]
+        if not near or scores[k] < floor:
+            continue
+        prominence = scores[k] / (max(near) + 1e-6)
+        if prominence >= PROMINENCE and scores[k] > strength:
+            best, strength = k, scores[k]
+    return best
+
+
+def _block_error(arr, k: int) -> float:
+    a = (arr if arr.ndim == 2 else arr[..., :3]).astype(np.float32)
+    h, w = a.shape[:2]
+    if k < 2 or h < k * 8 or w < k * 8:
+        return 1.0
+    bh, bw = h // k, w // k
+    crop = a[:bh * k, :bw * k]
+    flat = crop.reshape(bh, k, bw, k, -1).mean(axis=(1, 3))
+    back = np.repeat(np.repeat(flat, k, axis=0), k, axis=1)
+    return float(((crop - back) ** 2).mean()) / (float(a.var()) or 1.0)
 
 
 def block_candidates(arr) -> tuple[int, int]:
@@ -169,6 +192,12 @@ def detect_block(arr, mode: str = "auto") -> int:
     if mode == "exact":
         return exact
     period = lattice_period(arr)
+    # Autocorrelation FINDS a candidate through noise; reconstruction says
+    # whether it is a lattice. Measured: a true 8 reconstructs at 0.005-0.045
+    # of the image's variance, while the spurious 10, 11 and 16 that
+    # autocorrelation liked sit at 0.24-0.39 and destroy the sprite.
+    if period > 1 and _block_error(arr, period) > LATTICE_ERROR:
+        period = 1
     if exact <= 1:
         return period
     # A true 8px lattice also averages losslessly at 2 and 4, and on a
