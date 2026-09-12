@@ -21,8 +21,8 @@ VIEWS = ("front", "side", "side_right", "rear")
 # One canvas for every character, so a sweep varies the LoRA and nothing else.
 CANVAS = 1024
 FIGURE_CELLS = 350
-COLOURS = 12
-METHOD = "rgb"
+COLOURS = 16
+METHOD = "lab"
 SHARE = 0.94
 CONTRAST = 1.12
 
@@ -47,13 +47,15 @@ def build(char_dir: Path, key: np.ndarray) -> int:
         arr = np.where(keyed[..., None], key, arr)
         ox, oy = px.find_phase(arr, factor)
         small = px.reduce_blocks(arr, factor, ox, oy, "median", 32.0)
-        mask = px.reduce_blocks(
-            np.repeat(keyed[..., None], 3, 2).astype(np.uint8) * 255,
-            factor, ox, oy, "median", 32.0)[..., 0] > 127
+        share = px._blocks(keyed[..., None].astype(np.uint8),
+                           factor, ox, oy)[..., 0].mean(axis=(2, 3))
+        mask = share > 0.5
+        # The palette is a sample, so it can afford to skip the 3% of cells that
+        # straddle the edge - and a straddling cell is how the key gets a slot.
         pal = px.generate_palette(small, COLOURS, method=METHOD,
-                                  alpha=((~mask) * 255).astype(np.uint8))
+                                  alpha=((share == 0.0) * 255).astype(np.uint8))
         fitted = np.where(mask[..., None], key,
-                          px.apply_fixed_palette(small, pal))
+                          px.apply_fixed_palette(small, pal, method=METHOD))
         Image.fromarray(np.repeat(np.repeat(fitted, factor, 0), factor, 1)).save(
             char_dir / f"{view}_px.png")
     return factor

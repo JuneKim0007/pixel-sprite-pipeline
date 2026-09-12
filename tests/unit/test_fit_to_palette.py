@@ -33,7 +33,7 @@ def test_the_stretch_widens_the_range_it_was_given():
     image = _image(64)
     from pipeline.definitive.pixelize import apply_fixed_palette
 
-    plain = apply_fixed_palette(image, PALETTE)
+    plain = apply_fixed_palette(image, PALETTE, "weighted")
     fitted = fit_to_palette(image, PALETTE)
 
     assert len(np.unique(fitted.reshape(-1, 3), axis=0)) >= \
@@ -86,7 +86,7 @@ def test_a_flat_image_falls_back_to_plain_snapping():
 
     flat = np.full((16, 16, 3), 120, np.uint8)
     assert np.array_equal(fit_to_palette(flat, PALETTE),
-                          apply_fixed_palette(flat, PALETTE))
+                          apply_fixed_palette(flat, PALETTE, "weighted"))
 
 
 def test_a_fully_transparent_mask_still_produces_a_picture():
@@ -137,7 +137,7 @@ def test_the_stretch_costs_no_more_than_the_snap_beneath_it():
 
     image = _image(256)
     stretch = _peak(lambda: fit_to_palette(image, PALETTE))
-    snap = _peak(lambda: apply_fixed_palette(image, PALETTE))
+    snap = _peak(lambda: apply_fixed_palette(image, PALETTE, "weighted"))
 
     assert stretch < snap * 1.5, (
         f"fitting peaked at {stretch / 1e6:.2f}MB against the snap's "

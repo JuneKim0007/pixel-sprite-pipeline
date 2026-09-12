@@ -28,7 +28,7 @@ TRUTH = ROOT / "characters"
 REST = 60
 
 # ComfyUI holds model weights in CPU RAM between runs by design - it unloads from GPU.
-FREE_EVERY = 6
+FREE_EVERY = 1
 
 COMFY_WAIT = 30
 COMFY_TRIES = 40
@@ -294,6 +294,19 @@ def run_all(only: list[str] | None = None, variants: list[str] | None = None) ->
         LOCK.unlink(missing_ok=True)
 
 
+def _attempt(char: str, name: str, cfg: Path) -> tuple[Path, int]:
+    """One go at a job, in its own run directory."""
+    run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{char}_{name}"
+    out = ROOT / "out/runs" / run_id
+    out.mkdir(parents=True, exist_ok=True)
+    with (out / "run.log").open("w") as log:
+        code = subprocess.run(
+            [str(ROOT / "ComfyUI/.venv/bin/python"), "-u", str(ROOT / "run.py"),
+             str(cfg), "--run-id", run_id],
+            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT).returncode
+    return out, code
+
+
 def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -> int:
     from pipeline.geometry import framing
 
@@ -308,15 +321,16 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
             print("ComfyUI never came back; stopping with the sweep resumable",
                   flush=True)
             return 1
-        run_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{char}_{name}"
-        out = ROOT / "out/runs" / run_id
-        out.mkdir(parents=True, exist_ok=True)
         started = time.time()
-        with (out / "run.log").open("w") as log:
-            code = subprocess.run(
-                [str(ROOT / "ComfyUI/.venv/bin/python"), "-u", str(ROOT / "run.py"),
-                 str(cfg), "--run-id", run_id],
-                cwd=ROOT, stdout=log, stderr=subprocess.STDOUT).returncode
+        out, code = _attempt(char, name, cfg)
+        if code != 0 and not comfy_up():
+            # ComfyUI died mid-prompt, so the graph was never drawn. The config is
+            # not on trial here; burning the job would score a machine, not a setting.
+            print("  ComfyUI went down mid-run; waiting and trying once more",
+                  flush=True)
+            if wait_for_comfy():
+                out, code = _attempt(char, name, cfg)
+        run_id = out.name
 
         row = {"id": f"{char}_{name}", "char": char, "variant": name,
                "run": run_id, "exit": code, "seconds": round(time.time() - started)}
@@ -332,8 +346,8 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
             if (jobs.index(job) + 1) % FREE_EVERY == 0:
                 from pipeline.generation import comfy
 
-                print(f"  freeing ComfyUI's models: "
-                      f"{comfy.Client().free_models()}", flush=True)
+                if not comfy.Client().free_models():
+                    print("  could not free ComfyUI's models", flush=True)
             time.sleep(REST)
     return 0
 

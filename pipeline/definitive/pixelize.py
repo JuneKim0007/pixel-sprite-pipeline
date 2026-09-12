@@ -687,8 +687,10 @@ def fit_to_palette(rgb: np.ndarray, palette: list[tuple[int, int, int]],
 def apply_fixed_palette(
     rgb: np.ndarray,
     palette: list[tuple[int, int, int]],
-    method: str = "weighted",
+    method: str,
 ) -> np.ndarray:
+    """Snap every pixel to its nearest palette entry, in `method` space.
+    No default: matching in a space the palette was not built in reassigns cells."""
     if method not in MATCH_METHODS:
         raise NotFound("palette match method", method, available=list(MATCH_METHODS))
 

@@ -108,3 +108,69 @@ def test_framing_does_not_resample_the_art(tmp_path):
 
     out = framed(canvas, 0.5, factor)
     assert find_phase(np.asarray(out), factor) == (0, 0)
+
+
+def _keyed_figure(factor=4, cells=64, key=(255, 0, 255)):
+    """A soft-edged subject on a key colour, which is what a cut sheet gives us."""
+    import numpy as np
+
+    rng = np.random.default_rng(11)
+    # Cool and warm tones a character is actually made of, none of them near the key.
+    tones = np.array([(40, 52, 70), (100, 137, 155), (131, 164, 174), (252, 238, 227),
+                      (175, 148, 136), (134, 112, 105), (83, 94, 108), (212, 215, 206)],
+                     np.uint8)
+    edge = cells * factor
+    art = np.repeat(np.repeat(tones[rng.integers(0, len(tones), (cells, cells))],
+                              factor, 0), factor, 1).astype(np.float32)
+
+    y, x = np.ogrid[:edge, :edge]
+    solid = (((y - edge / 2) / (edge * 0.34)) ** 2
+             + ((x - edge / 2) / (edge * 0.26)) ** 2) <= 1.0
+    # Anti-aliasing over a few pixels: the edge cells are then part key, part art.
+    cover = solid.astype(np.float32)
+    for _ in range(3):
+        pad = np.pad(cover, 1, mode="edge")
+        cover = sum(pad[a:a + edge, b:b + edge]
+                    for a in range(3) for b in range(3)) / 9.0
+    under = np.empty_like(art)
+    under[:] = np.asarray(key, np.float32)
+    return (art * cover[..., None] + under * (1 - cover[..., None])).round().astype(np.uint8)
+
+
+def test_a_cell_that_touches_the_key_does_not_earn_a_palette_slot():
+    """A half-keyed edge cell reads as subject, and its blended colour then gets
+    a slot and is painted back onto the silhouette. Measured on 3 of 8 sheets."""
+    import numpy as np
+
+    from pipeline.definitive.pixelize import _blocks, generate_palette, project, reduce_blocks
+    from pipeline.geometry.framing import key_backdrop
+
+    factor, key = 4, (255, 0, 255)
+    arr = _keyed_figure(factor, key=key)
+    keyed = key_backdrop(arr) == 0
+    small = reduce_blocks(arr, factor, 0, 0, "median", 32.0)
+    share = _blocks(keyed[..., None].astype(np.uint8), factor, 0, 0)[..., 0].mean(axis=(2, 3))
+
+    near_key = lambda pal: min(  # noqa: E731
+        float(np.sqrt(((project(np.asarray([c], np.float32), "lab")
+                        - project(np.asarray([key], np.float32), "lab")) ** 2).sum()))
+        for c in pal)
+
+    mostly = generate_palette(small, 16, method="lab",
+                              alpha=((share <= 0.5) * 255).astype(np.uint8))
+    clean = generate_palette(small, 16, method="lab",
+                             alpha=((share == 0.0) * 255).astype(np.uint8))
+    assert near_key(mostly) < 60, "the sample never picked up the key; widen the feather"
+    assert near_key(clean) > 60, "a key-coloured entry survived a clean-cell sample"
+
+
+def test_the_snap_space_cannot_silently_disagree_with_the_palette(tmp_path):
+    """Building in one space and matching in another reassigns cells to a centre
+    their cluster was not built around: 8.4% of coloured cells changed hue."""
+    import inspect
+
+    from pipeline.definitive.pixelize import apply_fixed_palette
+
+    method = inspect.signature(apply_fixed_palette).parameters["method"]
+    assert method.default is inspect.Parameter.empty, \
+        "apply_fixed_palette took a default match space again"
