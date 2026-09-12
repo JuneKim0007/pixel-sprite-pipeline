@@ -174,16 +174,11 @@ all three `animation` configs set `pose.source: library` by hand, which is what
 the declaration exists to stop. Worth a survey the next time one of them bites,
 not a speculative sweep now.
 
-## 9. Three primitives with no caller
+## 9. Two primitives with no caller
 
-**Re-counted 2026-09-11.** `Mono`, `LabelWithTip` and `BaseCard` have no use
-outside `web/js/ui/`. `Note`, `Check`, `Fact` and `FactGrid` were on this list
-and have callers now.
-
-Each needs the check `Section` failed - does its CSS match what a view actually
-needs - before it is adopted or deleted. Do not sweep them as a batch; that is
-how `Section` came to be documented as a bordered container without anyone
-reading the rule.
+`Mono` and `LabelWithTip` have no use outside `web/js/ui/`. `BaseCard` was on
+this list and has a subclass now: `KindBanner` in the overview's second pane.
+`Note`, `Check`, `Fact` and `FactGrid` were on it earlier and have callers.
 
 ## 10. The prompt cannot choose a backdrop, and now does not have to
 
