@@ -69,8 +69,7 @@ export function renderKinds(host, { goTo } = {}) {
 
   api.modules().then(({ modules, dials }) => {
     const keys = Object.keys(modules);
-    // Pre-pick the two that can actually run, so the first view compares
-    // something rather than two placeholders.
+    // Pre-pick the two that can run, so the first view compares something real.
     const runnable = keys.filter((k) => modules[k].available);
     let picked = [...runnable, ...keys].slice(0, COMPARE);
 

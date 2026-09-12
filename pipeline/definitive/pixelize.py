@@ -316,19 +316,22 @@ def load_palette(path: Path) -> list[tuple[int, int, int]]:
 
 
 def extract_palette(
-    rgb: np.ndarray, colours: int, ignore_alpha: np.ndarray | None = None
+    rgb: np.ndarray, colours: int, ignore_alpha: np.ndarray | None = None,
+    *, method: str = "rgb"
 ) -> list[tuple[int, int, int]]:
-
+    """The `colours` most separated entries the image can actually supply."""
     pixels = rgb.reshape(-1, 3)
     if ignore_alpha is not None:
         pixels = pixels[ignore_alpha.reshape(-1) > 0]
     if len(pixels) == 0:
         raise Invalid("no opaque pixels to extract a palette from")
 
-    strip = Image.fromarray(pixels.reshape(-1, 1, 3).astype(np.uint8), mode="RGB")
-    q = strip.quantize(colors=colours, method=Image.Quantize.MEDIANCUT)
-    pal = q.getpalette()[: colours * 3]
-    return [tuple(pal[i : i + 3]) for i in range(0, len(pal), 3)]
+    available = _distinct(pixels)
+    if available <= colours:
+        return generate_palette(pixels.reshape(-1, 1, 3), colours, method=method)
+    wide = generate_palette(pixels.reshape(-1, 1, 3), min(available, colours * 2),
+                            method=method)
+    return farthest_first(wide, colours, method)
 
 
 def save_palette(palette: list[tuple[int, int, int]], path: Path, note: str = "") -> None:
@@ -455,7 +458,7 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "rgb",
     if alpha is not None:
         pixels = pixels[alpha.reshape(-1) > 0]
     if len(pixels) == 0:
-        raise ValueError("no opaque pixels to build a palette from")
+        raise Invalid("no opaque pixels to build a palette from", field="palette")
     colours = max(1, min(int(colours), _distinct(pixels)))
     chunk = palette_chunk(chunk)
 
@@ -490,6 +493,25 @@ def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "rgb",
     out = [tuple(int(v) for v in (sums[k] / members[k]).round())
            for k in range(len(c)) if members[k]]
     return out or [tuple(int(v) for v in pixels[0])]
+
+
+def farthest_first(palette, keep: int, method: str = "weighted"):
+    """Thin a palette to its most separated entries, in the matching space.
+
+    k-means weights a centre by how many pixels it owns, so a small distinct
+    colour loses to a crowd of near-identical ones.
+    """
+    if keep >= len(palette):
+        return list(palette)
+    feats = project(np.asarray(palette, dtype=np.float32), method)
+    chosen = [int(np.argmax(feats.sum(axis=1)))]
+    gap = np.abs(feats - feats[chosen[0]]).sum(axis=1)
+    while len(chosen) < keep:
+        nxt = int(np.argmax(gap))
+        chosen.append(nxt)
+        gap = np.minimum(gap, np.abs(feats - feats[nxt]).sum(axis=1))
+        gap[chosen] = -1.0
+    return [tuple(int(v) for v in palette[i]) for i in sorted(chosen)]
 
 
 BLACK = (0, 0, 0)

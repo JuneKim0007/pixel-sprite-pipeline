@@ -204,7 +204,16 @@ def run_detail(run_id: str) -> dict:
     info["audit"] = run_audit(d)
     info["consumed"] = _consumed(d, info["audit"].get("stages") or [])
     info["shown"] = _shown(d)
+    info["palette"] = _palette(d)
     return info
+
+
+def _palette(run_dir: Path) -> list[str]:
+    """The colours the run actually imposed, as the sprite carries them."""
+    for found in sorted(run_dir.glob("*/palette.hex")):
+        return [f"#{line.strip()}" for line in found.read_text().splitlines()
+                if line.strip() and not line.startswith("//")]
+    return []
 
 
 def _shown(run_dir: Path) -> dict:

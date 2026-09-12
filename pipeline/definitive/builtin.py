@@ -32,7 +32,7 @@ MATCHERS = [
               help="Redistributes values inside the range instead of shifting "
                    "the whole range. This is what 'the shadows are too dark "
                    "but the highlights are fine' actually needs."),
-        Field("contrast", "Contrast", "float", min=0.4, max=2.5, step=0.05, default=1.12,
+        Field("contrast", "Contrast", "float", min=0.4, max=2.5, step=0.05, default=1.05,
               help="Where this layer sits decides what it does. Before the "
                    "palette, lifting contrast pushes midtones out to the ends "
                    "of the ramp and the sprite takes up its light and dark "
@@ -175,7 +175,7 @@ def _palette_prepare(inputs, cfg) -> dict:
                    "stops being probabilistic and becomes exact."),
         Field("file", "Palette", "select", default="", when={"source": "file"},
               help="A file under palettes/."),
-        Field("colours", "How many", "int", min=2, max=256, step=1, default=10,
+        Field("colours", "How many", "int", min=2, max=256, step=1, default=16,
               when={"source": "generate"},
               help="Clustered in the matching metric's own space rather than "
                    "by median cut. Median cut subdivides the RGB cube and "

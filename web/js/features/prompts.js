@@ -1,5 +1,4 @@
-/* A style sheet's words, bound to the route that could always save them. Two
- * views show the same vocabulary and one had grown its own chip editor. */
+/* A style sheet's words, bound to the route that could always save them. */
 
 import { api } from '../api.js';
 import { showError } from '../core/errors.js';

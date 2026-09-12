@@ -242,3 +242,33 @@ def test_flattening_puts_the_keyed_colour_behind_a_sprite(tmp_path):
     assert tuple(out[0, 0]) == (255, 0, 255), "the backdrop is not the keyed colour"
     assert tuple(out[16, 16]) == (20, 200, 40), "the subject was altered"
     assert share == pytest.approx(256 / 1024, abs=0.01)
+
+
+def test_a_palette_stops_at_what_the_image_has():
+    """Asking for sixteen from an image with two returns two, not two padded."""
+    import numpy as np
+
+    from pipeline.definitive.pixelize import extract_palette
+
+    flat = np.zeros((4, 4, 3), np.uint8)
+    flat[:2] = (10, 20, 30)
+    flat[2:] = (200, 180, 160)
+    assert len(extract_palette(flat, 16)) == 2
+
+
+def test_a_small_distinct_colour_survives_a_crowd_of_similar_ones():
+    """Clustering weights a centre by the pixels it owns, so gold trim on a
+    blue robe loses to the blues unless the entries are thinned by distance."""
+    import numpy as np
+
+    from pipeline.definitive.pixelize import extract_palette
+
+    art = np.zeros((40, 40, 3), np.uint8)
+    rng = np.random.default_rng(0)
+    art[:] = np.stack([rng.integers(30, 60, (40, 40)),
+                       rng.integers(60, 90, (40, 40)),
+                       rng.integers(120, 150, (40, 40))], axis=2)
+    art[19:21, 19:21] = (230, 190, 60)
+
+    pal = extract_palette(art, 8)
+    assert any(c[0] > c[2] + 40 for c in pal), f"the gold was merged away: {pal}"

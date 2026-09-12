@@ -132,9 +132,10 @@ class PaletteStage(Stage):
         keyed = background_to_alpha(small, cfg["alpha_tolerance"], key=key_colour)
         rgb, alpha = keyed[..., :3], keyed[..., 3]
 
+        method = str(cfg["match"])
         if int((alpha > 0).sum()) < size * 4:
-            return extract_palette(arr, size)
-        return extract_palette(rgb, size, ignore_alpha=alpha)
+            return extract_palette(arr, size, method=method)
+        return extract_palette(rgb, size, ignore_alpha=alpha, method=method)
 
     @staticmethod
     def _resolve_file(ctx: Context, ref: str) -> Path:

@@ -122,8 +122,11 @@ def test_a_uniform_image_still_yields_a_colour():
 
 
 def test_an_image_with_no_opaque_pixels_is_refused_by_name():
+    from pipeline.shared.errors import Invalid
+
     image = _image(16)
-    with pytest.raises(ValueError):
+    # Invalid, not ValueError: it reaches a route and has to name its field.
+    with pytest.raises(Invalid):
         generate_palette(image, 4, alpha=np.zeros((16, 16), np.uint8))
 
 

@@ -1359,3 +1359,9 @@ input.wide { width: 100%; max-width: 420px; }
 .shownshot figcaption { text-align: center; margin-top: 0.25rem; }
 .shownfade { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.5rem; }
 .shownfade .range { flex: 1; max-width: 16rem; }
+
+/* --- The palette a run imposed, shown as colour ------------------------- */
+.palbox { margin-top: 0.9rem; }
+.palbox .swatchrow { flex-wrap: wrap; gap: 0.25rem; }
+.palbox .swatch { width: 1.5rem; height: 1.5rem; border-radius: 4px;
+                  border: 1px solid var(--line); }

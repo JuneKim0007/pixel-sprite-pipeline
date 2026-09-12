@@ -382,7 +382,7 @@ FIELDS: list[ConfigField] = [
              "makes colour exact rather than probabilistic: snapping is "
              "deterministic, so two runs of the same character land on "
              "the same entries."),
-    ConfigField(key="palette.size", default=12, label="Palette size", kind="int",
+    ConfigField(key="palette.size", default=16, label="Palette size", kind="int",
      min=2, max=64, group="Palette",
      help="Number of colours the whole animation is quantised to."),
     ConfigField(key="palette.factor", default=8, label="Downscale factor", kind="int",
@@ -432,7 +432,7 @@ FIELDS: list[ConfigField] = [
      group="Palette",
      help="Off leaves the background to the prompt, which is what you want "
              "if a scene is part of the art."),
-    ConfigField(key="palette.match", default='weighted', label="Colour matching", kind="select",
+    ConfigField(key="palette.match", default='rgb', label="Colour matching", kind="select",
      options=["weighted", "luma", "lab", "rgb"], group="Palette",
      help="How 'nearest colour' is decided when snapping to a fixed "
              "palette. 'weighted' applies luminance weights and costs nothing "

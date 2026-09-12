@@ -61,8 +61,7 @@ function historyCard(run, { selected, onPick }) {
   return card;
 }
 
-/* The only way to stop a run was the terminal; the button the API already had
- * was never called from anywhere. */
+/* The button the API already had was never called from anywhere. */
 function abort(runId) {
   const button = Button('Stop run', { variant: 'ghost',
     title: 'Ask the run to stop after the task it is on' });
@@ -80,9 +79,7 @@ function abort(runId) {
 }
 
 
-/* What the run was shown, kept beside what it made. The rig is laid over the
-   reference rather than beside it, because the question is whether the two
-   agree about where a limb goes - and that is only visible superimposed. */
+/* The rig is laid over the reference, not beside it: agreement about a limb is only visible superimposed. */
 function shownPanel(detail) {
   const shown = detail.shown || {};
   const refs = shown.references || [];
@@ -129,6 +126,18 @@ function shownPanel(detail) {
     strip,
     el('div', { className: 'shownfade' },
       el('span', { className: 'mini', textContent: 'Fade the reference' }), slider));
+}
+
+/* The palette as colour, not as hex: a list of codes cannot be checked by eye. */
+function palettePanel(detail) {
+  const hexes = detail.palette || [];
+  if (!hexes.length) return null;
+  return el('div', { className: 'palbox' },
+    el('p', { className: 'mini',
+              textContent: `${hexes.length} colours imposed on every frame` }),
+    el('div', { className: 'swatchrow' }, ...hexes.map((hex) => el('span', {
+      className: 'swatch', title: hex, style: `background:${hex}`,
+    }))));
 }
 
 function auditPanel(detail) {
@@ -429,7 +438,7 @@ export function renderResult(host, { runId, detail, onPick }) {
 
   host.append(el('section', { className: 'auditbox' },
     PanelHead(runId, { note: detail.dir, action: detail.running ? abort(runId) : null }),
-    auditPanel(detail), shownPanel(detail)));
+    auditPanel(detail), palettePanel(detail), shownPanel(detail)));
 
   state.runDir = detail.dir;
 

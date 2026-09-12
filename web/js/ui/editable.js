@@ -1,7 +1,4 @@
-/* Authored content, shown as itself until you change it. A style's vocabulary
- * and its notes rendered as read-only chips and a <pre> while the route that
- * saves them had been serving for months. `kind` picks how the value is drawn;
- * the read/edit/save/cancel turn is the same one everywhere. */
+/* Authored content, shown as itself until you change it; `kind` picks how the value is drawn. */
 
 import { el } from '../core/dom.js';
 import { Button } from './kit.js';
