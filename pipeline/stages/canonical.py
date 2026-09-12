@@ -90,10 +90,15 @@ def _record_references(ctx, used, rig) -> None:
                      "role": getattr(ref, "role", "identity"),
                      "source": str(ref.path),
                      "kept": str(kept.relative_to(ctx.root))})
+    ref = ctx.settings("canonical.from_reference")
     (folder / "used.json").write_text(json.dumps(
-        {"rig": rig.name, "rig_label": rig.label, "references": rows},
+        {"rig": rig.name, "rig_label": rig.label,
+         "lora_strength": ctx.settings("canonical")["lora_strength"],
+         "weight": ref.get("weight"), "weight_type": ref.get("weight_type"),
+         "ipadapter": ctx.settings("models").get("ipadapter"),
+         "references": rows},
         indent=1) + "\n")
-    print(f"   kept {len(rows)} reference(s) beside the run")
+    print(f"   shown {len(rows)} reference(s), recorded before sampling")
 
 
 class _AnchorGraph:
@@ -189,8 +194,6 @@ class CanonicalStage(Stage):
         depthmaps = ctx.artifacts.get("depthmaps") or []
         cn = cfg["controlnet"]
 
-        used: list[tuple[float, Any]] = []
-
         def _conditioning(view: float) -> _Conditioning:
             chosen = None
             if lib.identity and from_ref["enabled"]:
@@ -216,8 +219,6 @@ class CanonicalStage(Stage):
                          else f"{ctx.settings('pose').get('source', 'library')} pose, "
                               f"{ctx.need('rig').label}")
                 print(f"   conditioned by {', '.join(names) or 'nothing'}  <- {where}")
-            if chosen is not None:
-                used.append((view, chosen))
             return _Conditioning(chosen, names)
 
         # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
@@ -239,6 +240,14 @@ class CanonicalStage(Stage):
         outdir = ctx.stage_dir("canonical")
         made: dict[float, Path] = {}
         primary: Path | None = None
+
+        # Before any GPU work: a run that dies mid-sample still says what it
+        # was given. refs_mod.pick is pure, so this costs nothing and uploads
+        # nothing.
+        if lib.identity and from_ref["enabled"]:
+            _record_references(
+                ctx, [(v, refs_mod.pick(lib.identity, v, tolerance=180.0)[0])
+                      for v in views], ctx.need("rig"))
 
         for vi, view in enumerate(views):
             if len(views) > 1:
@@ -285,6 +294,5 @@ class CanonicalStage(Stage):
                 cooling.rest(ctx.config, after=f"anchor {vi + 1}",
                              last=vi == len(views) - 1)
 
-        _record_references(ctx, used, ctx.need("rig"))
         return {"canonical": primary, "canonicals": made}
 

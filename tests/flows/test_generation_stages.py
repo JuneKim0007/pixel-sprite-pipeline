@@ -342,3 +342,13 @@ def test_keeping_nothing_writes_nothing(tmp_path):
     (tmp_path / "run").mkdir()
     _record_references(ctx, [], SimpleNamespace(name="x", label="X"))
     assert not (tmp_path / "run" / "references").exists()
+
+
+def test_the_record_lands_before_sampling_not_after(tmp_path):
+    """A run that dies mid-sample still has to say what it was shown."""
+    import pathlib
+
+    src = pathlib.Path("pipeline/stages/canonical.py").read_text()
+    at_record = src.index("_record_references(")
+    at_sample = src.index("comfy.sample_and_save(")
+    assert at_record < at_sample, "the record is written after the first sample"

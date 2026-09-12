@@ -87,13 +87,6 @@ SUBJECTS = {
 # draws a finer grid, which is the direction already rejected by eye, so the
 # ladder above 0.8 is gone. 0.6 stays because it is the untested chunky end.
 VARIANTS = {
-    "tpref_09": {"_sample": True, "_refs": "tp", "_build": True,
-                 "canonical": {"lora_strength": 1.3,
-                               "from_reference": {
-                     "weight": 1.05, "weight_type": "linear"}}},
-    # 16 tokens instead of 4. The base adapter compresses the whole reference
-    # into four, which is why it carries who-it-is and almost nothing about
-    # where a limb goes; the plus model uses a perceiver resampler for 16.
     "plus16_09": {"_sample": True, "_refs": "px", "_build": True,
                   "models": {"ipadapter": "ip-adapter-plus_sdxl_vit-h.safetensors"},
                   "canonical": {"lora_strength": 1.3,
@@ -251,9 +244,6 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             # plan() answers - the same trick the old _paint marker used.
             want = extra.get("_refs")
             if want:
-                # The suffix picks which cut: "" the sheet, "px" the
-                # pixelised one, "tp" a generated T-pose whose arms already
-                # agree with the guide.
                 tail = "" if want is True else f"_{want}"
                 cfg["references"]["identity"] = [
                     {"path": f"characters/{char}/{name}{tail}.png", "view": view}

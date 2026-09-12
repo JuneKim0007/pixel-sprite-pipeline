@@ -34,112 +34,49 @@ modules:
     style: "{medium}, {render}, full body"
 
 settings:
-  # The figure fills the frame. The rigs are authored small - the humanoid's
-  # neutral spans 68% of the canvas height - so a third of the generation
-  # resolution went to empty background. At 1024 reduced by 8 this is the
-  # difference between a character 87 logical pixels tall and one 113 tall,
-  # for the same GPU time. Applied at projection, so stored poses and bone
-  # snapping are untouched, and the tightest axis decides so a wingspan
-  # cannot run off the sides.
+  # The figure fills the frame: the rigs are authored small, so a third of the canvas was background.
   pose:
-    # The model overfills its guide: 0.88 drew 0.96, 0.80 drew 0.92, so the
-    # lever returns about half of what it is asked for. 0.70 predicts ~0.87
-    # against the training set's ~0.80, and leaves the model room to put a
-    # spreading cape somewhere other than the frame edge.
+    # The model overfills its guide by about 2x the ask, so 0.70 predicts ~0.87.
     fill: 0.70
 
-    # Lifts the hands off the hip. 0 leaves no gap in the silhouette, 90 is a
-    # full T and reads as a weapon stance.
+    # Lifts the hands off the hip; 0 leaves no gap in the silhouette, 90 reads as a weapon stance.
     arm_angle: 55.0
 
-    # Broad without a broad face. lateral_scale is a uniform horizontal scale -
-    # head-over-shoulder measures 0.545 at 1.0 and at 1.4 alike - so it widens
-    # the skull with the shoulders. Per group it does not: this moves
-    # h/shoulder from 6.26 to 5.44 against the reference sheet's 4.42, and
-    # leaves the ear exactly where it was.
+    # Per group, not lateral_scale: that widens the skull with the shoulders. 6.26 h/shoulder to 5.44.
     spread:
       arms: 1.15
       torso: 1.15
 
-  # Seven heads rather than five (6.94 measured). The shipped rig is 5.2,
-  # which reads as stocky; the sprite sheets this aims at specify 7.
-  #
-  # These numbers changed once `proportions.torso` started working: it was a
-  # silent no-op on the humanoid, so legs alone had been carrying the whole
-  # ratio at 1.75. With torso contributing, the same 1.75 reached 7.47. Set here
-  # rather than in rigs.py because changing the rig's neutral would re-scale
-  # every stored pose through bone-length snapping - and because a stubby
-  # brawler should be able to override it in one config line.
+  # Seven heads rather than the rig's 5.2. Set here, not in rigs.py: a new neutral would re-scale every stored pose.
   proportions:
     legs: 1.60
     torso: 1.20
-    # Measured 2026-09-11: legs 1.6 and torso 1.2 stretch the body and leave
-    # the arms, so shoulder-to-wrist falls from 30.4% of height to 22.5% and
-    # the hands end above the hip. 1.35 restores the ratio the rig was authored
-    # with; anatomy is nearer 38%, which a stylised sprite does not need.
-    arms: 1.35
+    # Measured 2026-09-11: legs 1.6 and torso 1.2 leave the arms behind, hands above the hip.
+    arms: 1.25
 
   palette:
     reduce: median
     factor: 8
-    # Brightness first, hue as tiebreaker. A sprite reads by its value
-    # structure, so an entry of the wrong lightness collapses the form even
-    # when the hue is right.
+    # A sprite reads by its value structure, so a wrong-lightness entry collapses the form.
     match: luma
 
-  # A named backdrop rather than a described one. "plain flat background" is
-  # an adjective the model interprets, and it interprets it as a lit studio
-  # card with a cast shadow. Naming the colour also lets the keyer remove that
-  # exact hue instead of flooding from a corner and hoping.
-  #
-  # Magenta, not chroma green: green sits close to skin, cloth and foliage
-  # tones, and every pixel it bleeds into along an edge costs a palette entry.
+  # Magenta, not chroma green: green sits close to skin and cloth, and each bled pixel costs a palette entry.
   background:
     enabled: true
-    # The prompt still asks for magenta; `auto` is about what the KEYER
-    # removes. Three runs measured 0.0% of the requested colour in the result,
-    # so the corners of what the model actually painted are the only reliable
-    # key. Disabling the backdrop instead was measured and is worse: it drops
-    # the ground shadow but leaves bleed at 0.1295 against 0.1316.
+    # Three runs measured 0.0% of the requested colour, so the painted corners are the only reliable key.
     colour: auto
 
-  # Identity conditioning, true of every look here.
-  #
-  # weight_type `linear` rather than `style and composition`: the latter copies
-  # the reference's layout and background along with the character, which is
-  # how a smooth illustration's grey gradient ended up behind a sprite whose
-  # prompt asked for a flat backdrop.
-  #
-  # The anchor is the generated canonical, applied to every frame identically.
-  # It carries the pixel style and must outweigh the reference illustration
-  # rather than sit under it — at 0.55 against an identity reference at 0.85
-  # the illustration won on rendering too, and the frames drifted apart.
+  # `linear` rather than `style and composition`: the latter copies the reference's background too.
 
   # Canvas / factor is the sprite size, so the canvas belongs beside the palette.
   canonical:
     width: 1024
     height: 1024
     negative: "{avoid}"
-    # Measured over 8 characters: identity at 1.15 against style at 0.12 beat
-    # the 0.85/0.28 default on both numbers - likeness 0.7068 against 0.6829,
-    # and bleed 0.0326 against 0.0593, which is the lavender-hair problem
-    # nearly halved. Pushing the other way (style 0.5, identity 0.6) scored
-    # worst of everything tried.
-    # 1.15 copied the reference as an ILLUSTRATION - 0.82 likeness, which is
-    # what CLIP rewards and not what a sprite is. 0.9 does not fix that: on
-    # char2 it also reached 0.82 likeness and took the block the model draws
-    # from 8.0 down to 1.0. `linear` writes all eleven attention blocks,
-    # including the one that carries rendering, so weight alone cannot ask for
-    # shape without also asking for smoothness. weight_composition can.
+    # Measured over 8 characters: identity 1.15 / style 0.12 beat 0.85/0.28 on likeness and bleed, but copied the reference as an illustration.
     from_reference: {weight_type: linear, weight: 0.9}
     style_weight: 0.12
-    # 1.2 is the pixel-art-xl author's recommendation and it is wrong for this
-    # canvas. Measured on char8, strength against the grid the model draws and
-    # the likeness it reaches, both monotonic and both the other way round:
-    #   0.8 -> block 3.0, likeness 0.7538
-    #   1.2 -> block 2.0, likeness 0.6944
-    #   1.6 -> block 1.0, likeness 0.6529
-    # Higher strength buys denser dithering, not bigger pixels.
+    # Measured on char8: 0.8 -> block 3.0 likeness 0.7538, 1.6 -> block 1.0 likeness 0.6529. Higher buys dithering, not bigger pixels.
     lora_strength: 0.8
   frames:
     width: 1024
@@ -149,13 +86,9 @@ settings:
       weight_type: linear
       anchor: true
       anchor_weight: 0.9
-      # Same argument as weight_type above, and it applies to the anchor even
-      # more strongly: the anchor is FRONT-FACING and identical on every frame,
-      # so `style and composition` makes every view inherit a front pose.
+      # The anchor is front-facing and identical on every frame, so `style and composition` makes every view inherit a front pose.
       anchor_weight_type: linear
       anchor_end_at: 1.0
-    # frames.lora_strength's own help says keep it equal to canonical's: the
-    # frames are matched against the anchor, and a different weight there is a
-    # different style to match.
+    # Keep equal to canonical's: the frames are matched against the anchor, and a different weight is a different style to match.
     lora_strength: 0.8
     style_weight: 0.12
