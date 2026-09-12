@@ -23,7 +23,7 @@ RUNS = ROOT / "out/runs"
 TRUTH = ROOT / "characters"
 
 # A run here is a single GPU job, so cooling.seconds never fires inside one - the rest.
-REST = 120
+REST = 60
 
 # ComfyUI holds model weights in CPU RAM between runs by design - it unloads from GPU.
 FREE_EVERY = 6
