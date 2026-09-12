@@ -2,6 +2,7 @@
 
 import { el } from '../core/dom.js';
 import { HelpTip } from './primitives.js';
+import { Pair } from './kit.js';
 
 export class BaseCard {
   // `data` is the thing being shown; `on` is a bag of callbacks.
@@ -53,8 +54,6 @@ export class BaseCard {
 
   /* A labelled metadata line, since every subclass wants them. */
   row(label, value) {
-    return el('div', { className: 'ui-card-row' },
-      el('span', { className: 'ui-card-key mini', textContent: label }),
-      el('span', { className: 'ui-card-val mono', textContent: String(value ?? '') }));
+    return Pair(label, value, { mono: true });
   }
 }

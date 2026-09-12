@@ -151,6 +151,13 @@ export function Segmented(options, { value, onPick } = {}) {
   return host;
 }
 
+/* A labelled value. Cards stack them; the audit grid lays them out in columns. */
+export const Pair = (label, value, { mono = false } = {}) =>
+  el('div', { className: 'ui-card-row' },
+    el('span', { className: 'ui-card-key mini', textContent: label }),
+    el('span', { className: `ui-card-val ${mono ? 'mono' : ''}`.trim(),
+                 textContent: String(value ?? '') }));
+
 /* tone marks a number the machine measured, not one someone typed. */
 export const Fact = (label, value, tone = '') =>
   el('div', { className: `fact ${tone}`.trim() }, Mini(label), el('b', { textContent: value }));

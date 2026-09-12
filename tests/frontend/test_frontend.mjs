@@ -504,14 +504,14 @@ test('the kit builds every widget the views repeat by hand', () => {
   // A widget missing from the kit is a widget that gets rebuilt by hand.
   for (const name of ['Button', 'Select', 'Num', 'Check', 'Range', 'Row', 'Fields',
                       'Head', 'PanelHead', 'Segmented', 'Mini', 'Mono', 'Empty',
-                      'Warn', 'Ok', 'Note', 'Fact', 'FactGrid']) {
+                      'Warn', 'Ok', 'Note', 'Fact', 'FactGrid', 'Pair']) {
     assert.equal(typeof ui[name], 'function', `ui.${name} is missing`);
   }
 });
 test('ui/ knows nothing about the domain', () => {
   // A primitive that understands a rig has stopped being one.
   const DOMAIN = /\b(rig|palette|canonical|pipeline|stage|sprite|joint|pose)\b/i;
-  for (const f of ['kit.js', 'primitives.js', 'card.js', 'field.js']) {
+  for (const f of ['kit.js', 'primitives.js', 'card.js', 'panel.js', 'field.js']) {
     const src = readFileSync(join(JS, 'ui', f), 'utf8');
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     assert.ok(!DOMAIN.test(code), `ui/${f} mentions the domain`);
@@ -573,6 +573,47 @@ test('empty rows and footer produce no empty containers', () => {
   const n = new ui.BaseCard({ data: { title: 'x' } }).render();
   assert.equal(n.querySelector('.ui-card-rows'), null);
   assert.equal(n.querySelector('.ui-card-foot'), null);
+});
+
+console.log('\nBasePanel');
+test('a panel with nothing to say renders nothing, not an empty box', () => {
+  class Quiet extends ui.BasePanel { shows() { return false; } }
+  assert.equal(new Quiet({}).render(), null);
+});
+test('a panel can stand something in when it is empty', () => {
+  class Said extends ui.BasePanel {
+    shows() { return false; }
+    empty() { return el('p', { textContent: 'nothing recorded' }); }
+  }
+  assert.equal(new Said({}).render().textContent, 'nothing recorded');
+});
+test('note and body land in the panel box', () => {
+  class P extends ui.BasePanel {
+    boxClass() { return 'mybox'; }
+    note() { return 'two of them'; }
+    body() { return [el('b', { textContent: 'x' }), null]; }
+  }
+  const n = new P({}).render();
+  assert.equal(n.className, 'mybox');
+  assert.equal(n.querySelector('.mini').textContent, 'two of them');
+  assert.equal(n.querySelectorAll('b').length, 1, 'a null child was appended');
+});
+test('a PanelSet keeps declaration order and drops the silent ones', () => {
+  class A extends ui.BasePanel { boxClass() { return 'a'; } }
+  class B extends ui.BasePanel { shows() { return false; } }
+  class C extends ui.BasePanel { boxClass() { return 'c'; } }
+  const built = new ui.PanelSet(A, B, C).build({});
+  assert.deepEqual(built.map((n) => n.className), ['a', 'c']);
+});
+test('every panel is handed the view data and callbacks', () => {
+  let seen = null;
+  class P extends ui.BasePanel {
+    body() { seen = [this.data, this.on]; return []; }
+  }
+  const on = { pick: () => {} };
+  new ui.PanelSet(P).build({ id: 'r1' }, on);
+  assert.deepEqual(seen[0], { id: 'r1' });
+  assert.equal(seen[1], on);
 });
 
 console.log('\nBaseField');

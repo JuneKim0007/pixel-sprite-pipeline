@@ -5,7 +5,8 @@ import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
-import { Button, Disclosure, Empty, Meter, PanelHead, Range } from '../../ui/index.js';
+import { BasePanel, Button, Disclosure, Empty, Meter, Pair, PanelHead, PanelSet, Range }
+  from '../../ui/index.js';
 import { GpuProgress, RunProgress } from '../../features/progress.js';
 import { browseDialog } from '../../ui/dialog.js';
 
@@ -80,96 +81,102 @@ function abort(runId) {
 
 
 /* The rig is laid over the reference, not beside it: agreement about a limb is only visible superimposed. */
-function shownPanel(detail) {
-  const shown = detail.shown || {};
-  const refs = shown.references || [];
-  const guides = shown.guides || [];
-  if (!refs.length) return null;
+class ShownPanel extends BasePanel {
+  fade = 0.45;
 
-  let fade = 0.45;
-  const plates = refs.map((r, i) => {
-    const plate = el('figure', { className: 'shownshot' });
-    const stack = el('div', { className: 'shownstack' });
-    if (!r.missing) {
-      stack.append(el('img', {
-        src: api.fileUrl(r.kept), loading: 'lazy',
-        className: 'pixel shownref', style: `opacity:${fade}`,
-      }));
-    } else {
-      stack.append(el('div', { className: 'shownshot-gone', textContent: 'file gone' }));
-    }
-    const guide = guides[i] || guides[0];
-    if (guide) {
-      stack.append(el('img', {
-        src: api.fileUrl(guide), loading: 'lazy', className: 'pixel shownrig',
-      }));
-    }
-    plate.append(stack, el('figcaption', { className: 'mini', textContent: r.label }));
-    return plate;
-  });
+  boxClass() { return 'shownbox'; }
+  shown() { return this.data.shown || {}; }
+  refs() { return this.shown().references || []; }
+  shows() { return this.refs().length > 0; }
 
-  const strip = el('div', { className: 'shownstrip' }, ...plates);
-  const slider = Range(fade, {
-    min: 0, max: 1, step: 0.05, readout: 'box',
-    onChange: (v) => {
-      fade = v == null ? 0.45 : v;
-      strip.querySelectorAll('.shownref').forEach((img) => {
-        img.style.opacity = String(fade);
-      });
-    },
-  });
+  note() {
+    return `Rig: ${this.shown().rig_label || this.shown().rig || 'none'} · `
+         + `${this.refs().length} reference(s) it was shown`;
+  }
 
-  return el('div', { className: 'shownbox' },
-    el('p', { className: 'mini',
-              textContent: `Rig: ${shown.rig_label || shown.rig || 'none'} · `
-                         + `${refs.length} reference(s) it was shown` }),
-    strip,
-    el('div', { className: 'shownfade' },
-      el('span', { className: 'mini', textContent: 'Fade the reference' }), slider));
+  plate(ref, guide) {
+    const stack = el('div', { className: 'shownstack' },
+      ref.missing
+        ? el('div', { className: 'shownshot-gone', textContent: 'file gone' })
+        : el('img', { src: api.fileUrl(ref.kept), loading: 'lazy',
+                      className: 'pixel shownref', style: `opacity:${this.fade}` }),
+      guide ? el('img', { src: api.fileUrl(guide), loading: 'lazy',
+                          className: 'pixel shownrig' }) : null);
+    return el('figure', { className: 'shownshot' },
+      stack, el('figcaption', { className: 'mini', textContent: ref.label }));
+  }
+
+  body() {
+    const guides = this.shown().guides || [];
+    const strip = el('div', { className: 'shownstrip' },
+      ...this.refs().map((r, i) => this.plate(r, guides[i] || guides[0])));
+
+    const slider = Range(this.fade, {
+      min: 0, max: 1, step: 0.05, readout: 'box',
+      onChange: (v) => {
+        this.fade = v == null ? 0.45 : v;
+        strip.querySelectorAll('.shownref')
+          .forEach((img) => { img.style.opacity = String(this.fade); });
+      },
+    });
+
+    return [strip, el('div', { className: 'shownfade' },
+      el('span', { className: 'mini', textContent: 'Fade the reference' }), slider)];
+  }
 }
 
 /* The palette as colour, not as hex: a list of codes cannot be checked by eye. */
-function palettePanel(detail) {
-  const hexes = detail.palette || [];
-  if (!hexes.length) return null;
-  return el('div', { className: 'palbox' },
-    el('p', { className: 'mini',
-              textContent: `${hexes.length} colours imposed on every frame` }),
-    el('div', { className: 'swatchrow' }, ...hexes.map((hex) => el('span', {
-      className: 'swatch', title: hex, style: `background:${hex}`,
-    }))));
-}
+class PalettePanel extends BasePanel {
+  boxClass() { return 'palbox'; }
+  hexes() { return this.data.palette || []; }
+  shows() { return this.hexes().length > 0; }
+  note() { return `${this.hexes().length} colours imposed on every frame`; }
 
-function auditPanel(detail) {
-  const a = detail.audit || {};
-  if (!Object.keys(a).length) {
-    return el('p', { className: 'mini', textContent: 'This run recorded no config.' });
+  body() {
+    return [el('div', { className: 'swatchrow' }, ...this.hexes().map((hex) =>
+      el('span', { className: 'swatch', title: hex, style: `background:${hex}` })))];
   }
-  const proto = PROTOCOL[a.protocol] || { label: a.protocol };
-  const ctx = a.contexts || {};
-  const roles = ['identity', 'style', 'pose', 'palette']
-    .filter((r) => ctx[r]).map((r) => `${ctx[r]} ${r}`);
-  if (ctx.style_exemplars) roles.push(`${ctx.style_exemplars} from sheets`);
-
-  const line = (k, v, mono) => el('div', { className: 'auditrow' },
-    el('span', { className: 'mini', textContent: k }),
-    el('span', { className: mono ? 'mono' : '', textContent: v }));
-
-  return el('div', { className: 'auditgrid' },
-    line('protocol', proto.label),
-    line('style sheets', (a.styles || []).join(' + ') || 'none'),
-    line('contexts', roles.length ? `${a.context_total} · ${roles.join(', ')}` : 'none'),
-    line('rig', a.rig || '—'),
-    line('stages', (a.stages || []).join(' → ')),
-    line('checkpoint', (a.models?.checkpoint || '').replace('.safetensors', ''), true),
-    line('vae', (a.models?.vae || '').replace('.safetensors', ''), true),
-    line('seed', a.seed ?? '—', true),
-    line('palette', a.palette?.source
-      ? `${a.palette.source} · ${a.palette.size ?? '?'} colours · ÷${a.palette.factor ?? '?'}`
-        + (a.palette.match ? ` · ${a.palette.match}` : '')
-      : '—'),
-    a.subject ? el('p', { className: 'auditsubject', textContent: a.subject }) : null);
 }
+
+class AuditPanel extends BasePanel {
+  boxClass() { return 'auditgrid'; }
+  audit() { return this.data.audit || {}; }
+  shows() { return Object.keys(this.audit()).length > 0; }
+  empty() { return el('p', { className: 'mini', textContent: 'This run recorded no config.' }); }
+
+  contexts() {
+    const ctx = this.audit().contexts || {};
+    const roles = ['identity', 'style', 'pose', 'palette']
+      .filter((r) => ctx[r]).map((r) => `${ctx[r]} ${r}`);
+    if (ctx.style_exemplars) roles.push(`${ctx.style_exemplars} from sheets`);
+    return roles.length ? `${this.audit().context_total} · ${roles.join(', ')}` : 'none';
+  }
+
+  palette() {
+    const pal = this.audit().palette;
+    if (!pal?.source) return '—';
+    return `${pal.source} · ${pal.size ?? '?'} colours · ÷${pal.factor ?? '?'}`
+         + (pal.match ? ` · ${pal.match}` : '');
+  }
+
+  body() {
+    const a = this.audit();
+    return [
+      Pair('protocol', (PROTOCOL[a.protocol] || { label: a.protocol }).label),
+      Pair('style sheets', (a.styles || []).join(' + ') || 'none'),
+      Pair('contexts', this.contexts()),
+      Pair('rig', a.rig || '—'),
+      Pair('stages', (a.stages || []).join(' → ')),
+      Pair('checkpoint', (a.models?.checkpoint || '').replace('.safetensors', ''), { mono: true }),
+      Pair('vae', (a.models?.vae || '').replace('.safetensors', ''), { mono: true }),
+      Pair('seed', a.seed ?? '—', { mono: true }),
+      Pair('palette', this.palette()),
+      a.subject ? el('p', { className: 'auditsubject', textContent: a.subject }) : null,
+    ];
+  }
+}
+
+const RUN_PANELS = new PanelSet(AuditPanel, PalettePanel, ShownPanel);
 
 export function failureFrom(log) {
   if (!log || !/Traceback \(most recent call last\)/.test(log)) return null;
@@ -438,7 +445,7 @@ export function renderResult(host, { runId, detail, onPick }) {
 
   host.append(el('section', { className: 'auditbox' },
     PanelHead(runId, { note: detail.dir, action: detail.running ? abort(runId) : null }),
-    auditPanel(detail), palettePanel(detail), shownPanel(detail)));
+    ...RUN_PANELS.build(detail)));
 
   state.runDir = detail.dir;
 
