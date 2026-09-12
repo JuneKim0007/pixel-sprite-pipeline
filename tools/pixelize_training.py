@@ -32,14 +32,6 @@ def native_factor(subject: np.ndarray) -> int:
     return max(1, px.detect_block(subject[..., :3]))
 
 
-def canvas_for(bucket: str, aspect: float) -> tuple[int, int]:
-    if bucket.startswith("256"):
-        return 256, 256
-    if aspect <= 1.15:
-        return 128, 128
-    return (128, 160) if aspect <= 1.45 else (128, 192)
-
-
 def plan_for(subject: np.ndarray) -> tuple[int, tuple[int, int]]:
     """Reduce by the art's OWN block size, then take a canvas that fits it.
 
