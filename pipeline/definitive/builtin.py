@@ -61,7 +61,7 @@ def _curves(inputs, cfg, prep):
 
 def _grid_prepare(inputs, cfg) -> dict:
     img = inputs["image"]
-    measured = px.estimate_block_size(img)
+    measured = px.detect_block(img, cfg.get("measure", "auto"))
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
     factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
 
@@ -84,6 +84,20 @@ def _grid_prepare(inputs, cfg) -> dict:
                    "without loss. Override only when the measurement is "
                    "visibly wrong, because it is a property of the picture "
                    "rather than a preference."),
+        Field("measure", "How to measure", "select", default="auto",
+              options=[("auto", "Auto, exact then periodic"),
+                       ("exact", "Exact, blocks that average losslessly"),
+                       ("periodic", "Periodic, how regular the edges are"),
+                       ("off", "Do not measure, treat as 1:1")],
+              when={"factor": 0},
+              help="Exact asks whether k x k blocks average without loss, "
+                   "which is precise on a clean source and fails on a "
+                   "compressed one: a real 5px lattice scored 3.8% against a "
+                   "2% threshold and came back as 1. Periodic asks how regular "
+                   "the edges are, and noise is not regular - it recovered 18 "
+                   "of 35 grids exact had missed, and agreed with exact "
+                   "wherever exact had an answer. Auto takes exact when it "
+                   "finds one and falls back to periodic."),
         Field("phase", "Grid origin", "select", default="auto",
               options=[("auto", "Auto, minimum variance inside each block"),
                        ("manual", "Manual")],
@@ -301,7 +315,8 @@ def _background(inputs, cfg, prep):
 
 
 @layer(
-    "canvas", label="Canvas", order=25,
+    "canvas", label="Canvas", order=50,
+    reports=frozenset({"canvas_size"}),
     summary="The subject, seated on a fixed sprite canvas",
     fields=[
         Field("width", "Width", "int", min=0, max=1024, step=8, default=0,
@@ -325,19 +340,24 @@ def _background(inputs, cfg, prep):
 def _canvas(inputs, cfg, prep):
     from ..shared.canvas import seat
 
+    from ..shared import canvas as canvas_mod
+
     img = inputs["image"]
     width, height = int(cfg.get("width", 0)), int(cfg.get("height", 0))
     if width <= 0 or height <= 0:
-        return {"image": img}
-    if width * height > img.shape[0] * img.shape[1]:
-        return {"image": img}
+        # Auto. Grid runs first, so the art arriving here is already at its
+        # final logical size and the only question left is what holds it.
+        found = canvas_mod.fitting(img.shape[1], img.shape[0])
+        if found is None:
+            return {"image": img, "canvas_size": ""}
+        width, height = found
     art = Image.fromarray(np.ascontiguousarray(img))
     out = seat(art, (width, height), float(cfg.get("fill", 0.92)),
                shrink_only=True)
     a = np.asarray(out).copy()
     if a.shape[2] == 4 and cfg.get("binary_alpha", True):
         a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
-    return {"image": a}
+    return {"image": a, "canvas_size": f"{width}x{height}"}
 
 
 @layer(

@@ -163,28 +163,16 @@ between what a user customises per asset and what they set once per machine.
 
 ## The training set
 
-`training_set/` holds scraped pixel art, sorted into `128x128/` and `256x256/`
-by the sprite size each source can carry. `char1`-`char8` beside them are the
-pipeline's own cut reference sheets - per character, per view - and are a
-different axis. Do not merge the two.
+`training_set/` holds scraped pixel art on its way to being sprites, in three
+stages: sorted by carryable size, denoised to RGBA, then reduced to a fixed
+canvas and palette. `char1`-`char8` beside them are the pipeline's own cut
+reference sheets - per character, per view - and are a different axis. Do not
+merge the two.
 
-- Sort by the SUBJECT's extent, never the file's. Use
-  `pipeline.geometry.framing.measure`. A 736x1104 file whose figure is 485x1014
-  is a 2.09 aspect subject, and the file's 1.50 would bucket it wrongly.
-- Assume the palette is gone. 34 of 35 files are JPEG or WebP, carrying
-  1,600-7,400 colours where the art has tens. Quantisation must re-derive a
-  palette; it cannot read one off the source.
-- Do not measure "is this really pixel art" with colour counts or edge
-  softness. Both measure compression on this set, not drawing. Tried and
-  discarded 2026-09-11.
-- Background removal is `tools/denoise_training.py`. Read
-  `docs/de-noisying_training_set.md` before changing any constant in it, and
-  render the contact sheet it describes before believing a run.
-- Re-download anything still offered as PNG. It is worth more than any
-  amount of sorting or keying.
-- Sprites are `tools/pixelize_training.py` into `training_set/sprites/`:
-  12 colours, binary alpha, canvas from the figure's aspect. Reduce before
-  quantising - measured, it wins 32 of 35.
+Read `docs/downloaded-art-to-sprites.md` before touching any of it. Every
+rule in there was bought with a measured failure, and two of them
+(`binary_closing` for reachability, choosing a filter against a LANCZOS
+reference) look correct and are not.
 
 ## When you finish something
 

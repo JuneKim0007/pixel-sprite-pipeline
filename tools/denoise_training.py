@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Key the backdrop out of a training image and drop what it leaves behind.
-
-Why the ring beats a seed flood: docs/downloaded-art-to-sprites.md.
-"""
 
 from __future__ import annotations
 
@@ -25,8 +21,6 @@ FLOOR_KEEP = 0.05
 
 def clean(path: Path, tolerance: int = framing.KEY_TOLERANCE,
           parts: bool = True) -> np.ndarray:
-    """Raise the tolerance until the backdrop goes, judged against the figure's
-    own area: a witch who fills her frame keeps 63% legitimately."""
     with Image.open(path) as handle:
         rgb = np.asarray(handle.convert("RGB"))
 
@@ -46,7 +40,6 @@ def clean(path: Path, tolerance: int = framing.KEY_TOLERANCE,
     if alpha is None:
         alpha = framing.key_backdrop(rgb, tolerance)
 
-    # The flood reaches a backdrop shade the ring never sampled.
     flooded = px.background_to_alpha(np.dstack([rgb, alpha])[..., :3], 14)
     alpha = np.minimum(alpha, flooded[..., 3])
     if parts:
@@ -60,7 +53,7 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--src", type=Path, default=ROOT / "training_set")
-    ap.add_argument("--out", type=Path, default=ROOT / "training_set" / "temp")
+    ap.add_argument("--out", type=Path, default=ROOT / "training_set" / "keyed")
     ap.add_argument("--tolerance", type=int, default=framing.KEY_TOLERANCE)
     ap.add_argument("--keep-parts", action="store_true",
                     help="leave detached elements in place")
@@ -69,7 +62,7 @@ def main() -> int:
     a.out.mkdir(parents=True, exist_ok=True)
     rows = []
     for bucket in ("128x128", "256x256"):
-        folder = a.src / bucket
+        folder = a.src / "sorted" / bucket
         if not folder.is_dir():
             continue
         files = sorted(p for p in folder.iterdir()
@@ -77,7 +70,8 @@ def main() -> int:
         for i, source in enumerate(files, 1):
             name = f"{bucket}_{i:02d}.png"
             rgba = clean(source, a.tolerance, parts=not a.keep_parts)
-            Image.fromarray(rgba, "RGBA").save(a.out / name)
+            (a.out / bucket).mkdir(parents=True, exist_ok=True)
+            Image.fromarray(rgba, "RGBA").save(a.out / bucket / name)
             kept = float((rgba[..., 3] > 0).mean())
             rows.append({"name": name, "bucket": bucket,
                          "source": source.name, "kept": f"{kept:.3f}"})

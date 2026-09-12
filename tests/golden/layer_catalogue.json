@@ -72,6 +72,37 @@
    },
    {
     "default": "auto",
+    "help": "Exact asks whether k x k blocks average without loss, which is precise on a clean source and fails on a compressed one: a real 5px lattice scored 3.8% against a 2% threshold and came back as 1. Periodic asks how regular the edges are, and noise is not regular - it recovered 18 of 35 grids exact had missed, and agreed with exact wherever exact had an answer. Auto takes exact when it finds one and falls back to periodic.",
+    "key": "measure",
+    "kind": "select",
+    "label": "How to measure",
+    "max": null,
+    "min": null,
+    "options": [
+     [
+      "auto",
+      "Auto, exact then periodic"
+     ],
+     [
+      "exact",
+      "Exact, blocks that average losslessly"
+     ],
+     [
+      "periodic",
+      "Periodic, how regular the edges are"
+     ],
+     [
+      "off",
+      "Do not measure, treat as 1:1"
+     ]
+    ],
+    "step": null,
+    "when": {
+     "factor": 0
+    }
+   },
+   {
+    "default": "auto",
     "help": "Where the lattice starts. The generated grid rarely begins at 0,0 and sampling on the wrong phase straddles block boundaries, smearing two logical pixels into one. This is the single biggest cause of muddy output.",
     "key": "phase",
     "kind": "select",
@@ -154,63 +185,6 @@
   "order": 20,
   "repeatable": false,
   "summary": "Screen pixels collapse into logical ones"
- },
- {
-  "fields": [
-   {
-    "default": 0,
-    "help": "0 leaves the image its own size. Set it with height to seat the subject on a fixed sprite canvas, which is what a sheet needs and what Scale cannot do - Scale multiplies, it does not frame.",
-    "key": "width",
-    "kind": "int",
-    "label": "Width",
-    "max": 1024,
-    "min": 0,
-    "options": [],
-    "step": 8,
-    "when": {}
-   },
-   {
-    "default": 0,
-    "help": "Taller than the width suits a standing figure. A square canvas spends its corners on backdrop.",
-    "key": "height",
-    "kind": "int",
-    "label": "Height",
-    "max": 1024,
-    "min": 0,
-    "options": [],
-    "step": 8,
-    "when": {}
-   },
-   {
-    "default": 0.92,
-    "help": "Fraction of the tightest axis the subject spans. Below 1 leaves the margin a sprite sheet needs to avoid clipping when a neighbouring frame is wider.",
-    "key": "fill",
-    "kind": "float",
-    "label": "Fill",
-    "max": 1.0,
-    "min": 0.1,
-    "options": [],
-    "step": 0.02,
-    "when": {}
-   },
-   {
-    "default": true,
-    "help": "A sprite edge is in or out. A half-transparent pixel is a colour the palette never chose, and it survives every later layer as a fringe.",
-    "key": "binary_alpha",
-    "kind": "bool",
-    "label": "Hard edges",
-    "max": null,
-    "min": null,
-    "options": [],
-    "step": null,
-    "when": {}
-   }
-  ],
-  "key": "canvas",
-  "label": "Canvas",
-  "order": 25,
-  "repeatable": false,
-  "summary": "The subject, seated on a fixed sprite canvas"
  },
  {
   "fields": [
@@ -494,6 +468,63 @@
   "order": 40,
   "repeatable": false,
   "summary": "The backdrop becomes transparent"
+ },
+ {
+  "fields": [
+   {
+    "default": 0,
+    "help": "0 leaves the image its own size. Set it with height to seat the subject on a fixed sprite canvas, which is what a sheet needs and what Scale cannot do - Scale multiplies, it does not frame.",
+    "key": "width",
+    "kind": "int",
+    "label": "Width",
+    "max": 1024,
+    "min": 0,
+    "options": [],
+    "step": 8,
+    "when": {}
+   },
+   {
+    "default": 0,
+    "help": "Taller than the width suits a standing figure. A square canvas spends its corners on backdrop.",
+    "key": "height",
+    "kind": "int",
+    "label": "Height",
+    "max": 1024,
+    "min": 0,
+    "options": [],
+    "step": 8,
+    "when": {}
+   },
+   {
+    "default": 0.92,
+    "help": "Fraction of the tightest axis the subject spans. Below 1 leaves the margin a sprite sheet needs to avoid clipping when a neighbouring frame is wider.",
+    "key": "fill",
+    "kind": "float",
+    "label": "Fill",
+    "max": 1.0,
+    "min": 0.1,
+    "options": [],
+    "step": 0.02,
+    "when": {}
+   },
+   {
+    "default": true,
+    "help": "A sprite edge is in or out. A half-transparent pixel is a colour the palette never chose, and it survives every later layer as a fringe.",
+    "key": "binary_alpha",
+    "kind": "bool",
+    "label": "Hard edges",
+    "max": null,
+    "min": null,
+    "options": [],
+    "step": null,
+    "when": {}
+   }
+  ],
+  "key": "canvas",
+  "label": "Canvas",
+  "order": 50,
+  "repeatable": false,
+  "summary": "The subject, seated on a fixed sprite canvas"
  },
  {
   "fields": [

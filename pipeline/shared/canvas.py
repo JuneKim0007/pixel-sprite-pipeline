@@ -2,6 +2,16 @@ from __future__ import annotations
 
 import numpy as np
 
+WIDTHS = (64, 96, 128, 160, 192, 224, 256)
+HEIGHTS = (64, 96, 128, 160, 192, 224, 256, 320, 384)
+LADDER = sorted(((w, h) for w in WIDTHS for h in HEIGHTS if h >= w),
+                key=lambda c: (c[0] * c[1], c[0]))
+
+
+def fitting(width: int, height: int):
+    """The smallest sprite canvas that holds this art, or None if none does."""
+    return next((c for c in LADDER if width <= c[0] and height <= c[1]), None)
+
 
 def square_for(art, fill: float, lattice: int = 0) -> tuple[int, int]:
     edge = round(max(art.width, art.height) / fill)

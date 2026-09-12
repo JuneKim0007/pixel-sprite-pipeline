@@ -56,7 +56,7 @@ def test_the_report_carries_every_key_the_editor_reads(root, img):
 def test_a_report_key_belongs_to_the_layer_that_declares_it():
     said = {r for spec in definitive.REGISTRY.values() for r in spec.reports}
     assert said == {"measured_block", "factor", "phase", "palette_size",
-                    "kept", "colours"}
+                    "kept", "colours", "canvas_size"}
 
 
 def _stack_of(*keys):

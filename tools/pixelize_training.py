@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Reduce a cleaned training image to a sprite canvas on at most N colours.
-
-Why the two orders differ: docs/downloaded-art-to-sprites.md.
-"""
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -15,15 +12,32 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from pipeline import definitive  # noqa: E402
 from pipeline.definitive import pixelize as px  # noqa: E402
-from pipeline.geometry import framing  # noqa: E402
 
-COLOURS = 12
+COLOURS = 10
 FILL = 0.92
+REDUCE = "median"
+CONTRAST = 1.12
+TARGET_LUMA = 132
+MAX_LIFT = 0.08
+LUMA = np.array([0.299, 0.587, 0.114], np.float32)
+
+
+WIDTHS = (64, 96, 128, 160, 192, 224, 256)
+HEIGHTS = (64, 96, 128, 160, 192, 224, 256, 320, 384)
+# Smallest first, so the fit search takes the tightest canvas that holds the
+# art. A standing figure is 2-3x taller than wide and had nowhere to go when
+# the ladder jumped from 128 wide to 256: 21 of 35 sat on a canvas half empty.
+CANVASES = sorted(((w, h) for w in WIDTHS for h in HEIGHTS if h >= w),
+                  key=lambda c: (c[0] * c[1], c[0]))
+
+
+def native_factor(subject: np.ndarray) -> int:
+    return max(1, px.detect_block(subject[..., :3]))
 
 
 def canvas_for(bucket: str, aspect: float) -> tuple[int, int]:
-    """256 is square; 128 gains height rather than squashing a standing figure."""
     if bucket.startswith("256"):
         return 256, 256
     if aspect <= 1.15:
@@ -31,75 +45,119 @@ def canvas_for(bucket: str, aspect: float) -> tuple[int, int]:
     return (128, 160) if aspect <= 1.45 else (128, 192)
 
 
-def _crop_to_subject(im: Image.Image) -> Image.Image:
-    box = im.getbbox()
-    return im.crop(box) if box else im
+def plan_for(subject: np.ndarray) -> tuple[int, tuple[int, int]]:
+    """Reduce by the art's OWN block size, then take a canvas that fits it.
+
+    Forcing a factor chosen to hit a preset canvas samples across the source's
+    block boundaries whenever the two disagree - measured, 13 of 35 - and no
+    phase is correct for a factor that is not the art's own.
+    """
+    k = native_factor(subject)
+    while True:
+        lw, lh = subject.shape[1] // k, subject.shape[0] // k
+        fit = next((c for c in CANVASES if lw <= c[0] and lh <= c[1]), None)
+        if fit is not None:
+            return k, fit
+        k += 1
 
 
-def _quantise(rgba: np.ndarray, colours: int) -> np.ndarray:
-    rgb, alpha = rgba[..., :3], rgba[..., 3]
-    if not (alpha > 0).any():
-        return rgba
-    pal = px.generate_palette(rgb, colours, alpha=alpha)
-    fitted = px.apply_fixed_palette(rgb, pal)
-    return np.dstack([fitted, alpha])
+def auto_brightness(rgba: np.ndarray, target: float = TARGET_LUMA,
+                    cap: float = MAX_LIFT) -> float:
+    opaque = rgba[..., 3] > 0
+    if not opaque.any():
+        return 0.0
+    luma = float((rgba[..., :3][opaque].astype(np.float32) @ LUMA).mean())
+    return float(np.clip((target - luma) / 255.0, 0.0, cap))
 
 
-def reduce_then_quantise(im: Image.Image, canvas, colours=COLOURS) -> np.ndarray:
-    seated = framing.seat(_crop_to_subject(im), canvas, FILL)
-    return _quantise(np.asarray(seated), colours)
+def block_factor(shape: tuple[int, ...], canvas: tuple[int, int],
+                 fill: float = FILL) -> int:
+    return max(1, math.ceil(max(shape[0] / canvas[1], shape[1] / canvas[0])))
 
 
-def quantise_then_reduce(im: Image.Image, canvas, colours=COLOURS) -> np.ndarray:
-    big = _quantise(np.asarray(_crop_to_subject(im)), colours)
-    seated = framing.seat(Image.fromarray(big, "RGBA"), canvas, FILL)
-    # Averaging palette entries invents colours between them; fit again.
-    return _quantise(np.asarray(seated), colours)
+def stack_for(subject: np.ndarray, canvas: tuple[int, int], *,
+              factor: int = 0,
+              reduce: str = REDUCE, contrast: float = CONTRAST,
+              brightness: float = 0.0, colours: int = COLOURS,
+              fill: float = FILL, keep_black: bool = False,
+              keep_white: bool = False) -> list[dict]:
+    return [
+        {"layer": "curves",
+         "config": {"contrast": contrast, "brightness": brightness}},
+        {"layer": "grid",
+         "config": {"factor": factor or block_factor(subject.shape, canvas, fill),
+                    "phase": "auto", "reduce": reduce}},
+        {"layer": "palette",
+         "config": {"source": "generate", "colours": colours,
+                    "preserve_black": keep_black, "preserve_white": keep_white}},
+        {"layer": "canvas",
+         "config": {"width": canvas[0], "height": canvas[1], "fill": 1.0,
+                    "binary_alpha": True}},
+    ]
 
 
-ORDERS = {"reduce_first": reduce_then_quantise,
-          "quantise_first": quantise_then_reduce}
+def sprite(im: Image.Image, canvas: tuple[int, int] | None = None,
+           **kw) -> np.ndarray:
+    subject = np.asarray(im.crop(im.getbbox()))
+    if canvas is None:
+        kw["factor"], canvas = plan_for(subject)
+    out, _ = definitive.apply_stack(
+        subject, stack_for(subject, canvas, **kw), use_cache=False)
+    if out.shape[:2] == (canvas[1], canvas[0]):
+        return out
+    seated = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    seated.paste(Image.fromarray(np.ascontiguousarray(out), "RGBA"),
+                 ((canvas[0] - out.shape[1]) // 2,
+                  (canvas[1] - out.shape[0]) // 2))
+    return np.asarray(seated)
 
 
 def distinct(rgba: np.ndarray) -> int:
-    rgb, a = rgba[..., :3], rgba[..., 3]
-    if not (a > 0).any():
+    rgb, alpha = rgba[..., :3], rgba[..., 3]
+    if not (alpha > 0).any():
         return 0
-    return len(np.unique(rgb[a > 0].reshape(-1, 3), axis=0))
+    return len(np.unique(rgb[alpha > 0].reshape(-1, 3), axis=0))
 
 
 def main() -> int:
     import argparse
     import csv
 
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser()
     ap.add_argument("--src", type=Path, default=ROOT / "training_set")
-    ap.add_argument("--out", type=Path, default=ROOT / "training_set" / "sprites")
+    ap.add_argument("--out", type=Path, default=ROOT / "training_set" / "sprite")
     ap.add_argument("--colours", type=int, default=COLOURS)
-    ap.add_argument("--order", choices=sorted(ORDERS), default="reduce_first",
-                    help="reduce_first won on 32 of 35; see the doc")
+    ap.add_argument("--reduce", default=REDUCE, choices=px.REDUCE_MODES)
+    ap.add_argument("--contrast", type=float, default=CONTRAST)
+    ap.add_argument("--keep-black", action="store_true")
+    ap.add_argument("--keep-white", action="store_true")
     a = ap.parse_args()
 
     a.out.mkdir(parents=True, exist_ok=True)
     rows = []
     for bucket in ("128x128", "256x256"):
-        folder = a.src / bucket
+        folder = a.src / "keyed" / bucket
         if not folder.is_dir():
             continue
         for p in sorted(folder.glob("*.png")):
             im = Image.open(p).convert("RGBA")
-            box = im.getbbox()
-            aspect = (box[3] - box[1]) / (box[2] - box[0]) if box else 1.0
-            canvas = canvas_for(bucket, aspect)
-            out = ORDERS[a.order](im, canvas, a.colours)
+            subject = np.asarray(im.crop(im.getbbox()))
+            factor, canvas = plan_for(subject)
+            lift = auto_brightness(np.asarray(im))
+            out = sprite(im, canvas, factor=factor, reduce=a.reduce,
+                         contrast=a.contrast, brightness=lift,
+                         colours=a.colours, keep_black=a.keep_black,
+                         keep_white=a.keep_white)
             Image.fromarray(out, "RGBA").save(a.out / p.name)
             rows.append({"name": p.name, "canvas": f"{canvas[0]}x{canvas[1]}",
-                         "colours": distinct(out),
-                         "aspect": f"{aspect:.2f}"})
-            print(f"  {p.name}  {canvas[0]}x{canvas[1]}  {distinct(out)} colours")
+                         "colours": distinct(out), "factor": factor,
+                         "brightness": f"{lift * 255:+.0f}"})
+            print(f"  {p.name}  {canvas[0]}x{canvas[1]}  {distinct(out)} colours"
+                  f"  brightness {lift * 255:+.0f}")
 
     with open(a.out / "sprites.csv", "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=["name", "canvas", "colours", "aspect"])
+        w = csv.DictWriter(fh, fieldnames=["name", "canvas", "colours",
+                                           "factor", "brightness"])
         w.writeheader()
         w.writerows(rows)
     print(f"\n{len(rows)} sprites written to {a.out}")

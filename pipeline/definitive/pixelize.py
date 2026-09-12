@@ -117,6 +117,64 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
     return best
 
 
+BLOCK_MODES = ("auto", "exact", "periodic", "off")
+PERIOD_FLOOR = 0.35
+
+
+def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
+    """The grid step, by autocorrelation of the edge signal.
+
+    Reconstruction error asks "does averaging k x k blocks lose anything",
+    which a compressed source fails even when its grid is intact: measured, a
+    real 5px lattice scored 3.8% against a 2% threshold and came back as 1.
+    Autocorrelation asks "how periodic are the edges", and noise is not
+    periodic. Harmonics score too - a true 8 also peaks at 16 - so the
+    smallest peak clearing the floor is the fundamental.
+    """
+    grey = arr if arr.ndim == 2 else arr[..., :3].mean(axis=2)
+    grey = grey.astype(np.float32)
+    scores: dict[int, float] = {}
+    for axis in (0, 1):
+        edges = np.abs(np.diff(grey, axis=axis)).mean(axis=1 - axis)
+        if len(edges) < 4 * maxk:
+            continue
+        edges = edges - edges.mean()
+        spectrum = np.fft.rfft(edges, len(edges) * 2)
+        auto = np.fft.irfft(spectrum * np.conj(spectrum))[:len(edges)]
+        auto = auto / (auto[0] or 1.0)
+        for k in range(2, maxk + 1):
+            if k < len(auto):
+                scores[k] = scores.get(k, 0.0) + float(auto[k])
+    if not scores:
+        return 1
+    peak = max(scores.values())
+    if peak < floor:
+        return 1
+    strong = [k for k in sorted(scores) if scores[k] >= peak * 0.75]
+    return strong[0] if strong else 1
+
+
+def detect_block(arr, mode: str = "auto") -> int:
+    """How many screen pixels make one logical one, by the chosen method."""
+    if mode == "off":
+        return 1
+    if mode == "periodic":
+        return lattice_period(arr)
+    exact = max(1, int(estimate_block_size(arr)))
+    if mode == "exact":
+        return exact
+    period = lattice_period(arr)
+    if exact <= 1:
+        return period
+    # A true 8px lattice also averages losslessly at 2 and 4, and on a
+    # compressed source only the small divisor clears the error threshold.
+    # When the periodic answer is a MULTIPLE of the exact one, exact was
+    # looking at a harmonic and the larger is the fundamental.
+    if period > exact and period % exact == 0:
+        return period
+    return exact
+
+
 @dataclass(frozen=True)
 class _Blocks:
     """One image cut into factor x factor blocks, flattened for reduction."""
