@@ -239,3 +239,25 @@ def test_a_key_the_schema_does_not_declare_is_refused(http, config_file):
         "/api/config?name=knight_attack",
         {"config": {"canonical": {"totally_unknown_key": 5}}}, "PUT")
     assert code == 400
+
+
+def test_every_asset_type_says_what_it_makes_and_what_it_costs(http):
+    """The kinds banner reads this: a picture in, a picture out, and the
+    dials that change the result, each with words a non-technical reader
+    can act on."""
+    body = http.get("/api/modules")
+    assert body["modules"], "no asset types served"
+    assert body["dials"], "no plain-language descriptions served"
+
+    for key, spec in body["modules"].items():
+        if spec.get("error"):
+            continue
+        assert spec["label"] and spec["blurb"], key
+        assert isinstance(spec["shots"], dict), key
+        assert isinstance(spec["values"], dict), key
+        if not spec["available"]:
+            assert spec["missing"], f"{key} is unavailable but names no stage"
+
+    for path, d in body["dials"].items():
+        for part in ("label", "plain", "more", "less"):
+            assert d[part].strip(), f"{path}.{part} is empty"

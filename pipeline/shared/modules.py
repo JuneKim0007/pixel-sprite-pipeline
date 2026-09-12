@@ -177,7 +177,7 @@ class Kind:
                 "blurb": self.blurb, "stages": list(self.stages),
                 "extends": self.inherits[1] if len(self.inherits) > 1 else "",
                 "props": self.props, "available": self.runnable,
-                "missing": list(self.missing)}
+                "missing": list(self.missing), "defaults": dict(self.defaults)}
 
 
 def _inherits(root: Path, key: str | None) -> list[str]:

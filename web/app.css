@@ -1308,3 +1308,41 @@ input.wide { width: 100%; max-width: 420px; }
   gap: 16px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
 .houserow:last-child { border-bottom: none; }
 .houserow.wipeall { margin-top: 6px; border-top: 1px solid var(--line); }
+
+/* --- Overview sub-panes: this run, or what else can be made -------------- */
+.ovpanes { margin: 0 0 0.9rem; }
+
+.kindrail {
+  display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.5rem;
+  margin-bottom: 0.9rem; scrollbar-width: thin;
+}
+.kindrail button { flex: 0 0 auto; }
+
+.kindpair {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1rem; align-items: start;
+}
+
+.kindbanner { border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem; }
+
+.kindshots {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem;
+  align-items: center; margin-bottom: 0.6rem;
+}
+.kindshot { margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.kindshot img,
+.kindshot-none {
+  width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 6px;
+  background: var(--panel-2);
+}
+.kindshot figcaption { text-align: center; }
+.kindarrow { opacity: 0.5; font-size: 1.1rem; }
+
+.kindrow { padding: 0.5rem 0; border-top: 1px solid var(--line); }
+.kindrow-head { display: flex; justify-content: space-between; gap: 0.5rem; }
+.kindrow-label { font-weight: 600; font-size: 0.82rem; }
+.kindrow-val { font-size: 0.82rem; opacity: 0.75; }
+.kindrow-arrows { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.25rem; }
+.kindmore { opacity: 0.75; }
+.kindless { opacity: 0.75; }
+.kindwait { opacity: 0.8; font-style: italic; }

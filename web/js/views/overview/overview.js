@@ -3,9 +3,10 @@
 import { api } from '../../api.js';
 import { showError } from '../../core/errors.js';
 import { el, kids } from '../../core/dom.js';
-import { Button, Empty, PanelHead } from '../../ui/index.js';
+import { Button, Empty, PanelHead, Segmented } from '../../ui/index.js';
 import { promptEditor } from '../../features/prompts.js';
 import { state, toast } from '../../store.js';
+import { renderKinds } from './kinds.js';
 
 function card(title, { action, onAction } = {}) {
   let button = null;
@@ -105,8 +106,22 @@ export function renderOverview(host, { goTo }) {
         return b;
       })())));
 
+  // Two panes under one tab: this run, and what else can be made.
+  const picker = el('div', { className: 'ovpanes' });
   const grid = el('div', { className: 'ovgrid' });
-  host.append(grid);
+  const kinds = el('div', { className: 'ovkinds' });
+  kinds.hidden = true;
+
+  const showPane = (which) => {
+    grid.hidden = which !== 'run';
+    kinds.hidden = which !== 'kinds';
+    picker.replaceChildren(Segmented(
+      [['run', 'This run'], ['kinds', 'What can be made']],
+      { value: which, onPick: showPane }));
+    if (which === 'kinds' && !kinds.childElementCount) renderKinds(kinds, { goTo });
+  };
+  showPane('run');
+  host.append(picker, grid, kinds);
 
   /* -- style context: the most frequent edit, so it comes first -------- */
   const styleCard = card(`Style context${applied.length ? ` · ${applied.at(-1)}` : ''}`, {

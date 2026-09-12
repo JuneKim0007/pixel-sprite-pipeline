@@ -82,12 +82,30 @@ def system_info() -> dict:
     }
 
 
+def _dial_values(key: str) -> dict[str, object]:
+    """What a run of this type would actually use, not what it declares."""
+    from ..generation.stage import Context
+    from ..looks import dials
+
+    ctx = Context(root=ROOT, outdir=ROOT, config={"module": key})
+    out: dict[str, object] = {}
+    for path in dials.DIALS:
+        try:
+            found = ctx.settings(path)
+        except Exception:                                   # noqa: BLE001
+            continue
+        if not isinstance(found, (dict, list)):
+            out[path] = found
+    return out
+
+
 def module_table() -> dict[str, dict]:
     """Every asset type, resolved through the one construction path."""
     known = set(available())
     out = {}
     for key in sorted(modules.all(ROOT)):
         spec = modules.build(ROOT, key, known).rendered()
+        spec["values"] = _dial_values(key)
         folder = ROOT / "web/assets/kinds" / key
         spec["shots"] = {
             role: f"web/assets/kinds/{key}/{role}.png"
