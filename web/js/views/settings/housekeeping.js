@@ -5,8 +5,6 @@ import { state, toast } from '../../store.js';
 import { confirmDialog } from '../../ui/dialog.js';
 import { Button, Mini } from '../../ui/index.js';
 
-const WIPE = 'everything';
-
 function describe(scope) {
   return scope.count
     ? `${scope.count} ${scope.count === 1 ? 'item' : 'items'}`
@@ -31,9 +29,6 @@ async function run(scopes, title, body, after) {
 
 export function housekeepingSection(host, rerender) {
   const box = el('div', { className: 'fields' });
-  box.append(Mini('Removing is immediate and cannot be undone. A wipe is '
-                  + 'refused while a run is going, because it would delete '
-                  + 'what that run is writing.'));
 
   api.housekeeping().then(({ scopes }) => {
     const rows = scopes.map((scope) => {
@@ -72,5 +67,3 @@ export function housekeepingSection(host, rerender) {
 
   return box;
 }
-
-export { WIPE };

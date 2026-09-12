@@ -52,7 +52,7 @@ def _phases(height: int, width: int, factor: int):
             if columns < 1:
                 continue
             yield oy, ox, rows, columns
-    # Scoring stays on whole blocks: a padded tail is the same for every phase and would.
+    # Scoring stays on whole blocks: a padded tail is the same for every phase.
 
 
 def _rects(table: np.ndarray, top: np.ndarray, bottom: np.ndarray,
@@ -117,7 +117,6 @@ def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12
     return best
 
 
-BLOCK_MODES = ("auto", "exact", "periodic", "off")
 PERIOD_FLOOR = 0.35
 PROMINENCE = 2.0
 LATTICE_ERROR = 0.12
@@ -125,14 +124,7 @@ LATTICE_ERROR = 0.12
 
 def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
     """The grid step, by autocorrelation of the edge signal.
-
-    Reconstruction error asks "does averaging k x k blocks lose anything",
-    which a compressed source fails even when its grid is intact: measured, a
-    real 5px lattice scored 3.8% against a 2% threshold and came back as 1.
-    Autocorrelation asks "how periodic are the edges", and noise is not
-    periodic. Harmonics score too - a true 8 also peaks at 16 - so the
-    smallest peak clearing the floor is the fundamental.
-    """
+    Noise is not periodic, and the smallest peak clearing the floor is the fundamental."""
     grey = arr if arr.ndim == 2 else arr[..., :3].mean(axis=2)
     grey = grey.astype(np.float32)
     scores: dict[int, float] = {}
@@ -149,11 +141,7 @@ def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
                 scores[k] = scores.get(k, 0.0) + float(auto[k])
     if not scores:
         return 1
-    # A lattice is an isolated SPIKE - a true 8 scored 1.81 where 7 scored
-    # 0.02. Art with no grid decays smoothly: 1.80, 1.75, 1.72, 1.67 across
-    # 2 to 5, whose largest value is still not a peak. Taking the maximum
-    # reads that decay as a 2px grid, so a candidate must stand above its
-    # neighbours, not merely above the rest.
+    # A lattice is an isolated SPIKE; a smooth decay has a maximum but no peak.
     best, strength = 1, 0.0
     for k in sorted(scores):
         near = [scores[j] for j in (k - 1, k + 1) if j in scores]
@@ -192,18 +180,12 @@ def detect_block(arr, mode: str = "auto") -> int:
     if mode == "exact":
         return exact
     period = lattice_period(arr)
-    # Autocorrelation FINDS a candidate through noise; reconstruction says
-    # whether it is a lattice. Measured: a true 8 reconstructs at 0.005-0.045
-    # of the image's variance, while the spurious 10, 11 and 16 that
-    # autocorrelation liked sit at 0.24-0.39 and destroy the sprite.
+    # Autocorrelation finds a candidate through noise; reconstruction says it is a lattice.
     if period > 1 and _block_error(arr, period) > LATTICE_ERROR:
         period = 1
     if exact <= 1:
         return period
-    # A true 8px lattice also averages losslessly at 2 and 4, and on a
-    # compressed source only the small divisor clears the error threshold.
-    # When the periodic answer is a MULTIPLE of the exact one, exact was
-    # looking at a harmonic and the larger is the fundamental.
+    # A periodic answer that is a MULTIPLE of the exact one means exact saw a harmonic.
     if period > exact and period % exact == 0:
         return period
     return exact
@@ -528,14 +510,7 @@ def ramp_palette(rgb: np.ndarray, colours: int, *,
                  method: str = "weighted", ramps: int = 0,
                  chunk: int | None = None) -> list[tuple[int, int, int]]:
     """Colour families first, then shades within each, instead of one flat k-means.
-
-    Plain clustering minimises within-cluster variance weighted by pixel count,
-    so it spends entries where pixels are DENSE rather than where they are
-    distinct - several near-identical tones for the largest garment and none
-    left for an accent. Grouping by chroma first and taking shades inside each
-    group is how a pixel artist builds a ramp, and it gives every family its
-    own value range.
-    """
+    Plain clustering spends entries where pixels are dense, not where they are distinct."""
     pixels = rgb.reshape(-1, 3)
     if alpha is not None:
         pixels = pixels[alpha.reshape(-1) > 0]
@@ -598,15 +573,7 @@ def anchored_palette(rgb: np.ndarray, colours: int, *,
                      near: int = ANCHOR_NEAR,
                      min_share: float = ANCHOR_SHARE) -> list[tuple[int, int, int]]:
     """A palette with pure black and white pinned, when the art actually uses them.
-
-    k-means returns cluster means, so an outline drawn in black comes back as
-    the average of the outline and whatever it was merged with - a dark grey
-    shared with the shadow. Pinning the corner keeps the outline an outline.
-
-    Anchored pixels are withheld from the clustering: without that the free
-    centres spend one of themselves re-deriving a near-black that is already
-    in the palette.
-    """
+    Anchored pixels are withheld from the clustering, which would re-derive them."""
     pixels = rgb.reshape(-1, 3)
     if alpha is not None:
         pixels = pixels[alpha.reshape(-1) > 0]

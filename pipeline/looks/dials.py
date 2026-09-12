@@ -85,10 +85,6 @@ DIALS: dict[str, Dial] = {
 }
 
 
-def describe(path: str) -> Dial | None:
-    return DIALS.get(path)
-
-
 def rendered() -> dict[str, dict]:
     return {k: {"label": d.label, "plain": d.plain, "more": d.more,
                 "less": d.less}

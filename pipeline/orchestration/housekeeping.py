@@ -24,8 +24,6 @@ SCOPES: dict[str, Scope] = {
     "exports": Scope("Exports", "Sheets written out for use elsewhere."),
 }
 
-EVERYTHING: tuple[str, ...] = ("logs", "runs", "history", "exports")
-
 
 def _clear_dir(base: Path) -> int:
     removed = 0

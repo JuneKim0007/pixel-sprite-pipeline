@@ -5,12 +5,12 @@ import re
 
 from ..generation.schema import SCHEMA
 from ..looks import styles
+from ..orchestration.admission import stage_order
 from ..shared import settings
 from ..shared.errors import Invalid, NotFound
 from .context import CONFIGS, ROOT, dump_roundtrip, global_cfg, load_roundtrip
 from .contracts import Shape
 from .routing import BaseRouter, get, put
-from .runs import validate_order
 import yaml
 
 
@@ -23,7 +23,7 @@ def save_config(name: str, body: dict) -> dict:
 
     if "raw" in body:
         parsed = yaml.safe_load(body["raw"])
-        problem = validate_order(parsed)
+        problem = stage_order(parsed)
         if problem and not body.get("force"):
             raise Invalid(problem, field="stages",
                           hint="pass force to save it anyway")
@@ -32,7 +32,7 @@ def save_config(name: str, body: dict) -> dict:
         return {"saved": name}
 
     incoming = body.get("config", {}) or {}
-    problem = validate_order(incoming)
+    problem = stage_order(incoming)
     if problem and not body.get("force"):
         raise Invalid(problem, field="stages",
                       hint="pass force to save it anyway")

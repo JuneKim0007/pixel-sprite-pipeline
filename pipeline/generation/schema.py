@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
+from ..geometry.weightmap import SOURCES as EMPHASIS_SOURCES
 from ..shared.contracts import ConfigField
 from ..shared.cooling import DEFAULT_SECONDS
 from ..shared.errors import Invalid
@@ -512,7 +513,7 @@ FIELDS: list[ConfigField] = [
              "produces a front-facing sprite that fights the pose; a weak hint "
              "leaves the model free to invent the unseen side."),
     ConfigField(key="references.emphasis.source", label="Regional weight", kind="select",
-     default="auto", options=["auto", "none", "subject"],
+     default="auto", options=list(EMPHASIS_SOURCES),
      group="References",
      help="Where the per-region weight on an identity reference comes from. "
              "`none` attends to the whole image, which is the plain IPAdapter "

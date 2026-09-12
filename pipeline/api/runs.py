@@ -26,16 +26,6 @@ _ACTIVE: dict[str, subprocess.Popen] = {}
 _LOCK = threading.Lock()
 
 
-def validate_order(cfg: dict) -> str | None:
-    """Return a human-readable problem with pipeline.stages, or None."""
-    order = ((cfg or {}).get("pipeline") or {}).get("stages") or []
-    try:
-        runner.validate(runner.build(list(order)), seeded=set())
-    except Exception as e:
-        return str(e)
-    return None
-
-
 def _completed(run: Path) -> list[str]:
     """The stages a run recorded finishing; an unreadable manifest reads as none."""
     manifest = run / "artifacts.json"

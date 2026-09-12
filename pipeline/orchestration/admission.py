@@ -21,19 +21,25 @@ NO_STAGES = ("a config must define pipeline.stages, e.g.\n"
              "    stages: [pose, canonical, frames, palette, export]")
 
 
-def _stages(cfg: dict) -> list[str]:
+def stage_order(cfg: dict) -> str | None:
+    """What is wrong with pipeline.stages, or None. An empty order is not judged here."""
     from .. import stages  # noqa: F401  (importing registers them)
     from ..generation import runner
 
-    order = (cfg.get("pipeline") or {}).get("stages") or []
-    if not order:
-        # Only the CLI refused this, in load_config.
-        return [NO_STAGES]
+    order = ((cfg or {}).get("pipeline") or {}).get("stages") or []
     try:
         runner.validate(runner.build(list(order)), seeded=set())
     except Exception as e:                       # noqa: BLE001
-        return [str(e).split("\n")[0]]
-    return []
+        return str(e)
+    return None
+
+
+def _stages(cfg: dict) -> list[str]:
+    if not (cfg.get("pipeline") or {}).get("stages"):
+        # Only the CLI refused this, in load_config.
+        return [NO_STAGES]
+    problem = stage_order(cfg)
+    return [problem.split("\n")[0]] if problem else []
 
 
 def _rig(cfg: dict) -> list[str]:

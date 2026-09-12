@@ -4,7 +4,7 @@ Usage: tools/show_graph.py out/runs/<run_id>
 """
 import json, shutil, sys, tempfile
 from pathlib import Path
-ROOT = Path("/Users/personal_jk/pixel"); sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parent.parent; sys.path.insert(0, str(ROOT))
 
 import pipeline.generation.comfy as comfy
 from pipeline.generation.stage import Context
@@ -28,8 +28,7 @@ class StubClient:
 comfy.connect = lambda *a, **k: StubClient()
 
 cfg = styles.effective(ROOT, settings.read_yaml(RUN / "config.yaml"))[0]
-# A scratch outdir: the stage makes its NN_canonical folder on the way past,
-# and an inspector must not leave anything in the run it is reading.
+# A scratch outdir: an inspector must leave nothing in the run it is reading.
 SCRATCH = Path(tempfile.mkdtemp(prefix="show_graph_"))
 ctx = Context(root=ROOT, outdir=SCRATCH, config=cfg, run_id=RUN.name)
 # A run that died before writing artifacts.json still has its pose on disk.
@@ -47,7 +46,7 @@ ctx.artifacts = {
 from pipeline.stages.canonical import CanonicalStage
 stage = CanonicalStage()
 try:
-    stage.run(ctx, stage.prepare(ctx) if hasattr(stage, "prepare") else {})
+    stage.run(ctx, stage.prepare(ctx))
 except SystemExit:
     pass
 except Exception as e:
@@ -62,8 +61,7 @@ for p in UPLOADS:
     print("  ", rel)
 
 if GRAPHS:
-    g = GRAPHS[0]
-    nodes = g if isinstance(g, dict) else g
+    nodes = GRAPHS[0]
     print(f"\n=== GRAPH: {len(nodes)} nodes ===")
     for nid, node in sorted(nodes.items(), key=lambda kv: int(kv[0])):
         ct = node["class_type"]

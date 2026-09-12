@@ -7,23 +7,11 @@ from pathlib import Path
 
 import numpy as np
 
-from ..shared.canvas import rescaled as _rescaled, seat, square_for  # noqa: F401
-from ..shared.keying import (backdrop_colours, key_backdrop, largest_parts,  # noqa: F401
-                             matching, touching_border)
+from ..shared.canvas import seat, square_for  # noqa: F401
+from ..shared.keying import KEY_TOLERANCE, key_backdrop, largest_parts  # noqa: F401
 
 CORNER = 20
 TOLERANCE = 60
-RING = 0.03
-QUANTISE = 4
-MIN_SHARE = 0.04
-MAX_COLOURS = 6
-MIN_PART = 0.04
-NEAR = 0.03
-KEY_TOLERANCE = 30
-ROUNDS = 3
-MIN_PANEL = 0.20
-KEEP_FLOOR = 0.07
-MIN_TONE = 0.02
 
 
 @dataclass

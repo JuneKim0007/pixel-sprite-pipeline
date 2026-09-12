@@ -68,6 +68,3 @@ def test_counts_say_what_a_scope_would_remove(tmp_path):
     assert found["logs"] == 2 and found["runs"] == 1
     assert set(found) == set(hk.SCOPES)
 
-
-def test_everything_names_every_scope():
-    assert set(hk.EVERYTHING) == set(hk.SCOPES)

@@ -14,7 +14,7 @@ from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
 from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
-from .canonical import _anchor_view
+from .canonical import _anchor_view, emphasis_mask
 
 
 def chosen_default(refs) -> float:
@@ -41,12 +41,6 @@ def _anchor_weight(ip: dict, frame_yaw: float, anchor_yaw: float) -> float:
         return weight
     t = (refs_mod.angular_distance(frame_yaw, anchor_yaw) / 180.0) * falloff
     return weight * (1.0 - t) + float(ip["anchor_far_weight"]) * t
-
-
-def _emphasis(g, ctx, client, image):
-    from ..stages.canonical import _emphasis_mask
-
-    return _emphasis_mask(g, ctx, client, image)
 
 
 def _frame_inputs(ctx: Context) -> tuple[list, Path, list]:
@@ -205,7 +199,7 @@ class FramesStage(Stage):
                 start_at=ip["start_at"],
                 end_at=ip["end_at"],
                 models=models,
-                attn_mask=_emphasis(g, ctx, client, chosen.path),
+                attn_mask=emphasis_mask(g, ctx, client, chosen.path),
             )
 
             for exemplar in style_refs:

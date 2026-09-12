@@ -12,7 +12,7 @@ export const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-// el() drops null and false; the native append and replaceChildren stringify them, which.
+// el() drops null and false; append and replaceChildren would stringify them.
 export const kids = (...children) =>
   children.flat().filter((c) => c != null && c !== false);
 

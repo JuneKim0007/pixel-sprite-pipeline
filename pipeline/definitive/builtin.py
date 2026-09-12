@@ -152,10 +152,10 @@ def _palette_prepare(inputs, cfg) -> dict:
     alpha = img[..., 3] if img.shape[2] == 4 else None
     if cfg.get("build") == "ramps":
         return {"palette": px.ramp_palette(
-            img[..., :3], int(cfg.get("colours", 24)), alpha=alpha,
+            img[..., :3], int(cfg["colours"]), alpha=alpha,
             method=cfg.get("match", "rgb"), ramps=int(cfg.get("ramps", 0)))}
     return {"palette": px.anchored_palette(
-        img[..., :3], int(cfg.get("colours", 24)), alpha=alpha,
+        img[..., :3], int(cfg["colours"]), alpha=alpha,
         method=cfg.get("match", "rgb"),
         keep_black=bool(cfg.get("preserve_black", False)),
         keep_white=bool(cfg.get("preserve_white", False)))}

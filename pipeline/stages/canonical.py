@@ -50,7 +50,7 @@ def _anchor_view(ctx, cfg) -> str | float:
     return opt(ctx.settings("pose"), "view", None) or "side"
 
 
-def _emphasis_mask(g, ctx, client, image):
+def emphasis_mask(g, ctx, client, image):
     """Config decides where the map comes from; `none` means attend to it all."""
     from ..geometry import weightmap
 
@@ -85,11 +85,7 @@ def _report_framing(image, ctx) -> None:
 
 def _record_references(ctx, used, rig) -> None:
     """Keep what this run was actually shown, beside what it produced.
-
-    A run's references live under library/refs or characters/, both of which a
-    person may clear. Without a copy, history can say a run happened and not
-    what it was given.
-    """
+    library/refs and characters/ can both be cleared; a run's own copy cannot."""
     import json
     import shutil
 
@@ -126,10 +122,6 @@ class _AnchorGraph:
         self.style_cfg = ctx.settings("canonical.style")
         self.lcm = bool(cfg["lcm"])
 
-    def _emphasis(self, g, image):
-        """This reference's regional weight as a MASK, or None for the whole image."""
-        return _emphasis_mask(g, self.ctx, self.client, image)
-
     def _with_identity(self, g, model, chosen):
         return comfy.apply_ipadapter(
             g, model, comfy.load_image(g, self.client.upload_image(chosen.path)),
@@ -138,7 +130,7 @@ class _AnchorGraph:
             start_at=float(self.from_ref["start_at"]),
             end_at=float(self.from_ref["end_at"]),
             models=self.ctx.settings("models"),
-            attn_mask=self._emphasis(g, chosen.path),
+            attn_mask=emphasis_mask(g, self.ctx, self.client, chosen.path),
             weight_composition=opt(self.from_ref, "weight_composition", None),
         )
 

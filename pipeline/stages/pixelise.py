@@ -9,17 +9,12 @@ from ..generation import comfy
 from ..generation.stage import Context, Resource, Stage, register
 from ..looks import vocabulary
 
-BLOCK_FLOOR = 2
-
-
-# SDXL's latent wants a multiple of 64 and the block grid wants a multiple of
-# the factor; 64 satisfies both for every factor this stage accepts.
+# 64 is a multiple of 64 for SDXL's latent and of every factor this stage accepts.
 LATTICE = 64
 
 
 def framed(image, fill: float, factor: int = 8):
-    """Give the subject room by growing the canvas, not by shrinking the art:
-    a non-integer rescale smears the grid the model drew, measured 4x."""
+    """Grow the canvas rather than shrink the art: a rescale smears the drawn grid."""
     from ..geometry import framing
 
     box = framing.measure(image)
@@ -31,8 +26,7 @@ def framed(image, fill: float, factor: int = 8):
     bottom = min(-(-(box.bottom + 1) // factor) * factor, image.height)
     crop = image.crop((left, top, right, bottom))
     canvas = framing.square_for(crop, fill, lattice=LATTICE)
-    # shrink_only: square_for already sized the canvas so the art spans `fill`,
-    # and letting seat scale it up to hit that exactly would undo the point.
+    # shrink_only: square_for already sized the canvas so the art spans `fill`.
     return framing.seat(crop, canvas, fill, box.backdrop,
                         shrink_only=True, lattice=factor)
 
@@ -60,7 +54,6 @@ class PixeliseStage(Stage):
     resource = Resource.GPU
     gives = frozenset({"pixel_anchor"})
     needs = frozenset({"canonical"})
-    DEFAULTS = {"denoise": 0.45, "factor": 8, "timeout": 900, "fill": 0.82, "grid": True}
 
     def run(self, ctx: Context, prep: Mapping[str, Any]) -> dict[str, Any]:
         cfg = ctx.settings("pixelise")

@@ -21,10 +21,7 @@ def backdrop_colours(pixels: np.ndarray, ring: float = RING,
                      quant: int = QUANTISE, min_share: float = MIN_SHARE,
                      limit: int = MAX_COLOURS,
                      alpha: np.ndarray | None = None) -> list[tuple[int, int, int]]:
-    """Every colour the border is made of, commonest first.
-
-    backdrop_of takes one median and cannot describe a checkerboard or a JPEG.
-    """
+    """Every colour the border is made of, commonest first."""
     height, width = pixels.shape[:2]
     k = max(2, int(round(min(height, width) * ring)))
 
@@ -73,14 +70,7 @@ def touching_border(mask: np.ndarray) -> np.ndarray:
 def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
                   near: float = NEAR, pixels: np.ndarray | None = None,
                   colour: float = COLOURED) -> np.ndarray:
-    """Keep the subject and what belongs to it; drop marks and sparkles.
-
-    Size alone cannot tell a crown from a watermark. A crown sits against the
-    head and a watermark sits off in a corner, so proximity decides what size
-    cannot: 256.jpg lost her boots at 2.4% of the figure and the points of her
-    crown, both touching the silhouette, while the captions this is meant to
-    remove sit well clear of it.
-    """
+    """Keep the subject and what belongs to it; drop marks and sparkles."""
     from scipy import ndimage
 
     labels, n = ndimage.label(mask > 0)
@@ -92,10 +82,7 @@ def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
     top, bottom, left, right = ys.min(), ys.max(), xs.min(), xs.max()
     reach = near * max(bottom - top, right - left)
 
-    # True pixel distance, not a bounding-box gap. Measured on the set: parts
-    # that belong - boots 11px, a crown 1-4px, a chandelier's candles 2-8px -
-    # sit against the silhouette, while the captions this removes sit 111-130px
-    # clear of it. A bbox gap cannot tell those apart; a distance map can.
+    # True pixel distance, not a bounding-box gap; see docs/downloaded-art-to-sprites.md.
     gaps = ndimage.distance_transform_edt(labels != main)
 
     keep = {main}
@@ -106,10 +93,7 @@ def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
         if size >= sizes.max() * min_part or gaps[part].min() <= reach:
             keep.add(i)
             continue
-        # A gem beside the figure and a caption in the corner are both small
-        # and both detached. Measured: dropped gems run 0.34-0.73 saturation
-        # at 12-47px, captions 0.00-0.26 at 111-130px. Neither test alone
-        # separates them; a piece that is close AND coloured is art.
+        # A piece that is close AND coloured is art; see docs/downloaded-art-to-sprites.md.
         if pixels is None or gaps[part].min() > reach * WIDE:
             continue
         rgb = pixels[part].astype(np.int16)
@@ -119,15 +103,10 @@ def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
     return np.where(np.isin(labels, list(keep)), mask, 0).astype(mask.dtype)
 
 
-from ..shared.canvas import rescaled as _rescaled, seat, square_for  # noqa: F401
-
-
 def key_backdrop(pixels: np.ndarray, tolerance: int = KEY_TOLERANCE,
                  rounds: int = ROUNDS, min_panel: float = MIN_PANEL) -> np.ndarray:
     """Clear the frame's backdrop, then any large flat panel it was hiding.
-
-    See docs/downloaded-art-to-sprites.md for why a later round judges by area.
-    """
+    See docs/downloaded-art-to-sprites.md for why a later round judges by area."""
     alpha = np.full(pixels.shape[:2], 255, np.uint8)
     area = alpha.size
 
