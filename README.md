@@ -76,6 +76,7 @@ make check                     # 설정 검사만, GPU 안 씀
 | [docs/WEIGHTS.md](docs/WEIGHTS.md) | 쓰는 오픈 웨이트 목록과 사양, 훈련 요구사항 |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | 파이프라인 단계별 구조와 자세한 설명 |
 | [docs/CHARACTER_SHEETS.md](docs/CHARACTER_SHEETS.md) | 캐릭터 시트를 자르고 여백을 맞추는 규칙 |
+| [docs/WEIGHT_SETUP.md](docs/WEIGHT_SETUP.md) | 원하는 결과별로 어떤 값을 넣을지. 설명 없이 표만 |
 | [docs/CONDITIONING.md](docs/CONDITIONING.md) | 조건화 가중치가 실제로 무엇을 바꾸는지, 무엇이 배제되었는지 |
 | [docs/OPEN.md](docs/OPEN.md) | 아직 안 한 일. 무엇이 남았고, 왜 안 했는지 |
 

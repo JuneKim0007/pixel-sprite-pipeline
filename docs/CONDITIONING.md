@@ -3,6 +3,8 @@
 Not `WEIGHTS.md`, which is the model files on disk. This is the dials a run
 sets, what each measurably does, and what has been ruled out.
 
+For what to set without the explanation, see `docs/WEIGHT_SETUP.md`.
+
 Every number was measured on this project between 2026-09-11 and 2026-09-12,
 on char1-char8 at 1024. Re-measure before trusting one elsewhere.
 
