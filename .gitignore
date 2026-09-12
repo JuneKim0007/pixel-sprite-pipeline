@@ -34,5 +34,6 @@ characters/
 # Material the LoRA trains on. Untracked whole: it is data, not source.
 training_set/
 
-# The running answer sheet. Working notes, not a deliverable.
-experiment.md
+# The running answer sheet at the root. Working notes, not a deliverable -
+# docs/experiment.md is a different file and is tracked.
+/experiment.md
