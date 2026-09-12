@@ -14,7 +14,7 @@ from ..refs import references as refs_mod
 from ..refs.references import Reference, explain, pick
 from ..looks import vocabulary
 from ..generation.stage import Context, Resource, Stage, opt, register
-from .canonical import _anchor_view, emphasis_mask
+from .canonical import _anchor_view
 
 
 def chosen_default(refs) -> float:
@@ -199,7 +199,6 @@ class FramesStage(Stage):
                 start_at=ip["start_at"],
                 end_at=ip["end_at"],
                 models=models,
-                attn_mask=emphasis_mask(g, ctx, client, chosen.path),
             )
 
             for exemplar in style_refs:

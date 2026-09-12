@@ -71,9 +71,7 @@ if GRAPHS:
         elif "IPAdapter" in ct:
             ins = {k: v for k, v in node["inputs"].items()
                    if not isinstance(v, list)}
-            masked = [k for k, v in node["inputs"].items()
-                      if isinstance(v, list) and k == "attn_mask"]
-            print(f"\n  [{nid}] {ct}  {ins}  attn_mask={'yes' if masked else 'NO'}")
+            print(f"\n  [{nid}] {ct}  {ins}")
         elif "ControlNet" in ct and "Loader" not in ct:
             ins = {k: v for k, v in node["inputs"].items() if not isinstance(v, list)}
             print(f"\n  [{nid}] {ct}  {ins}")

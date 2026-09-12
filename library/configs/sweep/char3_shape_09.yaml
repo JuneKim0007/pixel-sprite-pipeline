@@ -1,6 +1,6 @@
 module: character_sheet
-subject: an elf woman with pale mint green hair tied up, a dark teal robe with gold
-  trim, a layered shoulder cape and black boots
+subject: a dark skinned woman with long black hair, a deep red veil and headscarf,
+  a red and gold layered dress and gold sandals
 styles:
 - crisp
 props: []
@@ -19,13 +19,13 @@ canonical:
     weight_type: style and composition
 references:
   identity:
-  - path: characters/char2/front_px.png
+  - path: characters/char3/front_px.png
     view: front
-  - path: characters/char2/side_px.png
+  - path: characters/char3/side_px.png
     view: side
-  - path: characters/char2/side_right_px.png
+  - path: characters/char3/side_right_px.png
     view: 270
-  - path: characters/char2/rear_px.png
+  - path: characters/char3/rear_px.png
     view: rear
 pipeline:
   stages:
@@ -38,6 +38,6 @@ cooling:
   seconds: 60
 depth:
   build:
-    chest: 1.1
-    thigh: 0.95
-    torso: 1.0
+    chest: 1.25
+    thigh: 1.15
+    torso: 1.05

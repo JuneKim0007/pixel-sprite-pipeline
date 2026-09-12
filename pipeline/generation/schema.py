@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ..geometry.bodyspace import VIEWS as VIEWS_FOR_UI
-from ..geometry.weightmap import SOURCES as EMPHASIS_SOURCES
 from ..shared.contracts import ConfigField
 from ..shared.cooling import DEFAULT_SECONDS
 from ..shared.errors import Invalid
@@ -31,7 +30,7 @@ FIELDS: list[ConfigField] = [
      default="http://127.0.0.1:11434", label="Vision Ollama host", kind="text",
      group="Asset",
      help="Where the vision model is served. A second copy of pose.llm.host "
-             "because refs/detect.py reads its own block; OPEN.md 24 is "
+             "because refs/detect.py reads its own block; OPEN.md 21 is "
              "whether these two blocks should be one."),
     ConfigField(modules=["character_sheet"], key="detect.keep_alive",
      default=0, label="Keep the vision model loaded", kind="int",
@@ -512,25 +511,6 @@ FIELDS: list[ConfigField] = [
              "Keep this LOW. Forcing a front reference onto a rear generation "
              "produces a front-facing sprite that fights the pose; a weak hint "
              "leaves the model free to invent the unseen side."),
-    ConfigField(key="references.emphasis.source", label="Regional weight", kind="select",
-     default="auto", options=list(EMPHASIS_SOURCES),
-     group="References",
-     help="Where the per-region weight on an identity reference comes from. "
-             "`none` attends to the whole image, which is the plain IPAdapter "
-             "behaviour. `subject` derives a map from the reference's own "
-             "silhouette, which keeps the character sheet's backdrop from "
-             "coming in with the character. `auto` uses the map drawn in the "
-             "annotator when there is one, and attends to the whole image "
-             "when there is not."),
-    ConfigField(key="references.emphasis.floor", label="Weight off the subject",
-     kind="float", default=0.0, min=0.0, max=1.0, step=0.05, group="References",
-     help="What the weakest cell of the map is worth, whatever drew it. 0 "
-             "ignores the backdrop entirely; raise it if the reference's "
-             "setting is part of what you want copied."),
-    ConfigField(key="references.emphasis.ceiling", label="Weight on the subject",
-     kind="float", default=1.0, min=0.0, max=1.0, step=0.05, group="References",
-     help="What the strongest cell is worth, whatever drew it. Lower it to "
-             "soften a reference without lowering its overall weight."),
     ConfigField(key="references.match.auto", default=True, label="Automatic falloff", kind="bool",
      group="References",
      help="On: weight is chosen per frame from angular distance. Off: the "

@@ -1,7 +1,7 @@
 export const ENTRIES = 30;
 export const BYTES = 8 << 20;
 
-// Bounded by both: a pose snapshot is under a kilobyte, an emphasis map sixty-four.
+// Bounded by both: a pose snapshot is under a kilobyte.
 export function boundedStack({ entries = ENTRIES, bytes = BYTES,
                                sizeOf = () => 0 } = {}) {
   const items = [];

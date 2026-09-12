@@ -16,10 +16,12 @@ POSE_NEGATIVE = (
 
 from ..shared.colour import BACKDROP, BACKDROP_PRESETS  # noqa: F401
 BACKDROP_TERMS = "solid flat {colour} chroma key background, uniform background color"
+GROUND_NEGATIVE = (
+    "cast shadow, drop shadow, ground shadow, floor, ground plane, "
+    "studio lighting"
+)
 BACKDROP_NEGATIVE = (
-    "cast shadow, drop shadow, ground shadow, floor, ground plane, vignette, "
-    "background gradient, studio lighting, environment, scenery, backdrop "
-    "texture"
+    "vignette, background gradient, environment, scenery, backdrop texture"
 )
 
 VIEW_WORDS: tuple[tuple[float, str], ...] = (
@@ -71,10 +73,12 @@ def backdrop_prompt(colour: str | None) -> str:
 
 def negative_for(base: str, *, backdrop: bool = False, pose_control: bool = False,
                  facing: str = "", guard_skeletons: bool = True,
-                 guard_faces: bool = True) -> str:
+                 guard_faces: bool = True, guard_ground: bool = True) -> str:
     parts = [base]
     if backdrop:
         parts.append(BACKDROP_NEGATIVE)
+        if guard_ground:
+            parts.append(GROUND_NEGATIVE)
     if pose_control and guard_skeletons:
         parts.append(POSE_NEGATIVE)
     if facing and guard_faces:

@@ -248,15 +248,10 @@ def base_graph(
     return model, g.out(pos, 0), g.out(neg, 0), g.out(vae, 0)
 
 
-def image_as_mask(g: Graph, name: str, channel: str = "red") -> Link:
-    """An uploaded greyscale image as a MASK link."""
-    return g.out(g.add("ImageToMask", image=load_image(g, name), channel=channel), 0)
-
-
 def apply_ipadapter(
     g: Graph, model: Link, reference_image: Link, *, weight: float,
     weight_type: str, start_at: float, end_at: float,
-    models: dict | None = None, attn_mask: Link | None = None,
+    models: dict | None = None,
     weight_composition: float | None = None,
 ) -> Link:
     models = models or {}
@@ -264,8 +259,7 @@ def apply_ipadapter(
                      ipadapter_file=model_name(models, "ipadapter"))
     clip_vision = g.add("CLIPVisionLoader",
                         clip_name=model_name(models, "clip_vision"))
-    # attn_mask is interpolated to the latent attention grid and multiplied into this.
-    optional = {"attn_mask": attn_mask} if attn_mask is not None else {}
+    optional: dict = {}
     if weight_composition is not None:
         optional["weight_composition"] = float(weight_composition)
     node = g.add(

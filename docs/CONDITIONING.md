@@ -82,13 +82,6 @@ Frames inherit these from the anchor now. They used to declare their own and
 held the guide 71% longer, which made frames trace the skeleton the anchor had
 drawn a body over.
 
-### `references.emphasis.source`
-
-Masks the reference so only the subject is attended to. **Currently inert**:
-`auto` needs a painted map and none of char1-char8 has one, so `attn_mask` is
-None on every run and the reference goes in with its background. `subject`
-would derive the mask from the silhouette. Not enabled; see Open.
-
 ### `canonical.style_weight`
 
 Style exemplar adapters, applied at `style transfer`. Inert for `crisp`,
@@ -124,8 +117,6 @@ which carries no exemplars.
 
 ## Open
 
-- Whether masking the reference (`emphasis.source: subject`) removes the
-  background transfer without costing likeness. The knob exists and is inert.
 - Whether `weight` above 1.0 recovers the fidelity a pixelised reference
   costs. 1.05 is running.
 - Whether any of this survives a trained style LoRA, which would make the

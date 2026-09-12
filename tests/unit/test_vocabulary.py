@@ -75,7 +75,7 @@ class TestBackdropConflict:
 
 
 def test_the_style_terms_can_outrank_the_subject_beside_them():
-    """OPEN.md 18: the prompt was a flat list of equals, so a look could not
+    """OPEN.md 17: the prompt was a flat list of equals, so a look could not
     be asked for more loudly than the character description next to it."""
     from pipeline.looks import vocabulary
 

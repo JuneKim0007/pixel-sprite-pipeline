@@ -41,7 +41,7 @@ settings:
     # Measured: at 12 colours a silver-armoured sprite collapsed to two greys
     # and read as monochrome. Reference art of this class runs 20-40. Colour
     # count IS detail once the shapes are flat.
-    size: 28
+    size: 14
     factor: 8            # verified as the LoRA's true grid by variance sweep
     reduce: median       # 100% structural accuracy against ground truth
     alpha_tolerance: 16

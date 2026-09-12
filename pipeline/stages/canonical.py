@@ -50,22 +50,6 @@ def _anchor_view(ctx, cfg) -> str | float:
     return opt(ctx.settings("pose"), "view", None) or "side"
 
 
-def emphasis_mask(g, ctx, client, image):
-    """Config decides where the map comes from; `none` means attend to it all."""
-    from ..geometry import weightmap
-
-    cfg = ctx.settings("references.emphasis")
-    weights = weightmap.resolve(image, cfg.get("source", "auto"),
-                                float(cfg.get("floor", weightmap.FLOOR)),
-                                float(cfg.get("ceiling", weightmap.CEILING)))
-    if weights is None:
-        return None
-    sidecar = weightmap.save(ctx.outdir / f"emphasis_{image.stem}.png", weights)
-    print(f"   emphasis {cfg.get('source', 'auto')} on {image.name}: "
-          f"{weightmap.describe(weights)['mean']:.2f} mean")
-    return comfy.image_as_mask(g, client.upload_image(sidecar))
-
-
 def _report_framing(image, ctx) -> None:
     """A guide the model overflowed is silent otherwise, and crops the head."""
     from ..geometry import framing
@@ -130,7 +114,6 @@ class _AnchorGraph:
             start_at=float(self.from_ref["start_at"]),
             end_at=float(self.from_ref["end_at"]),
             models=self.ctx.settings("models"),
-            attn_mask=emphasis_mask(g, self.ctx, self.client, chosen.path),
             weight_composition=opt(self.from_ref, "weight_composition", None),
         )
 

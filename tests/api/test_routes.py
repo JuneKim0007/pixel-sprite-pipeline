@@ -15,7 +15,6 @@ ARGS = {
     "/api/style/preview": "?config=character_sheet",
     "/api/style/training": "?name=retro_jrpg",
     "/api/annotation": "?image=README.md",
-    "/api/weightmap": "?image=README.md",
     "/api/file": "?path=README.md",
 }
 NEEDS_ARG = {"/api/autorig", "/api/run", "/api/run/poses"}

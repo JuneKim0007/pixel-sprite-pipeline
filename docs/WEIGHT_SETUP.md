@@ -116,8 +116,5 @@ values unless set.
 
 ## Not yet measured
 
-- `references.emphasis.source: subject` - masks the reference to its
-  silhouette. Currently resolves to `auto`, which finds no map, so every
-  reference is used unmasked.
 - `from_reference.weight` above 1.05.
 - Any of this against a trained style LoRA.

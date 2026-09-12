@@ -1625,49 +1625,6 @@ await atest('no stylesheet rule matches nothing', async () => {
   assert.deepEqual(dead, [], `CSS rules nothing matches: ${dead.join(', ')}`);
 });
 
-console.log('\nemphasis map');
-await atest('a brush builds up instead of stamping a disc', async () => {
-  const { flat, paint, stats, EDGE } = await import(join(JS, 'views/run/weights.js'));
-  const v = flat(0.8);
-  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: 0.1 });
-  const middle = v[(EDGE / 2) * EDGE + EDGE / 2];
-  const rim = v[Math.round(EDGE * 0.5 + EDGE * 0.19) + (EDGE / 2) * EDGE];
-  assert.ok(middle > rim, 'the stroke has a hard edge instead of a falloff');
-  assert.ok(rim >= 0.8, 'the rim went below what it started at');
-
-  // Overlapping strokes accumulate; that is what makes painting work.
-  const before = v[(EDGE / 2) * EDGE + EDGE / 2];
-  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: 0.1 });
-  assert.ok(v[(EDGE / 2) * EDGE + EDGE / 2] > before);
-  assert.ok(stats(v).max <= 1, 'a weight went over 1');
-});
-
-await atest('erasing is the same stroke with the sign flipped', async () => {
-  const { flat, paint, EDGE } = await import(join(JS, 'views/run/weights.js'));
-  const v = flat(0.8);
-  paint(v, { x: 0.5, y: 0.5, radius: 0.2, amount: -0.2 });
-  assert.ok(v[(EDGE / 2) * EDGE + EDGE / 2] < 0.8);
-  assert.ok(v.every((x) => x >= 0), 'a weight went below 0');
-});
-
-await atest('centre falls off to the rim value', async () => {
-  const { radial, EDGE } = await import(join(JS, 'views/run/weights.js'));
-  const v = radial(0.9, 0.8);
-  assert.ok(Math.abs(v[(EDGE / 2) * EDGE + EDGE / 2] - 0.9) < 0.02);
-  assert.ok(Math.abs(v[0] - 0.8) < 1e-6, 'the corner is not the rim value');
-});
-
-await atest('the map is sized to the grid the sampler uses', async () => {
-  // samplers.py resizes a conditioning mask to the latent grid and multiplies:
-  // mask * mask_strength * strength. Painting at that size loses nothing.
-  const { EDGE, flat } = await import(join(JS, 'views/run/weights.js'));
-  assert.equal(EDGE, 128);
-  assert.equal(flat().length, 128 * 128);
-
-  const py = readFileSync(join(ROOT, 'pipeline/geometry/weightmap.py'), 'utf8');
-  assert.match(py, /EDGE = 128/, 'the two ends disagree on the grid size');
-});
-
 console.log('\nback to a default');
 await atest('a layer field offers a reset once it differs', async () => {
   // The rig can reset a joint and settings can drop an override; the layer
@@ -1945,62 +1902,6 @@ await atest('the forms that keep their own element say why', async () => {
 
 const { boundedStack, undoController } = await import(join(JS, 'core/undo.js'));
 
-// Float32Array holds 0.8 as 0.800000011920929, so these compare to the storage.
-const near = (got, want, why) =>
-  assert.ok(Math.abs(got - want) < 1e-6, `${why}: ${got} is not ${want}`);
-const {
-  EDGE, NEUTRAL: UNPAINTED, BRUSH, flat, paint, fill, lassoMask,
-  invertMask, maskCount, stats,
-} = await import(join(JS, 'views/run/weights.js'));
-
-test('a lasso selects the cells its outline encloses', () => {
-  const square = [[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
-  const mask = lassoMask(square, EDGE);
-  const side = EDGE / 2;
-  assert.ok(Math.abs(maskCount(mask) - side * side) <= EDGE * 2,
-            `${maskCount(mask)} cells for a quarter-area square`);
-  assert.equal(mask[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.5)], 1);
-  assert.equal(mask[Math.floor(EDGE * 0.1) * EDGE + Math.floor(EDGE * 0.1)], 0);
-});
-
-test('a concave outline does not fill its notch', () => {
-  // Even-odd matters here: a bounding-box fill would report the notch selected.
-  const cShape = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.35], [0.4, 0.35],
-                  [0.4, 0.65], [0.8, 0.65], [0.8, 0.8], [0.2, 0.8]];
-  const mask = lassoMask(cShape, EDGE);
-  const at = (x, y) => mask[Math.floor(EDGE * y) * EDGE + Math.floor(EDGE * x)];
-  assert.equal(at(0.3, 0.5), 1, 'the spine of the C is inside');
-  assert.equal(at(0.6, 0.5), 0, 'the notch is outside');
-});
-
-test('a selection confines the brush to itself', () => {
-  const mask = lassoMask([[0.0, 0.0], [0.4, 0.0], [0.4, 1.0], [0.0, 1.0]], EDGE);
-  const values = flat();
-  paint(values, { x: 0.8, y: 0.5, radius: 0.4, amount: 0.5, mask });
-  const outside = values[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.8)];
-  near(outside, UNPAINTED, 'painted outside the selection');
-  paint(values, { x: 0.2, y: 0.5, radius: 0.2, amount: 0.5, mask });
-  assert.ok(values[Math.floor(EDGE * 0.5) * EDGE + Math.floor(EDGE * 0.2)] > UNPAINTED);
-});
-
-test('inverting a selection swaps exactly which cells are in it', () => {
-  const mask = lassoMask([[0.2, 0.2], [0.6, 0.2], [0.6, 0.6], [0.2, 0.6]], EDGE);
-  const flipped = invertMask(mask);
-  assert.equal(maskCount(mask) + maskCount(flipped), EDGE * EDGE);
-});
-
-test('fill respects a selection and leaves the rest alone', () => {
-  const mask = lassoMask([[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 0.5]], EDGE);
-  const values = fill(flat(), 0.1, mask);
-  near(values[0], 0.1, 'the selected half was not filled');
-  near(values[values.length - 1], UNPAINTED, 'the unselected half was touched');
-});
-
-test('the brush reaches below the old five-pixel floor', () => {
-  // 0.04 of a 128 grid was a 5px minimum, which could not touch a face.
-  assert.ok(BRUSH.min * EDGE < 2.5, `${BRUSH.min * EDGE}px is still coarse`);
-});
-
 test('a stack drops its oldest entry once the byte cap is passed', () => {
   const stack = boundedStack({ entries: 100, bytes: 300, sizeOf: () => 100 });
   for (let i = 0; i < 6; i++) stack.push(i);
@@ -2048,28 +1949,10 @@ test('a new edit discards the redo branch', () => {
   assert.equal(history.canRedo(), false, 'redo still offered a branch that was left');
 });
 
-test('the emphasis map is the reason the cap is bytes and not entries', () => {
-  const one = flat();
-  assert.equal(one.byteLength, EDGE * EDGE * 4);
-  const stack = boundedStack({ entries: 1000, bytes: 8 << 20,
-                               sizeOf: (v) => v.byteLength });
-  for (let i = 0; i < 1000; i++) stack.push(flat());
-  assert.ok(stack.depth() < 1000, 'an entry cap alone would hold 64 MB of maps');
-  assert.ok(stack.bytes() <= 8 << 20);
-});
-
-test('painting is still pure and headless', () => {
-  const values = flat();
-  const before = stats(values);
-  paint(values, { x: 0.5, y: 0.5, radius: 0.1, amount: 0.2 });
-  assert.ok(stats(values).max > before.max);
-});
-
 test('every surface where an edit is a gesture can be undone', () => {
-  // The sweep: three of five mutating surfaces take a controller. The other
-  // two are form fields, which already have per-field reset and browser undo -
-  // a stack over them would fight the one the browser gives for free.
-  const wired = ['views/run/weights.js', 'views/run/rig.js', 'views/run/annotate.js'];
+  // Two of four mutating surfaces take a controller. The other two are form
+  // fields, which already have per-field reset and browser undo.
+  const wired = ['views/run/rig.js', 'views/run/annotate.js'];
   const byHand = ['views/run/run.js', 'views/input/input.js', 'views/editor/stack.js'];
 
   for (const f of wired) {
@@ -2085,8 +1968,8 @@ test('every surface where an edit is a gesture can be undone', () => {
 });
 
 test('undo keys are scoped to a panel, never to the document', () => {
-  // A global Ctrl+Z rewinds the emphasis map from any tab in the app.
-  for (const f of ['views/run/weights.js', 'views/run/rig.js', 'views/run/annotate.js']) {
+  // A global Ctrl+Z rewinds a rig edit from any tab in the app.
+  for (const f of ['views/run/rig.js', 'views/run/annotate.js']) {
     const src = readFileSync(join(JS, f), 'utf8');
     for (const call of src.match(/undoKeys\([^)]*\)/g) || []) {
       assert.ok(/target:/.test(call), `${f}: ${call} falls back to document`);

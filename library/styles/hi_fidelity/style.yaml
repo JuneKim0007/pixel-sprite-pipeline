@@ -52,6 +52,6 @@ settings:
     height: 1024
     cfg: 8.0
   palette:
-    size: 40
+    size: 16
     factor: 8           # 1024/8 = 128. Moves WITH the canvas above - changing
                         # one without the other silently resizes the sprite.

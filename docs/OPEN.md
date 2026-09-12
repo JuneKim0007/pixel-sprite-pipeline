@@ -212,33 +212,7 @@ config.yaml was snapshotted before the archers were cleaned, so it carries the
 old subject clause and the props words and asks for the bow twice, which makes
 it the wrong control. The next clean run is the one to look at.
 
-## 12. A painted emphasis map applies to identity, not to style or pose
-
-**Consumed 2026-09-10; what is left is narrower than the entry it replaces.**
-A map painted on a reference now reaches the graph as `IPAdapterAdvanced`'s
-`attn_mask`, on the identity adapter in both `canonical` and `frames`.
-
-It went in there rather than through `ConditioningSetMask` because the mask is
-not applied to the prompt at all: `CrossAttentionPatch.ipadapter_attention`
-interpolates it to the latent attention grid and multiplies it into `out_ip`,
-that adapter's own contribution. So it says where a REFERENCE steers, which is
-what was painted, and it needs no second conditioning branch and cannot seam
-two disagreeing regions against each other.
-
-The size was already right by accident: SDXL at 1024px has a 128x128 latent
-grid, and the painter writes 128x128, so nothing is resampled.
-
-**What is left.** Style exemplars and the anchor take no mask - both call
-`apply_ipadapter` without one, so a map painted on a style sheet is still
-inert. Whether style SHOULD be regional is a real question and not obviously
-yes: an exemplar is meant to tint the whole figure. The pose ControlNet is
-separate again and would need `ConditioningSetMask`, with the seam risk that
-kept it out of this change.
-
-Unmeasured: whether a mask on identity actually changes an output, and by how
-much. The wiring is tested; the effect is not.
-
-## 13. The outline `retro_jrpg` asks for is drawn by the steps style transfer owns
+## 12. The outline `retro_jrpg` asks for is drawn by the steps style transfer owns
 
 **Untried since 2026-09-10.** `retro_jrpg` asks the prompt for a "thick dark
 outline around the whole figure" while the style exemplar votes to 0.8 of
@@ -249,7 +223,7 @@ sampling, which covers the steps that draw linework. Lowering
 beside the rig canvas, each defaulting to exactly the literal it replaced - so
 this is a slider and a look at the result rather than a code change.
 
-## 14. A broad body and a broad face are one dial in the depth map
+## 13. A broad body and a broad face are one dial in the depth map
 
 **Rewritten 2026-09-11; the entry it replaces was wrong.** It said no lever
 made a body broader and asked for a tenth proportion group. Two levers already
@@ -280,7 +254,7 @@ off a generation. Whether 1.4 survives the model - ControlNet stops steering at
 `canonical.controlnet.end_percent` and the figure drifts after that - is
 unmeasured.
 
-## 15. Eighteen comment blocks still over the limit
+## 14. Eighteen comment blocks still over the limit
 
 **Swept 2026-09-10, re-counted 2026-09-11.** The rule is one line per comment
 and two per docstring. The sweep took 238 blocks over the limit down to 18, all
@@ -289,7 +263,7 @@ in `web/app.css` and `tests/frontend/`, which neither pass covered.
 `make check` does not refuse a new one, so this can drift back. That check is
 the part worth doing, not the last eighteen.
 
-## 16. "weight 1.00" on a reference card is not the weight
+## 15. "weight 1.00" on a reference card is not the weight
 
 **Found 2026-09-10.** The number on each reference card is `weight_scale`, a
 multiplier. The weight IPAdapter actually receives is decided per frame by
@@ -321,7 +295,7 @@ multiplier. Same fix reaches the missing clamp, since the range is what makes
 The control is also a bare `<input type=range>` rather than the `Range`
 primitive, so it is one of the stragglers from the slider sweep.
 
-## 17. The latest output is shown but is not part of the history
+## 16. The latest output is shown but is not part of the history
 
 **Asked 2026-09-10.** The overview's third column shows the newest run's frames
 under "LATEST OUTPUT" with a "Refine in editor" button, and the styles view has
@@ -331,7 +305,7 @@ this produced over time" do not share a source. Whether that is one feed with a
 newest-first cursor or two genuinely different questions is the thing to decide
 before writing either.
 
-## 18. Whether a weighted term survives the conditioning stacked after it
+## 17. Whether a weighted term survives the conditioning stacked after it
 
 `canonical.style_emphasis` wraps the style terms in CLIPTextEncode's
 `(term:weight)` syntax, and the graph carries it: at 1.3 the encoder receives
@@ -343,7 +317,7 @@ with an IPAdapter writing every attention block and two ControlNets, and a
 louder word may be answered by none of them. ctx_emph_13 and ctx_emph_16 are
 the runs that would say.
 
-## 19. Two hand-rolled segmented controls remain
+## 18. Two hand-rolled segmented controls remain
 
 **Counted 2026-09-11.** `Segmented` is in `ui/kit.js` and most callers use it.
 Two build the markup by hand: `views/input/input.js` (reference role tabs) and
@@ -363,7 +337,7 @@ declared field to the place that reads it. The method is repeatable: wrap
 against `SCHEMA.fields`. All 852 tests pass with every one of these present, so
 the tests are not the thing that would have caught them.
 
-## 20. The validator and the pipeline disagree about which settings exist
+## 19. The validator and the pipeline disagree about which settings exist
 
 **Measured 2026-09-11.** `SCHEMA.check` is called from `api/configs.py` and
 nowhere else. `run.py` never calls it. So a config is validated when it is
@@ -401,9 +375,9 @@ leaves the block is then indexed with.
 fail immediately on `base_pixel.yaml` — that failure is the table above.
 Then declare the ten, which is mostly mechanical: three of the four
 `from_reference` siblings are already fields, and `detect.*` should probably
-not exist at all (§24).
+not exist at all (§23).
 
-## 21. A declared default makes the consumption site's fallback dead code
+## 20. A declared default makes the consumption site's fallback dead code
 
 **Measured 2026-09-11.** `Context.settings(block)` merges
 `SCHEMA.defaults_under(block)` under the config before handing the dict over.
@@ -443,18 +417,18 @@ field declares no default. It is the same shape as
 and it catches both the dead fallback and the drift. The pass that found this
 took about thirty lines.
 
-## 22. `detect.*` is a second LLM block that the settings stack never reaches
+## 21. `detect.*` is a second LLM block that the settings stack never reaches
 
 **Measured 2026-09-11.** `resources.py:45` passes raw `ctx.config` into
 `detect.resolve`, and `detect.py:93` reads `config.get("detect")` directly. So
 that block skips global defaults, module defaults and field defaults, and only
 the clamp in `Context.__post_init__` touches it. It is a third copy of a
 configuration shape that already exists twice — `pose.llm` declared, and the
-`palette.llm` of §23 undeclared.
+`palette.llm` of §22 undeclared.
 
 The concrete loss: the help on `pose.llm.keep_alive` says *"Read by pose.py,
 palette.py and refs/detect.py."* `detect.py` does not read it. It reads
-`detect.keep_alive`, which is undeclared and unsaveable (§22). So the one knob
+`detect.keep_alive`, which is undeclared and unsaveable (§21). So the one knob
 that exists to stop a vision model sitting resident beside SDXL on a 16 GB
 machine does not reach the vision model it was written for.
 
@@ -470,7 +444,7 @@ would need to say which is which. This is also one of the ten reads counted in
 §8, and the only one there that is a mistake rather than a deliberate
 different fallback.
 
-## 23. Four fields whose real default is a literal somewhere in the code
+## 22. Four fields whose real default is a literal somewhere in the code
 
 A field with no declared default renders as an empty row. That is honest when
 there is no default. For these four there is one, and it lives at the
@@ -488,9 +462,9 @@ matter and declares neither, which is the entry arguing with itself.
 
 Nothing in the suite reads `style_weight` at all: no test builds a run with a
 style exemplar attached, so `_with_style` in `canonical.py` and `frames.py` is
-untested, including the 0.6 clamp §18 mentions.
+untested, including the 0.6 clamp §17 mentions.
 
-## 24. `proportions` is never empty, so the rig is always rebuilt
+## 23. `proportions` is never empty, so the rig is always rebuilt
 
 **Measured 2026-09-11.** All nine `PROPORTION_GROUPS` declare a default of
 `1.0`, so `ctx.settings("proportions")` always returns nine entries and
@@ -519,6 +493,6 @@ no use.
 absent key mean 1.0, or compare against 1.0 rather than truthiness before
 rebuilding. The first is cleaner and changes what the form shows, so it is a
 product call. Wiring `groups_of` into `fields_for` is independent of both, and
-is the half worth doing first — §16 will add a tenth group and make the
+is the half worth doing first — §15 will add a tenth group and make the
 unfiltered list worse.
 

@@ -115,14 +115,6 @@ settings:
   # rather than sit under it — at 0.55 against an identity reference at 0.85
   # the illustration won on rendering too, and the frames drifted apart.
 
-  # `auto` needs a map painted per character in the annotator, and none of
-  # char1-char8 has one, so attn_mask was None on every run and each reference
-  # went in with its background. `subject` derives the mask from the
-  # reference's own silhouette, which needs nothing painted.
-  references:
-    emphasis:
-      source: subject
-
   # Canvas / factor is the sprite size, so the canvas belongs beside the palette.
   canonical:
     width: 1024

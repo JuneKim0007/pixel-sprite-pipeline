@@ -14,6 +14,8 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from pipeline.shared import atomic  # noqa: E402
+
 CONFIGS = ROOT / "library/configs/sweep"
 RUNS = ROOT / "out/runs"
 
@@ -85,6 +87,46 @@ SUBJECTS = {
 # draws a finer grid, which is the direction already rejected by eye, so the
 # ladder above 0.8 is gone. 0.6 stays because it is the untested chunky end.
 VARIANTS = {
+    "tpref_09": {"_sample": True, "_refs": "tp", "_build": True,
+                 "canonical": {"lora_strength": 1.3,
+                               "from_reference": {
+                     "weight": 1.05, "weight_type": "linear"}}},
+    # 16 tokens instead of 4. The base adapter compresses the whole reference
+    # into four, which is why it carries who-it-is and almost nothing about
+    # where a limb goes; the plus model uses a perceiver resampler for 16.
+    "plus16_09": {"_sample": True, "_refs": "px", "_build": True,
+                  "models": {"ipadapter": "ip-adapter-plus_sdxl_vit-h.safetensors"},
+                  "canonical": {"lora_strength": 1.3,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
+    "shape_09": {"_sample": True, "_refs": "px", "_build": True,
+                     "canonical": {"lora_strength": 1.3,
+                                   "from_reference": {
+                                       "weight": 0.35, "weight_composition": 1.05,
+                                       "weight_type": "style and composition"}}},
+    # The reference carried the character AND the illustration's smoothness.
+    # Pixelise it first and the second half of that stops being a problem.
+    # The reference's pose disagrees with the guide on every sheet - they are
+    # all standing with arms down, and the rig asks for a T. The 4 tokens carry
+    # that disagreement semantically, so the model renders arms-down garments
+    # onto arms-out limbs. This reference is a generated T-pose: same character,
+    # same reduction as px, and the only thing changed is that it agrees.
+    "emph_16": {"_sample": True, "_refs": True,
+                    "canonical": {"style_emphasis": 1.6,
+                                  "from_reference": {
+                                      "weight": 0.9, "weight_type": "linear"}}},
+    "pixref_12": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.2,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
+    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.3,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
+    "pixref_14": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.4,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
     "linear_09": {"_sample": True, "_refs": True,
                       "canonical": {"lora_strength": 0.65,
                                     "from_reference": {
@@ -99,56 +141,22 @@ VARIANTS = {
     # layout and structure, block 6 is colour and material. Measured at linear
     # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
     # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
-    "shape_09": {"_sample": True, "_refs": "px", "_build": True,
-                     "canonical": {"lora_strength": 1.1,
-                                   "from_reference": {
-                                       "weight": 0.35, "weight_composition": 1.05,
-                                       "weight_type": "style and composition"}}},
-    # The reference carried the character AND the illustration's smoothness.
-    # Pixelise it first and the second half of that stops being a problem.
-    # The reference's pose disagrees with the guide on every sheet - they are
-    # all standing with arms down, and the rig asks for a T. The 4 tokens carry
-    # that disagreement semantically, so the model renders arms-down garments
-    # onto arms-out limbs. This reference is a generated T-pose: same character,
-    # same reduction as px, and the only thing changed is that it agrees.
-    "tpref_09": {"_sample": True, "_refs": "tp", "_build": True,
-                 "canonical": {"from_reference": {
-                     "weight": 1.05, "weight_type": "linear"}}},
-    "pixref_09": {"_sample": True, "_refs": "px", "_build": True,
-                      "canonical": {"from_reference": {
-                          "weight": 1.05, "weight_type": "linear"}}},
-    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
-                      "canonical": {"lora_strength": 1.3,
-                                    "from_reference": {
-                                        "weight": 1.05, "weight_type": "linear"}}},
-    # With the reference already carrying the look, the LoRA has less to do -
-    # and lower strength is what measured chunkier: 0.8 drew block 3.0
-    # against 1.2's 2.0, monotonically.
-    # The deliberate illustrative end. Strength and block size are inverse, so
-    # 1.0 draws finer than 0.8 - kept as one comparison point rather than the
-    # ladder, which was cut because finer is the direction already rejected.
-    "pixref_10": {"_sample": True, "_refs": "px", "_build": True,
-                      "canonical": {"lora_strength": 1.0,
-                                    "from_reference": {
-                                        "weight": 1.05, "weight_type": "linear"}}},
-    # linear is answered at 8 of 8, so the remaining question about it is
-    # whether the PROMPT can hold the look the reference keeps overwriting.
-    # OPEN.md 18 has asked since 2026-09-10 whether (term:weight) survives the
-    # encoder and the conditioning stacked after it. Untested either way.
-    "emph_16": {"_sample": True, "_refs": True,
-                    "canonical": {"style_emphasis": 1.6,
-                                  "from_reference": {
-                                      "weight": 0.9, "weight_type": "linear"}}},
     "linear_04": {"_sample": True, "_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
     # Frames with no pixelise: the `neither` arm.
-    "frames_08": {"_refs": "px", "_build": True, "canonical": {"lora_strength": 0.8},
-                    "frames": {"lora_strength": 0.8},
+    "frames_13": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.3,
+                                "from_reference": {"weight": 1.25,
+                                                   "weight_type": "linear"}},
+                    "frames": {"lora_strength": 1.3},
                     "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
     # Scale AND grid, then frames: the `both` arm.
-    "pixel_08": {"_refs": "px", "_build": True, "canonical": {"lora_strength": 0.8},
-                   "frames": {"lora_strength": 0.8},
+    "pixel_13": {"_sample": True, "_refs": "px", "_build": True,
+                 "canonical": {"lora_strength": 1.3,
+                               "from_reference": {"weight": 1.25,
+                                                  "weight_type": "linear"}},
+                   "frames": {"lora_strength": 1.3},
                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
 }
 
@@ -264,7 +272,9 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             if broke:
                 raise SystemExit("\n".join(broke))
             path = CONFIGS / f"{char}_{name}.yaml"
-            path.write_text(yaml.safe_dump(cfg, sort_keys=False))
+            # plan() rewrites every config and runs while another
+            # process reads them; a half-written file read as empty.
+            atomic.write_text(path, yaml.safe_dump(cfg, sort_keys=False))
             out.append((char, name, path))
     return out
 
