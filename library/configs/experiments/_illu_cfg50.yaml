@@ -1,5 +1,4 @@
-# Illustrious retest at cfg 5.0, booru-tag prompt and negative.
-# Only cfg varies across the three. Delete after measuring.
+# Illustrious retest at cfg 5.0; only cfg varies across the three. Delete after measuring.
 name: illu_cfg50
 module: character_sheet
 subject: a knight in steel armor

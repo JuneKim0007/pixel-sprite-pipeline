@@ -1,7 +1,4 @@
-# What kind of thing a pipeline makes. The rail shows one cell per
-# file here. `stages` is the order a new pipeline of this type
-# starts from; naming a stage that does not exist yet is allowed,
-# and the type stays unavailable until something registers it.
+# What kind of thing a pipeline makes; the rail shows one cell per file here.
 label: Objects
 detail: props, no rig
 blurb: Chests, signposts, trees. Neither a character nor a tile - no body plan to

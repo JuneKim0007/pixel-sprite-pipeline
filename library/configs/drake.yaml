@@ -1,8 +1,4 @@
-# drake - dragon rig, prompt-only (no identity reference).
-#
-# Views chosen for this topology rather than copied from the humanoid
-# sheet. Measured joint-overlap at front vs 3/4 vs side put front last
-# for this rig, so the sheet leads with the angle the body reads in.
+# dragon rig, prompt-only. Measured joint-overlap put front last for this topology.
 name: drake
 module: character_sheet
 subject: a lean four-legged drake with tattered membrane wings, ridged spine, dark

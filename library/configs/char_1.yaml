@@ -1,13 +1,4 @@
-# Character 1 - a red-veiled priestess, from a four-view reference sheet.
-#
-# Everything about the LOOK comes from styles/hi_fidelity. This file holds
-# only who the character is, which views to make, and the two things that
-# are specific to this body: the build and the seed.
-#
-# Weapons: the reference sheet has a flame staff. It is deliberately NOT
-# configured here - a character sheet drops props by default, because a
-# weapon occludes the torso it crosses and is a rigid volume the model
-# traces instead of the limb behind it. Add it to the ANIMATION config.
+# A red-veiled priestess. The flame staff belongs in an animation config: a sheet drops props.
 name: char_1
 module: character_sheet
 rig: humanoid

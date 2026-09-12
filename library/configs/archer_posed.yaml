@@ -1,12 +1,4 @@
-# The reference's own pose, taken from an annotation rather than synthesised.
-#
-# Mark the joints on inputs/archer_dynamic.png in the Run tab first: the
-# points you place become the control image, so the canonical reproduces
-# that composition with this character in it, instead of an A-pose that
-# disagrees with the drawing it is anchored to.
-#
-# annotate: require holds the job in the queue until the annotation exists,
-# rather than running without it and looking like it worked.
+# Annotate inputs/archer_dynamic.png in the Run tab first; annotate: require holds the job until you do.
 name: archer_posed
 module: character_sheet
 subject: a young woman archer with short windswept pale cyan hair with pink streaks, red eyes, a white cropped jacket over a black and teal bodysuit, white shorts, black thigh-high socks, chunky black boots

@@ -8,8 +8,7 @@ styles:
 - retro_jrpg
 
 pipeline:
-  # `export` writes a sheet INSIDE the run folder only. Nothing reaches
-  # exports/ unless Download is pressed in the Result tab.
+  # export writes inside the run folder; nothing reaches exports/ until Download is pressed.
   stages: [pose, depth, canonical, frames, palette, export]
 
 pose:
@@ -43,11 +42,6 @@ references:
 
 export: {columns: 4, scale: 4}
 models:
-  # Left at the default (SDXL base). Illustrious was pinned here before an
-  # A/B measured it: with SDXL's fp16-fix VAE and natural-language prompts it
-  # collapses to a blue-green cast with crushed blacks — the signature of a
-  # VAE mismatch, not a verdict on the checkpoint. It needs its own VAE and
-  # booru-tag prompts before it can be judged, so it is not the default.
-  # checkpoint: illustrious-xl-v01.safetensors
+  # Illustrious needs its own VAE and booru-tag prompts; under SDXL's it collapses to a blue-green cast.
 palette:
   source: extract

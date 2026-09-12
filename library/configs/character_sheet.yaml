@@ -1,40 +1,14 @@
-# =============================================================================
-# Character sheet — one creature, four views, T-pose.
-#
-# This is the module that runs FIRST for a new character: it produces the base
-# images that the animation pipeline then treats as its reference. You do not
-# need a source image to start from.
-#
-# Mechanically it is an ordinary pose set. Four independent poses that happen
-# to be the same T-pose at four angles, so nothing new runs — the same
-# consistency machinery that keeps an animation on-model keeps the four views
-# on-model with each other.
-# =============================================================================
+# Character sheet — one creature, four views, T-pose. This runs first for a new character.
 
 name: character_sheet
 
-# What this pipeline is for. Scopes the settings UI so a T-pose sheet
-# does not show knobs about LLM-authored motion.
+# Scopes the settings UI, so a T-pose sheet shows no knobs about LLM-authored motion.
 module: character_sheet
 
 subject: a knight in steel armor
 style: pixel art, game sprite
 
-# Body plan. Decides joint layout, bone hierarchy, and which ControlNet channel
-# the skeleton may legitimately be sent to:
-#
-#   humanoid                    openpose + depth   (the only rig with a
-#                                                   matching pose model)
-#   quadruped dragon wyvern     scribble + depth
-#   insect spider scorpion      scribble + depth
-#   serpent centipede           scribble + depth
-#   octopoid tentacled_4        scribble + depth
-#   avian humanoid_4arm ...     scribble + depth
-#   blob                        depth only
-#
-# Non-humanoid rigs fall back to scribble because OpenPose was trained on 18
-# human joints and reads anything else as a mangled person. Depth is computed
-# by us from body-space coordinates, so it works for every topology.
+# Body plan. Only humanoid gets openpose; every other rig falls back to scribble + depth.
 rig: humanoid
 
 pipeline:
@@ -45,10 +19,6 @@ pipeline:
 comfy:
   host: http://127.0.0.1:8188
 
-# -----------------------------------------------------------------------------
-# The four views. Same pose, different camera — which is exactly the pose-set
-# mechanism, so no new code path runs here.
-# -----------------------------------------------------------------------------
 pose:
   source: tpose         # synthesised from the rig; no pose file needed
   size: 1024
@@ -63,10 +33,7 @@ depth:
   far: 60
   blur: 6.0
 
-# -----------------------------------------------------------------------------
-# The canonical anchors identity for all four views. Worth full quality: every
-# view inherits from it, and so does every animation generated later.
-# -----------------------------------------------------------------------------
+# Worth full quality: every view, and every animation generated later, inherits from it.
 canonical:
   seed: 1234            # PIN THIS. It defines who the character is.
   lcm: false
@@ -103,9 +70,7 @@ frames:
     start_at: 0.0
     end_at: 1.0
 
-# Each view is matched to the closest labelled reference. With none supplied,
-# the canonical is the only anchor and weight falls off as views turn away
-# from it — which is what stops a front reference forcing a front-facing rear.
+# Weight falls off as views turn away, which stops a front reference forcing a front-facing rear.
 references:
   match:
     auto: true

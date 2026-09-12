@@ -86,75 +86,30 @@ SUBJECTS = {
 # block 4.0 there against 2.0 everywhere else. Everything at 0.9 and above
 # draws a finer grid, which is the direction already rejected by eye, so the
 # ladder above 0.8 is gone. 0.6 stays because it is the untested chunky end.
+# The LoRA is the only thing that moves. Every reference is the same
+# canvas, the same palette and the same keyed backdrop, so a difference
+# in the output is the strength and nothing else.
 VARIANTS = {
-    "plus16_09": {"_sample": True, "_refs": "px", "_build": True,
-                  "models": {"ipadapter": "ip-adapter-plus_sdxl_vit-h.safetensors"},
-                  "canonical": {"lora_strength": 1.3,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.3,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "shape_09": {"_sample": True, "_refs": "px", "_build": True,
-                     "canonical": {"lora_strength": 1.3,
-                                   "from_reference": {
-                                       "weight": 0.35, "weight_composition": 1.05,
-                                       "weight_type": "style and composition"}}},
-    # The reference carried the character AND the illustration's smoothness.
-    # Pixelise it first and the second half of that stops being a problem.
-    # The reference's pose disagrees with the guide on every sheet - they are
-    # all standing with arms down, and the rig asks for a T. The 4 tokens carry
-    # that disagreement semantically, so the model renders arms-down garments
-    # onto arms-out limbs. This reference is a generated T-pose: same character,
-    # same reduction as px, and the only thing changed is that it agrees.
-    "emph_16": {"_sample": True, "_refs": True,
-                    "canonical": {"style_emphasis": 1.6,
-                                  "from_reference": {
-                                      "weight": 0.9, "weight_type": "linear"}}},
-    "pixref_10": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.0,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "pixref_11": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.1,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "pixref_12": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.2,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "linear_09": {"_sample": True, "_refs": True,
-                      "canonical": {"lora_strength": 0.65,
-                                    "from_reference": {
-                                        "weight": 0.9, "weight_type": "linear"}}},
-    "style_09": {"_sample": True, "_refs": True,
-                     "canonical": {"from_reference": {
-                         "weight": 0.9, "weight_type": "style transfer"}}},
-    "comp_09": {"_sample": True, "_refs": True, "_allow_comp": True,
-                    "canonical": {"from_reference": {
-                        "weight": 0.9, "weight_type": "composition"}}},
-    # Take the reference's SHAPE and leave its rendering alone: block 3 is
-    # layout and structure, block 6 is colour and material. Measured at linear
-    # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
-    # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
-    "linear_04": {"_sample": True, "_refs": True,
-                      "canonical": {"from_reference": {
-                          "weight": 0.4, "weight_type": "linear"}}},
-    # Frames with no pixelise: the `neither` arm.
-    "frames_13": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.3,
-                                "from_reference": {"weight": 1.25,
-                                                   "weight_type": "linear"}},
-                    "frames": {"lora_strength": 1.3},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
-    # Scale AND grid, then frames: the `both` arm.
-    "pixel_13": {"_sample": True, "_refs": "px", "_build": True,
-                 "canonical": {"lora_strength": 1.3,
-                               "from_reference": {"weight": 1.25,
-                                                  "weight_type": "linear"}},
-                   "frames": {"lora_strength": 1.3},
-                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
+    "px_09": {"_sample": True, "_refs": "px", "_build": True,
+                "canonical": {"lora_strength": 0.9,
+                              "from_reference": {
+                                  "weight": 1.25, "weight_type": "linear"}}},
+    "px_10": {"_sample": True, "_refs": "px", "_build": True,
+                "canonical": {"lora_strength": 1.0,
+                              "from_reference": {
+                                  "weight": 1.25, "weight_type": "linear"}}},
+    "px_11": {"_sample": True, "_refs": "px", "_build": True,
+                "canonical": {"lora_strength": 1.1,
+                              "from_reference": {
+                                  "weight": 1.25, "weight_type": "linear"}}},
+    "px_12": {"_sample": True, "_refs": "px", "_build": True,
+                "canonical": {"lora_strength": 1.2,
+                              "from_reference": {
+                                  "weight": 1.25, "weight_type": "linear"}}},
+    "px_13": {"_sample": True, "_refs": "px", "_build": True,
+                "canonical": {"lora_strength": 1.3,
+                              "from_reference": {
+                                  "weight": 1.25, "weight_type": "linear"}}},
 }
 
 
@@ -163,7 +118,7 @@ VARIANTS = {
 # this reaches the pose skeleton.
 # Three characters, not eight, for the conditioning arm: the question is how a
 # reference is consumed, and that does not need every body in the set.
-SAMPLE: tuple[str, ...] = tuple(f"char{i}" for i in range(1, 9))
+SAMPLE: tuple[str, ...] = ("char1", "char2", "char3")
 
 BUILDS: dict[str, dict[str, float]] = {
     "char1": {"chest": 1.15, "thigh": 1.00, "torso": 0.95},

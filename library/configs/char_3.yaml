@@ -1,13 +1,4 @@
-# Character 3 - from a four-view reference sheet.
-#
-# The look comes from styles/hi_fidelity. This file holds only who the
-# character is, which views to make, and the two things specific to this
-# body: the build and the seed.
-#
-# Weapon: the reference sheet shows an icy bow and a quiver of crystal arrows. Deliberately absent -
-# a sheet drops props by default, because a weapon occludes the torso it
-# crosses and is a rigid volume the model traces instead of the limb
-# behind it. It will be drawn by hand, or added to an animation config.
+# From a four-view reference sheet. The bow belongs in an animation config: a sheet drops props.
 name: char_3
 module: character_sheet
 rig: humanoid

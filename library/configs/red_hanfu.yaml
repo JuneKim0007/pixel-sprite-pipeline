@@ -1,8 +1,4 @@
-# Character sheet from one supplied illustration.
-# Identity: the illustration, at 'linear' so it stops copying the
-# reference's grey-gradient background along with the character.
-# Anchor: the generated canonical at 0.9 - it carries the pixel style
-# and must outweigh a smooth illustration, not sit under it.
+# Sheet from one illustration: identity at 'linear' so it does not copy the grey background too.
 name: red_hanfu
 module: character_sheet
 subject: a woman with very long flowing crimson red hair, wearing a black and deep red hanfu robe with wide draping sleeves, a gold and jade waist ornament hanging from a red sash, black skirt, geta sandals

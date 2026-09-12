@@ -1,7 +1,4 @@
-# What kind of thing a pipeline makes. The rail shows one cell per
-# file here. `stages` is the order a new pipeline of this type
-# starts from; naming a stage that does not exist yet is allowed,
-# and the type stays unavailable until something registers it.
+# What kind of thing a pipeline makes; the rail shows one cell per file here.
 label: Character sheet
 detail: one pose, several angles
 blurb: One reference pose seen from several angles. Usually the first thing you make,
@@ -14,8 +11,6 @@ stages:
 - palette
 - export
 props: false
-# A sheet is one rest pose from several angles, so it starts from the rig
-# rather than from an animation's first frame. A config naming its own
-# pose.source still wins.
+# A sheet starts from the rig, not an animation's first frame; a config's own pose.source still wins.
 defaults:
   pose.source: tpose

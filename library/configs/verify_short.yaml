@@ -1,7 +1,6 @@
 name: verify_short
 
-# What this pipeline is for. Scopes the settings UI so a T-pose sheet
-# does not show knobs about LLM-authored motion.
+# Scopes the settings UI, so a T-pose sheet shows no knobs about LLM-authored motion.
 module: animation
 subject: a knight in steel armor
 props:

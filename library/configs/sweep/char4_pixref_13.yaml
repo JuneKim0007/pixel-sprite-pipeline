@@ -1,0 +1,42 @@
+module: character_sheet
+subject: a woman with very long pink hair, a cream off the shoulder blouse, purple
+  belt straps, purple thigh socks and white knee boots
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  lora_strength: 1.3
+  from_reference:
+    weight: 1.25
+    weight_type: linear
+references:
+  identity:
+  - path: characters/char4/front_px.png
+    view: front
+  - path: characters/char4/side_px.png
+    view: side
+  - path: characters/char4/side_right_px.png
+    view: 270
+  - path: characters/char4/rear_px.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
+depth:
+  build:
+    chest: 1.2
+    thigh: 1.05
+    torso: 0.95

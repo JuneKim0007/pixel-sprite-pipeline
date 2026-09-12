@@ -32,13 +32,22 @@ PLAN
   sweep=$!
 
   # Watch rather than block, so a sweep that dies mid-run is noticed in seconds.
+  # Restarting ComfyUI under a live sweep raced it: the sweep reached its next
+  # job while nothing was listening yet and burned it on a refused connection.
   while kill -0 $sweep 2>/dev/null; do
     sleep 30
-    if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
-      echo "$(date '+%H:%M:%S') supervisor: ComfyUI went down mid-sweep" >> $LOG
-      $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
-      sleep 40
+    if curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
+      continue
     fi
+    echo "$(date '+%H:%M:%S') supervisor: ComfyUI went down mid-sweep" >> $LOG
+    if pgrep -f "main.py --use-pytorch" > /dev/null; then
+      continue                       # starting already; do not start a second
+    fi
+    $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
+    for _ in $(seq 1 30); do
+      curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats && break
+      sleep 10
+    done
   done
   wait $sweep 2>/dev/null
   echo "$(date '+%H:%M:%S') supervisor: sweep exited, waiting 60s" >> $LOG

@@ -1,5 +1,4 @@
-# A/B: SDXL base vs Illustrious XL. Only models.checkpoint differs.
-# Generated for one comparison; safe to delete afterwards.
+# A/B: SDXL base vs Illustrious XL, models.checkpoint the only difference. Delete after measuring.
 name: ab_sdxl
 module: character_sheet
 subject: a knight in steel armor

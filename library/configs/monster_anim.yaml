@@ -27,8 +27,7 @@ frames:
   depth_controlnet: {strength: 0.45, start_percent: 0.0, end_percent: 0.6}
   ip_adapter: {weight: 0.7, weight_type: style and composition}
 
-# from_run is filled in by the queue when this follows a sheet, so the
-# animation inherits the sheet's identity and palette instead of regenerating.
+# from_run is filled in by the queue when this follows a sheet.
 references:
   match: {auto: true, tolerance_degrees: 40, exact_weight: 0.85, far_weight: 0.45}
   identity: []
@@ -38,11 +37,6 @@ references:
 
 export: {columns: 5, scale: 4}
 models:
-  # Left at the default (SDXL base). Illustrious was pinned here before an
-  # A/B measured it: with SDXL's fp16-fix VAE and natural-language prompts it
-  # collapses to a blue-green cast with crushed blacks — the signature of a
-  # VAE mismatch, not a verdict on the checkpoint. It needs its own VAE and
-  # booru-tag prompts before it can be judged, so it is not the default.
-  # checkpoint: illustrious-xl-v01.safetensors
+  # Illustrious needs its own VAE and booru-tag prompts; under SDXL's it collapses to a blue-green cast.
 palette:
   source: extract

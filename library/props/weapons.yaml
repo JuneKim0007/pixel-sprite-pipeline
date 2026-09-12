@@ -1,15 +1,4 @@
-# Reusable weapon definitions. Reference one by name from a config:
-#
-#   props: [longsword, round_shield]
-#
-# or start from one and change a value:
-#
-#   props:
-#     - {from: longsword, name: greatsword, length: 0.46, width: 0.030}
-#
-# Dimensions are in body space, where 1.0 is the character's full height. A
-# prop is drawn as a tapered line into the depth map, so anything long and
-# thin works and anything broad comes out a slab - see the note in props.py.
+# Reusable weapons, named from a config. Dimensions are body space, where 1.0 is full height.
 props:
   - name: longsword
     socket: r_wrist

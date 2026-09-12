@@ -1,5 +1,4 @@
-# Memory A/B: 4 sequential singles.
-# Only canonical.batch_candidates differs. Delete after measuring.
+# Memory A/B: 4 sequential singles. Only canonical.batch_candidates differs. Delete after measuring.
 name: memtest_seq
 module: character_sheet
 subject: a young woman archer with short windswept pale cyan hair with pink streaks, red eyes, a white cropped jacket over a black and teal bodysuit, white shorts, black thigh-high socks, chunky black boots, a quiver of arrows, holding a curved black bow

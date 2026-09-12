@@ -57,6 +57,9 @@ settings:
   palette:
     reduce: median
     factor: 8
+    # The anchor is the detailed reference the later stages reduce from, so it
+    # can hold more than the 12 a finished sprite wants.
+    size: 16
     # A sprite reads by its value structure, so a wrong-lightness entry collapses the form.
     match: luma
 

@@ -1,29 +1,4 @@
-# EXPERIMENT, not a shipped pipeline. Written 2026-09-10.
-#
-# HOLD: same as wide, but pose control steers to 0.75 instead of 0.40.
-#
-# What is being tested, and why each value differs from archer.yaml:
-#
-#   1. Four references instead of one. `pick()` matches the nearest by yaw, so
-#      each frame gets its own view at full weight instead of one front image
-#      reused at 0.85 / 0.71 / 0.45 as the pose turns away.
-#
-#   2. background.colour is the sheet's own backdrop, not magenta. Three runs
-#      measured 0.0% near-magenta whatever the prompt asked (§16), so this keys
-#      what is actually there rather than what was requested.
-#
-#   3. Proportions overridden. base_pixel.yaml scales legs 1.6 and torso 1.2,
-#      which puts the rig at h/shoulder 8.37 against the reference sheet's 4.42.
-#      1.0/1.0 is the closest reachable without a width group (§23).
-#
-#   4. canonical.style.end_at lowered to 0.45. The style exemplar votes to 0.8
-#      of sampling, through the steps that draw linework, while the prompt asks
-#      for an outline (§21). This hands those steps back to the prompt.
-#
-#   5. canonical.style_weight 0.18, the value that field's own help records as
-#      keeping brushwork while letting the prompt keep the palette.
-#
-# The control is 20260910_154912_archer.
+# EXPERIMENT, not a shipped pipeline: wide, with pose control at 0.75. Control run 20260910_154912_archer.
 
 module: character_sheet
 subject: a young woman with long black hair, red eyes, a white shirt with a red
@@ -36,9 +11,7 @@ styles:
 props:
 - longsword
 
-# Pass 2. Pass 1 zeroed the style sheet's 1.6/1.2 and read slightly stocky;
-# this sits between. Width comes from depth.build, which its own help calls the
-# only thing that says a character is broad.
+# Pass 2, between pass 1's 1.0/1.0 and the style sheet's 1.6/1.2. Width comes from depth.build.
 proportions:
   legs: 1.15
   torso: 1.1
@@ -47,8 +20,7 @@ background:
   colour: 242, 94, 147
 
 depth:
-  # The reference sheet is h/shoulder 4.42 and the rig is 6.17; no proportion
-  # group scales width, and this is what the depth capsules use for bulk.
+  # The reference sheet is h/shoulder 4.42 and the rig 6.17; no proportion group scales width.
   build:
     torso: 1.55
     arms: 1.40
@@ -60,9 +32,7 @@ canonical:
   # The overflow happens after ControlNet lets go at 0.40.
   controlnet:
     end_percent: 0.75
-  # Pass 1 used 0.18 and 0.45 together and lost the outline the style sheet
-  # asks for. Raised together, since one turns the exemplar down and the other
-  # cuts it off early.
+  # Pass 1's 0.18 with end_at 0.45 lost the outline, so both are raised together.
   style_weight: 0.28
   style:
     end_at: 0.65
@@ -71,9 +41,7 @@ canonical:
 pose:
   source: tpose
   size: 1024
-  # Measured pass 2: guide drawn at 0.815, output came out at 0.999 - the model
-  # overflows the guide by 1.23x once ControlNet stops steering at 40%. 0.69
-  # lands that overflow at 0.85 with margin instead of off the canvas.
+  # Measured pass 2: the model overflows the guide by 1.23x, so 0.69 lands it at 0.85.
   fill: 0.69
   lateral_scale: 1.35
   margin: 0.14
