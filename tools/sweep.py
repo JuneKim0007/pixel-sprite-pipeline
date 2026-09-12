@@ -113,13 +113,13 @@ VARIANTS = {
                          "weight_type": "style and composition"}}},
     # The reference carried the character AND the illustration's smoothness.
     # Pixelise it first and the second half of that stops being a problem.
-    "ctx_pixref_09": {"_refs": "px",
+    "ctx_pixref_09": {"_refs": "px", "_build": True,
                       "canonical": {"from_reference": {
                           "weight": 0.9, "weight_type": "linear"}}},
     # With the reference already carrying the look, the LoRA has less to do -
     # and lower strength is what measured chunkier: 0.8 drew block 3.0
     # against 1.2's 2.0, monotonically.
-    "ctx_pixref_06": {"_refs": "px",
+    "ctx_pixref_06": {"_refs": "px", "_build": True,
                       "canonical": {"lora_strength": 0.6,
                                     "from_reference": {
                                         "weight": 0.9, "weight_type": "linear"}}},
@@ -216,7 +216,10 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
                     {"path": f"characters/{char}/{name}{tail}.png", "view": view}
                     for name, view in VIEWS.items()
                     if (TRUTH / char / f"{name}{tail}.png").exists()]
-            if char in BUILDS:
+            # Opt-in, not global: ctx_style_09 is five characters into eight,
+            # and changing the body under it would confound a variant against
+            # itself. Flip this to every variant once the ctx arm reports.
+            if extra.get("_build") and char in BUILDS:
                 cfg.setdefault("depth", {})["build"] = dict(BUILDS[char])
             # Stated twice, the gate and the stage list disagree: every frames
             # and pixel variant lengthened the list and still stopped at the

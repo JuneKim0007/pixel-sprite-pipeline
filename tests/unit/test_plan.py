@@ -198,6 +198,9 @@ def test_every_character_gets_its_own_volume():
     seen = {}
     for char, name, path in plan():
         build = yaml.safe_load(path.read_text()).get("depth", {}).get("build")
+        if build is None:
+            continue
         assert build == BUILDS[char], f"{char}_{name}"
         seen[char] = tuple(sorted(build.items()))
+    assert seen, "no variant opted into per-character volume"
     assert len(set(seen.values())) > 1, "every character got the same body"
