@@ -29,7 +29,10 @@ if [ "$sup" = down ]; then
   # Restarting without the variants it was narrowed to would quietly widen the
   # sweep back to the whole plan.
   arms=$(cat var/sweep.arms 2>/dev/null || true)
-  nohup ./tools/keep_sweeping.sh $arms > /dev/null 2>&1 < /dev/null &
+  # Its own session: inheriting this shell's process group is what killed the
+  # supervisor and ComfyUI together, ten times, whenever that group was reaped.
+  ./ComfyUI/.venv/bin/python tools/detach.py \
+      ./tools/keep_sweeping.sh $arms > /dev/null 2>&1 < /dev/null
   echo "  restarted the supervisor${arms:+ on $arms}"
 fi
 exit 1

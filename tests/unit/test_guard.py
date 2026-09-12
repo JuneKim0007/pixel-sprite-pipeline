@@ -434,3 +434,43 @@ def test_a_wipe_is_refused_while_a_run_is_writing(monkeypatch):
     router = runs_mod.Runs()
     with pytest.raises(errors.Conflict):
         router.wipe(type("R", (), {"get": lambda self, k, d=None: ["logs"]})())
+
+
+def test_detach_puts_a_command_in_its_own_session():
+    """The supervisor and ComfyUI inherited the launching shell's process
+    group, so one reap of that group took both down - ten times in a night."""
+    import subprocess
+    import time
+
+    started = subprocess.run(
+        ["./ComfyUI/.venv/bin/python", "tools/detach.py", "sleep", "20"],
+        capture_output=True, timeout=30)
+    assert started.returncode == 0, started.stderr
+
+    time.sleep(1)
+    found = subprocess.run(["pgrep", "-x", "sleep"], capture_output=True, text=True)
+    pids = [p for p in found.stdout.split() if p]
+    assert pids, "nothing was started"
+    leaders = []
+    for pid in pids:
+        row = subprocess.run(["ps", "-o", "pgid=", "-p", pid],
+                             capture_output=True, text=True).stdout.strip()
+        if row == pid:
+            leaders.append(pid)
+    for pid in pids:
+        subprocess.run(["kill", pid], capture_output=True)
+    assert leaders, f"no detached sleep leads its own group: {pids}"
+
+
+def test_the_launchers_do_not_leave_a_service_in_the_caller_s_group():
+    """nohup survives a hangup and changes nothing about the process group."""
+    import pathlib
+
+    for name in ("tools/keep_sweeping.sh", "tools/sweep_health.sh"):
+        text = pathlib.Path(name).read_text()
+        for line in text.splitlines():
+            if "start.sh" in line or "keep_sweeping.sh" in line:
+                if line.strip().startswith("#") or "$0" in line:
+                    continue
+                if "nohup" in line:
+                    raise AssertionError(f"{name}: {line.strip()}")

@@ -30,7 +30,7 @@ PLAN
   # minutes for something nobody was going to fix.
   if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
     echo "$(date '+%H:%M:%S') supervisor: ComfyUI is down, starting it" >> $LOG
-    nohup ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null &
+    $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
     sleep 40
   fi
 
@@ -44,7 +44,7 @@ PLAN
     sleep 30
     if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
       echo "$(date '+%H:%M:%S') supervisor: ComfyUI went down mid-sweep" >> $LOG
-      nohup ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null &
+      $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
       sleep 40
     fi
   done
