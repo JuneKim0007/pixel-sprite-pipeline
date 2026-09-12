@@ -154,6 +154,11 @@ def lattice_period(arr, maxk: int = 16, floor: float = PERIOD_FLOOR) -> int:
     return strong[0] if strong else 1
 
 
+def block_candidates(arr) -> tuple[int, int]:
+    """What each method says, so a caller can see when they disagree."""
+    return max(1, int(estimate_block_size(arr))), lattice_period(arr)
+
+
 def detect_block(arr, mode: str = "auto") -> int:
     """How many screen pixels make one logical one, by the chosen method."""
     if mode == "off":

@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 from pipeline import definitive  # noqa: E402
 from pipeline.definitive import pixelize as px  # noqa: E402
+from pipeline.shared import canvas as canvas_mod  # noqa: E402
 
 COLOURS = 10
 FILL = 0.92
@@ -24,13 +25,7 @@ MAX_LIFT = 0.08
 LUMA = np.array([0.299, 0.587, 0.114], np.float32)
 
 
-WIDTHS = (64, 96, 128, 160, 192, 224, 256)
-HEIGHTS = (64, 96, 128, 160, 192, 224, 256, 320, 384)
-# Smallest first, so the fit search takes the tightest canvas that holds the
-# art. A standing figure is 2-3x taller than wide and had nowhere to go when
-# the ladder jumped from 128 wide to 256: 21 of 35 sat on a canvas half empty.
-CANVASES = sorted(((w, h) for w in WIDTHS for h in HEIGHTS if h >= w),
-                  key=lambda c: (c[0] * c[1], c[0]))
+CANVASES = canvas_mod.LADDER
 
 
 def native_factor(subject: np.ndarray) -> int:
@@ -54,8 +49,7 @@ def plan_for(subject: np.ndarray) -> tuple[int, tuple[int, int]]:
     """
     k = native_factor(subject)
     while True:
-        lw, lh = subject.shape[1] // k, subject.shape[0] // k
-        fit = next((c for c in CANVASES if lw <= c[0] and lh <= c[1]), None)
+        fit = canvas_mod.fitting(subject.shape[1] // k, subject.shape[0] // k)
         if fit is not None:
             return k, fit
         k += 1

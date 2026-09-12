@@ -49,6 +49,7 @@ function factsBar() {
     add('measured block', `${facts.measured_block}px`, 'measured');
     add('using', String(facts.factor));
     add('phase', (facts.phase || []).join(', '));
+    if (facts.disputed) add('disputed', facts.disputed, 'warn');
   }
   if (b && a) {
     const d = facts.deferred;
@@ -57,6 +58,7 @@ function factsBar() {
     add('colours', `${b.colours.toLocaleString()} to ${a.colours}`);
     if (d && d.scale > 1) add('magnified by', `${d.scale}x on display`, 'measured');
   }
+  if (facts.canvas_size) add('canvas', facts.canvas_size);
   if (facts.palette_size) add('palette', `${facts.palette_size} entries`);
   if (facts.kept !== undefined) add('subject', `${Math.round(facts.kept * 100)}%`);
 

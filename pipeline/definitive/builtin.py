@@ -61,17 +61,26 @@ def _curves(inputs, cfg, prep):
 
 def _grid_prepare(inputs, cfg) -> dict:
     img = inputs["image"]
-    measured = px.detect_block(img, cfg.get("measure", "auto"))
+    mode = cfg.get("measure", "auto")
+    measured = px.detect_block(img, mode)
+    exact, periodic = px.block_candidates(img) if mode == "auto" else (0, 0)
+    # Only when they disagree in a way harmonics cannot explain: the source
+    # has no clean lattice left and the choice was a judgement, not a reading.
+    unsure = (exact > 1 and periodic > 1 and exact != periodic
+              and periodic % exact and exact % periodic)
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
     factor = max(1, min(factor, min(img.shape[:2]) // 2 or 1))
 
+    said = {"disputed": f"exact {exact}, periodic {periodic}" if unsure else ""}
     if factor <= 1:
-        return {"measured_block": measured, "factor": factor, "phase": [0, 0]}
+        return {"measured_block": measured, "factor": factor, "phase": [0, 0],
+                **said}
     if cfg.get("phase", "auto") == "auto":
         ox, oy = px.find_phase(img, factor)
     else:
         ox, oy = int(cfg.get("phase_x", 0)), int(cfg.get("phase_y", 0))
-    return {"measured_block": measured, "factor": factor, "phase": [ox, oy]}
+    return {"measured_block": measured, "factor": factor, "phase": [ox, oy],
+            **said}
 
 
 @layer(
@@ -117,12 +126,12 @@ def _grid_prepare(inputs, cfg) -> dict:
                    "most frequent one is arbitrary."),
     ],
     prepare=_grid_prepare,
-    reports=frozenset({"measured_block", "factor", "phase"}),
+    reports=frozenset({"measured_block", "factor", "phase", "disputed"}),
 )
 def _grid(inputs, cfg, prep):
     img = inputs["image"]
     said = {"measured_block": prep["measured_block"], "factor": prep["factor"],
-            "phase": prep["phase"]}
+            "phase": prep["phase"], "disputed": prep.get("disputed", "")}
     if prep["factor"] <= 1:
         return {"image": img, **said}
     ox, oy = prep["phase"]
@@ -343,6 +352,7 @@ def _canvas(inputs, cfg, prep):
     from ..shared import canvas as canvas_mod
 
     img = inputs["image"]
+    fill = None
     width, height = int(cfg.get("width", 0)), int(cfg.get("height", 0))
     if width <= 0 or height <= 0:
         # Auto. Grid runs first, so the art arriving here is already at its
@@ -350,10 +360,16 @@ def _canvas(inputs, cfg, prep):
         found = canvas_mod.fitting(img.shape[1], img.shape[0])
         if found is None:
             return {"image": img, "canvas_size": ""}
+        # The canvas was chosen to hold this art, so seating it is a pad and
+        # never a rescale. Shrinking to `fill` here would resample a lattice
+        # that grid just established, and every resampled edge is a colour
+        # the palette did not choose.
         width, height = found
+        fill = 1.0
     art = Image.fromarray(np.ascontiguousarray(img))
-    out = seat(art, (width, height), float(cfg.get("fill", 0.92)),
-               shrink_only=True)
+    if fill is None:
+        fill = float(cfg.get("fill", 0.92))
+    out = seat(art, (width, height), fill, shrink_only=True)
     a = np.asarray(out).copy()
     if a.shape[2] == 4 and cfg.get("binary_alpha", True):
         a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
