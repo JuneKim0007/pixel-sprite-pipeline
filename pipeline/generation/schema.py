@@ -858,6 +858,14 @@ FIELDS: list[ConfigField] = [
      help="When the style exemplar joins. Late leaves the composition to the "
              "prompt and applies rendering over it."),
 
+    ConfigField(key="canonical.style_emphasis", default=1.0,
+     label="Style emphasis", kind="float", min=0.5, max=1.8, step=0.05,
+     group="Canonical",
+     help="Wraps the style terms in CLIPTextEncode's (term:weight) syntax, so "
+             "\"pixel art, hard edges\" can outrank the subject description "
+             "beside it. 1.0 leaves the prompt as a flat list of equals, which "
+             "is what it has always been. Above ~1.4 SDXL starts drawing the "
+             "words rather than the thing."),
     ConfigField(key="canonical.style_weight", label="Style exemplar strength",
      kind="float", min=0.0, max=0.6, step=0.05, group="Canonical",
      help="Exemplars carry rendering, not colour. At the 0.35 role default "

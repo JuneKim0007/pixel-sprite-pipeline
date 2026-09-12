@@ -79,72 +79,76 @@ SUBJECTS = {
 # Each variant moves ONE thing away from the baseline, so a score difference names a.
 # Round five. pose.set holds one view, so a full run is two GPU jobs rather
 # than four and the frames questions are affordable across all eight.
-# Round six: the ladder is cut at 1.0. Style reads best at 0.8 and the block
-# the model draws on the head did not move between 0.8 and 1.1 on any of the
-# eight, so the top of the range was buying nothing. What is left is the
-# pixelise question, which is where the cell count actually lives.
+# Round seven. Strength and block size are monotonically inverse, and 0.8 is
+# the chunkiest that has been measured on a real run - ctx_pixref_09 drew
+# block 4.0 there against 2.0 everywhere else. Everything at 0.9 and above
+# draws a finer grid, which is the direction already rejected by eye, so the
+# ladder above 0.8 is gone. 0.6 stays because it is the untested chunky end.
 VARIANTS = {
     "lora_08": {"canonical": {"lora_strength": 0.8},
                   "frames": {"lora_strength": 0.8}},
-    "lora_09": {"canonical": {"lora_strength": 0.9},
-                  "frames": {"lora_strength": 0.9}},
-    "lora_10": {"canonical": {"lora_strength": 1.0},
-                  "frames": {"lora_strength": 1.0}},
     # The context arm. Each reintroduces the identity reference, now square
     # and padded, and moves exactly one thing about how it is consumed.
     # weight_type decides which SDXL attention blocks the adapter writes to:
     # linear all eleven, `style transfer` only block 6, `composition` only 3.
-    "ctx_linear_09": {"_refs": True,
+    "ctx_linear_09": {"_sample": True, "_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.9, "weight_type": "linear"}}},
-    "ctx_style_09": {"_refs": True,
+    "ctx_style_09": {"_sample": True, "_refs": True,
                      "canonical": {"from_reference": {
                          "weight": 0.9, "weight_type": "style transfer"}}},
-    "ctx_comp_09": {"_refs": True,
+    "ctx_comp_09": {"_sample": True, "_refs": True,
                     "canonical": {"from_reference": {
                         "weight": 0.9, "weight_type": "composition"}}},
     # Take the reference's SHAPE and leave its rendering alone: block 3 is
     # layout and structure, block 6 is colour and material. Measured at linear
     # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
     # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
-    "ctx_shape_09": {"_refs": True,
+    "ctx_shape_09": {"_sample": True, "_refs": True,
                      "canonical": {"from_reference": {
                          "weight": 0.2, "weight_composition": 0.9,
                          "weight_type": "style and composition"}}},
     # The reference carried the character AND the illustration's smoothness.
     # Pixelise it first and the second half of that stops being a problem.
-    "ctx_pixref_09": {"_refs": "px", "_build": True,
+    "ctx_pixref_09": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"from_reference": {
                           "weight": 0.9, "weight_type": "linear"}}},
     # With the reference already carrying the look, the LoRA has less to do -
     # and lower strength is what measured chunkier: 0.8 drew block 3.0
     # against 1.2's 2.0, monotonically.
-    "ctx_pixref_06": {"_refs": "px", "_build": True,
+    # The deliberate illustrative end. Strength and block size are inverse, so
+    # 1.0 draws finer than 0.8 - kept as one comparison point rather than the
+    # ladder, which was cut because finer is the direction already rejected.
+    "ctx_pixref_10": {"_sample": True, "_refs": "px", "_build": True,
+                      "canonical": {"lora_strength": 1.0,
+                                    "from_reference": {
+                                        "weight": 0.9, "weight_type": "linear"}}},
+    "ctx_pixref_06": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"lora_strength": 0.6,
                                     "from_reference": {
                                         "weight": 0.9, "weight_type": "linear"}}},
-    "ctx_linear_04": {"_refs": True,
+    # linear is answered at 8 of 8, so the remaining question about it is
+    # whether the PROMPT can hold the look the reference keeps overwriting.
+    # OPEN.md 18 has asked since 2026-09-10 whether (term:weight) survives the
+    # encoder and the conditioning stacked after it. Untested either way.
+    "ctx_emph_13": {"_sample": True, "_refs": True,
+                    "canonical": {"style_emphasis": 1.3,
+                                  "from_reference": {
+                                      "weight": 0.9, "weight_type": "linear"}}},
+    "ctx_emph_16": {"_sample": True, "_refs": True,
+                    "canonical": {"style_emphasis": 1.6,
+                                  "from_reference": {
+                                      "weight": 0.9, "weight_type": "linear"}}},
+    "ctx_linear_04": {"_sample": True, "_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
     # Frames with no pixelise: the `neither` arm.
     "frames_08": {"canonical": {"lora_strength": 0.8},
                     "frames": {"lora_strength": 0.8},
                     "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
-    "frames_10": {"canonical": {"lora_strength": 1.0},
-                    "frames": {"lora_strength": 1.0},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
-    "frames_12": {"canonical": {"lora_strength": 1.2},
-                    "frames": {"lora_strength": 1.2},
-                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
     # Scale AND grid, then frames: the `both` arm.
     "pixel_08": {"canonical": {"lora_strength": 0.8},
                    "frames": {"lora_strength": 0.8},
-                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
-    "pixel_10": {"canonical": {"lora_strength": 1.0},
-                   "frames": {"lora_strength": 1.0},
-                   "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
-    "pixel_12": {"canonical": {"lora_strength": 1.2},
-                   "frames": {"lora_strength": 1.2},
                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
 }
 
@@ -152,6 +156,12 @@ VARIANTS = {
 # Volume per character, read off each one's own sheet. depth.build thickens
 # the capsule between two joints; the chest group is depth-only, so none of
 # this reaches the pose skeleton.
+# Four characters, not eight, for the conditioning arm: the question is how a
+# reference is consumed, and that does not need every body in the set. Chosen
+# to span it - char1's hair volume, char2's robe, char6 the one man, char8 the
+# one the eye picked.
+SAMPLE: tuple[str, ...] = ("char1", "char2", "char6", "char8")
+
 BUILDS: dict[str, dict[str, float]] = {
     "char1": {"chest": 1.15, "thigh": 1.00, "torso": 0.95},
     "char2": {"chest": 1.10, "thigh": 0.95, "torso": 1.00},
@@ -202,7 +212,8 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
              and (not only or c in only)]
     out = []
     for name, extra in VARIANTS.items():
-        for char in chars:
+        wanted = [c for c in chars if c in SAMPLE] if extra.get("_sample") else chars
+        for char in wanted:
             cfg = merge(base(char), extra)
             # A variant cannot name the character's own files, so it asks and
             # plan() answers - the same trick the old _paint marker used.
@@ -373,8 +384,8 @@ def main() -> int:
     what = sys.argv[1] if len(sys.argv) > 1 else "plan"
     if what == "plan":
         jobs = plan()
-        print(f"{len(jobs)} runs: {len({j[0] for j in jobs})} characters "
-              f"x {len(VARIANTS)} variants")
+        print(f"{len(jobs)} runs across {len(VARIANTS)} variants; "
+              f"the conditioning arm samples {len(SAMPLE)} characters")
         for char, name, path in jobs[:8]:
             print(f"  {path.relative_to(ROOT)}")
         return 0

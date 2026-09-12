@@ -115,8 +115,8 @@ def main() -> int:
     ap.add_argument("--colours", type=int, default=COLOURS)
     ap.add_argument("--reduce", default=REDUCE, choices=px.REDUCE_MODES)
     ap.add_argument("--contrast", type=float, default=CONTRAST)
-    ap.add_argument("--keep-black", action="store_true")
-    ap.add_argument("--keep-white", action="store_true")
+    ap.add_argument("--no-anchors", action="store_true",
+                    help="do not reserve pure black and white")
     a = ap.parse_args()
 
     a.out.mkdir(parents=True, exist_ok=True)
@@ -132,8 +132,8 @@ def main() -> int:
             lift = auto_brightness(np.asarray(im))
             out = sprite(im, canvas, factor=factor, reduce=a.reduce,
                          contrast=a.contrast, brightness=lift,
-                         colours=a.colours, keep_black=a.keep_black,
-                         keep_white=a.keep_white)
+                         colours=a.colours, keep_black=not a.no_anchors,
+                         keep_white=not a.no_anchors)
             Image.fromarray(out, "RGBA").save(a.out / p.name)
             rows.append({"name": p.name, "canvas": f"{canvas[0]}x{canvas[1]}",
                          "colours": distinct(out), "factor": factor,

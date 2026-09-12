@@ -336,14 +336,17 @@ this produced over time" do not share a source. Whether that is one feed with a
 newest-first cursor or two genuinely different questions is the thing to decide
 before writing either.
 
-## 18. Terms cannot be weighted in a prompt
+## 18. Whether a weighted term survives the conditioning stacked after it
 
-**Asked 2026-09-10, unanswered.** Whether "gender = girl" or a skin term can be
-made to count for more than the fragments around it. SDXL through ComfyUI
-accepts `(term:1.3)` attention syntax in `CLIPTextEncode`, but whether this
-graph's encoder path preserves it, and whether a weighted term survives the
-IPAdapter and ControlNet conditioning that follow, is unmeasured. The style
-vocabulary is a flat list of equals today.
+`canonical.style_emphasis` wraps the style terms in CLIPTextEncode's
+`(term:weight)` syntax, and the graph carries it: at 1.3 the encoder receives
+`(pixel art, game sprite, ... full body:1.30)` with the subject unweighted
+beside it.
+
+What is still unmeasured is whether it CHANGES anything. The prompt competes
+with an IPAdapter writing every attention block and two ControlNets, and a
+louder word may be answered by none of them. ctx_emph_13 and ctx_emph_16 are
+the runs that would say.
 
 ## 19. Two hand-rolled segmented controls remain
 

@@ -170,7 +170,8 @@ class CanonicalStage(Stage):
         style = ctx.config.get("style") or vocabulary.DEFAULT_STYLE
         backdrop = vocabulary.backdrop_colour(ctx.settings("background"))
         prompt = cfg.get("prompt") or vocabulary.prompt_for(
-            subject, ctx.need("rig").prompt_hint, style, backdrop)
+            subject, ctx.need("rig").prompt_hint, style, backdrop,
+            style_emphasis=float(cfg["style_emphasis"]))
 
         lib = ctx.need("references")
         from_ref = ctx.settings("canonical.from_reference")

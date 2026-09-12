@@ -50,8 +50,14 @@ def backdrop_colour(settings: dict | None) -> str | None:
 
 
 def prompt_for(subject: str, hint: str, style: str, backdrop: str | None,
-               held: str = "") -> str:
-    """The positive prompt, from whichever terms a run actually has."""
+               held: str = "", style_emphasis: float = 1.0) -> str:
+    """The positive prompt, from whichever terms a run actually has.
+
+    `style_emphasis` wraps the style terms in CLIPTextEncode's (term:weight)
+    attention syntax, so the look can outrank the subject beside it.
+    """
+    if style and abs(style_emphasis - 1.0) > 1e-3:
+        style = f"({style}:{style_emphasis:.2f})"
     return ", ".join(p for p in (
         subject, hint, held, style,
         backdrop_prompt(backdrop) if backdrop else "") if p)

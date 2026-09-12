@@ -72,3 +72,24 @@ class TestBackdropConflict:
             clash = vocabulary.backdrop_conflict(
                 cfg.get("style") or vocabulary.DEFAULT_STYLE, backdrop)
             assert clash == "", f"{path.stem}: style says '{clash}'"
+
+
+def test_the_style_terms_can_outrank_the_subject_beside_them():
+    """OPEN.md 18: the prompt was a flat list of equals, so a look could not
+    be asked for more loudly than the character description next to it."""
+    from pipeline.looks import vocabulary
+
+    flat = vocabulary.prompt_for("a woman", "", "pixel art, hard edges", None)
+    assert "(" not in flat, "1.0 must leave the prompt untouched"
+
+    loud = vocabulary.prompt_for("a woman", "", "pixel art, hard edges", None,
+                                 style_emphasis=1.3)
+    assert "(pixel art, hard edges:1.30)" in loud
+    assert loud.startswith("a woman"), "only the style half is weighted"
+
+
+def test_no_style_means_nothing_to_weight():
+    from pipeline.looks import vocabulary
+
+    assert "(" not in vocabulary.prompt_for("a woman", "", "", None,
+                                            style_emphasis=1.6)

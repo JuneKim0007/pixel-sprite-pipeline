@@ -436,30 +436,32 @@ def test_a_wipe_is_refused_while_a_run_is_writing(monkeypatch):
         router.wipe(type("R", (), {"get": lambda self, k, d=None: ["logs"]})())
 
 
-def test_detach_puts_a_command_in_its_own_session():
+def test_detach_puts_a_command_in_its_own_session(tmp_path):
     """The supervisor and ComfyUI inherited the launching shell's process
     group, so one reap of that group took both down - ten times in a night."""
     import subprocess
     import time
 
+    # The child reports its own pid and group: pgrep cannot see a process that
+    # has not finished exec'ing, and that race made this test flap.
+    said = tmp_path / "who"
+    script = tmp_path / "detached.sh"
+    script.write_text(f'#!/bin/sh\necho "$$ $(ps -o pgid= -p $$)" > "{said}"\n')
+    script.chmod(0o755)
+
     started = subprocess.run(
-        ["./ComfyUI/.venv/bin/python", "tools/detach.py", "sleep", "20"],
+        ["./ComfyUI/.venv/bin/python", "tools/detach.py", str(script)],
         capture_output=True, timeout=30)
     assert started.returncode == 0, started.stderr
 
-    time.sleep(1)
-    found = subprocess.run(["pgrep", "-x", "sleep"], capture_output=True, text=True)
-    pids = [p for p in found.stdout.split() if p]
-    assert pids, "nothing was started"
-    leaders = []
-    for pid in pids:
-        row = subprocess.run(["ps", "-o", "pgid=", "-p", pid],
-                             capture_output=True, text=True).stdout.strip()
-        if row == pid:
-            leaders.append(pid)
-    for pid in pids:
-        subprocess.run(["kill", pid], capture_output=True)
-    assert leaders, f"no detached sleep leads its own group: {pids}"
+    for _ in range(60):
+        if said.exists() and said.read_text().strip():
+            break
+        time.sleep(0.25)
+    assert said.exists() and said.read_text().strip(), "the child never ran"
+
+    pid, pgid = said.read_text().split()
+    assert pid == pgid, f"pid {pid} is in group {pgid}, not its own"
 
 
 def test_the_launchers_do_not_leave_a_service_in_the_caller_s_group():
