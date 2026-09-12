@@ -157,6 +157,26 @@ def _violations(name: str, extra: dict, cfg: dict) -> list[str]:
     return said
 
 
+# char1 is the case: its reference has the arms tucked in, and the guide asks for
+# them out. Three ways to stop the two disagreeing, every combination, one figure.
+POSE_SOURCE = {"t": "tpose", "a": "annotation"}
+BLOCKS = {"l": "linear", "s": "style transfer"}
+HOLD = (0.40, 0.75, 0.85, 1.00)
+
+for _pose, _source in POSE_SOURCE.items():
+    for _blocks, _type in BLOCKS.items():
+        for _end in HOLD:
+            VARIANTS[f"e_{_pose}{_blocks}_{int(_end * 100):03d}"] = {
+                "_chars": ("char1",), "_refs": "hc", "_build": True,
+                "pose": {"source": _source},
+                "canonical": {
+                    "lora_strength": 0.9,
+                    "controlnet": {"end_percent": _end},
+                    "from_reference": {"weight": 1.25, "weight_type": _type},
+                },
+            }
+
+
 def base(char: str) -> dict:
     """Only what a sweep needs: one front anchor, no identity reference."""
     return {
@@ -196,6 +216,8 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
     out = []
     for name, extra in VARIANTS.items():
         wanted = [c for c in chars if c in SAMPLE] if extra.get("_sample") else chars
+        if extra.get("_chars"):
+            wanted = [c for c in wanted if c in extra["_chars"]]
         for char in wanted:
             cfg = merge(base(char), extra)
             # A variant cannot name the character's own files, so it asks and

@@ -109,3 +109,51 @@ def test_without_a_frame_index_every_pose_becomes_an_entry(stage_ctx, monkeypatc
 
     assert [e["pose"] for e in out["pose_frames"]] == [
         {"joint": 0}, {"joint": 1}, {"joint": 2}]
+
+
+def _annotated(tmp_path, png, points):
+    """A reference image with a rig sidecar beside it, as the Annotate tab writes."""
+    from pipeline.geometry import annotate as ann
+    from pipeline.refs import references as refs_mod
+
+    image = tmp_path / "front_px.png"
+    png(image, (64, 64))
+    ann.save(ann.Annotation(image=image, rig="humanoid", points=points, note=""))
+    return refs_mod.Library(identity=[refs_mod.Reference(
+        path=image, label="front", yaw=0.0, role="identity")])
+
+
+ARMS_DOWN = {
+    "nose": [0.508, 0.21], "l_eye": [0.488, 0.196], "r_eye": [0.528, 0.196],
+    "neck": [0.505, 0.238],
+    "l_shoulder": [0.457, 0.272], "r_shoulder": [0.566, 0.272],
+    "l_elbow": [0.432, 0.382], "r_elbow": [0.59, 0.382],
+    "l_wrist": [0.402, 0.502], "r_wrist": [0.603, 0.496],
+    "l_hip": [0.478, 0.543], "r_hip": [0.538, 0.543],
+    "l_knee": [0.472, 0.675], "r_knee": [0.562, 0.675],
+    "l_ankle": [0.477, 0.845], "r_ankle": [0.581, 0.845],
+}
+
+
+def test_an_annotated_pose_survives_a_set(stage_ctx, tmp_path, png):
+    """`set` reached _from_spec, which wrapped the Annotation as if it were a
+    pose and crashed in frame_scale. Every sweep config carries a `set`, so the
+    source was unreachable from one."""
+    ctx = stage_ctx(pose={"source": "annotation", "set": [{"view": "front"}]})
+    ctx.resources["references"] = _annotated(tmp_path, png, ARMS_DOWN)
+
+    out = run(ctx)
+    assert len(out["skeletons"]) == 1 and out["skeletons"][0].exists()
+    assert out["pose_frames"][0]["from_annotation"].endswith("front_px.png")
+
+
+def test_the_annotation_drives_the_guide_not_the_rig(stage_ctx, tmp_path, png):
+    """The point of the source: char1's reference has the arms tucked in, and a
+    tpose guide asks for them out. Same rig, two different control images."""
+    marked = stage_ctx(pose={"source": "annotation", "set": [{"view": "front"}]})
+    marked.resources["references"] = _annotated(tmp_path, png, ARMS_DOWN)
+    synthesised = stage_ctx(pose={"source": "tpose", "set": [{"view": "front"}]})
+
+    a = run(marked)["skeletons"][0].read_bytes()
+    b = run(synthesised)["skeletons"][0].read_bytes()
+    assert a != b, "the annotation made no difference to the control image"

@@ -27,12 +27,14 @@ SHARE = 0.94
 CONTRAST = 1.12
 
 
-def build(char_dir: Path, key: np.ndarray) -> int:
+def build(char_dir: Path, key: np.ndarray, *, cells: int = FIGURE_CELLS,
+          colours: int = COLOURS, contrast: float = CONTRAST,
+          suffix: str = "px") -> int:
     found = {v: char_dir / f"{v}.png" for v in VIEWS}
     found = {v: p for v, p in found.items() if p.is_file()}
     if not found:
         return 0
-    factor = max(1, round(CANVAS / FIGURE_CELLS))
+    factor = max(1, round(CANVAS / cells))
     for view, src in found.items():
         with Image.open(src) as handle:
             art = handle.convert("RGB")
@@ -42,7 +44,7 @@ def build(char_dir: Path, key: np.ndarray) -> int:
         seated = framing.seat(crop, (edge, edge), SHARE, box.backdrop,
                               lattice=factor)
         arr = px.curves(np.asarray(seated).astype(np.uint8),
-                        contrast=CONTRAST).astype(np.uint8)
+                        contrast=contrast).astype(np.uint8)
         keyed = framing.key_backdrop(arr) == 0
         arr = np.where(keyed[..., None], key, arr)
         ox, oy = px.find_phase(arr, factor)
@@ -52,12 +54,12 @@ def build(char_dir: Path, key: np.ndarray) -> int:
         mask = share > 0.5
         # The palette is a sample, so it can afford to skip the 3% of cells that
         # straddle the edge - and a straddling cell is how the key gets a slot.
-        pal = px.generate_palette(small, COLOURS, method=METHOD,
+        pal = px.generate_palette(small, colours, method=METHOD,
                                   alpha=((share == 0.0) * 255).astype(np.uint8))
         fitted = np.where(mask[..., None], key,
                           px.apply_fixed_palette(small, pal, method=METHOD))
         Image.fromarray(np.repeat(np.repeat(fitted, factor, 0), factor, 1)).save(
-            char_dir / f"{view}_px.png")
+            char_dir / f"{view}_{suffix}.png")
     return factor
 
 
@@ -66,15 +68,28 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--src", type=Path, default=ROOT / "characters")
+    ap.add_argument("--only", nargs="*", default=[],
+                    help="character folders to rebuild (default: all)")
+    ap.add_argument("--cells", type=int, default=FIGURE_CELLS,
+                    help=f"cells across the figure (default {FIGURE_CELLS})")
+    ap.add_argument("--colours", type=int, default=COLOURS,
+                    help=f"palette size (default {COLOURS})")
+    ap.add_argument("--contrast", type=float, default=CONTRAST,
+                    help=f"contrast applied before quantising (default {CONTRAST})")
+    ap.add_argument("--suffix", default="px",
+                    help="written as <view>_<suffix>.png (default px)")
     a = ap.parse_args()
 
     key = np.array(parse_colour(BACKDROP), np.uint8)
     built = 0
     for char_dir in sorted(p for p in a.src.iterdir() if p.is_dir()):
-        factor = build(char_dir, key)
+        if a.only and char_dir.name not in a.only:
+            continue
+        factor = build(char_dir, key, cells=a.cells, colours=a.colours,
+                       contrast=a.contrast, suffix=a.suffix)
         if factor:
             built += 1
-            print(f"  {char_dir.name}: factor {factor}")
+            print(f"  {char_dir.name}: factor {factor} -> *_{a.suffix}.png")
     print(f"\n{built} character(s) rebuilt onto rgb{tuple(int(v) for v in key)}")
     return 0
 

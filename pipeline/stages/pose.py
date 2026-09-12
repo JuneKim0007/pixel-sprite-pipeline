@@ -93,10 +93,8 @@ class PoseStage(Stage):
         return [{"pose": p, "yaw": yaw, "spec": index} for p in got]
 
     def _from_block(self, ctx: Context, cfg: dict) -> list[dict[str, Any]]:
-        """No `set`: the pose block alone. An annotation already carries its yaw."""
+        """No `set`: the pose block alone."""
         got = self._resolve(ctx, cfg, wanted=cfg.get("frames"))
-        if got and isinstance(got[0], dict) and "annotation" in got[0]:
-            return [{**g, "spec": 0} for g in got]
         yaw = resolve_view(cfg["view"])
         return [{"pose": p, "yaw": yaw, "spec": 0} for p in got]
 
@@ -110,7 +108,12 @@ class PoseStage(Stage):
             specs = self._views_from_references(ctx)
         entries: list[dict[str, Any]] = []
 
-        if specs:
+        if cfg["source"] == "annotation":
+            # An annotation is its own spec: it carries both its joints and the
+            # angle they were drawn at, so a `set` has nothing left to say.
+            entries = [{**found, "spec": i} for i, found
+                       in enumerate(self._from_annotations(ctx, cfg))]
+        elif specs:
             for i, spec in enumerate(specs):
                 entries += self._from_spec(ctx, cfg, spec, i)
         else:
