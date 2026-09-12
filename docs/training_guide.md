@@ -186,13 +186,32 @@ rather than a particular teal. It is the count that becomes the style.
 The sources are full colour, median 42,667 distinct colours over the subject
 after keying, so 12 is a real reduction rather than a match to the material.
 
+## Before training, in order
+
+    ollama serve                       # the captioner needs a VLM
+    ComfyUI/.venv/bin/python tools/caption_training.py --trigger <word>
+    ComfyUI/.venv/bin/python tools/flatten_training.py
+    ComfyUI/.venv/bin/python tools/train_prep.py add --kind style \
+        --tier good training_set/flat/*.png
+
+`caption_training.py` writes one line per image naming the subject, the pose
+and the view, and strips any style word the model reaches for. What a caption
+names is attributed to those words; what it omits is absorbed into the
+trigger, so a set of anime women captioned only `pixelart` teaches
+"pixelart means an anime woman".
+
+`flatten_training.py` puts #FF00FF behind each sprite. The sprites carry hard
+alpha, kohya composites that onto something before training, nothing here says
+what, and whatever it picks is the backdrop the LoRA learns. #FF00FF is what
+the prompt already asks for and the keyer already removes, so the learned
+backdrop is the one thrown away.
+
 ## Fix before training
 
-- `large_13` carries a "FLY AGARIC" caption and a second object
-- `large_15` carries an "illufinch" watermark
-
-A LoRA learns a watermark with total reliability and then draws it on every
-output. These two are the only entries on the reject list this set hits.
+`large_13` (a FLY AGARIC caption and a second object) and `large_15` (an
+illufinch watermark) are moved to `training_set/rejected/`, with the reason
+for each in `why.jsonl` beside them. A LoRA learns a watermark with total
+reliability and then draws it on every output. 33 sprites remain.
 
 Also known: `large_18`'s white dress lost pixels to keying, because the dress
 and the backdrop are both (243,243,242) and no tolerance separates identical

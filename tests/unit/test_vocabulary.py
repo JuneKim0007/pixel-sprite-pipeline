@@ -93,3 +93,35 @@ def test_no_style_means_nothing_to_weight():
 
     assert "(" not in vocabulary.prompt_for("a woman", "", "", None,
                                             style_emphasis=1.6)
+
+
+def test_a_caption_never_hands_the_style_back_to_the_words():
+    """What a caption names is attributed to those words; what it omits is
+    absorbed into the trigger. Naming the style there undoes the training."""
+    import importlib.util
+    import pathlib
+
+    spec = importlib.util.spec_from_file_location(
+        "caption_training", pathlib.Path("tools/caption_training.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    kept = mod.scrub("pixel art of a witch in a wide hat holding a staff, front view")
+    assert "witch in a wide hat" in kept, "the subject was thrown out with the style"
+    assert "pixel" not in kept.lower()
+
+    for line in ("a cat girl in a black dress, side view, 16-bit sprite",
+                 "chibi anime illustration of a knight, rear view"):
+        out = mod.scrub(line)
+        assert not any(w in out.lower() for w in mod.STYLE_WORDS), out
+
+
+def test_a_caption_of_nothing_but_style_is_refused_rather_than_emptied():
+    import importlib.util
+    import pathlib
+
+    spec = importlib.util.spec_from_file_location(
+        "caption_training", pathlib.Path("tools/caption_training.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.scrub("chibi anime illustration") == ""

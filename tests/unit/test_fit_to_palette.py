@@ -216,3 +216,29 @@ class TestBackdropNaming:
         from pipeline.looks import vocabulary
 
         assert vocabulary.backdrop_colour(None) == vocabulary.BACKDROP
+
+
+def test_flattening_puts_the_keyed_colour_behind_a_sprite(tmp_path):
+    """kohya composites alpha onto something undocumented, and that becomes
+    the backdrop the LoRA learns. This makes it the one we key out."""
+    import importlib.util
+    import pathlib
+
+    import numpy as np
+    from PIL import Image
+
+    spec = importlib.util.spec_from_file_location(
+        "flatten_training", pathlib.Path("tools/flatten_training.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    art = np.zeros((32, 32, 4), dtype=np.uint8)
+    art[8:24, 8:24] = (20, 200, 40, 255)
+    src = tmp_path / "s.png"
+    Image.fromarray(art, "RGBA").save(src)
+
+    share = mod.flatten(src, tmp_path / "out.png", (255, 0, 255))
+    out = np.asarray(Image.open(tmp_path / "out.png").convert("RGB"))
+    assert tuple(out[0, 0]) == (255, 0, 255), "the backdrop is not the keyed colour"
+    assert tuple(out[16, 16]) == (20, 200, 40), "the subject was altered"
+    assert share == pytest.approx(256 / 1024, abs=0.01)
