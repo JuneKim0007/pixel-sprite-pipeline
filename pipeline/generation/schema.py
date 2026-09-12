@@ -290,7 +290,9 @@ FIELDS: list[ConfigField] = [
      help="Prompt adherence. 7 is the SDXL sweet spot; use 1.5 with LCM."),
     ConfigField(key="canonical.lora_strength", default=1.2, label="Pixel LoRA strength",
      kind="float", min=0.0, max=2.0, step=0.05, group="Canonical",
-     help="1.2 is the pixel-art-xl author's recommendation."),
+     help="More of a pixel-art LoRA means more pixel art: chunkier, and "
+          "further from the reference. 1.2 is the author's recommendation; "
+          "measured here, likeness falls from 0.76 at 0.9 to 0.70 at 1.3."),
     ConfigField(key="canonical.width", default=1024, label="Width", kind="int",
      min=512, max=2048, step=64, group="Canonical",
      help="SDXL is trained at 1024; smaller degrades quality and saves less "

@@ -19,9 +19,10 @@ DIALS: dict[str, Dial] = {
     "canonical.lora_strength": Dial(
         label="Pixel style",
         plain="How hard the pixel-art style is pushed onto the drawing.",
-        more="Finer, more detailed, closer to an illustration.",
-        less="Chunkier blocks, but only up to a point - too low and it "
-             "stops being either.",
+        more="Chunkier blocks, and less like the picture you supplied. "
+             "Above about 1.0 only the likeness moves.",
+        less="Finer, closer to an illustration - but too low and it stops "
+             "being either.",
     ),
     "canonical.from_reference.weight": Dial(
         label="Follow the reference",
