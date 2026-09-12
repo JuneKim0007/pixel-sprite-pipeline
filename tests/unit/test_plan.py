@@ -164,7 +164,8 @@ def test_the_rest_between_runs_is_not_conditional_on_freeing():
 
 
 def test_the_pixelised_arm_points_at_the_pixelised_cut():
-    """Same character, already rendered the way the output should look."""
+    """Same character, already rendered the way the output should look.
+    shape joined that arm once the illustration reference measured worst."""
     import sys
 
     import yaml
@@ -178,7 +179,7 @@ def test_the_pixelised_arm_points_at_the_pixelised_cut():
         if not refs:
             continue
         pixelised = [r["path"].endswith("_px.png") for r in refs]
-        if name.startswith("ctx_pixref"):
+        if name.startswith("ctx_pixref") or name == "ctx_shape_09":
             assert all(pixelised), name
             seen += 1
         else:
@@ -204,3 +205,43 @@ def test_every_character_gets_its_own_volume():
         seen[char] = tuple(sorted(build.items()))
     assert seen, "no variant opted into per-character volume"
     assert len(set(seen.values())) > 1, "every character got the same body"
+
+
+def test_a_variant_measured_to_be_wrong_fails_before_it_burns_gpu_time():
+    """0.6 with a pixelised reference drew block 2.5 where 0.8 drew 4.0, so
+    strength stops being inverse once the reference carries the look."""
+    import sys
+
+    sys.path.insert(0, ".")
+    from tools.sweep import _violations
+
+    bad = {"canonical": {"lora_strength": 0.6}, "references": {"identity": ["x"]}}
+    assert _violations("t", {"_refs": "px"}, bad)
+
+    ok = {"canonical": {"lora_strength": 0.9}, "references": {"identity": ["x"]}}
+    assert not _violations("t", {"_refs": "px"}, ok)
+
+
+def test_composition_needs_saying_twice():
+    """Block 3 is the block the pose guide drives; likeness 0.6497 and limbs
+    drawn twice. Runnable, but not by accident."""
+    import sys
+
+    sys.path.insert(0, ".")
+    from tools.sweep import _violations
+
+    cfg = {"canonical": {"from_reference": {"weight_type": "composition"}},
+           "references": {"identity": ["x"]}}
+    assert _violations("t", {"_refs": True}, cfg)
+    assert not _violations("t", {"_refs": True, "_allow_comp": True}, cfg)
+
+
+def test_a_reference_weight_with_no_reference_is_refused():
+    import sys
+
+    sys.path.insert(0, ".")
+    from tools.sweep import _violations
+
+    cfg = {"canonical": {"from_reference": {"weight": 0.9}},
+           "references": {"identity": []}}
+    assert _violations("t", {}, cfg)

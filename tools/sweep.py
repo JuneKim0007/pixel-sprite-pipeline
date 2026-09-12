@@ -92,27 +92,33 @@ VARIANTS = {
     # weight_type decides which SDXL attention blocks the adapter writes to:
     # linear all eleven, `style transfer` only block 6, `composition` only 3.
     "ctx_linear_09": {"_sample": True, "_refs": True,
-                      "canonical": {"from_reference": {
-                          "weight": 0.9, "weight_type": "linear"}}},
+                      "canonical": {"lora_strength": 0.65,
+                                    "from_reference": {
+                                        "weight": 0.9, "weight_type": "linear"}}},
     "ctx_style_09": {"_sample": True, "_refs": True,
                      "canonical": {"from_reference": {
                          "weight": 0.9, "weight_type": "style transfer"}}},
-    "ctx_comp_09": {"_sample": True, "_refs": True,
+    "ctx_comp_09": {"_sample": True, "_refs": True, "_allow_comp": True,
                     "canonical": {"from_reference": {
                         "weight": 0.9, "weight_type": "composition"}}},
     # Take the reference's SHAPE and leave its rendering alone: block 3 is
     # layout and structure, block 6 is colour and material. Measured at linear
     # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
     # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
-    "ctx_shape_09": {"_sample": True, "_refs": True,
-                     "canonical": {"from_reference": {
-                         "weight": 0.2, "weight_composition": 0.9,
-                         "weight_type": "style and composition"}}},
+    "ctx_shape_09": {"_sample": True, "_refs": "px", "_build": True,
+                     "canonical": {"lora_strength": 1.1,
+                                   "from_reference": {
+                                       "weight": 0.35, "weight_composition": 1.05,
+                                       "weight_type": "style and composition"}}},
     # The reference carried the character AND the illustration's smoothness.
     # Pixelise it first and the second half of that stops being a problem.
     "ctx_pixref_09": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"from_reference": {
-                          "weight": 0.9, "weight_type": "linear"}}},
+                          "weight": 1.05, "weight_type": "linear"}}},
+    "ctx_pixref_13": {"_sample": True, "_refs": "px", "_build": True,
+                      "canonical": {"lora_strength": 1.3,
+                                    "from_reference": {
+                                        "weight": 1.05, "weight_type": "linear"}}},
     # With the reference already carrying the look, the LoRA has less to do -
     # and lower strength is what measured chunkier: 0.8 drew block 3.0
     # against 1.2's 2.0, monotonically.
@@ -122,19 +128,11 @@ VARIANTS = {
     "ctx_pixref_10": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"lora_strength": 1.0,
                                     "from_reference": {
-                                        "weight": 0.9, "weight_type": "linear"}}},
-    "ctx_pixref_06": {"_sample": True, "_refs": "px", "_build": True,
-                      "canonical": {"lora_strength": 0.6,
-                                    "from_reference": {
-                                        "weight": 0.9, "weight_type": "linear"}}},
+                                        "weight": 1.05, "weight_type": "linear"}}},
     # linear is answered at 8 of 8, so the remaining question about it is
     # whether the PROMPT can hold the look the reference keeps overwriting.
     # OPEN.md 18 has asked since 2026-09-10 whether (term:weight) survives the
     # encoder and the conditioning stacked after it. Untested either way.
-    "ctx_emph_13": {"_sample": True, "_refs": True,
-                    "canonical": {"style_emphasis": 1.3,
-                                  "from_reference": {
-                                      "weight": 0.9, "weight_type": "linear"}}},
     "ctx_emph_16": {"_sample": True, "_refs": True,
                     "canonical": {"style_emphasis": 1.6,
                                   "from_reference": {
@@ -172,6 +170,32 @@ BUILDS: dict[str, dict[str, float]] = {
     "char7": {"chest": 1.10, "thigh": 1.00, "torso": 1.00},
     "char8": {"chest": 1.05, "thigh": 0.90, "torso": 0.90},
 }
+
+
+# Measured constraints. A variant that breaks one is a run whose answer is
+# already known, so it fails at plan time rather than after four GPU hours.
+# Each entry is (predicate, why) and `why` cites what measured it.
+PIXREF_LORA_FLOOR = 0.8
+
+
+def _violations(name: str, extra: dict, cfg: dict) -> list[str]:
+    said = []
+    lora = cfg["canonical"].get("lora_strength", 0.8)
+    if extra.get("_refs") == "px" and lora < PIXREF_LORA_FLOOR:
+        said.append(
+            f"{name}: a pixelised reference with lora {lora} is measured worse, "
+            f"not chunkier - 0.6 drew block 2.5 where 0.8 and 1.0 both drew 4.0. "
+            f"Strength stops being inverse once the reference carries the look.")
+    ref = cfg["canonical"].get("from_reference") or {}
+    if ref.get("weight_type") == "composition" and not extra.get("_allow_comp"):
+        said.append(
+            f"{name}: weight_type 'composition' writes attention block 3, which "
+            f"is the block the pose guide also drives; measured likeness 0.6497, "
+            f"the worst on the board, with limbs drawn twice. Set _allow_comp to "
+            f"run it anyway.")
+    if not cfg["references"]["identity"] and ref.get("weight"):
+        said.append(f"{name}: a reference weight with no reference to apply it to")
+    return said
 
 
 def base(char: str) -> dict:
@@ -236,6 +260,9 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             # and pixel variant lengthened the list and still stopped at the
             # anchor, so the arm would have rerun canonicals for nine hours.
             cfg["pipeline"]["stop_after"] = cfg["pipeline"]["stages"][-1]
+            broke = _violations(name, extra, cfg)
+            if broke:
+                raise SystemExit("\n".join(broke))
             path = CONFIGS / f"{char}_{name}.yaml"
             path.write_text(yaml.safe_dump(cfg, sort_keys=False))
             out.append((char, name, path))
