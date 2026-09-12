@@ -16,7 +16,7 @@ from pipeline import definitive  # noqa: E402
 from pipeline.definitive import pixelize as px  # noqa: E402
 from pipeline.shared import canvas as canvas_mod  # noqa: E402
 
-COLOURS = 10
+COLOURS = 12
 FILL = 0.92
 REDUCE = "median"
 CONTRAST = 1.12
@@ -121,7 +121,7 @@ def main() -> int:
 
     a.out.mkdir(parents=True, exist_ok=True)
     rows = []
-    for bucket in ("128x128", "256x256"):
+    for bucket in ("small", "large"):
         folder = a.src / "keyed" / bucket
         if not folder.is_dir():
             continue

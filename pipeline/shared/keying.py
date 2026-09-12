@@ -8,6 +8,8 @@ MIN_SHARE = 0.04
 MAX_COLOURS = 6
 MIN_PART = 0.04
 NEAR = 0.03
+WIDE = 5.0
+COLOURED = 0.5
 KEY_TOLERANCE = 30
 ROUNDS = 3
 MIN_PANEL = 0.20
@@ -69,7 +71,8 @@ def touching_border(mask: np.ndarray) -> np.ndarray:
 
 
 def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
-                  near: float = NEAR) -> np.ndarray:
+                  near: float = NEAR, pixels: np.ndarray | None = None,
+                  colour: float = COLOURED) -> np.ndarray:
     """Keep the subject and what belongs to it; drop marks and sparkles.
 
     Size alone cannot tell a crown from a watermark. A crown sits against the
@@ -101,6 +104,17 @@ def largest_parts(mask: np.ndarray, min_part: float = MIN_PART,
             continue
         part = labels == i
         if size >= sizes.max() * min_part or gaps[part].min() <= reach:
+            keep.add(i)
+            continue
+        # A gem beside the figure and a caption in the corner are both small
+        # and both detached. Measured: dropped gems run 0.34-0.73 saturation
+        # at 12-47px, captions 0.00-0.26 at 111-130px. Neither test alone
+        # separates them; a piece that is close AND coloured is art.
+        if pixels is None or gaps[part].min() > reach * WIDE:
+            continue
+        rgb = pixels[part].astype(np.int16)
+        span = rgb.max(axis=1) - rgb.min(axis=1)
+        if float((span / np.maximum(rgb.max(axis=1), 1)).mean()) >= colour:
             keep.add(i)
     return np.where(np.isin(labels, list(keep)), mask, 0).astype(mask.dtype)
 

@@ -43,7 +43,7 @@ def clean(path: Path, tolerance: int = framing.KEY_TOLERANCE,
     flooded = px.background_to_alpha(np.dstack([rgb, alpha])[..., :3], 14)
     alpha = np.minimum(alpha, flooded[..., 3])
     if parts:
-        alpha = framing.largest_parts(alpha)
+        alpha = framing.largest_parts(alpha, pixels=rgb)
     return np.dstack([rgb, alpha])
 
 
@@ -61,7 +61,7 @@ def main() -> int:
 
     a.out.mkdir(parents=True, exist_ok=True)
     rows = []
-    for bucket in ("128x128", "256x256"):
+    for bucket in ("small", "large"):
         folder = a.src / "sorted" / bucket
         if not folder.is_dir():
             continue
