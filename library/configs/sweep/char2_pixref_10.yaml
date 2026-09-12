@@ -1,0 +1,42 @@
+module: character_sheet
+subject: an elf woman with pale mint green hair tied up, a dark teal robe with gold
+  trim, a layered shoulder cape and black boots
+styles:
+- crisp
+props: []
+props_enabled: false
+pose:
+  source: tpose
+  size: 1024
+  set:
+  - view: front
+canonical:
+  candidates: 1
+  lora_strength: 1.0
+  from_reference:
+    weight: 1.05
+    weight_type: linear
+references:
+  identity:
+  - path: characters/char2/front_px.png
+    view: front
+  - path: characters/char2/side_px.png
+    view: side
+  - path: characters/char2/side_right_px.png
+    view: 270
+  - path: characters/char2/rear_px.png
+    view: rear
+pipeline:
+  stages:
+  - pose
+  - depth
+  - canonical
+  stop_after: canonical
+cooling:
+  enabled: true
+  seconds: 60
+depth:
+  build:
+    chest: 1.1
+    thigh: 0.95
+    torso: 1.0

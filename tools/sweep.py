@@ -85,37 +85,31 @@ SUBJECTS = {
 # draws a finer grid, which is the direction already rejected by eye, so the
 # ladder above 0.8 is gone. 0.6 stays because it is the untested chunky end.
 VARIANTS = {
-    "lora_08": {"canonical": {"lora_strength": 0.8},
-                  "frames": {"lora_strength": 0.8}},
-    # The context arm. Each reintroduces the identity reference, now square
-    # and padded, and moves exactly one thing about how it is consumed.
-    # weight_type decides which SDXL attention blocks the adapter writes to:
-    # linear all eleven, `style transfer` only block 6, `composition` only 3.
-    "ctx_linear_09": {"_sample": True, "_refs": True,
+    "linear_09": {"_sample": True, "_refs": True,
                       "canonical": {"lora_strength": 0.65,
                                     "from_reference": {
                                         "weight": 0.9, "weight_type": "linear"}}},
-    "ctx_style_09": {"_sample": True, "_refs": True,
+    "style_09": {"_sample": True, "_refs": True,
                      "canonical": {"from_reference": {
                          "weight": 0.9, "weight_type": "style transfer"}}},
-    "ctx_comp_09": {"_sample": True, "_refs": True, "_allow_comp": True,
+    "comp_09": {"_sample": True, "_refs": True, "_allow_comp": True,
                     "canonical": {"from_reference": {
                         "weight": 0.9, "weight_type": "composition"}}},
     # Take the reference's SHAPE and leave its rendering alone: block 3 is
     # layout and structure, block 6 is colour and material. Measured at linear
     # 0.9 the reference lifts likeness 0.61 -> 0.82 and drops the block the
     # model draws from 8.0 to 1.0, which is an illustration, not a sprite.
-    "ctx_shape_09": {"_sample": True, "_refs": "px", "_build": True,
+    "shape_09": {"_sample": True, "_refs": "px", "_build": True,
                      "canonical": {"lora_strength": 1.1,
                                    "from_reference": {
                                        "weight": 0.35, "weight_composition": 1.05,
                                        "weight_type": "style and composition"}}},
     # The reference carried the character AND the illustration's smoothness.
     # Pixelise it first and the second half of that stops being a problem.
-    "ctx_pixref_09": {"_sample": True, "_refs": "px", "_build": True,
+    "pixref_09": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"from_reference": {
                           "weight": 1.05, "weight_type": "linear"}}},
-    "ctx_pixref_13": {"_sample": True, "_refs": "px", "_build": True,
+    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"lora_strength": 1.3,
                                     "from_reference": {
                                         "weight": 1.05, "weight_type": "linear"}}},
@@ -125,7 +119,7 @@ VARIANTS = {
     # The deliberate illustrative end. Strength and block size are inverse, so
     # 1.0 draws finer than 0.8 - kept as one comparison point rather than the
     # ladder, which was cut because finer is the direction already rejected.
-    "ctx_pixref_10": {"_sample": True, "_refs": "px", "_build": True,
+    "pixref_10": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"lora_strength": 1.0,
                                     "from_reference": {
                                         "weight": 1.05, "weight_type": "linear"}}},
@@ -133,19 +127,19 @@ VARIANTS = {
     # whether the PROMPT can hold the look the reference keeps overwriting.
     # OPEN.md 18 has asked since 2026-09-10 whether (term:weight) survives the
     # encoder and the conditioning stacked after it. Untested either way.
-    "ctx_emph_16": {"_sample": True, "_refs": True,
+    "emph_16": {"_sample": True, "_refs": True,
                     "canonical": {"style_emphasis": 1.6,
                                   "from_reference": {
                                       "weight": 0.9, "weight_type": "linear"}}},
-    "ctx_linear_04": {"_sample": True, "_refs": True,
+    "linear_04": {"_sample": True, "_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
     # Frames with no pixelise: the `neither` arm.
-    "frames_08": {"canonical": {"lora_strength": 0.8},
+    "frames_08": {"_refs": "px", "_build": True, "canonical": {"lora_strength": 0.8},
                     "frames": {"lora_strength": 0.8},
                     "pipeline": {"stages": ['pose', 'depth', 'canonical', 'frames', 'palette', 'export']}},
     # Scale AND grid, then frames: the `both` arm.
-    "pixel_08": {"canonical": {"lora_strength": 0.8},
+    "pixel_08": {"_refs": "px", "_build": True, "canonical": {"lora_strength": 0.8},
                    "frames": {"lora_strength": 0.8},
                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
 }

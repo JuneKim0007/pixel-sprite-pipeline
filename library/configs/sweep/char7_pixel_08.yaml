@@ -14,7 +14,15 @@ canonical:
   candidates: 1
   lora_strength: 0.8
 references:
-  identity: []
+  identity:
+  - path: characters/char7/front_px.png
+    view: front
+  - path: characters/char7/side_px.png
+    view: side
+  - path: characters/char7/side_right_px.png
+    view: 270
+  - path: characters/char7/rear_px.png
+    view: rear
 pipeline:
   stages:
   - pose
@@ -30,3 +38,8 @@ cooling:
   seconds: 60
 frames:
   lora_strength: 0.8
+depth:
+  build:
+    chest: 1.1
+    thigh: 1.0
+    torso: 1.0

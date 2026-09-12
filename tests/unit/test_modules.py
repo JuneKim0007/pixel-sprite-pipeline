@@ -41,7 +41,7 @@ def test_an_unknown_key_is_refused_by_name(types):
     """A typo in a hand-written type is a message, not a silently ignored line."""
     write(types, "typo", stagez=["pose"])
     with pytest.raises(Invalid) as e:
-        modules.get(types, "typo")
+        modules.build(types, "typo")
     assert "stagez" in str(e.value)
 
 
@@ -53,27 +53,27 @@ def test_a_malformed_file_is_broken_rather_than_absent(types):
 
 def test_a_missing_type_says_what_does_exist(types):
     with pytest.raises(NotFound):
-        modules.get(types, "nothing_like_this")
+        modules.build(types, "nothing_like_this")
 
 
 def test_lineage_walks_the_extends_chain(types):
     write(types, "portrait", extends="character_sheet", stages=["pose"])
     write(types, "bust", extends="portrait", stages=["pose"])
-    assert modules.lineage(types, "bust") == ["bust", "portrait", "character_sheet"]
-    assert modules.lineage(types, "animation") == ["animation"]
+    assert list(modules.build(types, "bust").inherits) == ["bust", "portrait", "character_sheet"]
+    assert list(modules.build(types, "animation").inherits) == ["animation"]
 
 
 def test_a_cycle_in_extends_is_refused_rather_than_hung(types):
     write(types, "ping", extends="pong", stages=["pose"])
     write(types, "pong", extends="ping", stages=["pose"])
     with pytest.raises(Invalid):
-        modules.lineage(types, "ping")
+        modules.build(types, "ping")
 
 
 def test_a_type_may_declare_a_stage_that_does_not_exist(types):
     """That is how tileset states the work it is waiting on."""
     write(types, "weather", stages=["cloud_field", "canonical"])
-    assert modules.get(types, "weather").stages == ["cloud_field", "canonical"]
+    assert list(modules.build(types, "weather").stages) == ["cloud_field", "canonical"]
 
 
 class TestAssetTypeDefaults:

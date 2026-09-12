@@ -83,18 +83,22 @@ def system_info() -> dict:
 
 
 def module_table() -> dict[str, dict]:
-    """Every asset type, and whether the stages it names actually exist."""
+    """Every asset type, resolved through the one construction path."""
     known = set(available())
     out = {}
-    for key, spec in sorted(modules.all(ROOT).items()):
-        missing = [s for s in spec.stages if s not in known]
-        out[key] = {**spec.rendered(), "available": not missing,
-                    "missing": missing}
+    for key in sorted(modules.all(ROOT)):
+        spec = modules.build(ROOT, key, known).rendered()
+        folder = ROOT / "web/assets/kinds" / key
+        spec["shots"] = {
+            role: f"web/assets/kinds/{key}/{role}.png"
+            for role in ("reference", "generated")
+            if (folder / f"{role}.png").is_file()}
+        out[key] = spec
     for bad in modules.registry(ROOT).broken():
         out[bad.path.stem] = {
             "key": bad.path.stem, "label": bad.path.stem, "detail": "unreadable",
             "blurb": bad.why, "stages": [], "extends": "", "props": True,
-            "available": False, "missing": [], "error": bad.why,
+            "available": False, "missing": [], "shots": {}, "error": bad.why,
         }
     return out
 

@@ -111,10 +111,9 @@ def test_a_variant_that_adds_stages_moves_the_gate_with_them():
     assert seen, "no variant exercises the frames stage"
 
 
-def test_only_the_context_variants_carry_an_identity_reference():
-    """The reference brought its own background, its own arms and a centre
-    crop that removed the head, so it is off everywhere except the arm that
-    exists to measure what it does."""
+def test_every_variant_carries_a_context_reference():
+    """A run without one measures a mode nobody uses, and it was the extra
+    variable that made the rest hard to compare."""
     import sys
 
     import yaml
@@ -123,10 +122,8 @@ def test_only_the_context_variants_carry_an_identity_reference():
     from tools.sweep import plan
 
     for _char, name, path in plan(["char1"]):
-        cfg = yaml.safe_load(path.read_text())
-        wanted = name.startswith("ctx_")
-        got = bool(cfg["references"]["identity"])
-        assert got is wanted, f"{name}: references {got}, asked {wanted}"
+        refs = yaml.safe_load(path.read_text())["references"]["identity"]
+        assert refs, f"{name} has no reference"
 
 
 def test_the_ground_truth_lives_outside_what_the_model_can_be_given():
@@ -179,7 +176,7 @@ def test_the_pixelised_arm_points_at_the_pixelised_cut():
         if not refs:
             continue
         pixelised = [r["path"].endswith("_px.png") for r in refs]
-        if name.startswith("ctx_pixref") or name == "ctx_shape_09":
+        if name.startswith("pixref") or name in ("shape_09", "frames_08", "pixel_08"):
             assert all(pixelised), name
             seen += 1
         else:

@@ -1112,7 +1112,7 @@ class ConfigSchema:
 
         return {
             "module": module,
-            "fields": self.fields_for(module, modules_mod.lineage(root, module)),
+            "fields": self.fields_for(module, modules_mod.build(root, module).inherits),
             "options": dynamic_options(root),
         }
 

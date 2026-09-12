@@ -64,10 +64,12 @@ def save_module(name: str, body: dict) -> dict:
 class Assets(BaseRouter):
     prefix = "/api"
 
-    @get("/modules", "every asset type, and whether its stages exist",
-         returns=Shape(modules=dict))
+    @get("/modules", "every asset type, its example shots and its dials",
+         returns=Shape(modules=dict, dials=dict))
     def index(self, req):
-        return {"modules": module_table()}
+        from ..looks import dials
+
+        return {"modules": module_table(), "dials": dials.rendered()}
 
     @put("/module", "create or update one asset type",
          returns=Shape(saved=str, missing=list, available=bool))

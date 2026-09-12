@@ -124,28 +124,8 @@ def all(root: Path) -> dict[str, ModuleSpec]:  # noqa: A001
     return registry(root).all()
 
 
-def get(root: Path, key: str | None) -> ModuleSpec:
-    return registry(root).get(key or DEFAULT)
-
-
 def find(root: Path, key: str | None) -> ModuleSpec | None:
     return registry(root).find(key or DEFAULT)
-
-
-def lineage(root: Path, key: str | None) -> list[str]:
-    """A type and the types it extends, nearest first."""
-    known = all(root)
-    out: list[str] = []
-    seen: set[str] = set()
-    here = key or DEFAULT
-    while here and here in known and here not in seen:
-        seen.add(here)
-        out.append(here)
-        here = known[here].extends
-    if here and here in seen:
-        raise Invalid(f"asset type '{key}' extends itself through {out}",
-                      field="extends")
-    return out
 
 
 def wants_props(root: Path, key: str | None) -> bool:
@@ -167,3 +147,68 @@ def defaults_for(root: Path, key: str | None) -> dict[str, Any]:
             out.setdefault(path, value)
         key = spec.extends
     return out
+
+
+@dataclass(frozen=True)
+class Kind:
+    """One asset type, fully resolved: what it is, what it needs, what it has.
+
+    The single construction path. Five accessors used to answer parts of this
+    question and the availability check lived in the API layer, so adding a
+    type meant knowing which to call in which order.
+    """
+
+    key: str
+    label: str
+    detail: str
+    blurb: str
+    stages: tuple[str, ...]
+    inherits: tuple[str, ...]
+    defaults: dict[str, Any]
+    props: bool
+    missing: tuple[str, ...]
+
+    @property
+    def runnable(self) -> bool:
+        return not self.missing
+
+    def rendered(self) -> dict[str, Any]:
+        return {"key": self.key, "label": self.label, "detail": self.detail,
+                "blurb": self.blurb, "stages": list(self.stages),
+                "extends": self.inherits[1] if len(self.inherits) > 1 else "",
+                "props": self.props, "available": self.runnable,
+                "missing": list(self.missing)}
+
+
+def _inherits(root: Path, key: str | None) -> list[str]:
+    """A type and the types it extends, nearest first."""
+    known = all(root)
+    out: list[str] = []
+    seen: set[str] = set()
+    here = key or DEFAULT
+    while here and here in known and here not in seen:
+        seen.add(here)
+        out.append(here)
+        here = known[here].extends
+    if here and here in seen:
+        raise Invalid(f"asset type '{key}' extends itself through {out}",
+                      field="extends")
+    return out
+
+
+
+
+def build(root: Path, key: str | None, known_stages=None) -> Kind:
+    """Resolve one asset type. `known_stages` is what the runner can execute;
+    without it nothing is reported missing."""
+    # registry.get, not find: it raises the specific complaint - which field
+    # was misspelt, what types exist - where find() only returns None.
+    spec = registry(root).get(key or DEFAULT)
+    chain = _inherits(root, key)
+    stages = tuple(spec.stages)
+    missing = tuple(s for s in stages if s not in known_stages) \
+        if known_stages is not None else ()
+    return Kind(key=chain[0], label=spec.label, detail=spec.detail,
+                blurb=spec.blurb, stages=stages, inherits=tuple(chain),
+                defaults=defaults_for(root, key), props=spec.props,
+                missing=missing)
