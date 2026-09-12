@@ -20,6 +20,14 @@ def _no_run_in_flight(monkeypatch):
     monkeypatch.setattr(guard, "run_in_flight", lambda: None)
 
 
+@pytest.fixture(autouse=True)
+def rests(monkeypatch):
+    """The cooldown reaches ComfyUI and sleeps; here it only records that it ran."""
+    seen = []
+    monkeypatch.setattr(q, "cooldown", lambda root, secs: seen.append(secs) or True)
+    return seen
+
+
 @pytest.fixture
 def home(root, tmp_path, monkeypatch):
     """A queue root with real configs, wired so autopilot works against it."""
@@ -51,7 +59,7 @@ def queue(home):
 
 def opts(**over):
     base = dict(drain=True, poll=0, hold=600, service_wait=0, timeout=60,
-                retries=2, breaker=5, once=False)
+                retries=2, breaker=5, once=False, cooldown=q.COOLDOWN_FLOOR_S)
     base.update(over)
     return argparse.Namespace(**base)
 
@@ -285,3 +293,28 @@ def test_both_same_second_jobs_actually_run(queue, monkeypatch):
     assert autopilot.work(opts()) == 0
     assert len(seen) == 2, "one of the two used to vanish before it ran"
     assert len(queue.list(q.DONE)) == 2
+
+
+def test_every_generation_is_followed_by_a_cooldown(monkeypatch, queue, rests):
+    """Whatever the outcome: the next job loads weights, and the last job's are
+    still resident until they are handed back."""
+    runs(monkeypatch, (True, "rid1", ""), (False, "rid2", "boom"))
+    queue.submit({"config": "knight_attack", "id": "a_good"})
+    queue.submit({"config": "knight_attack", "id": "b_bad"})
+
+    autopilot.work(opts(retries=1))
+
+    assert rests == [q.COOLDOWN_FLOOR_S, q.COOLDOWN_FLOOR_S], \
+        "a failed generation left the weights resident"
+
+
+def test_the_floor_is_applied_before_the_loop_sees_it(monkeypatch):
+    """argparse takes whatever is typed; main() is where the floor lands."""
+    import sys
+
+    seen = {}
+    monkeypatch.setattr(autopilot, "work", lambda args: seen.update(cooldown=args.cooldown) or 0)
+    monkeypatch.setattr(sys, "argv", ["autopilot.py", "--drain", "--cooldown", "1"])
+
+    assert autopilot.main() == 0
+    assert seen["cooldown"] == q.COOLDOWN_FLOOR_S

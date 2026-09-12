@@ -57,7 +57,8 @@ def queue_state() -> dict:
     return {
         "states": out,
         "counts": {k: len(v) for k, v in out.items()},
-        "autopilot": {"running": alive, "started": _AUTOPILOT["started"]},
+        "autopilot": {"running": alive, "started": _AUTOPILOT["started"],
+                      "cooldown_floor": q.COOLDOWN_FLOOR_S},
         "services": {"ok": ok, "why": why},
         "dir": str(queue.root),
     }
@@ -120,6 +121,11 @@ def autopilot(action: str, args: dict | None = None) -> dict:
         for flag in ("drain", "once"):
             if (args or {}).get(flag):
                 cmd.append(f"--{flag}")
+        asked = (args or {}).get("cooldown")
+        if asked is not None:
+            from ..orchestration import queue as q
+
+            cmd += ["--cooldown", str(q.cooldown_seconds(asked))]
         log = open(autopilot_log_path(), "a")
         started = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
                                    stderr=subprocess.STDOUT)

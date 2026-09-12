@@ -69,12 +69,21 @@ function jobRow(job, onAct) {
 }
 
 function autopilotBar(data, refresh) {
-  const { running, started } = data.autopilot;
+  const { running, started, cooldown_floor: floor } = data.autopilot;
   const bar = el('div', { className: `pilotbar ${running ? 'on' : ''}` });
 
+  let cooldown = floor;
+  const rest = Num(cooldown, { min: floor, step: 5,
+                               onChange: (v) => { cooldown = v; } });
+
   const act = async (action, extra = {}) => {
+    if (action === 'start' && !(cooldown >= floor)) {
+      return showError(new Error(
+        `The cooldown is when the model weights are handed back. `
+        + `${floor}s is the shortest that achieves that.`));
+    }
     try {
-      const r = await api.autopilot({ action, ...extra });
+      const r = await api.autopilot({ action, cooldown, ...extra });
       toast(r.note || (r.running ? 'Autopilot started' : 'Autopilot stopping'));
       refresh();
     } catch (e) { showError(e); }
@@ -97,7 +106,9 @@ function autopilotBar(data, refresh) {
       Mini(running ? `since ${started}`
         : services.ok ? 'services are up — the queue can be drained'
           : `services down: ${services.why}`)),
-    Row(start, drain, stop));
+    Row(el('label', { className: 'chk' },
+           Mini('Cooldown'), rest, Mini('s')),
+        start, drain, stop));
   return bar;
 }
 

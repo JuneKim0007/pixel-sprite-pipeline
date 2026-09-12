@@ -28,7 +28,6 @@ TRUTH = ROOT / "characters"
 REST = 60
 
 # ComfyUI holds model weights in CPU RAM between runs by design - it unloads from GPU.
-FREE_EVERY = 1
 
 COMFY_WAIT = 30
 COMFY_TRIES = 40
@@ -343,12 +342,10 @@ def _run_all(only: list[str] | None = None, variants: list[str] | None = None) -
         print(f"  {row['id']:26} {row.get('likeness', '-')}  "
               f"bleed {row.get('bleed', '-')}  {row['seconds']}s", flush=True)
         if job is not jobs[-1]:
-            if (jobs.index(job) + 1) % FREE_EVERY == 0:
-                from pipeline.generation import comfy
+            from pipeline.orchestration import queue as q
 
-                if not comfy.Client().free_models():
-                    print("  could not free ComfyUI's models", flush=True)
-            time.sleep(REST)
+            if not q.cooldown(ROOT, REST):
+                print("  could not free ComfyUI's models", flush=True)
     return 0
 
 

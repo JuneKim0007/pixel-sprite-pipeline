@@ -238,16 +238,46 @@ def preflight(root: Path, job: Job) -> Preflight:
     return Preflight(not problems, problems, waiting)
 
 
-def services_up(root: Path, need_llm: bool = False) -> tuple[bool, str]:
-    """Are the services this queue depends on reachable?"""
+# Between two generations: long enough to hand the weights back before the next load.
+COOLDOWN_FLOOR_S = 10.0
+
+
+def cooldown_seconds(value) -> float:
+    """Never shorter than the floor, whatever was asked for."""
+    try:
+        return max(COOLDOWN_FLOOR_S, float(value))
+    except (TypeError, ValueError):
+        return COOLDOWN_FLOOR_S
+
+
+def comfy_client(root: Path):
+    """Aimed at whatever host this install is configured for, not the default."""
     from ..generation.comfy import Client
     from ..generation.schema import SCHEMA
     from ..shared.settings import load_global
 
     host = ((load_global(root).get("comfy") or {}).get("host")
             or SCHEMA.field("comfy.host").default)
-    if not Client(host).alive():
-        return False, f"ComfyUI unreachable at {host}"
+    return Client(host)
+
+
+def cooldown(root: Path, seconds) -> bool:
+    """Hand the weights back, then rest for what is left of the window.
+    Freeing first is what makes the wait worth anything."""
+    seconds = cooldown_seconds(seconds)
+    started = time.time()
+    freed = comfy_client(root).free_models()
+    left = seconds - (time.time() - started)
+    if left > 0:
+        time.sleep(left)
+    return freed
+
+
+def services_up(root: Path, need_llm: bool = False) -> tuple[bool, str]:
+    """Are the services this queue depends on reachable?"""
+    client = comfy_client(root)
+    if not client.alive():
+        return False, f"ComfyUI unreachable at {client.host}"
 
     if need_llm:
         from ..refs.llm import Ollama

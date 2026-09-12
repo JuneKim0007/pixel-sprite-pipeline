@@ -171,6 +171,8 @@ def work(args) -> int:
         started = time.time()
         ok, run_id, detail = run_job(ROOT, job, args.timeout)
         took = time.time() - started
+        if not q.cooldown(ROOT, args.cooldown):
+            log("could not free ComfyUI's models during the cooldown")
 
         if ok:
             consecutive = 0
@@ -236,6 +238,10 @@ def main() -> int:
                          "ready (default 600)")
     ap.add_argument("--service-wait", type=float, default=60,
                     help="seconds between health checks while paused (default 60)")
+    ap.add_argument("--cooldown", type=float, default=q.COOLDOWN_FLOOR_S,
+                    help=f"seconds to rest after each generation, spent freeing "
+                         f"ComfyUI's models (minimum and default "
+                         f"{q.COOLDOWN_FLOOR_S:.0f})")
 
     ap.add_argument("--timeout", type=float, default=28800,
                     help="seconds before a single job is killed (default 28800, 8h)")
@@ -248,6 +254,7 @@ def main() -> int:
     if a.status:
         return show_status()
 
+    a.cooldown = q.cooldown_seconds(a.cooldown)
     if a.once:
         a.drain = True          # so an empty queue exits rather than idling
     return work(a)
