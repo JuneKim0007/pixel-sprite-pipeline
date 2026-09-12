@@ -77,7 +77,7 @@ HUMANOID = Rig(
     joints=_HUMANOID_JOINTS,
     root="neck",
     tree={
-        "neck": ("nose", "r_shoulder", "l_shoulder", "r_hip", "l_hip"),
+        "neck": ("nose", "r_shoulder", "l_shoulder", "r_hip", "l_hip", "chest"),
         "r_shoulder": ("r_elbow",), "r_elbow": ("r_wrist",),
         "l_shoulder": ("l_elbow",), "l_elbow": ("l_wrist",),
         "r_hip": ("r_knee",), "r_knee": ("r_ankle",), "r_ankle": ("r_toe",),
@@ -103,11 +103,15 @@ HUMANOID = Rig(
         "l_eye":      (0.014, 0.026, 0.136),
         "r_ear":      (-0.030, -0.004, 0.142),
         "l_ear":      (0.030, -0.004, 0.142),
+        "chest":      (0.000, 0.010, 0.330),
         "r_toe":      (-0.051649, 0.031886, 0.824707),
         "l_toe":      (0.051649, 0.031886, 0.824707),
     },
     bones=(
         ("neck", "r_hip", 0.115), ("neck", "l_hip", 0.115),
+        # Depth-only, and drawn over the trunk rather than instead of it, so
+        # the protocol keeps its two torso limbs and this adds volume.
+        ("neck", "chest", 0.115),
         ("neck", "r_shoulder", 0.075), ("neck", "l_shoulder", 0.075),
         ("r_shoulder", "r_elbow", 0.045), ("l_shoulder", "l_elbow", 0.045),
         ("r_elbow", "r_wrist", 0.036), ("l_elbow", "l_wrist", 0.036),
@@ -118,7 +122,7 @@ HUMANOID = Rig(
     ),
     skeleton_control="openpose",
     face_joints=("nose", "r_eye", "l_eye"),
-    extra=("r_toe", "l_toe"),
+    extra=("chest", "r_toe", "l_toe"),
     head_joint="nose",
     prompt_hint="",
     note="The only rig with a matching ControlNet. Uses openpose + depth.",
@@ -538,14 +542,47 @@ THICKNESS_EXPONENT = 0.35
 PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
     "head":      ("nose", "head", "eye", "ear"),
     "neck":      ("neck",),
-    "torso":     ("hip", "spine", "chest", "abdomen", "thorax", "core"),
+    # Finer groups come first: _by_name returns the first match, so a bone
+    # answers to the most specific name it has. BROADER carries the fallback.
+    "chest":     ("chest", "thorax", "bust"),
+    "torso":     ("hip", "spine", "abdomen", "core"),
     "arms":      ("shoulder", "elbow", "wrist"),
-    "legs":      ("knee", "ankle", "paw", "foot", "leg"),
+    "thigh":     ("knee",),
+    "shin":      ("ankle", "paw", "foot"),
+    "feet":      ("toe",),
+    "legs":      ("leg",),
     "tail":      ("tail",),
     "wings":     ("wing",),
     "tentacles": ("arm0", "arm1", "arm2", "arm3", "arm4", "arm5", "arm6", "arm7"),
     "segments":  ("seg_",),
 }
+
+
+# A setting on the broader name still reaches the finer bones, so `legs: 1.6`
+# keeps meaning the whole leg while `thigh:` can single one part out.
+BROADER: dict[str, str] = {
+    "thigh": "legs", "shin": "legs", "feet": "legs", "chest": "torso",
+}
+
+
+def group_chain(parent: str, child: str) -> tuple[str, ...]:
+    """Every name one BONE answers to, most specific first.
+
+    Not groups_of(rig), which is the set a whole rig has.
+    """
+    found, group = [], group_of(parent, child)
+    while group and group not in found:
+        found.append(group)
+        group = BROADER.get(group)
+    return tuple(found)
+
+
+def factor_for(factors, parent: str, child: str, default: float = 1.0) -> float:
+    """The most specific factor set for this bone, or the default."""
+    for group in group_chain(parent, child):
+        if group in factors:
+            return float(factors[group])
+    return default
 
 
 _HEADWARD = ("nose", "head", "eye", "ear", "skull", "jaw", "horn")
@@ -557,7 +594,10 @@ def group_of(parent: str, child: str) -> str | None:
         return "neck" if any(n in child for n in _HEADWARD) else _by_name(child)
     if "neck" in child:
         return "neck"
-    return _by_name(child)
+    # The child alone left r_ankle->r_toe unnamed, so no setting could reach
+    # the feet. A bone belongs to its child's group, or failing that its
+    # parent's - never to nothing.
+    return _by_name(child) or _by_name(parent)
 
 
 def _by_name(joint: str) -> str | None:
@@ -635,7 +675,7 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
         for child in rig.tree.get(parent, ()):
             if child not in neutral or parent not in neutral:
                 continue
-            factor = factors.get(group_of(parent, child) or "", 1.0)
+            factor = factor_for(factors, parent, child)
             if factor != 1.0:
                 _stretch(rig, neutral, parent, child, factor)
             queue.append(child)
@@ -645,7 +685,7 @@ def scale(rig: Rig, proportions: dict[str, float] | None) -> Rig:
 
     # Legs lengthened 1.75x kept their 0.055 width and read 1.75x thinner, so thickness scales too.
     bones = tuple(
-        (a, b, thickness * (factors.get(group_of(a, b) or "", 1.0) ** THICKNESS_EXPONENT))
+        (a, b, thickness * (factor_for(factors, a, b) ** THICKNESS_EXPONENT))
         for a, b, thickness in rig.bones
     )
     return Rig(

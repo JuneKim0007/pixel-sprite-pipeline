@@ -58,7 +58,7 @@ def _bulk(build: float | dict | None, parent: str, child: str) -> float:
     if isinstance(build, dict):
         from . import rigs as _rigs
 
-        return float(build.get(_rigs.group_of(parent, child) or "", 1.0))
+        return _rigs.factor_for(build, parent, child)
     return float(build)
 
 

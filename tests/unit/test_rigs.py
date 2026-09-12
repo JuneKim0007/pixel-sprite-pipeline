@@ -126,7 +126,9 @@ def test_scale_leaves_unnamed_bones_alone(name):
     moved = rigs.scale(rig, {"neck": 2.0, "legs": 0.6, "tail": 1.8})
     assert set(moved.neutral) == set(rig.neutral), "joints lost"
     for a, b, _w in rig.bones:
-        if rigs.group_of(a, b) in {"neck", "legs", "tail"}:
+        # A bone answers to its own group and to any broader one, so `legs`
+        # still reaches the thigh even though group_of now says "thigh".
+        if {"neck", "legs", "tail"} & set(rigs.group_chain(a, b)):
             continue
         assert abs(_span(moved, a, b) - _span(rig, a, b)) < 1e-9, f"{a}->{b} moved"
 
@@ -301,3 +303,35 @@ class TestWeightMap:
         from pipeline.geometry import weightmap as wm
 
         assert wm.EDGE == 128
+
+
+def test_a_depth_only_joint_never_reaches_the_pose_skeleton():
+    """Adding a joint to `joints` would shift the COCO indices under every
+    ControlNet ever rendered; `extra` is the seam that prevents it."""
+    rig = rigs.get("humanoid")
+    assert len(rig.joints) == 18, "the protocol is 18 keypoints in COCO order"
+    assert "chest" in rig.extra
+    drawn = {rig.joints[a] for a, _ in rig.limb_pairs} | {
+        rig.joints[b] for _, b in rig.limb_pairs}
+    assert "chest" not in drawn
+
+
+def test_every_bone_answers_to_some_group():
+    """r_ankle->r_toe resolved to None, so no setting could reach the feet."""
+    for name in ("humanoid", "dragon", "spider", "quadruped"):
+        rig = rigs.get(name)
+        for a, b, _w in rig.bones:
+            assert rigs.group_chain(a, b), f"{name}: {a}->{b} belongs to nothing"
+
+
+def test_a_broad_group_still_reaches_the_bones_split_out_of_it():
+    """proportions.legs is set in base_pixel; splitting legs must not orphan it."""
+    assert rigs.factor_for({"legs": 1.6}, "r_hip", "r_knee") == 1.6
+    assert rigs.factor_for({"legs": 1.6}, "r_knee", "r_ankle") == 1.6
+    assert rigs.factor_for({"legs": 1.6}, "r_ankle", "r_toe") == 1.6
+
+
+def test_the_finer_group_wins_over_the_broader_one():
+    factors = {"legs": 1.6, "thigh": 1.1}
+    assert rigs.factor_for(factors, "r_hip", "r_knee") == 1.1
+    assert rigs.factor_for(factors, "r_knee", "r_ankle") == 1.6
