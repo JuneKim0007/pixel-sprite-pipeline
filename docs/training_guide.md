@@ -124,6 +124,68 @@ Holding constant matters:
 - outline discipline - everything outlined or nothing
 - figure scale in frame - full body throughout, which this set is
 
+## Which group: small or large
+
+`small` and `large` are not two sizes of the same thing. Measured on
+`training_set/sprite`, cells across the canvas:
+
+| group | n | cells | colours |
+|---|---|---|---|
+| `small` | 17 | median 64, range 64-256 | 12 |
+| `large` | 18 | median 192, range 128-256 | 12 |
+
+A 3x gap in the one property the gate says must not vary. Training them
+together asks the LoRA to learn two feature scales and it will land between
+them, which is the outcome this project has been rejecting by eye all week.
+
+Prefer `small`, and not only for taste. SDXL's VAE downsamples by 8, so a
+1024 canvas is a 128x128 latent and one pixel-art cell costs:
+
+| cells across 1024 | latent cells per block |
+|---|---|
+| 64 | 2.00 - representable, four latent cells must agree |
+| 128 | 1.00 - exact, one cell is one latent cell |
+| 192 | 0.67 - below the grid; no edge can be placed there |
+| 512 | 0.25 - below the grid |
+
+`large` at 192 is asking for structure finer than the latent can hold. The
+decoder answers with a gradient, not a block. Generation bears this out: of
+49 scored runs, 45 sit at 512-1024 cells and read as smeared, and the single
+run that measured 128 cells is the one that read as pixel art.
+
+So 128 cells at 1024 is the design point, and `small` is the group nearer it.
+Training on `large` is not a harder version of the same task; it is a
+different task the architecture cannot do.
+
+Not measured here: whether a LoRA trained on 64-cell art actually produces
+64-cell output, or whether the model pulls back toward its own 128. Nothing
+in this repo has trained one.
+
+## What 12 colours costs
+
+Mean absolute error per channel against the keyed original, over the subject
+only, n=10:
+
+| colours | mean err | p95 |
+|---|---|---|
+| 8 | 11.98 | 31.0 |
+| 10 | 10.49 | 27.3 |
+| 12 | 9.19 | 23.3 |
+| 16 | 8.20 | 21.0 |
+| 24 | 6.43 | 17.7 |
+| 32 | 5.64 | 15.7 |
+
+No knee - it is a smooth trade, so fidelity does not pick the number and
+looking at the result does. 12 to 16 buys 11% less error for a visibly less
+clustered image.
+
+What the count must be is CONSTANT. Per-sprite palettes differing is wanted:
+varying content cancels, so the LoRA learns "few, flat, well separated"
+rather than a particular teal. It is the count that becomes the style.
+
+The sources are full colour, median 42,667 distinct colours over the subject
+after keying, so 12 is a real reduction rather than a match to the material.
+
 ## Fix before training
 
 - `large_13` carries a "FLY AGARIC" caption and a second object

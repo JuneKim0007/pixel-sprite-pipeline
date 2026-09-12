@@ -93,6 +93,24 @@ is not worth taking; hand-fix it.
 
 ---
 
+## 6. Whether a 64-cell LoRA produces 64-cell output
+
+The set splits 64 cells (`small`) against 192 (`large`), and 192 is below
+what SDXL's latent can place - a 1024 canvas is a 128x128 latent, so 192
+cells costs 0.67 latent cells per block. See training_guide.md.
+
+What that argument does NOT settle is whether a LoRA trained at 64 pulls the
+model to 64, or whether the model pulls back toward its own 128. Both are
+representable; only one is what was asked for.
+
+Would answer it: train on `small` alone, generate at 1024, read the `cells`
+column. 128 means the model won. 64 means the LoRA did. Anything above 256
+means neither and the LoRA did not take.
+
+Worth knowing before the run: of 49 scored generation runs with no LoRA
+change, 45 measured 512-1024 cells. The model's untrained habit is to draw
+far finer than either group.
+
 # Knobs, in the order to reach for them
 
 A run that disappoints should be diagnosed from the top of this list, not the
