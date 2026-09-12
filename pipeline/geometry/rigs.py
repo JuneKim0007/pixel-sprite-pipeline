@@ -109,8 +109,7 @@ HUMANOID = Rig(
     },
     bones=(
         ("neck", "r_hip", 0.115), ("neck", "l_hip", 0.115),
-        # Depth-only, and drawn over the trunk rather than instead of it, so
-        # the protocol keeps its two torso limbs and this adds volume.
+        # Depth-only and drawn over the trunk, so the protocol keeps its two torso limbs.
         ("neck", "chest", 0.115),
         ("neck", "r_shoulder", 0.075), ("neck", "l_shoulder", 0.075),
         ("r_shoulder", "r_elbow", 0.045), ("l_shoulder", "l_elbow", 0.045),
@@ -542,8 +541,7 @@ THICKNESS_EXPONENT = 0.35
 PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
     "head":      ("nose", "head", "eye", "ear"),
     "neck":      ("neck",),
-    # Finer groups come first: _by_name returns the first match, so a bone
-    # answers to the most specific name it has. BROADER carries the fallback.
+    # Finer groups first: _by_name returns the first match, and BROADER carries the fallback.
     "chest":     ("chest", "thorax", "bust"),
     "torso":     ("hip", "spine", "abdomen", "core"),
     "arms":      ("shoulder", "elbow", "wrist"),
@@ -558,18 +556,14 @@ PROPORTION_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 
-# A setting on the broader name still reaches the finer bones, so `legs: 1.6`
-# keeps meaning the whole leg while `thigh:` can single one part out.
+# A setting on the broader name still reaches the finer bones, so `legs: 1.6` means the whole leg.
 BROADER: dict[str, str] = {
     "thigh": "legs", "shin": "legs", "feet": "legs", "chest": "torso",
 }
 
 
 def group_chain(parent: str, child: str) -> tuple[str, ...]:
-    """Every name one BONE answers to, most specific first.
-
-    Not groups_of(rig), which is the set a whole rig has.
-    """
+    """Every name one BONE answers to, most specific first, unlike groups_of(rig)."""
     found, group = [], group_of(parent, child)
     while group and group not in found:
         found.append(group)
@@ -594,9 +588,7 @@ def group_of(parent: str, child: str) -> str | None:
         return "neck" if any(n in child for n in _HEADWARD) else _by_name(child)
     if "neck" in child:
         return "neck"
-    # The child alone left r_ankle->r_toe unnamed, so no setting could reach
-    # the feet. A bone belongs to its child's group, or failing that its
-    # parent's - never to nothing.
+    # A bone belongs to its child's group, or failing that its parent's, never to nothing.
     return _by_name(child) or _by_name(parent)
 
 

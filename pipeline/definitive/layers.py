@@ -175,9 +175,7 @@ def catalogue() -> list[dict]:
             sorted(REGISTRY.values(), key=lambda s: s.order)]
 
 
-# What a sprite needs: lift the contrast, reduce to the grid, fit the palette.
-# canvas, background and scale stay in the catalogue and start switched off -
-# they answer questions a run has already answered by the time it gets here.
+# canvas, background and scale start switched off: a run has already answered them.
 ESSENTIAL = ("curves", "grid", "palette")
 
 

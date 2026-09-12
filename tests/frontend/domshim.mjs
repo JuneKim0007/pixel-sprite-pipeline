@@ -1,17 +1,4 @@
-/* A DOM small enough to test against, with no dependencies.
- *
- * The front-end has no package.json and no build step, which is deliberate —
- * so jsdom is not available and adding it would buy one test harness at the
- * cost of the property that makes this UI easy to run anywhere.
- *
- * What the UI actually touches is narrow: createElement, append, textContent,
- * className/classList, dataset, and a class/tag/id query. That is implementable
- * in a page of plain JS, and it is enough to render a component and assert what
- * came out — which is the thing a refactor needs and static checks cannot give.
- *
- *   import { installDom } from './domshim.mjs';
- *   installDom();            // defines globalThis.document
- */
+/* A DOM small enough to test against: no package.json, no build step, so no jsdom. */
 
 class ClassList {
   constructor(node) { this.node = node; }
@@ -43,9 +30,7 @@ class Node {
     this._text = '';
     this._listeners = {};
     this.classList = new ClassList(this);
-    // A real form control reads back '' before anything is typed. Leaving it
-    // undefined makes `input.value.trim()` throw in a test and work in a
-    // browser, which is the wrong way round for a shim to be wrong.
+    // A real form control reads back '' before anything is typed.
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(this.tagName)) this.value = '';
   }
 
@@ -64,12 +49,7 @@ class Node {
     if (i >= 0) this.parentNode.children.splice(i, 1);
     this.parentNode = null;
   }
-  /* Real Elements have this and it is the correct way to swap a node without
-   * touching the parent's child list. Present here because code that reaches
-   * INTO `children` to splice it works against this shim (an Array) and throws
-   * in a browser (an HTMLCollection has no indexOf) — a false pass is worse
-   * than a missing method, so the shim offers the API that makes the correct
-   * version writable. */
+  /* Present because code that splices `children` passes against an Array and throws on an HTMLCollection. */
   replaceWith(next) {
     if (!this.parentNode) return;
     const i = this.parentNode.children.indexOf(this);
@@ -86,10 +66,7 @@ class Node {
   }
   setPointerCapture() {}
   releasePointerCapture() {}
-  /* Enough 2D context to let a component that draws be mounted at all. Every
-   * call is a no-op except measureText, which returns a width because callers
-   * lay out against it — a stub returning undefined there throws on arithmetic
-   * rather than drawing something wrong, which is the wrong kind of failure. */
+  /* Enough 2D context to mount a component that draws; measureText returns a width because callers lay out against it. */
   getContext() {
     if (this.tagName !== 'CANVAS') return null;
     const noop = () => {};
@@ -126,11 +103,7 @@ class Node {
     return true;
   }
 
-  /* Descendant combinators too ('.a .b'), because assertions naturally read
-   * that way — "the tip inside the label row" — and a shim that silently
-   * fails to match makes a passing component look broken. Matched right to
-   * left: the last compound must match this node, and each earlier one must
-   * match some ancestor, in order. */
+  /* Descendant combinators too, matched right to left, because assertions read that way. */
   _matches(sel) {
     const parts = sel.trim().split(/\s+/).filter(Boolean);
     if (!this._matchesOne(parts.pop())) return false;
@@ -165,13 +138,11 @@ export function installDom() {
   doc.createElement = (tag) => new Node(tag);
   doc.createTextNode = (v) => new Text(v);
   doc.body = new Node('body');
-  // Appended, not only assigned: document.querySelector reaches into body in a
-  // browser, and a shim where it does not lets a lookup that returns null pass.
+  // Appended, not only assigned: document.querySelector reaches into body in a browser.
   doc.append(doc.body);
   globalThis.document = doc;
   globalThis.window = doc;
-  // Components that draw an image hold one; `complete` stays false so a test
-  // exercises the same branch a browser takes before the file has loaded.
+  // `complete` stays false, so a test takes the same branch a browser does before the file loads.
   globalThis.Image = class {
     constructor() {
       this.naturalWidth = 0; this.naturalHeight = 0;

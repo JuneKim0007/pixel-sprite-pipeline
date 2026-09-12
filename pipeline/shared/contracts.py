@@ -131,8 +131,7 @@ class ConfigField(Field):
     modules: list[str] = dc_field(default_factory=list)
     options_from: str = ""
     free_numeric: bool = False
-    # Another field's key. Unset, this field answers with that field's value,
-    # so two stages stay together until someone deliberately parts them.
+    # Another field's key: unset, this field answers with that field's value.
     inherits: str = ""
 
     def _in_range(self, value) -> bool:

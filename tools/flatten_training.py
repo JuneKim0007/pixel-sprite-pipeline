@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Put a known colour behind the sprites, instead of letting the trainer pick.
-
-The sprites carry hard alpha. kohya composites that onto something before it
-trains, nothing here says what, and whatever it picks is the backdrop the LoRA
-learns. Flattening first onto the colour the prompt already asks for - and the
-keyer already removes - makes the learned backdrop the one we throw away.
-"""
+kohya composites the hard alpha onto something unspecified, and the LoRA learns it."""
 
 from __future__ import annotations
 

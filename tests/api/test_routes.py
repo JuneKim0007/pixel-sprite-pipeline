@@ -241,9 +241,8 @@ def test_a_key_the_schema_does_not_declare_is_refused(http, config_file):
 
 
 def test_every_asset_type_says_what_it_makes_and_what_it_costs(http):
-    """The kinds banner reads this: a picture in, a picture out, and the
-    dials that change the result, each with words a non-technical reader
-    can act on."""
+    """The kinds banner reads this: a picture in, a picture out, and the dials
+    that change the result, each in words a non-technical reader can act on."""
     body = http.get("/api/modules")
     assert body["modules"], "no asset types served"
     assert body["dials"], "no plain-language descriptions served"

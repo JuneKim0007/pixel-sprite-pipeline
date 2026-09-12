@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Write one caption per training image, so content is named and style is not.
-
-The rule is `pipeline/looks/training.py`'s own: name the pose, the view and
-the subject, never the style. What a caption names is attributed to those
-words; what it omits is absorbed into the trigger, which is how a style LoRA
-ends up drawing one artist's character on every prompt.
-"""
+What a caption omits is absorbed into the trigger, per pipeline/looks/training.py."""
 
 from __future__ import annotations
 
@@ -34,8 +29,7 @@ rendering. Do not write "pixel art", "sprite", "8-bit", "chibi", "anime",
 
 Reply with the line only. No quotes, no preamble."""
 
-# Words that describe the drawing rather than the thing drawn. A caption
-# carrying one of these hands the style back to the words.
+# Words that describe the drawing rather than the thing drawn; naming one hands the style back.
 STYLE_WORDS = (
     "pixel", "sprite", "8-bit", "8 bit", "16-bit", "16 bit", "anime", "chibi",
     "cartoon", "illustration", "render", "digital art", "artwork", "drawing",
@@ -46,10 +40,7 @@ STYLE_WORDS = (
 
 def scrub(line: str) -> str:
     """Excise the style words, keep the subject around them.
-
-    Dropping the whole clause loses "a witch in a wide hat" to the two words
-    in front of it, so the phrase goes and what it described stays.
-    """
+    Dropping the whole clause would lose "a witch in a wide hat" to its first two words."""
     import re
 
     text = line.strip().strip(".")

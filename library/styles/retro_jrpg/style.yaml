@@ -38,17 +38,14 @@ modules:
 settings:
   palette:
     source: extract
-    # Measured: at 12 colours a silver-armoured sprite collapsed to two greys
-    # and read as monochrome. Reference art of this class runs 20-40. Colour
-    # count IS detail once the shapes are flat.
+    # Measured: at 12 colours a silver-armoured sprite read as monochrome. Colour count IS detail when shapes are flat.
     size: 14
     factor: 8            # verified as the LoRA's true grid by variance sweep
     reduce: median       # 100% structural accuracy against ground truth
     alpha_tolerance: 16
 
   canonical:
-    # The anchor is generated once and every frame inherits from it, so it is
-    # the cheapest place to spend steps.
+    # The anchor is generated once and every frame inherits from it, so steps are cheapest here.
     steps: 40
     cfg: 7.5
     lora_strength: 1.2   # the LoRA author's figure; higher speckles the blocks
@@ -56,8 +53,7 @@ settings:
     scheduler: karras
 
   frames:
-    # More steps mainly buys cleaner block edges here. Below ~20 the source is
-    # noisy and median reduction turns that noise into scattered pixels.
+    # Below ~20 steps the source is noisy, and median reduction turns that noise into scattered pixels.
     steps: 30
     cfg: 7.5
     lora_strength: 1.2

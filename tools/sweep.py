@@ -92,6 +92,10 @@ VARIANTS = {
                   "canonical": {"lora_strength": 1.3,
                                 "from_reference": {
                                     "weight": 1.25, "weight_type": "linear"}}},
+    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.3,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
     "shape_09": {"_sample": True, "_refs": "px", "_build": True,
                      "canonical": {"lora_strength": 1.3,
                                    "from_reference": {
@@ -108,16 +112,16 @@ VARIANTS = {
                     "canonical": {"style_emphasis": 1.6,
                                   "from_reference": {
                                       "weight": 0.9, "weight_type": "linear"}}},
+    "pixref_10": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.0,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
+    "pixref_11": {"_sample": True, "_refs": "px", "_build": True,
+                  "canonical": {"lora_strength": 1.1,
+                                "from_reference": {
+                                    "weight": 1.25, "weight_type": "linear"}}},
     "pixref_12": {"_sample": True, "_refs": "px", "_build": True,
                   "canonical": {"lora_strength": 1.2,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "pixref_13": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.3,
-                                "from_reference": {
-                                    "weight": 1.25, "weight_type": "linear"}}},
-    "pixref_14": {"_sample": True, "_refs": "px", "_build": True,
-                  "canonical": {"lora_strength": 1.4,
                                 "from_reference": {
                                     "weight": 1.25, "weight_type": "linear"}}},
     "linear_09": {"_sample": True, "_refs": True,
@@ -159,7 +163,7 @@ VARIANTS = {
 # this reaches the pose skeleton.
 # Three characters, not eight, for the conditioning arm: the question is how a
 # reference is consumed, and that does not need every body in the set.
-SAMPLE: tuple[str, ...] = ("char1", "char2", "char3")
+SAMPLE: tuple[str, ...] = tuple(f"char{i}" for i in range(1, 9))
 
 BUILDS: dict[str, dict[str, float]] = {
     "char1": {"chest": 1.15, "thigh": 1.00, "torso": 0.95},
@@ -417,7 +421,12 @@ def main() -> int:
             print(f"  {path.relative_to(ROOT)}")
         return 0
     if what == "run":
+        # var/sweep.arms is the one place the arm list lives; passing it through
+        # a shell, a detach and a background job lost it silently.
         rest = sys.argv[2:]
+        if not rest:
+            saved = ROOT / "var/sweep.arms"
+            rest = saved.read_text().split() if saved.is_file() else []
         chars = [a for a in rest if a.startswith("char")]
         picks = [a for a in rest if not a.startswith("char")]
         return run_all(chars or None, picks or None)

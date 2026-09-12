@@ -222,9 +222,10 @@ def _shown(run_dir: Path) -> dict:
         for row in said.get("references", []):
             # `kept` is written relative to the project root.
             row["missing"] = not (ROOT / row.get("kept", "")).is_file()
-        # The guide drawn from the rig, so the two can be laid over each other.
-        guides = sorted(run_dir.glob("*_pose/skeleton_*.png"))
-        said["guides"] = [str(g.relative_to(ROOT)) for g in guides]
+        # The stage keeps its own copy now; the pose folder is the fallback.
+        if not said.get("guides"):
+            said["guides"] = [str(g.relative_to(ROOT))
+                              for g in sorted(run_dir.glob("*_pose/skeleton_*.png"))]
         return said
     return {}
 
@@ -344,8 +345,7 @@ class Runs(BaseRouter):
     def wipe(self, req):
         from ..orchestration import housekeeping as hk
 
-        # A wipe while a run is writing removes the directory underneath it and
-        # leaves a manifest describing files that are gone.
+        # A wipe under a live run leaves a manifest describing files that are gone.
         live = _in_flight()
         if live:
             raise Conflict(f"'{live}' is still running.",

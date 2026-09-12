@@ -1,16 +1,4 @@
-/* Headless tests for the front-end logic.
- *
- * The UI has been built without a browser to look at, which is exactly the
- * condition under which silent breakage accumulates: a variable declared and
- * never assigned, a drag that perturbs the wrong limb, a fallback that never
- * fires. None of those raise an error — they just render something subtly
- * wrong, and only a person looking at the screen notices.
- *
- * These tests cover the parts that are pure logic, which is most of the parts
- * that were actually wrong.
- *
- *   node tests/test_frontend.mjs
- */
+/* Headless tests for the front-end logic: the parts that are pure logic. */
 
 import assert from 'node:assert';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -30,13 +18,7 @@ let pass = 0, fail = 0;
 const ok = (name) => { console.log(`  ok    ${name}`); pass++; };
 const bad = (name, e) => { console.log(`  FAIL  ${name}\n        ${e.message}`); fail++; };
 
-/* `test` refuses an async body rather than running it.
- *
- * It used to call fn() inside try/catch and report ok on return. An async body
- * returns a promise there, so its assertions settled after the catch had been
- * passed: fourteen async tests reported ok whatever they asserted, and the
- * suite exited 0 with a deliberately broken one among them. Detecting the
- * thenable makes the mistake impossible instead of documented. */
+/* `test` refuses an async body: fn() returning a promise settled after the catch. */
 const test = (name, fn) => {
   try {
     const r = fn();
@@ -165,8 +147,7 @@ function declares(body, name) {
 }
 
 function usesOf(name, body) {
-  // Spread is three dots, and the member-access lookbehind below cannot tell
-  // `...kids(` from `x.kids`, so a spread-called import read as unused.
+  // Blanked so the lookbehind below cannot read a spread-called `...kids(` as `x.kids`.
   body = body.replace(/\.\.\./g, ' ');
   const pattern = name === '$' ? /(?<![\w$])\$(?=\s*\()/g
     : name === '$$' ? /(?<![\w$])\$\$(?=\s*\()/g
@@ -175,8 +156,7 @@ function usesOf(name, body) {
 }
 
 console.log('\nstatic checks across every module');
-// Recursive: the views moved into folders, and a top-level readdir quietly
-// stopped checking two thirds of the code.
+// Recursive: a top-level readdir stopped covering views/ once it grew folders.
 const allModules = readdirSync(JS, { recursive: true })
   .filter((f) => String(f).endsWith('.js'))
   .map(String)
@@ -193,17 +173,13 @@ for (const file of allModules) {
     }
   });
   test(`${file}: every import is used`, () => {
-    // Counted in the body, not the whole file. `uses > 1` stood in for "once in
-    // the import line, once for real", which a name that is not a word
-    // character never satisfies: `$` is followed by a comma in the import, so
-    // it scored zero there and could not pass however often it was called.
+    // Counted in the body, not the whole file: `$` scores zero in the import line.
     for (const name of importedNames(src)) {
       assert.ok(usesOf(name, bodyOf(src)) > 0, `${name} imported but unused`);
     }
   });
   test(`${file}: every dom helper used is imported`, () => {
-    // The inverse, and the one that was missing: store.js called `$` with no
-    // import, so every toast threw and a started run looked like a dead button.
+    // The inverse: store.js called `$` with no import, so every toast threw.
     const imported = importedNames(src);
     const body = bodyOf(src);
     for (const name of DOM_HELPERS) {
@@ -213,18 +189,7 @@ for (const file of allModules) {
   });
 }
 
-/* ------------------------------------------------- schema coverage is total
- *
- * Every field the pipeline declares must be reachable in the UI. This is not a
- * style preference: a schema-declared, pipeline-consumed setting that no view
- * renders is invisible, and the only way anyone finds out is when a run
- * behaves as though the value were never set — which it was not.
- *
- * `Export` and `Quality` were exactly this. The settings sidebar filtered its
- * groups through a hardcoded list, and a group absent from that list rendered
- * nowhere. The list is now an ordering hint with a derived fallback, and this
- * test is what keeps it that way.
- */
+/* Every schema-declared field must be reachable in the UI; Export and Quality were not. */
 const schemaSrc = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
 const settingsSrc = readFileSync(join(JS, 'views/settings/settings.js'), 'utf8');
 
@@ -236,8 +201,7 @@ test('schema declares groups at all', () => {
 });
 
 test('the settings sidebar derives its groups, never whitelists them', () => {
-  // A literal array used as a filter is the regression. An array used only for
-  // ordering, with unknown groups appended, is the fix.
+  // A literal array used as a filter is the regression; used only for ordering it is the fix.
   assert.ok(/sectionOrder/.test(settingsSrc),
     'settings.js should derive its section list from the schema');
   assert.ok(!/const SECTIONS\s*=/.test(settingsSrc),
@@ -248,16 +212,13 @@ test('every schema group is reachable', () => {
   const order = new Set(
     [...(settingsSrc.match(/const ORDER = \[([\s\S]*?)\]/) || ['', ''])[1]
       .matchAll(/'([^']+)'/g)].map((m) => m[1]));
-  // Groups missing from ORDER still render — they are appended — but naming
-  // them keeps the sidebar in a deliberate order rather than alphabetical.
+  // Groups missing from ORDER are appended, but naming them keeps the order deliberate.
   const unordered = [...declaredGroups].filter((g) => !order.has(g));
   assert.deepEqual(unordered, [],
     `schema groups not placed in ORDER: ${unordered.join(', ')}`);
 });
 
-/* Typed references: the roles the backend accepts and the roles the UI offers
- * have to be the same four, or an image gets tagged with a role that fails
- * validation only once the job reaches the queue. */
+/* Both sides must offer the same four roles, or validation fails only once queued. */
 test('reference roles match the backend', () => {
   const backend = [...readFileSync(join(ROOT, 'pipeline/refs/references.py'), 'utf8')
     .match(/ROLES = \(([^)]+)\)/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
@@ -272,21 +233,14 @@ test('nothing writes the retired references.images', () => {
     const src = readFileSync(join(JS, file), 'utf8');
     for (const line of src.split('\n')) {
       if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
-      // `references?.images` is the same bug and slipped past a literal dot:
-      // two live call sites survived the first sweep because of it.
+      // `references?.images` is the same bug, and a literal dot let two call sites survive.
       assert.ok(!/references\??\.images/.test(line),
         `${file} still touches references.images: ${line.trim()}`);
     }
   }
 });
 
-/* ------------------------------------------------------- rendered output
- *
- * Everything above tests logic that never touches the DOM, which is why the
- * DOM-shaped bugs were the ones that shipped. domshim.mjs is a DOM small
- * enough to have no dependencies and real enough to render a component and
- * assert what came out — the thing a refactor of web/js needs to be safe.
- */
+/* Below here the DOM shim is installed: the DOM-shaped bugs are the ones that shipped. */
 const { installDom } = await import(join(ROOT, 'tests/frontend/domshim.mjs'));
 installDom();
 
@@ -294,9 +248,7 @@ const ui = await import(join(JS, 'ui/index.js'));
 const { el } = await import(join(JS, 'core/dom.js'));
 
 test('an interval is either poll() or cleared by a teardown', () => {
-  // Frame playback cannot be a poll: it does not want overlap protection or
-  // the hidden-tab skip, it wants a steady tick. What it does need is a stop
-  // that something calls, which is what MutationObserver used to fake.
+  // Frame playback wants a steady tick rather than a poll, but it does need a real stop.
   for (const file of allModules) {
     if (file.endsWith('listeners/poll.js')) continue;
     const src = readFileSync(join(JS, file), 'utf8');
@@ -328,9 +280,7 @@ test('querySelector finds by class and by tag.class', () => {
 
 console.log('\neditor cost');
 await atest('the shader refuses an image bigger than its ceiling', async () => {
-  // A 12 Mpx upload made three 49 MB GPU allocations plus a 12 Mpx dispatch,
-  // per call, and nothing serialised the calls. On Apple Silicon that memory
-  // is the display's memory.
+  // A 12 Mpx upload cost three 49 MB GPU allocations per call, and nothing serialised them.
   const gpu = await import(join(JS, 'views/editor/gpu.js'));
   const src = readFileSync(join(JS, 'views/editor/gpu.js'), 'utf8');
   assert.ok(/MAX_PIXELS/.test(src), 'gpu.js has no ceiling');
@@ -353,8 +303,7 @@ test('the editor decodes at the budget and runs one preview at a time', () => {
 });
 
 test('the editor says why the live preview declined, instead of just stopping', () => {
-  // Both refusals used to be a bare `return false`. Moving a slider then did
-  // nothing at all, with no error anywhere, which reads as a freeze.
+  // Both refusals were a bare `return false`, so a slider moved and nothing happened at all.
   const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
   const guard = src.match(/if \(!gpu\.supported\(\) \|\| !bitmap\) \{([^}]*)\}/);
   assert.ok(guard, 'drawPreview no longer guards on support and bitmap together');
@@ -365,8 +314,7 @@ test('the editor says why the live preview declined, instead of just stopping', 
 });
 
 test('every source reaches the shader through one decode', () => {
-  // `source` set without `bitmap` decoded is what left the live preview dead
-  // until the image was re-picked by hand.
+  // `source` set without `bitmap` decoded left the live preview dead until re-picked by hand.
   const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
   const body = src.slice(src.indexOf('export function renderEditor'));
   const inUseSource = body.slice(body.indexOf('async function useSource('),
@@ -381,9 +329,7 @@ test('every source reaches the shader through one decode', () => {
 });
 
 test('a new source always re-measures the block size', () => {
-  // The picker reset Grid's factor and the upload did not, so a factor
-  // measured from a large image was carried onto a small one and divided what
-  // was no longer there - 16 turns a 32px upload into a single pixel.
+  // The upload did not reset Grid's factor, so 16 turned a 32px source into a single pixel.
   const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
   const body = src.slice(src.indexOf('export function renderEditor'));
   const resets = [...body.matchAll(/config\.factor = 0/g)].length;
@@ -396,8 +342,7 @@ test('a new source always re-measures the block size', () => {
 
 console.log('\nfeatures');
 test('features/ never touches the DOM', () => {
-  // The rule that makes this folder testable without a shim. A module that
-  // builds a node has stopped being domain logic.
+  // A features/ module that builds a node has stopped being domain logic.
   const DOM = /\b(document|el\(|getContext|addEventListener|replaceChildren)\b/;
   for (const f of readdirSync(join(JS, 'features'))) {
     const src = readFileSync(join(JS, 'features', f), 'utf8');
@@ -415,17 +360,14 @@ await atest('stage ordering is decidable without a schema global', async () => {
   ];
   assert.deepEqual(orderProblems(['pose', 'frames', 'export'], stages), []);
 
-  // A stage declares one set of needs and the run answers some of them, so a
-  // resource must not be reported as an artifact nothing produces.
+  // A need the run answers must not be reported as an artifact nothing produces.
   const withRig = [{ name: 'pose', needs: ['rig'], gives: ['skeletons'] },
                    { name: 'frames', needs: ['skeletons'], gives: ['frames'] }];
   assert.deepEqual(orderProblems(['pose', 'frames'], withRig, ['rig']), []);
   assert.equal(orderProblems(['pose', 'frames'], withRig, []).length, 1,
                'without the resource list a rig reads as a missing artifact');
 
-  // A soft need absent altogether is fine; produced later is the same mistake
-  // as a hard one, and this twin has to agree with runner.validate or
-  // Auto-order proposes an order the server refuses.
+  // This twin has to agree with runner.validate, or Auto-order proposes an order the server refuses.
   const soft = [{ name: 'canonical', needs: [], optional: ['depthmaps'], gives: ['canonical'] },
                 { name: 'depth', needs: [], gives: ['depthmaps'] }];
   assert.deepEqual(orderProblems(['canonical'], soft), [],
@@ -559,8 +501,7 @@ test('Select marks the current value', () => {
   assert.equal(opts[0].selected, false);
 });
 test('the kit builds every widget the views repeat by hand', () => {
-  // Counted from the source before the kit existed: btn in 12 files, mini in
-  // 11, empty in 10. A widget missing here is a widget that gets rebuilt.
+  // A widget missing from the kit is a widget that gets rebuilt by hand.
   for (const name of ['Button', 'Select', 'Num', 'Check', 'Range', 'Row', 'Fields',
                       'Head', 'PanelHead', 'Segmented', 'Mini', 'Mono', 'Empty',
                       'Warn', 'Ok', 'Note', 'Fact', 'FactGrid']) {
@@ -568,8 +509,7 @@ test('the kit builds every widget the views repeat by hand', () => {
   }
 });
 test('ui/ knows nothing about the domain', () => {
-  // A primitive that understands a rig has stopped being one, and that is the
-  // rule that keeps this folder testable without a server.
+  // A primitive that understands a rig has stopped being one.
   const DOMAIN = /\b(rig|palette|canonical|pipeline|stage|sprite|joint|pose)\b/i;
   for (const f of ['kit.js', 'primitives.js', 'card.js', 'field.js']) {
     const src = readFileSync(join(JS, 'ui', f), 'utf8');
@@ -580,10 +520,7 @@ test('ui/ knows nothing about the domain', () => {
 
 console.log('\nui primitives');
 test('PanelHead is the one section head, and every view uses it', () => {
-  // .ui-section was a margin where .group is a surface - background, border,
-  // radius, styled heading bar. Adopting Section would have removed a border
-  // from every panel. PanelHead already produced what the five sites built by
-  // hand, and was the primitive nothing called.
+  // PanelHead was the uncalled primitive that already produced what five sites built by hand.
   const head = ui.PanelHead('Layers', { note: 'drag to reorder' });
   assert.equal(head.className, 'ovhead');
   assert.ok(head.querySelector('h2'));
@@ -664,8 +601,7 @@ test('label is bound to its control id', () => {
 });
 
 test('update() swaps in place using replaceWith, not children.indexOf', () => {
-  // children is an HTMLCollection in a browser and has no indexOf: splicing it
-  // is a TypeError at runtime that any array-backed double would pass.
+  // children is an HTMLCollection with no indexOf, which an array-backed double would hide.
   const grid = el('div', {});
   const card = new ui.BaseCard({ data: { title: 'before' } });
   grid.append(card.render());
@@ -698,8 +634,7 @@ test('a starter config declares its workspace and its stage order', () => {
   assert.deepEqual(cfg.pipeline.stages, ['pose', 'export']);
 });
 await atest('the blank order the dialog offers is one the server would accept', async () => {
-  // The dialog fills pipeline.stages with autoOrder over every registered
-  // stage, so what it proposes has to survive the same check save_config runs.
+  // What the dialog proposes has to survive the same check save_config runs.
   const { orderProblems, autoOrder } = await import(join(JS, 'features/stages.js'));
   const stages = [
     { name: 'pose', needs: ['rig'], gives: ['skeletons', 'pose_frames'] },
@@ -717,8 +652,7 @@ await atest('the blank order the dialog offers is one the server would accept', 
 });
 
 test('the rail says which stage an unavailable type is waiting on', () => {
-  // `available` is derived from the stage registry now, so the cell can name
-  // the work. "not built yet" threw that away.
+  // `available` is derived from the stage registry, so the cell can name the work.
   railState.schema = {
     stages: [{ name: 'pose', needs: [], gives: ['skeletons'] }],
     resources: [],
@@ -783,8 +717,7 @@ await atest('every joint is listed, not only the placed ones', async () => {
 });
 
 await atest('removing a point aims at it, so a click puts it back', async () => {
-  // The bug: delete changed `points` and left `next` wherever advance() had
-  // moved on to, so the following click landed on an unrelated joint.
+  // delete changed `points` and left `next`, so the following click landed on another joint.
   const root = await mountAnnotator();
   const canvas = root.querySelector('.annotcanvas');
 
@@ -837,9 +770,7 @@ await atest('clicking a joint row aims at it without placing anything', async ()
 });
 
 console.log('\ndialogs');
-/* Characterisation: what these four render, what they resolve, and what they
- * call. Written before the modal scaffolding was extracted, so the extraction
- * has something to be measured against. */
+/* Characterisation of the four dialogs, written before the modal scaffolding was extracted. */
 const dlgApi = (await import(join(JS, 'api.js'))).api;
 const dlg = await import(join(JS, 'ui/dialog.js'));
 
@@ -1039,8 +970,7 @@ test('the four sheet views match the backend aliases', () => {
   assert.deepEqual(views, ['front', 'rear', 'side', '270']);
 });
 test('the right side stays a raw angle, not a name', () => {
-  // Naming 270 something that reads like a mirror of `side` is how the two get
-  // swapped; the backend has no name for it either.
+  // A name that mirrors `side` is how the two get swapped; the backend has no name either.
   assert.ok(inputSrc.includes("view: '270'"));
   assert.ok(!/view: 'side_right'/.test(inputSrc));
 });
@@ -1055,29 +985,23 @@ test('adding to a slot replaces that view rather than stacking', () => {
 
 console.log('\nschema coverage');
 await atest('every schema field carries help, so no (?) is ever empty', async () => {
-  // The BaseField marker makes a missing explanation visible rather than
-  // invisible; this keeps the count from growing quietly.
+  // The BaseField marker makes a missing explanation visible; this caps how many there are.
   const src = readFileSync(join(ROOT, 'pipeline/generation/schema.py'), 'utf8');
-  // ConfigField declarations, not the dict literals FIELDS used to be. This
-  // matched `{"path": ...}` and found zero after that migration, which the
-  // runner hid because the body is async.
+  // ConfigField declarations, not the dict literals FIELDS used to be.
   const paths = [...src.matchAll(/\bkey="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(paths.length > 100, `only found ${paths.length} schema paths`);
 });
 
 console.log('\neditor preview surface');
 await atest('both engines draw into the one fixed stage', async () => {
-  // The shader hands over the REDUCED grid and the exact path a full PNG. Each
-  // used to size the element itself, so a drag swapped a 24px thumbnail for a
-  // full panel and back, and changing the grid factor resized it again.
+  // Each engine used to size the cell itself, so a drag swapped a 24px thumbnail for a panel.
   const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
   assert.ok(!/after\.replaceChildren\(head\(/.test(src),
     'an engine still renders straight into the cell, bypassing the stage');
   assert.match(src, /showResult\('preview', canvas/);
   assert.match(src, /showResult\('exact', img/);
 
-  // The stage was briefly a hardcoded 320px. Once the panes resize, its job is
-  // to be bounded BY the pane, so a fixed height would fight the splitter.
+  // A fixed height would fight the splitter once the panes resize.
   const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
   assert.doesNotMatch(css, /\.compare-stage\s*\{[^}]*[^-]height: \d/,
     'the stage has a fixed height again, which the splitter cannot override');
@@ -1093,8 +1017,7 @@ await atest('the result says how many pixels it is', async () => {
 });
 
 await atest('the shader keys the same colour the written file keys', async () => {
-  // Two parsers is a real cost; a shader keying a different colour from the
-  // one Python keys is a worse one, so the accepted forms are checked to match.
+  // A shader keying a different colour from the one Python keys is what two parsers cost.
   const { parseColour } = await import(join(JS, 'core/colour.js'));
 
   assert.deepEqual(parseColour('12, 34, 56'), [12, 34, 56]);
@@ -1121,8 +1044,7 @@ await atest('a split cannot swallow the pane that holds its handle', async () =>
 
   assert.equal(fractionAt(250, 1000), 0.25);
   assert.equal(fractionAt(0, 1000), MIN_FRACTION);
-  // A container measured before layout reports 0, and dividing by it is how a
-  // splitter ends up at Infinity and the pane vanishes on first paint.
+  // A container measured before layout reports 0, and dividing by it puts the splitter at Infinity.
   assert.equal(fractionAt(100, 0), (MIN_FRACTION + MAX_FRACTION) / 2);
 });
 
@@ -1130,9 +1052,7 @@ await atest('saved ratios survive storage being unavailable', async () => {
   const { loadRatios, saveRatios } = await import(join(JS, 'views/editor/panes.js'));
   const fallback = { side: 0.72, compare: 0.5 };
 
-  // No localStorage in node at all, which is the same shape as a private
-  // window or a browser set to block site data: it must open at its defaults
-  // rather than throw before the editor renders.
+  // No localStorage at all is the same shape as a private window: open at defaults, do not throw.
   assert.deepEqual(loadRatios(fallback), fallback);
   assert.doesNotThrow(() => saveRatios(fallback));
 });
@@ -1151,9 +1071,7 @@ await atest('the editor is one shell, not four bordered cards', async () => {
 
 console.log('\nrun failure reporting');
 await atest('a partial failure is still reported', async () => {
-  // Suppressing the banner when earlier stages produced something meant a
-  // resume that died in its first GPU stage looked exactly like the pause it
-  // started from - the gate banner, and nothing saying it had tried.
+  // Hiding the banner when earlier stages produced output made a failed resume look paused.
   const src = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
   assert.doesNotMatch(src, /failure && !produced/,
     'the failure banner is hidden again when any output exists');
@@ -1166,8 +1084,7 @@ await atest('a partial failure is still reported', async () => {
 await atest('a run that produced nothing says why, from its own log', async () => {
   const { failureFrom } = await import(join(JS, 'views/result/result.js'));
 
-  // The real log off disk. Every run on this machine failed this way for two
-  // days while the view said "No output yet. Start a run."
+  // The real log off disk: every run failed this way for two days under "No output yet".
   const real = [
     'Traceback (most recent call last):',
     '  File "/x/pipeline/stages/pose.py", line 105, in run',
@@ -1212,9 +1129,7 @@ await atest('every form a person types round-trips to one hex value', async () =
 });
 
 await atest('the presets lead with magenta and green carries its cost', async () => {
-  // Green is the film industry default and the wrong default here: it sits
-  // close to skin and cloth, and every pixel it bleeds into costs a palette
-  // entry. It is offered, labelled, and not first.
+  // Green sits close to skin and cloth, and every pixel it bleeds into costs a palette entry.
   const src = readFileSync(join(ROOT, 'pipeline/shared/colour.py'), 'utf8');
   const block = /BACKDROP_PRESETS[^=]*=\s*\(([\s\S]*?)\n\)/.exec(src)[1];
   const hexes = [...block.matchAll(/"(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]);
@@ -1225,9 +1140,7 @@ await atest('the presets lead with magenta and green carries its cost', async ()
 });
 
 await atest('one colour control, used by both forms', async () => {
-  // The settings form and the definitive layer form are the same question
-  // asked twice. They rendered it two ways: a picker in one, a bare text box
-  // in the other, because only the schema side was upgraded.
+  // The settings form and the layer form ask one question, and only the schema side was upgraded.
   const kit = readFileSync(join(JS, 'ui/kit.js'), 'utf8');
   assert.match(kit, /export function ColourPicker/);
   assert.match(kit, /type: 'color'/, 'no native picker, so no choosing by eye');
@@ -1246,10 +1159,7 @@ await atest('one colour control, used by both forms', async () => {
 
 console.log('\nsettings list editors');
 await atest('every function the settings form calls is defined', async () => {
-  // 197651b deleted subControl and left its call, so every list editor threw
-  // ReferenceError on render. Nothing caught it: the list editors are the one
-  // part of the settings form no test drives, and a call to a name that does
-  // not exist is only an error when the line actually runs.
+  // 197651b deleted subControl and left its call, so every list editor threw on render.
   const src = readFileSync(join(JS, 'fields.js'), 'utf8');
 
   const defined = new Set([
@@ -1394,8 +1304,7 @@ await atest('back returns to the last screen, not the last render', async () => 
   assert.equal(h.pop(), null);
   assert.equal(h.canGoBack(), false);
 
-  // Re-rendering a view is not a navigation; a stack of identical entries
-  // makes Back look broken.
+  // Re-rendering a view is not a navigation; a stack of identical entries makes Back look broken.
   const g = createHistory();
   g.push(snapshot(state)); g.push(snapshot(state)); g.push(snapshot(state));
   assert.equal(g.depth(), 1, 'repeated identical positions were all recorded');
@@ -1403,8 +1312,7 @@ await atest('back returns to the last screen, not the last render', async () => 
 });
 
 await atest('a state that failed to draw is never somewhere back can land', async () => {
-  // Without forget(), Back walks into the screen that just threw - the same
-  // loop one level deeper, because the failing state was pushed on the way in.
+  // Without forget(), Back walks into the screen that just threw.
   const { createHistory, snapshot } = await import(join(JS, 'core/history.js'));
   const h = createHistory();
   const state = { tab: 'overview', settingsSection: 'Asset' };
@@ -1428,8 +1336,7 @@ await atest('the stack cannot grow without bound', async () => {
 });
 
 await atest('the way out lives outside every view host', async () => {
-  // mount() replaces the view host on failure. A back button rendered inside
-  // one would be removed by the very error it exists to escape.
+  // mount() replaces the view host on failure, removing any back button rendered inside it.
   const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
   const sidebar = /<nav class="sidebar">[\s\S]*?<\/nav>/.exec(html)[0];
   assert.match(sidebar, /id="goback"/, 'the back button is not in the sidebar');
@@ -1440,8 +1347,7 @@ await atest('the way out lives outside every view host', async () => {
   assert.match(life, /\bforget\(\)/, 'a failed state is still pushed');
   assert.match(life, /goBack\(\)/, 'the failure card still only offers Try again');
 
-  // A module import is never undefined; the optional chaining was there
-  // because the global might not exist yet.
+  // A module import is never undefined; the optional chaining was there for the global.
   const all = ['main.js', 'listeners/lifecycle.js', 'views/settings/settings.js']
     .map((f) => readFileSync(join(JS, f), 'utf8')).join('\n');
   assert.doesNotMatch(all, /window\.pixelNav/, 'the navigation global is back');
@@ -1449,9 +1355,7 @@ await atest('the way out lives outside every view host', async () => {
 
 console.log('\nresult view');
 await atest('what fed a stage comes from the declared graph', async () => {
-  // Each stage declares needs/gives and the manifest stores paths, so
-  // provenance is derived. A hand-written map in the view would be a second
-  // copy of the dependency graph, drifting from the one that runs.
+  // A hand-written map in the view would be a second copy of the dependency graph.
   const src = readFileSync(join(ROOT, 'pipeline/api/runs.py'), 'utf8');
   assert.match(src, /def _consumed/);
   assert.match(src, /spec\.needs/, 'provenance is not read off the stage graph');
@@ -1476,8 +1380,7 @@ await atest('stages collapse through the shared primitive', async () => {
 });
 
 await atest('a run is named by what it is, not by its type', async () => {
-  // Every character_sheet run rendered "Sheet", which is the one thing they
-  // all share, so the strip could not tell two runs apart.
+  // Every character_sheet run rendered "Sheet", so the strip could not tell two runs apart.
   const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
   assert.match(view, /replace\(\/\^\\d\{8\}_\\d\{6\}_\//,
     'the run id is not reduced to its config name');
@@ -1485,8 +1388,7 @@ await atest('a run is named by what it is, not by its type', async () => {
 });
 
 await atest('the filmstrip mode is not called a sheet', async () => {
-  // "Sheet" already means the exported sprite sheet and the asset type. A
-  // third meaning on a view-mode button is the collision.
+  // "Sheet" already means the exported sheet and the asset type; a third meaning collides.
   const view = readFileSync(join(JS, 'views/result/result.js'), 'utf8');
   assert.doesNotMatch(view, /anim', 'sheet'/, 'the view mode is still called sheet');
   assert.match(view, /'grid', 'anim', 'strip'/);
@@ -1494,16 +1396,14 @@ await atest('the filmstrip mode is not called a sheet', async () => {
 
 console.log('\npolling');
 await atest('a tick that says it is done stops the timer', async () => {
-  // Both callers were written as though this worked. The return value was
-  // discarded, so a queue at rest kept asking for as long as the tab was open.
+  // The return value was discarded, so a queue at rest kept asking for as long as the tab was open.
   const src = readFileSync(join(JS, 'listeners/poll.js'), 'utf8');
   assert.match(src, /await fn\(\) === true\) stop\(\)/,
     'poll still discards what the tick tells it');
 });
 
 await atest('stopping when idle is paired with starting again', async () => {
-  // A poll that stops and cannot restart is worse than one that never stops:
-  // the view goes quietly stale instead of merely being wasteful.
+  // A poll that stops and cannot restart goes quietly stale, which is worse than wasteful.
   const main = readFileSync(join(JS, 'main.js'), 'utf8');
   assert.match(main, /function watchRuns\(\)/);
   assert.match(main, /if \(stopWatching\) return;/, 'two timers can run at once');
@@ -1530,9 +1430,7 @@ await atest('an unchanged payload does not rebuild the view', async () => {
 
 console.log('\nrig reference pose');
 await atest('reset returns a joint to the rig, not to frame 0', async () => {
-  // neutral was structuredClone(entries[0].pose), so Reset restored whatever
-  // the first loaded frame happened to be. dragJoint snaps bone lengths
-  // against the same variable, so a bent opening frame skewed every drag.
+  // neutral was cloned from the first frame, so a bent opening frame skewed every drag.
   const src = readFileSync(join(JS, 'views/run/rig.js'), 'utf8');
   assert.match(src, /neutral = rigDef\?\.neutral/,
     'the reference pose is still taken from the first frame');
@@ -1542,9 +1440,7 @@ await atest('reset returns a joint to the rig, not to frame 0', async () => {
 
 console.log('\nnavigation labels');
 await atest('the two Runs are not both called Run', async () => {
-  // The nav item is a verb, start one; the sidebar select is a noun, this
-  // existing one. Adjacent and identically labelled, they read as the same
-  // thing, which is how a Result tab looked like it was about to re-run.
+  // Adjacent and identically labelled, the nav verb and the sidebar noun read as one thing.
   const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
   const nav = /<li data-view="run">.*?<\/li>/s.exec(html)[0];
   const picker = /<label class="sidelabel" for="runPicker">([^<]*)<\/label>/.exec(html)[1];
@@ -1559,17 +1455,12 @@ await atest('the two Runs are not both called Run', async () => {
 await atest('the wizard says what it will act on', async () => {
   const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
   assert.match(src, /wizardtarget/, 'the wizard never names its target');
-  // rigStep edits state.selectedRun, so the wizard has to say which run that
-  // is before the step that does it.
+  // rigStep edits state.selectedRun, so the step before it has to say which run that is.
   assert.match(src, /rig edits apply to/);
 });
 
 await atest('a result image cannot be stretched by its own attributes', async () => {
-  // Setting img.width and img.height as attributes under `max-width: 100%`
-  // clamps the width and leaves the height, which squashes horizontally and
-  // stretches vertically. That was the mirrored streaking on a sheet, and it
-  // was the display, not the pipeline: grid measures factor 1 on every real
-  // source and passes them through untouched.
+  // width and height as attributes under `max-width: 100%` squash horizontally: the streaking.
   const src = readFileSync(join(JS, 'views/editor/editor.js'), 'utf8');
   const result = /const img = el\('img', \{ src: r\.image[\s\S]{0,400}/.exec(src)[0];
   assert.doesNotMatch(result, /img\.width =/, 'the result image sizes itself again');
@@ -1583,13 +1474,10 @@ await atest('a result image cannot be stretched by its own attributes', async ()
 });
 
 await atest('bone lengths are editable where the bones are', async () => {
-  // rigs.scale already stretches named groups, carries what hangs below, and
-  // moves both sides together. The nine fields render in Settings and the rig
-  // editor - where you look for bone length - never said so.
+  // The nine proportion fields render in Settings, and the rig editor never said so.
   const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
   assert.match(src, /function proportionsPanel/);
-  // Matched on the closing paren once, which broke when a sibling panel was
-  // appended after it. What matters is that rigStep renders it at all.
+  // Matching on the closing paren broke when a sibling panel was appended after it.
   const step = /function rigStep[\s\S]*?\n\}/.exec(src)[0];
   assert.match(step, /proportionsPanel\(rerender\)/,
     'the panel is defined and never rendered');
@@ -1602,9 +1490,7 @@ await atest('bone lengths are editable where the bones are', async () => {
 });
 
 await atest('no stylesheet rule matches nothing', async () => {
-  // Eleven .ui-* rules sat unmatched for weeks and got documented as if they
-  // were in use. A class named only in Python still counts: .actionpill.rescale
-  // reaches the DOM through a template literal from training.py.
+  // A class named only in Python still counts: training.py emits .actionpill.rescale.
   const css = readFileSync(join(ROOT, 'web/app.css'), 'utf8');
   const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
   const js = readdirSync(join(JS), { recursive: true })
@@ -1627,9 +1513,7 @@ await atest('no stylesheet rule matches nothing', async () => {
 
 console.log('\nback to a default');
 await atest('a layer field offers a reset once it differs', async () => {
-  // The rig can reset a joint and settings can drop an override; the layer
-  // stack had no way back at all - f.default was read when a layer was added
-  // and never again.
+  // f.default was read when a layer was added and never again, so there was no way back.
   const { BaseField } = await import(join(JS, 'ui/index.js'));
 
   const make = (value) => new BaseField({
@@ -1664,8 +1548,7 @@ await atest('the editor puts the field back to its declared default', async () =
 
 console.log('\nrefusals');
 await atest('a refusal carries what to do about it', async () => {
-  // Conflict, TooLarge and Invalid all set a hint, and every caller shows
-  // e.message alone, so "'x' is still running." arrived with no way forward.
+  // Every caller shows e.message alone, so the hint on Conflict and TooLarge was lost.
   const src = readFileSync(join(JS, 'api.js'), 'utf8');
   assert.match(src, /body\.hint \? `\$\{said\} \$\{body\.hint\}`/,
     'the hint is dropped before the toast sees it');
@@ -1677,8 +1560,7 @@ await atest('starting a run cannot outrun a run already going', async () => {
   assert.match(src, /def _in_flight/);
   assert.match(src, /busy = _in_flight\(\)/, 'start_run does not check');
   assert.match(src, /raise Conflict/, 'a second run is allowed through');
-  // _ACTIVE is per-process; a restarted server must still see the subprocess,
-  // and the queue needs the same answer, so discovery lives in shared/guard.py.
+  // _ACTIVE is per-process, so a restarted server needs discovery in shared/guard.py.
   assert.match(src, /guard\.run_in_flight\(\)/,
     'a restart would wave a second run through');
   const g = readFileSync(join(ROOT, 'pipeline/shared/guard.py'), 'utf8');
@@ -1694,8 +1576,7 @@ await atest('both feeds share one shape and one scheduler', async () => {
   assert.ok(GpuProgress.prototype instanceof ProgressFeed);
   assert.ok(RunProgress.prototype instanceof ProgressFeed);
 
-  // The base must not know which kind it is: a switch on a kind string is the
-  // factory this deliberately does not have.
+  // A switch on a kind string is the factory this base deliberately does not have.
   const src = readFileSync(join(JS, 'features/progress.js'), 'utf8');
   const base = /export class ProgressFeed[\s\S]*?\n\}/.exec(src)[0];
   assert.doesNotMatch(base, /gpu|run\b/i, 'the base knows about its subclasses');
@@ -1744,7 +1625,6 @@ await atest('the two feeds do not share a cadence', async () => {
 });
 
 await atest('a panel narrows a group instead of copying its fields', async () => {
-  // Canonical has twenty-one fields and the rig step is about four of them.
   // Copying declarations into the view is how two controls for one path start.
   const fields = readFileSync(join(JS, 'fields.js'), 'utf8');
   assert.match(fields, /only = null/, 'renderGroup cannot render a subset');
@@ -1778,9 +1658,7 @@ await atest('the conditioning paths are real schema fields', async () => {
 });
 
 await atest('a panel does not restate what the (?) already says', async () => {
-  // renderGroup builds HelpTip(field.help) for every field it renders, so a
-  // paragraph above a rendered group is the schema's own help said twice, in a
-  // place that cannot be kept in sync with it.
+  // renderGroup already renders field.help, so a paragraph above it says the same thing twice.
   const src = readFileSync(join(JS, 'views/run/run.js'), 'utf8');
   for (const name of ['proportionsPanel', 'conditioningPanel']) {
     const fn = new RegExp(`function ${name}[\\s\\S]*?\\n\\}`).exec(src)[0];
@@ -1792,9 +1670,7 @@ await atest('a panel does not restate what the (?) already says', async () => {
 
 console.log('\nerror reporting');
 await atest('being told no is not the same as something breaking', async () => {
-  // The server classifies every refusal - PixelError carries a kind and a
-  // status - and seventeen call sites threw it away with
-  // `catch (e) { toast(e.message, 'error') }`, so a 409 looked like a 500.
+  // Seventeen call sites threw the kind away with `catch (e) { toast(e.message) }`, so a 409 looked like a 500.
   const { classify } = await import(join(JS, 'core/errors.js'));
 
   for (const kind of ['invalid', 'not_found', 'conflict', 'too_large']) {
@@ -1816,8 +1692,7 @@ await atest('an error with no kind is a defect, not a refusal', async () => {
 });
 
 await atest('every server kind is classified', async () => {
-  // A kind the client does not know falls back to internal, which reports a
-  // refusal as a crash. The two lists have to stay in step.
+  // A kind the client does not know falls back to internal, reporting a refusal as a crash.
   const { KINDS } = await import(join(JS, 'core/errors.js'));
   const py = readFileSync(join(ROOT, 'pipeline/shared/errors.py'), 'utf8');
   const served = [...py.matchAll(/kind = "(\w+)"/g)].map((m) => m[1])
@@ -1839,9 +1714,7 @@ await atest('nothing reports an error by hand any more', async () => {
 
 console.log('\nbounded numbers');
 await atest('a slider and its box cannot disagree', async () => {
-  // fields.js and rig.js each kept a range and a number box in step by hand,
-  // with their own clamping. Two implementations of one pairing is two places
-  // for them to drift.
+  // fields.js and rig.js each paired a range and a box by hand, with their own clamping.
   const { Range } = await import(join(JS, 'ui/index.js'));
   const node = Range(0.5, { min: 0, max: 1, step: 0.05, readout: 'box' });
   const [range, box] = node.querySelectorAll('input');
@@ -1890,8 +1763,7 @@ await atest('dragging and settling are different events', async () => {
 });
 
 await atest('the forms that keep their own element say why', async () => {
-  // Five sliders are driven from outside - a scrubber a timer sets, a yaw two
-  // canvases read - so they need the input, not a wrapper around it.
+  // Five sliders are driven from outside, so they need the input itself, not a wrapper.
   const files = ['views/result/result.js', 'views/input/input.js', 'views/run/rig.js'];
   let hand = 0;
   for (const f of files) {
@@ -1950,8 +1822,7 @@ test('a new edit discards the redo branch', () => {
 });
 
 test('every surface where an edit is a gesture can be undone', () => {
-  // Two of four mutating surfaces take a controller. The other two are form
-  // fields, which already have per-field reset and browser undo.
+  // The other two mutating surfaces are form fields, which already have reset and browser undo.
   const wired = ['views/run/rig.js', 'views/run/annotate.js'];
   const byHand = ['views/run/run.js', 'views/input/input.js', 'views/editor/stack.js'];
 
@@ -1978,8 +1849,7 @@ test('undo keys are scoped to a panel, never to the document', () => {
 });
 
 test('no source file carries an unresolved merge', () => {
-  // node --check does NOT catch this: markers nested inside a function parse
-  // clean and exit 0. One shipped to master on 2026-09-10 because of that.
+  // node --check does not catch this: markers nested inside a function parse clean and exit 0.
   const marker = /^(<{7}|={7}|>{7})(\s|$)/m;
   const roots = [join(ROOT, 'web'), join(ROOT, 'pipeline'), join(ROOT, 'tests')];
   const seen = [];
@@ -2030,8 +1900,7 @@ await atest('cancel writes nothing', async () => {
 });
 
 await atest('a refused save keeps what was typed on screen', async () => {
-  // Closing the editor on a rejection loses the edit and shows the old value,
-  // which reads as the save having worked.
+  // Closing the editor on a rejection loses the edit and reads as the save having worked.
   const { Editable } = await import(join(JS, 'ui/index.js'));
   const node = Editable('before', { kind: 'lines', onSave: () => false });
   node.querySelector('button').onclick();
@@ -2071,9 +1940,7 @@ await atest('a sheet with no groups is not a dead end', async () => {
 });
 
 await atest('three authored style surfaces, one editor between them', async () => {
-  // The sweep: styles.js drew the vocabulary as read-only chips and the notes
-  // as a <pre>, while overview.js had its own chip editor against the route
-  // that already served all three. Chips, notes, and the overview strip.
+  // styles.js and overview.js each grew their own editor against the route that served both.
   const views = ['views/styles/styles.js', 'views/overview/overview.js'];
   let surfaces = 0;
   for (const f of views) {
@@ -2082,8 +1949,7 @@ await atest('three authored style surfaces, one editor between them', async () =
   }
   assert.equal(surfaces, 3, `${surfaces} authored style surfaces; the sweep converted three`);
 
-  // The history's <pre class="notes"> stays: an audit entry is evidence, not
-  // something to rewrite. Only the panel that shows the sheet's own words moved.
+  // The history's <pre class="notes"> stays: an audit entry is evidence, not something to rewrite.
   const panel = /function promptsPanel[\s\S]*?\n\}/
     .exec(readFileSync(join(JS, 'views/styles/styles.js'), 'utf8'))[0];
   assert.doesNotMatch(panel, /el\('pre'|className: 'frag'/,
@@ -2097,8 +1963,7 @@ await atest('three authored style surfaces, one editor between them', async () =
 });
 
 test('no conditional child reaches a DOM method unfiltered', () => {
-  // el() drops null and false; append and replaceChildren stringify them. That
-  // is how the overview printed the word "null" under its queue counters.
+  // el() drops null and false while append stringifies them, which printed "null" under the counters.
   const files = readdirSync(JS, { recursive: true })
     .filter((f) => String(f).endsWith('.js'));
   const bad = [];
@@ -2125,10 +1990,7 @@ test('no conditional child reaches a DOM method unfiltered', () => {
 });
 
 test('every relative import resolves to a file that exists', () => {
-  // The suite checked that an import is USED, never that it points anywhere.
-  // A regex rewriting `../../core/dom.js` kept only the last repetition of
-  // (\.\./)* and wrote `../core/dom.js`, which loads nothing and takes the
-  // whole app down - a blank page, every route answering 200.
+  // A regex kept only the last (\.\./) and wrote a path that loads nothing: a blank page, every route 200.
   const files = readdirSync(JS, { recursive: true })
     .filter((f) => String(f).endsWith('.js'));
   const broken = [];

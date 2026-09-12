@@ -152,11 +152,7 @@ def defaults_for(root: Path, key: str | None) -> dict[str, Any]:
 @dataclass(frozen=True)
 class Kind:
     """One asset type, fully resolved: what it is, what it needs, what it has.
-
-    The single construction path. Five accessors used to answer parts of this
-    question and the availability check lived in the API layer, so adding a
-    type meant knowing which to call in which order.
-    """
+    The single construction path; five accessors used to answer parts of this."""
 
     key: str
     label: str
@@ -201,8 +197,7 @@ def _inherits(root: Path, key: str | None) -> list[str]:
 def build(root: Path, key: str | None, known_stages=None) -> Kind:
     """Resolve one asset type. `known_stages` is what the runner can execute;
     without it nothing is reported missing."""
-    # registry.get, not find: it raises the specific complaint - which field
-    # was misspelt, what types exist - where find() only returns None.
+    # registry.get, not find: it names the misspelt field, where find() returns None.
     spec = registry(root).get(key or DEFAULT)
     chain = _inherits(root, key)
     stages = tuple(spec.stages)

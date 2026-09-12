@@ -135,11 +135,7 @@ def _extent(mask: np.ndarray, column: tuple[int, int], band: tuple[int, int],
             bounds: tuple[int, int],
             blobs: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
     """The figure this column sits in, at its own full extent.
-
-    A margin measured off the column cut char4's hair at x=129 when the hair
-    began at x=64: whatever the figure is made of reaches past its dense middle,
-    so the parts decide the box and the column only says which parts.
-    """
+    A margin off the column cut char4's hair at x=129 when the hair began at x=64."""
     left, right = column
     mine = [b for b in blobs
             if min(b[2], right) - max(b[0], left) > (b[2] - b[0]) * SHARED

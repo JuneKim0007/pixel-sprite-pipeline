@@ -610,19 +610,19 @@ FIELDS: list[ConfigField] = [
      help="Below 1.0 gives a stubby, chibi stance. Like every group here it "
              "scales both sides together and carries what hangs below, so "
              "longer legs move the ankles rather than detaching them."),
-    ConfigField(key="proportions.chest", label="Chest length", kind="float", default=1.0,
+    ConfigField(key="proportions.chest", label="Chest length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="The chest is a depth-only joint: it shapes the body the model is "
              "given and never appears in the pose skeleton, so it cannot "
              "confuse the ControlNet. depth.build.chest is the volume knob; "
              "this is where it sits."),
-    ConfigField(key="proportions.thigh", label="Thigh length", kind="float", default=1.0,
+    ConfigField(key="proportions.thigh", label="Thigh length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
-     help="Hip to knee alone. Unset, it follows `legs`."),
-    ConfigField(key="proportions.shin", label="Shin length", kind="float", default=1.0,
+     help="Hip to knee alone. Unset it follows `legs`; a declared default here\n             would shadow `legs`, because the finer group wins."),
+    ConfigField(key="proportions.shin", label="Shin length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="Knee to ankle alone. Unset, it follows `legs`."),
-    ConfigField(key="proportions.feet", label="Foot length", kind="float", default=1.0,
+    ConfigField(key="proportions.feet", label="Foot length", kind="float",
      min=0.3, max=3.0, step=0.05, group="Proportions",
      help="Ankle to toe. Until now no setting could reach it at all: the "
              "group was read off the child's name and `toe` matched nothing."),

@@ -20,32 +20,20 @@ vocabulary:
     - rim light
 
 settings:
-  # This sheet costs roughly three times retro_jrpg per image - larger canvas,
-  # more steps - so each task leaves the machine hotter and the rest is longer.
+  # This sheet costs roughly three times retro_jrpg per image, so each task leaves the machine hotter.
   cooling:
     seconds: 240
 
   canonical:
-    # Exemplars carry rendering, not colour. At the 0.35 role default the
-    # silver-haired exemplars in this sheet pulled a crimson-haired
-    # character toward lavender; 0.18 keeps the brushwork and lets the
-    # prompt keep the palette.
+    # Exemplars carry rendering, not colour: at 0.35 the silver-haired ones pulled a crimson character to lavender.
     style_weight: 0.18
     steps: 60
-    # 1024/8 = 128. Was 1280/10, also 128, but measured worse on the ratio
-    # DECISIONS.md says governs mush: reduction is (canvas / native block) /
-    # sprite, so 1280 averaged 25 logical pixels into each output pixel where
-    # 1024 averages 16. It also would not fit - one 1280 canonical with
-    # ControlNet and IP-Adapter loaded peaks over the 10.67 GiB MPS ceiling
-    # on a 16 GB machine.
+    # 1024/8 = 128. 1280/10 is also 128 and measured worse, and one 1280 canonical will not fit in 10.67 GiB.
     width: 1024
     height: 1024
     cfg: 8.0
   frames:
-    # Exemplars carry rendering, not colour. At the 0.35 role default the
-    # silver-haired exemplars in this sheet pulled a crimson-haired
-    # character toward lavender; 0.18 keeps the brushwork and lets the
-    # prompt keep the palette.
+    # Exemplars carry rendering, not colour: at 0.35 the silver-haired ones pulled a crimson character to lavender.
     style_weight: 0.18
     steps: 45
     width: 1024
@@ -53,5 +41,4 @@ settings:
     cfg: 8.0
   palette:
     size: 16
-    factor: 8           # 1024/8 = 128. Moves WITH the canvas above - changing
-                        # one without the other silently resizes the sprite.
+    factor: 8           # Moves WITH the canvas above; one without the other resizes the sprite.

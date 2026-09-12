@@ -86,17 +86,32 @@ def _record_references(ctx, used, rig) -> None:
             except OSError as err:                          # noqa: PERF203
                 print(f"   could not keep {ref.path.name}: {err}")
                 continue
-        rows.append({"view": view, "label": ref.label,
-                     "role": getattr(ref, "role", "identity"),
-                     "source": str(ref.path),
-                     "kept": str(kept.relative_to(ctx.root))})
+        row = {"view": view, "label": ref.label,
+               "role": getattr(ref, "role", "identity"),
+               "source": str(ref.path),
+               "kept": str(kept.relative_to(ctx.root))}
+        # The joints that describe THIS image; a re-cut reference orphans them.
+        sidecar = ref.path.with_suffix(ref.path.suffix + ".rig.json")
+        if sidecar.is_file():
+            beside = folder / sidecar.name
+            shutil.copy2(sidecar, beside)
+            row["annotation"] = str(beside.relative_to(ctx.root))
+        rows.append(row)
+    # The guide the rig drew, kept beside the references it is measured against.
+    guides = []
+    for guide in ctx.artifacts.get("skeletons") or []:
+        if guide and Path(guide).is_file():
+            beside = folder / Path(guide).name
+            shutil.copy2(guide, beside)
+            guides.append(str(beside.relative_to(ctx.root)))
+
     ref = ctx.settings("canonical.from_reference")
     (folder / "used.json").write_text(json.dumps(
         {"rig": rig.name, "rig_label": rig.label,
          "lora_strength": ctx.settings("canonical")["lora_strength"],
          "weight": ref.get("weight"), "weight_type": ref.get("weight_type"),
          "ipadapter": ctx.settings("models").get("ipadapter"),
-         "references": rows},
+         "references": rows, "guides": guides},
         indent=1) + "\n")
     print(f"   shown {len(rows)} reference(s), recorded before sampling")
 
@@ -241,9 +256,7 @@ class CanonicalStage(Stage):
         made: dict[float, Path] = {}
         primary: Path | None = None
 
-        # Before any GPU work: a run that dies mid-sample still says what it
-        # was given. refs_mod.pick is pure, so this costs nothing and uploads
-        # nothing.
+        # Before any GPU work, so a run that dies mid-sample still says what it was given.
         if lib.identity and from_ref["enabled"]:
             _record_references(
                 ctx, [(v, refs_mod.pick(lib.identity, v, tolerance=180.0)[0])

@@ -52,7 +52,7 @@ settings:
     legs: 1.60
     torso: 1.20
     # Measured 2026-09-11: legs 1.6 and torso 1.2 leave the arms behind, hands above the hip.
-    arms: 1.25
+    arms: 1.5
 
   palette:
     reduce: median

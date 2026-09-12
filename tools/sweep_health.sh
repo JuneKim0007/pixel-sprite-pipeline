@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# Is the sweep actually making progress? Prints one line and exits 0 healthy.
-#
-# Aliveness is not progress: a supervisor can be up with a sweep that is
-# waiting on a service nobody will start, and a scored count that has not moved
-# in an hour says so where `pgrep` does not.
+# Is the sweep making progress? Aliveness is not: a scored count that has not moved in an hour says so.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 PY=./ComfyUI/.venv/bin/python
@@ -26,11 +22,9 @@ echo "$(date '+%F %H:%M') scored $scored/96  supervisor $sup  comfy $comfy  gene
 [ "$state" = healthy ] && exit 0
 
 if [ "$sup" = down ]; then
-  # Restarting without the variants it was narrowed to would quietly widen the
-  # sweep back to the whole plan.
+  # Restarting without the variants it was narrowed to would widen the sweep back to the whole plan.
   arms=$(cat var/sweep.arms 2>/dev/null || true)
-  # Its own session: inheriting this shell's process group is what killed the
-  # supervisor and ComfyUI together, ten times, whenever that group was reaped.
+  # Its own session: an inherited process group killed the supervisor and ComfyUI together, ten times.
   ./ComfyUI/.venv/bin/python tools/detach.py \
       ./tools/keep_sweeping.sh $arms > /dev/null 2>&1 < /dev/null
   echo "  restarted the supervisor${arms:+ on $arms}"

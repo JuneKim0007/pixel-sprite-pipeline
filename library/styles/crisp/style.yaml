@@ -30,12 +30,7 @@ vocabulary:
     - high contrast
 
 modules:
-  # base_pixel's template expands {medium} and {render} and nothing else, so
-  # the style, shading, outline and palette groups every sheet declares were
-  # never sent to the model. And {render} is "flat colors, hard edges, limited
-  # palette", which is a request for exactly the flattening it produced:
-  # measured against its own reference the output carried 64% of the edge
-  # energy and 69% of the colours.
+  # base_pixel's template expands only {medium} and {render}, so every other declared group went unsent.
   character_sheet:
     style: "{medium}, {style}, {shading}, {outline}, full body"
   animation:
@@ -46,11 +41,7 @@ settings:
     seconds: 240
 
   canonical:
-    # hi_fidelity reasons its way to 0.18 from the role default of 0.35:
-    # exemplars carry rendering, not colour, and silver-haired ones pull a
-    # dark-haired character toward lavender. Measured over eight characters,
-    # 0.12 against identity 1.15 goes further - likeness 0.7068 against 0.6829
-    # and bleed 0.0326 against 0.0593.
+    # Measured over eight characters: 0.12 against identity 1.15 beats 0.18, likeness 0.7068 and bleed 0.0326.
     style_weight: 0.12
     steps: 60
     width: 1024

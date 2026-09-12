@@ -1,7 +1,5 @@
 """What the canonical stage hands ComfyUI for a run, without running it.
-
-Usage: tools/show_graph.py out/runs/<run_id>
-"""
+Usage: tools/show_graph.py out/runs/<run_id>"""
 import json, shutil, sys, tempfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent; sys.path.insert(0, str(ROOT))

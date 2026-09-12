@@ -300,9 +300,8 @@ def test_the_shape_weight_reaches_the_adapter_and_not_just_the_settings(
 
 
 def test_a_run_keeps_the_references_it_was_shown(tmp_path):
-    """References live under characters/ and library/refs, both of which a
-    person may clear. Without a copy, history says a run happened and not
-    what it was given."""
+    """characters/ and library/refs can both be cleared by a person, and without
+    a copy history says a run happened but not what it was given."""
     import json
     from types import SimpleNamespace
 
@@ -352,3 +351,33 @@ def test_the_record_lands_before_sampling_not_after(tmp_path):
     at_record = src.index("_record_references(")
     at_sample = src.index("comfy.sample_and_save(")
     assert at_record < at_sample, "the record is written after the first sample"
+
+
+def test_the_record_keeps_the_guide_and_the_joints_that_describe_it(tmp_path):
+    """A reference alone does not say what the rig asked for, and a re-cut
+    image orphans the annotation that named its joints."""
+    import json
+    from types import SimpleNamespace
+
+    from PIL import Image
+
+    from pipeline.generation.stage import Context
+    from pipeline.stages.canonical import _record_references
+
+    src = tmp_path / "front.png"
+    Image.new("RGB", (8, 8), (20, 20, 20)).save(src)
+    src.with_suffix(".png.rig.json").write_text('{"points": {}}')
+    guide = tmp_path / "skeleton_000.png"
+    Image.new("RGB", (8, 8), (0, 0, 0)).save(guide)
+
+    ctx = Context(root=tmp_path, outdir=tmp_path / "run", config={})
+    (tmp_path / "run").mkdir()
+    ctx.artifacts["skeletons"] = [guide]
+    _record_references(ctx, [(0.0, SimpleNamespace(path=src, label="front",
+                                                   role="identity"))],
+                       SimpleNamespace(name="humanoid", label="Humanoid"))
+
+    said = json.loads((tmp_path / "run" / "references" / "used.json").read_text())
+    assert said["guides"], "the rig's own guide was not kept"
+    assert (tmp_path / "run" / "references" / "skeleton_000.png").is_file()
+    assert said["references"][0]["annotation"], "the joints were not kept"

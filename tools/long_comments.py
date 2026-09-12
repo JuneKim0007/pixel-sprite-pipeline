@@ -35,8 +35,7 @@ class Finding:
 
 
 def _rendered_lines(text: str) -> int:
-    body = text.strip("\n")
-    return len(body.splitlines()) or 1
+    return len(text.strip().splitlines()) or 1
 
 
 def _run_findings(path: Path, kind: str, runs: list[tuple[int, list[str]]],

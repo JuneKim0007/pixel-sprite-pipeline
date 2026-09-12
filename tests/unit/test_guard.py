@@ -442,8 +442,7 @@ def test_detach_puts_a_command_in_its_own_session(tmp_path):
     import subprocess
     import time
 
-    # The child reports its own pid and group: pgrep cannot see a process that
-    # has not finished exec'ing, and that race made this test flap.
+    # The child reports its own pid: pgrep cannot see a process still exec'ing, and that flapped.
     said = tmp_path / "who"
     script = tmp_path / "detached.sh"
     script.write_text(f'#!/bin/sh\necho "$$ $(ps -o pgid= -p $$)" > "{said}"\n')

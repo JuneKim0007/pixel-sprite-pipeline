@@ -96,7 +96,7 @@ SALIENT_THRESHOLD = 34.0
 _CLIP_FLOOR = 0.35
 
 
-def estimate_block_size(arr, candidates: tuple[int, ...] = (1, 2, 3, 4, 6, 8, 12, 16)) -> float:
+def estimate_block_size(arr, candidates: tuple[int, ...] = tuple(range(1, 17)) + (18, 20, 24, 32)) -> float:
     """Reconstruction error is near zero at the factor the sprite was drawn in."""
     a = arr.astype(np.float32)
     h, w = a.shape[:2]
@@ -446,7 +446,7 @@ def _cluster_totals(rows: np.ndarray, feats: np.ndarray, centres: np.ndarray,
     return sums, members
 
 
-def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "weighted",
+def generate_palette(rgb: np.ndarray, colours: int, *, method: str = "rgb",
                      iterations: int = 12,
                      alpha: np.ndarray | None = None,
                      chunk: int | None = None) -> list[tuple[int, int, int]]:

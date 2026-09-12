@@ -78,8 +78,7 @@ class Context:
         for key, value in self._module_defaults().items():
             if key.startswith(f"{path}.") and get_path(self.config, key) is None:
                 _set_path(merged, key[len(path) + 1:], value)
-        # A block read does not visit its leaves, so inheritance has to be
-        # applied here too or frames would read canonical's only one way in.
+        # A block read does not visit its leaves, so inheritance is applied here too.
         for field in SCHEMA.fields:
             if not (field.inherits and field.key.startswith(f"{path}.")):
                 continue

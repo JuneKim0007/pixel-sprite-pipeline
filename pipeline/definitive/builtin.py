@@ -64,8 +64,7 @@ def _grid_prepare(inputs, cfg) -> dict:
     mode = cfg.get("measure", "auto")
     measured = px.detect_block(img, mode)
     exact, periodic = px.block_candidates(img) if mode == "auto" else (0, 0)
-    # Only when they disagree in a way harmonics cannot explain: the source
-    # has no clean lattice left and the choice was a judgement, not a reading.
+    # Only where harmonics cannot explain it: the choice was a judgement, not a reading.
     unsure = (exact > 1 and periodic > 1 and exact != periodic
               and periodic % exact and exact % periodic)
     factor = int(cfg.get("factor") or 0) or max(1, int(round(measured)))
@@ -355,15 +354,11 @@ def _canvas(inputs, cfg, prep):
     fill = None
     width, height = int(cfg.get("width", 0)), int(cfg.get("height", 0))
     if width <= 0 or height <= 0:
-        # Auto. Grid runs first, so the art arriving here is already at its
-        # final logical size and the only question left is what holds it.
+        # Grid runs first, so the art is already at final size; what holds it is all that is left.
         found = canvas_mod.fitting(img.shape[1], img.shape[0])
         if found is None:
             return {"image": img, "canvas_size": ""}
-        # The canvas was chosen to hold this art, so seating it is a pad and
-        # never a rescale. Shrinking to `fill` here would resample a lattice
-        # that grid just established, and every resampled edge is a colour
-        # the palette did not choose.
+        # Seating is a pad, never a rescale: resampling adds colours the palette did not choose.
         width, height = found
         fill = 1.0
     art = Image.fromarray(np.ascontiguousarray(img))

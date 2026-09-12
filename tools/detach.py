@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """Run a command in its own session, so no group kill upstream can reach it.
-
-macOS ships no setsid(1). Without this the sweep and ComfyUI inherit the
-process group of whichever shell launched them, and that group outliving its
-leader is what took them both down together ten times in one night.
-"""
+macOS ships no setsid(1), and an inherited process group took the sweep down ten times."""
 
 import os
 import sys

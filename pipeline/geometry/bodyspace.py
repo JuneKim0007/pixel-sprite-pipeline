@@ -88,8 +88,7 @@ def frame_fit(
     if abs(scale - 1.0) < 1e-9:
         return {k: list(v) for k, v in pose.items()}
     top = min(p[2] for p in pose.values())
-    # Centred: the leftover used to go entirely under the feet, so at fill 0.80
-    # the gap below was 2.3x the gap above and every overflow cut the head.
+    # Centred: all the leftover under the feet made the gap below 2.3x the gap above at fill 0.80.
     gap = max(margin, (1.0 - fill) / 2.0)
     return {
         joint: [p[0] * scale, p[1] * scale, gap + (p[2] - top) * scale]

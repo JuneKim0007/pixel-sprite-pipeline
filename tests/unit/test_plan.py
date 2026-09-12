@@ -176,8 +176,7 @@ def test_the_pixelised_arm_points_at_the_pixelised_cut():
         if not refs:
             continue
         pixelised = [r["path"].endswith("_px.png") for r in refs]
-        # Every variant reducing its reference first; a whitelist here goes
-        # stale the moment one is added, so ask the variant instead.
+        # A whitelist goes stale the moment a variant is added, so ask the variant.
         from tools.sweep import VARIANTS
 
         if VARIANTS[name].get("_refs") == "px":

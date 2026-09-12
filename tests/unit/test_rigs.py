@@ -126,8 +126,7 @@ def test_scale_leaves_unnamed_bones_alone(name):
     moved = rigs.scale(rig, {"neck": 2.0, "legs": 0.6, "tail": 1.8})
     assert set(moved.neutral) == set(rig.neutral), "joints lost"
     for a, b, _w in rig.bones:
-        # A bone answers to its own group and to any broader one, so `legs`
-        # still reaches the thigh even though group_of now says "thigh".
+        # A bone answers to its own group and to any broader one, so `legs` still reaches the thigh.
         if {"neck", "legs", "tail"} & set(rigs.group_chain(a, b)):
             continue
         assert abs(_span(moved, a, b) - _span(rig, a, b)) < 1e-9, f"{a}->{b} moved"
@@ -266,3 +265,29 @@ def test_the_finer_group_wins_over_the_broader_one():
     factors = {"legs": 1.6, "thigh": 1.1}
     assert rigs.factor_for(factors, "r_hip", "r_knee") == 1.1
     assert rigs.factor_for(factors, "r_knee", "r_ankle") == 1.6
+
+
+def test_a_finer_group_left_unset_does_not_shadow_the_broader_one():
+    """proportions.thigh declared a default of 1.0, which is always present,
+    so it beat legs 1.6 and the figure stayed short for six hours."""
+    from pipeline.generation.schema import SCHEMA
+
+    for key in ("proportions.chest", "proportions.thigh", "proportions.shin",
+                "proportions.feet"):
+        assert SCHEMA.field(key).default is None, f"{key} would shadow its parent"
+
+
+def test_the_style_sheet_reaches_the_rig_a_run_builds(root):
+    import math
+
+    from pipeline.generation.resources import RESOLVERS
+    from pipeline.generation.stage import Context
+
+    ctx = Context(root=root, outdir=root,
+                  config={"proportions": {"legs": 1.6, "arms": 1.5, "torso": 1.2}})
+    rig = RESOLVERS["rig"](ctx)
+    n = rig.neutral
+    span = lambda a, b: math.dist(n[a][:3], n[b][:3])   # noqa: E731
+    reach = span("r_shoulder", "r_elbow") + span("r_elbow", "r_wrist")
+    height = max(v[2] for v in n.values()) - min(v[2] for v in n.values())
+    assert 0.30 < reach / height < 0.37, f"{reach / height:.3f} is off the band"
