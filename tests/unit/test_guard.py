@@ -107,7 +107,7 @@ def test_an_expected_large_process_is_exempt_from_the_per_process_cap(
 def test_sustained_critical_pressure_kills_the_largest(monkeypatch, victim):
     """A /bin/sleep is a few MB, so its size is faked to make it a candidate."""
     guard = Guard()
-    guard.watch(victim.pid, "victim", expected_large=True)
+    guard.watch(victim.pid, "victim")
     monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
     monkeypatch.setattr(Guard, "rss",
                         staticmethod(lambda pids: {p: 4 << 30 for p in pids}))
@@ -121,7 +121,7 @@ def test_a_small_process_is_not_what_the_machine_is_short_of(monkeypatch, victim
     from pipeline.shared.guard import PRESSURE_FLOOR
 
     guard = Guard()
-    guard.watch(victim.pid, "victim", expected_large=True)
+    guard.watch(victim.pid, "victim")
     monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
     monkeypatch.setattr(Guard, "rss",
                         staticmethod(lambda pids: {p: PRESSURE_FLOOR // 20 for p in pids}))
@@ -129,6 +129,33 @@ def test_a_small_process_is_not_what_the_machine_is_short_of(monkeypatch, victim
         guard.check()
     assert victim.poll() is None, "killed a process too small to be the cause"
     assert guard.kills == []
+
+
+def test_a_service_meant_to_be_large_survives_the_pressure_branch(monkeypatch, victim):
+    """The ceiling exempted comfy and the pressure branch did not, so the guard
+    killed it 24 times in a day at 1.1-2.3 GB against a 5.6 GB ceiling. Comfy is
+    the only watched process ever over the floor, so max() always chose it."""
+    guard = Guard()
+    guard.watch(victim.pid, "comfy", expected_large=True)
+    monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
+    monkeypatch.setattr(Guard, "rss",
+                        staticmethod(lambda pids: {p: 4 << 30 for p in pids}))
+    for _ in range(6):
+        guard.check()
+    assert victim.poll() is None, "killed the service it had exempted"
+    assert guard.kills == []
+
+
+def test_pressure_still_reaches_a_process_that_was_never_exempt(monkeypatch, victim):
+    """Exempting one service must not disarm the branch for everything else."""
+    guard = Guard()
+    guard.watch(victim.pid, "runner")
+    monkeypatch.setattr(guard, "pressure", lambda: PRESSURE_CRITICAL)
+    monkeypatch.setattr(Guard, "rss",
+                        staticmethod(lambda pids: {p: 4 << 30 for p in pids}))
+    for _ in range(6):
+        guard.check()
+    assert _settled(victim), "the pressure branch stopped working altogether"
 
 
 def test_the_guard_does_not_kill_the_process_it_runs_in(monkeypatch):
@@ -145,7 +172,7 @@ def test_the_guard_does_not_kill_the_process_it_runs_in(monkeypatch):
 
 def test_a_pressure_spike_is_not_sustained_pressure(monkeypatch, victim):
     guard = Guard()
-    guard.watch(victim.pid, "victim", expected_large=True)
+    guard.watch(victim.pid, "victim")
     levels = iter([PRESSURE_CRITICAL, PRESSURE_CRITICAL, PRESSURE_NORMAL,
                    PRESSURE_CRITICAL, PRESSURE_NORMAL])
     monkeypatch.setattr(guard, "pressure", lambda: next(levels))

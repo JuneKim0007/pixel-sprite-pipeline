@@ -34,6 +34,7 @@ class Watched:
 
     pid: int
     name: str
+    # Large by design, so neither the per-process ceiling nor pressure may take it.
     expected_large: bool = False
     on_kill: object = None
     strikes: int = 0
@@ -184,7 +185,7 @@ class Guard:
         if self.critical_streak >= CRITICAL_TICKS and usage:
             with self._lock:
                 still = {p: t for p, t in self.watched.items()
-                         if p in usage and _killable(p)
+                         if p in usage and _killable(p) and not t.expected_large
                          and usage[p] >= PRESSURE_FLOOR}
             if still:
                 pid = max(still, key=lambda p: usage[p])
@@ -192,8 +193,8 @@ class Guard:
                                        f"{self.critical_streak}s", usage[pid])
                 self.critical_streak = 0
             else:
-                log.warning("guard: pressure critical for %ds and nothing "
-                            "watched is over %.2f GB; killing none of them",
+                log.warning("guard: pressure critical for %ds and nothing it "
+                            "may kill is over %.2f GB; killing none of them",
                             self.critical_streak, PRESSURE_FLOOR / (1 << 30))
                 self.critical_streak = 0
 

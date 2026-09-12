@@ -23,7 +23,7 @@ PLAN
   # The sweep waits for ComfyUI but cannot start it, so it waited twenty minutes for nobody.
   if ! curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats; then
     echo "$(date '+%H:%M:%S') supervisor: ComfyUI is down, starting it" >> $LOG
-    $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
+    $PY tools/detach.py ./start.sh >> var/logs/comfy-start.log 2>&1 < /dev/null
     sleep 40
   fi
 
@@ -43,7 +43,7 @@ PLAN
     if pgrep -f "main.py --use-pytorch" > /dev/null; then
       continue                       # starting already; do not start a second
     fi
-    $PY tools/detach.py ./start.sh > var/logs/comfy-start.log 2>&1 < /dev/null
+    $PY tools/detach.py ./start.sh >> var/logs/comfy-start.log 2>&1 < /dev/null
     for _ in $(seq 1 30); do
       curl -s -m 5 -o /dev/null http://127.0.0.1:8188/system_stats && break
       sleep 10
