@@ -111,6 +111,18 @@ VARIANTS = {
                      "canonical": {"from_reference": {
                          "weight": 0.2, "weight_composition": 0.9,
                          "weight_type": "style and composition"}}},
+    # The reference carried the character AND the illustration's smoothness.
+    # Pixelise it first and the second half of that stops being a problem.
+    "ctx_pixref_09": {"_refs": "px",
+                      "canonical": {"from_reference": {
+                          "weight": 0.9, "weight_type": "linear"}}},
+    # With the reference already carrying the look, the LoRA has less to do -
+    # and lower strength is what measured chunkier: 0.8 drew block 3.0
+    # against 1.2's 2.0, monotonically.
+    "ctx_pixref_06": {"_refs": "px",
+                      "canonical": {"lora_strength": 0.6,
+                                    "from_reference": {
+                                        "weight": 0.9, "weight_type": "linear"}}},
     "ctx_linear_04": {"_refs": True,
                       "canonical": {"from_reference": {
                           "weight": 0.4, "weight_type": "linear"}}},
@@ -134,6 +146,21 @@ VARIANTS = {
     "pixel_12": {"canonical": {"lora_strength": 1.2},
                    "frames": {"lora_strength": 1.2},
                    "pipeline": {"stages": ['pose', 'depth', 'canonical', 'pixelise', 'frames', 'palette', 'export']}},
+}
+
+
+# Volume per character, read off each one's own sheet. depth.build thickens
+# the capsule between two joints; the chest group is depth-only, so none of
+# this reaches the pose skeleton.
+BUILDS: dict[str, dict[str, float]] = {
+    "char1": {"chest": 1.15, "thigh": 1.00, "torso": 0.95},
+    "char2": {"chest": 1.10, "thigh": 0.95, "torso": 1.00},
+    "char3": {"chest": 1.25, "thigh": 1.15, "torso": 1.05},
+    "char4": {"chest": 1.20, "thigh": 1.05, "torso": 0.95},
+    "char5": {"chest": 1.15, "thigh": 1.10, "torso": 1.05},
+    "char6": {"chest": 1.30, "thigh": 1.10, "torso": 1.15},
+    "char7": {"chest": 1.10, "thigh": 1.00, "torso": 1.00},
+    "char8": {"chest": 1.05, "thigh": 0.90, "torso": 0.90},
 }
 
 
@@ -179,11 +206,18 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             cfg = merge(base(char), extra)
             # A variant cannot name the character's own files, so it asks and
             # plan() answers - the same trick the old _paint marker used.
-            if extra.get("_refs"):
+            want = extra.get("_refs")
+            if want:
+                # "px" swaps in the pixelised cut: same character, already
+                # rendered the way the output is meant to look, so `linear`
+                # copying all eleven blocks copies pixels instead of smoothness.
+                tail = "_px" if want == "px" else ""
                 cfg["references"]["identity"] = [
-                    {"path": f"characters/{char}/{name}.png", "view": view}
+                    {"path": f"characters/{char}/{name}{tail}.png", "view": view}
                     for name, view in VIEWS.items()
-                    if (TRUTH / char / f"{name}.png").exists()]
+                    if (TRUTH / char / f"{name}{tail}.png").exists()]
+            if char in BUILDS:
+                cfg.setdefault("depth", {})["build"] = dict(BUILDS[char])
             # Stated twice, the gate and the stage list disagree: every frames
             # and pixel variant lengthened the list and still stopped at the
             # anchor, so the arm would have rerun canonicals for nine hours.

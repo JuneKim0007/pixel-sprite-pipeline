@@ -34,3 +34,8 @@ pipeline:
 cooling:
   enabled: true
   seconds: 60
+depth:
+  build:
+    chest: 1.25
+    thigh: 1.15
+    torso: 1.05

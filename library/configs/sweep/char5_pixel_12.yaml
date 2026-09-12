@@ -30,3 +30,8 @@ cooling:
   seconds: 60
 frames:
   lora_strength: 1.2
+depth:
+  build:
+    chest: 1.15
+    thigh: 1.1
+    torso: 1.05

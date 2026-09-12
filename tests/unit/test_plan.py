@@ -161,3 +161,43 @@ def test_the_rest_between_runs_is_not_conditional_on_freeing():
         after = {n.id for s in fn.body for n in ast.walk(s)
                  if isinstance(n, ast.Name)} - used
         assert not (names & after), f"{names & after} used outside its import"
+
+
+def test_the_pixelised_arm_points_at_the_pixelised_cut():
+    """Same character, already rendered the way the output should look."""
+    import sys
+
+    import yaml
+
+    sys.path.insert(0, ".")
+    from tools.sweep import plan
+
+    seen = 0
+    for _char, name, path in plan(["char1"]):
+        refs = yaml.safe_load(path.read_text())["references"]["identity"]
+        if not refs:
+            continue
+        pixelised = [r["path"].endswith("_px.png") for r in refs]
+        if name.startswith("ctx_pixref"):
+            assert all(pixelised), name
+            seen += 1
+        else:
+            assert not any(pixelised), name
+    assert seen, "no variant uses the pixelised cut"
+
+
+def test_every_character_gets_its_own_volume():
+    """Eight characters were eight copies of one body."""
+    import sys
+
+    import yaml
+
+    sys.path.insert(0, ".")
+    from tools.sweep import BUILDS, plan
+
+    seen = {}
+    for char, name, path in plan():
+        build = yaml.safe_load(path.read_text()).get("depth", {}).get("build")
+        assert build == BUILDS[char], f"{char}_{name}"
+        seen[char] = tuple(sorted(build.items()))
+    assert len(set(seen.values())) > 1, "every character got the same body"

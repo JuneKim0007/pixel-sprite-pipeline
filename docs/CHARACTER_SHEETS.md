@@ -24,7 +24,15 @@ front.png
 side.png            the left side
 side_right.png      the right side, or a copy of side.png when the sheet draws one
 rear.png
+*_px.png            the same cut reduced to ~128 cells on 10 colours
 ```
+
+The `_px` cuts exist because an illustration reference carries two things at
+once: who the character is, and how the illustration was rendered. At
+`weight_type: linear` the adapter writes all eleven SDXL attention blocks and
+takes both, which lifted likeness from 0.61 to 0.82 and dropped the block the
+model drew from 8 pixels to 1. Reducing the reference first means the second
+half is no longer smooth. Regenerate them whenever a sheet is re-cut.
 
 ## The contract every cut view satisfies
 
