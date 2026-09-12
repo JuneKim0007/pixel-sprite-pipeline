@@ -5,7 +5,7 @@ import { showError } from '../../core/errors.js';
 import { el } from '../../core/dom.js';
 import { state, toast } from '../../store.js';
 import { confirmDialog, lightbox } from '../../ui/dialog.js';
-import { Button, Disclosure, Empty, Meter, PanelHead } from '../../ui/index.js';
+import { Button, Disclosure, Empty, Meter, PanelHead, Range } from '../../ui/index.js';
 import { GpuProgress, RunProgress } from '../../features/progress.js';
 import { browseDialog } from '../../ui/dialog.js';
 
@@ -79,6 +79,57 @@ function abort(runId) {
   return button;
 }
 
+
+/* What the run was shown, kept beside what it made. The rig is laid over the
+   reference rather than beside it, because the question is whether the two
+   agree about where a limb goes - and that is only visible superimposed. */
+function shownPanel(detail) {
+  const shown = detail.shown || {};
+  const refs = shown.references || [];
+  const guides = shown.guides || [];
+  if (!refs.length) return null;
+
+  let fade = 0.45;
+  const plates = refs.map((r, i) => {
+    const plate = el('figure', { className: 'shownshot' });
+    const stack = el('div', { className: 'shownstack' });
+    if (!r.missing) {
+      stack.append(el('img', {
+        src: api.fileUrl(r.kept), loading: 'lazy',
+        className: 'pixel shownref', style: `opacity:${fade}`,
+      }));
+    } else {
+      stack.append(el('div', { className: 'shownshot-gone', textContent: 'file gone' }));
+    }
+    const guide = guides[i] || guides[0];
+    if (guide) {
+      stack.append(el('img', {
+        src: api.fileUrl(guide), loading: 'lazy', className: 'pixel shownrig',
+      }));
+    }
+    plate.append(stack, el('figcaption', { className: 'mini', textContent: r.label }));
+    return plate;
+  });
+
+  const strip = el('div', { className: 'shownstrip' }, ...plates);
+  const slider = Range(fade, {
+    min: 0, max: 1, step: 0.05, readout: 'box',
+    onChange: (v) => {
+      fade = v == null ? 0.45 : v;
+      strip.querySelectorAll('.shownref').forEach((img) => {
+        img.style.opacity = String(fade);
+      });
+    },
+  });
+
+  return el('div', { className: 'shownbox' },
+    el('p', { className: 'mini',
+              textContent: `Rig: ${shown.rig_label || shown.rig || 'none'} · `
+                         + `${refs.length} reference(s) it was shown` }),
+    strip,
+    el('div', { className: 'shownfade' },
+      el('span', { className: 'mini', textContent: 'Fade the reference' }), slider));
+}
 
 function auditPanel(detail) {
   const a = detail.audit || {};
@@ -378,7 +429,7 @@ export function renderResult(host, { runId, detail, onPick }) {
 
   host.append(el('section', { className: 'auditbox' },
     PanelHead(runId, { note: detail.dir, action: detail.running ? abort(runId) : null }),
-    auditPanel(detail)));
+    auditPanel(detail), shownPanel(detail)));
 
   state.runDir = detail.dir;
 

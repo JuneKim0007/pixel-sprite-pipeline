@@ -106,6 +106,14 @@ VARIANTS = {
                                        "weight_type": "style and composition"}}},
     # The reference carried the character AND the illustration's smoothness.
     # Pixelise it first and the second half of that stops being a problem.
+    # The reference's pose disagrees with the guide on every sheet - they are
+    # all standing with arms down, and the rig asks for a T. The 4 tokens carry
+    # that disagreement semantically, so the model renders arms-down garments
+    # onto arms-out limbs. This reference is a generated T-pose: same character,
+    # same reduction as px, and the only thing changed is that it agrees.
+    "tpref_09": {"_sample": True, "_refs": "tp", "_build": True,
+                 "canonical": {"from_reference": {
+                     "weight": 1.05, "weight_type": "linear"}}},
     "pixref_09": {"_sample": True, "_refs": "px", "_build": True,
                       "canonical": {"from_reference": {
                           "weight": 1.05, "weight_type": "linear"}}},
@@ -148,11 +156,9 @@ VARIANTS = {
 # Volume per character, read off each one's own sheet. depth.build thickens
 # the capsule between two joints; the chest group is depth-only, so none of
 # this reaches the pose skeleton.
-# Four characters, not eight, for the conditioning arm: the question is how a
-# reference is consumed, and that does not need every body in the set. Chosen
-# to span it - char1's hair volume, char2's robe, char6 the one man, char8 the
-# one the eye picked.
-SAMPLE: tuple[str, ...] = ("char1", "char2", "char6", "char8")
+# Three characters, not eight, for the conditioning arm: the question is how a
+# reference is consumed, and that does not need every body in the set.
+SAMPLE: tuple[str, ...] = ("char1", "char2", "char3")
 
 BUILDS: dict[str, dict[str, float]] = {
     "char1": {"chest": 1.15, "thigh": 1.00, "torso": 0.95},
@@ -237,10 +243,10 @@ def plan(only: list[str] | None = None) -> list[tuple[str, str, Path]]:
             # plan() answers - the same trick the old _paint marker used.
             want = extra.get("_refs")
             if want:
-                # "px" swaps in the pixelised cut: same character, already
-                # rendered the way the output is meant to look, so `linear`
-                # copying all eleven blocks copies pixels instead of smoothness.
-                tail = "_px" if want == "px" else ""
+                # The suffix picks which cut: "" the sheet, "px" the
+                # pixelised one, "tp" a generated T-pose whose arms already
+                # agree with the guide.
+                tail = "" if want is True else f"_{want}"
                 cfg["references"]["identity"] = [
                     {"path": f"characters/{char}/{name}{tail}.png", "view": view}
                     for name, view in VIEWS.items()

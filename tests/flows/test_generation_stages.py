@@ -376,3 +376,48 @@ def test_the_shape_weight_reaches_the_adapter_and_not_just_the_settings(
             for i in comfy_fake.inputs_of("IPAdapterAdvanced")]
     assert seen, "no IPAdapterAdvanced in the graph"
     assert 0.25 in seen, seen
+
+
+def test_a_run_keeps_the_references_it_was_shown(tmp_path):
+    """References live under characters/ and library/refs, both of which a
+    person may clear. Without a copy, history says a run happened and not
+    what it was given."""
+    import json
+    from types import SimpleNamespace
+
+    from PIL import Image
+
+    from pipeline.generation.stage import Context
+    from pipeline.stages.canonical import _record_references
+
+    src = tmp_path / "front.png"
+    Image.new("RGB", (8, 8), (20, 20, 20)).save(src)
+    ref = SimpleNamespace(path=src, label="front", role="identity")
+
+    ctx = Context(root=tmp_path, outdir=tmp_path / "run", config={})
+    (tmp_path / "run").mkdir()
+    rig = SimpleNamespace(name="humanoid", label="Humanoid")
+    _record_references(ctx, [(0.0, ref)], rig)
+
+    kept = tmp_path / "run" / "references"
+    assert (kept / "front.png").is_file(), "the reference was not kept"
+    said = json.loads((kept / "used.json").read_text())
+    assert said["rig"] == "humanoid"
+    assert said["references"][0]["label"] == "front"
+    assert said["references"][0]["source"] == str(src)
+
+    # Removing the original must not take the record with it.
+    src.unlink()
+    assert (kept / "front.png").is_file()
+
+
+def test_keeping_nothing_writes_nothing(tmp_path):
+    from types import SimpleNamespace
+
+    from pipeline.generation.stage import Context
+    from pipeline.stages.canonical import _record_references
+
+    ctx = Context(root=tmp_path, outdir=tmp_path / "run", config={})
+    (tmp_path / "run").mkdir()
+    _record_references(ctx, [], SimpleNamespace(name="x", label="X"))
+    assert not (tmp_path / "run" / "references").exists()

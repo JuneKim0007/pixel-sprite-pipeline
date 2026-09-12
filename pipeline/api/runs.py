@@ -213,7 +213,30 @@ def run_detail(run_id: str) -> dict:
     info["dir"] = str(d)
     info["audit"] = run_audit(d)
     info["consumed"] = _consumed(d, info["audit"].get("stages") or [])
+    info["shown"] = _shown(d)
     return info
+
+
+def _shown(run_dir: Path) -> dict:
+    """The references and rig this run was given, kept beside what it made."""
+    import json
+
+    for folder in sorted(run_dir.glob("*/references")):
+        record = folder / "used.json"
+        if not record.is_file():
+            continue
+        try:
+            said = json.loads(record.read_text())
+        except (OSError, ValueError):
+            continue
+        for row in said.get("references", []):
+            # `kept` is written relative to the project root.
+            row["missing"] = not (ROOT / row.get("kept", "")).is_file()
+        # The guide drawn from the rig, so the two can be laid over each other.
+        guides = sorted(run_dir.glob("*_pose/skeleton_*.png"))
+        said["guides"] = [str(g.relative_to(ROOT)) for g in guides]
+        return said
+    return {}
 
 
 def _in_flight() -> str | None:

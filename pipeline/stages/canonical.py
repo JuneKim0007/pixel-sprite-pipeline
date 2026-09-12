@@ -83,6 +83,39 @@ def _report_framing(image, ctx) -> None:
               f"guide is only steered until canonical.controlnet.end_percent.")
 
 
+def _record_references(ctx, used, rig) -> None:
+    """Keep what this run was actually shown, beside what it produced.
+
+    A run's references live under library/refs or characters/, both of which a
+    person may clear. Without a copy, history can say a run happened and not
+    what it was given.
+    """
+    import json
+    import shutil
+
+    if not used:
+        return
+    folder = ctx.outdir / "references"
+    folder.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for view, ref in used:
+        kept = folder / ref.path.name
+        if not kept.exists():
+            try:
+                shutil.copy2(ref.path, kept)
+            except OSError as err:                          # noqa: PERF203
+                print(f"   could not keep {ref.path.name}: {err}")
+                continue
+        rows.append({"view": view, "label": ref.label,
+                     "role": getattr(ref, "role", "identity"),
+                     "source": str(ref.path),
+                     "kept": str(kept.relative_to(ctx.root))})
+    (folder / "used.json").write_text(json.dumps(
+        {"rig": rig.name, "rig_label": rig.label, "references": rows},
+        indent=1) + "\n")
+    print(f"   kept {len(rows)} reference(s) beside the run")
+
+
 class _AnchorGraph:
     """Assembles one anchor's graph. Image uploads are shared across anchors."""
 
@@ -181,6 +214,8 @@ class CanonicalStage(Stage):
         depthmaps = ctx.artifacts.get("depthmaps") or []
         cn = cfg["controlnet"]
 
+        used: list[tuple[float, Any]] = []
+
         def _conditioning(view: float) -> _Conditioning:
             chosen = None
             if lib.identity and from_ref["enabled"]:
@@ -206,6 +241,8 @@ class CanonicalStage(Stage):
                          else f"{ctx.settings('pose').get('source', 'library')} pose, "
                               f"{ctx.need('rig').label}")
                 print(f"   conditioned by {', '.join(names) or 'nothing'}  <- {where}")
+            if chosen is not None:
+                used.append((view, chosen))
             return _Conditioning(chosen, names)
 
         # Measured: batch 1806 s / 1.28M swap-ins against sequential 2096 s / 2.8M.
@@ -273,5 +310,6 @@ class CanonicalStage(Stage):
                 cooling.rest(ctx.config, after=f"anchor {vi + 1}",
                              last=vi == len(views) - 1)
 
+        _record_references(ctx, used, ctx.need("rig"))
         return {"canonical": primary, "canonicals": made}
 
