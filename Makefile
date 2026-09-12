@@ -1,12 +1,4 @@
-# Sprite pipeline.
-#
-#   make up      start ComfyUI + Ollama + web UI, wait until healthy
-#   make down    stop everything make started
-#   make run     run a pipeline
-#
-# Service logic lives in scripts/ctl.sh, not here: macOS ships GNU Make 3.81,
-# which predates .ONESHELL, so every recipe line would be its own shell and any
-# loop would have to be crammed onto one backslash-continued line.
+# Sprite pipeline. `make help` lists the targets; service logic lives in scripts/ctl.sh.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
@@ -55,8 +47,7 @@ run:
 	  || { printf '\033[31mComfyUI is not up.\033[0m Run: make up\n'; exit 1; }
 	@$(PY) run.py library/configs/$(CONFIG).yaml
 
-# _global.yaml holds machine-level defaults, not a pipeline — it has no stages
-# to validate, so it is skipped rather than reported as broken.
+# _global.yaml has no stages to validate, so it is skipped rather than reported as broken.
 check: lint
 	@rc=0; for c in library/configs/*.yaml library/configs/experiments/*.yaml; do \
 	  case "$$c" in */_global.yaml) continue;; esac; \
@@ -66,30 +57,13 @@ check: lint
 	    else printf '\033[31minvalid\033[0m\n'; rc=1; fi; \
 	done; exit $$rc
 
-# Undefined names are the one defect class that compiles cleanly, survives
-# review, and then crashes six GPU-minutes into a run. `apply_ipadapter` shipped
-# reading a name that was never a parameter; py_compile was happy, --explain was
-# happy, and only calling it would have told us. pyflakes reads every branch
-# without executing any of them, which is exactly the coverage a pipeline whose
-# error paths cost real time needs.
-#
-# Only the rules that catch crashes are enabled. Unused imports are excluded
-# deliberately: several of them are load-bearing. `from . import stages` looks
-# unused and is the line that populates the stage registry — deleting it made
-# every queued job fail validation once already.
+# Only the rules that catch crashes: unused imports are excluded, several are load-bearing.
 lint:
 	@printf '\033[1mstatic\033[0m\n'
 	@$(RUFF) check --quiet --select F821,F811,F502,F506,F601,F632,B018 \
 	  pipeline/ tools/ tests/ *.py \
 	  || { printf '\033[31mstatic analysis failed\033[0m\n'; exit 1; }
-	@# `node --check` parses each file as a standalone script and accepts things
-	@# the module loader rejects: `a ?? b || c` passed the check and then broke
-	@# the whole UI, because one failed module takes the import graph with it.
-	@# Importing each file is the check that matches how the browser loads them.
-	@# Compiling as a module - not importing it - because main.js runs boot() on
-	@# import and would need a DOM. Compilation is the step that catches what
-	@# --check missed, and it needs no environment. Compilation does not see an
-	@# undefined name; `make test` does, in "every dom helper used is imported".
+	@# Compiled as a module, not imported: node --check accepts what the module loader rejects, and main.js runs boot() on import.
 	@for f in $$(find web/js tests -name '*.js' -o -name '*.mjs'); do \
 	  node --experimental-vm-modules -e " \
 	    const {SourceTextModule} = require('node:vm'); \
@@ -104,9 +78,7 @@ lint:
 	@printf '  \033[32mno undefined names in python\033[0m\n'
 	@printf '  \033[32mevery web module compiles\033[0m\n'
 
-# The api suite starts its own server on a free port, so `make test` needs
-# nothing running. Narrow it with T=, e.g. `make test T=tests/unit/test_rigs.py`
-# or `make test T='-k dragon'`.
+# The api suite starts its own server, so `make test` needs nothing running. Narrow it with T=.
 test:
 	@printf '\033[1mfrontend\033[0m\n'; node tests/frontend/test_frontend.mjs
 	@printf '\033[1mbackend + api\033[0m\n'; $(PY) -m pytest $(T)

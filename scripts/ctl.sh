@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
-# Service control for the sprite pipeline. Driven by the Makefile.
-#
-# Lives here rather than inside the Makefile because macOS ships GNU Make 3.81,
-# which predates .ONESHELL — every recipe line would be its own shell, so any
-# loop or conditional has to be crammed onto one backslash-continued line.
-# Bash belongs in a bash file.
-#
-#   ctl.sh up | down | restart | status | logs
+# Service control for the sprite pipeline, driven by the Makefile: up|down|restart|status|logs.
 
 set -uo pipefail
 
@@ -24,16 +17,10 @@ COMFY_TIMEOUT="${COMFY_TIMEOUT:-180}"
 UI_TIMEOUT="${UI_TIMEOUT:-30}"
 OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-60}"
 
-# Empty on purpose. --gpu-only measured ~5x SLOWER once ControlNet and
-# IP-Adapter load: the working set exceeds 16GB and the flag forbids
-# offloading, so macOS swaps to disk instead.
+# Empty on purpose: --gpu-only measured ~5x SLOWER, because it forbids offloading and macOS swaps.
 VRAM_MODE="${VRAM_MODE:-}"
 
-# library/configs/_global.yaml has a `compute:` block, and until now nothing read it:
-# the Settings form wrote values that reached no process. These are launcher
-# concerns - they have to be set before ComfyUI imports torch - so the launcher
-# is where they belong. An environment variable still wins, so a one-off
-# experiment does not require editing the file.
+# Launcher concerns: these must be set before ComfyUI imports torch. An environment variable still wins.
 read_compute() {
   [[ -f "$ROOT/library/configs/_global.yaml" ]] || return 0
   local line
@@ -43,11 +30,7 @@ read_compute() {
       vram_mode)          VRAM_MODE="${VRAM_MODE:-$value}" ;;
       torch_threads)      export OMP_NUM_THREADS="${OMP_NUM_THREADS:-$value}"
                           export MKL_NUM_THREADS="${MKL_NUM_THREADS:-$value}" ;;
-      # The MPS allocator has TWO ratios and rejects low > high. Low defaults to
-      # 1.4, so exporting only high=0.9 leaves 1.4 > 0.9 and torch raises
-      # "invalid low watermark ratio 1.4" — inside the prompt worker thread, so
-      # ComfyUI comes up healthy, answers /system_stats, and then kills the
-      # thread on the first generation. Pin low alongside high.
+      # The MPS allocator rejects low > high and low defaults to 1.4, so pin low alongside high.
       mps_high_watermark) export PYTORCH_MPS_HIGH_WATERMARK_RATIO="${PYTORCH_MPS_HIGH_WATERMARK_RATIO:-$value}"
                           export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
       mps_low_watermark)  export PYTORCH_MPS_LOW_WATERMARK_RATIO="${PYTORCH_MPS_LOW_WATERMARK_RATIO:-$value}" ;;
@@ -100,10 +83,7 @@ start_one() {
   fi
   printf "  starting %s…\n" "$name"
   mkdir -p "$RUN_DIR" "$LOG_DIR"
-  # Each service needs its own process group so `down` can signal the whole
-  # tree — ComfyUI and the UI both spawn children. `setsid` would do it on
-  # Linux but does not exist on macOS; enabling job control (`set -m`) makes
-  # bash put every background job in a fresh process group, which is portable.
+  # Job control puts each background job in its own group so `down` signals the tree; macOS has no setsid.
   set -m
   nohup "$@" > "$LOG_DIR/$name.log" 2>&1 &
   local pid=$!
@@ -182,20 +162,9 @@ stop_one() {
   return 0
 }
 
-# A restart bounces ComfyUI, and ComfyUI holds the connection every in-flight
-# generation is waiting on. Killing it mid-run does not fail loudly: the run
-# script gets ECONNREFUSED from a socket that was fine a second ago, and the
-# run dies with a stack trace that blames the network. This cost two A/B legs
-# before anyone noticed the pattern, so the check is here rather than in the
-# reader's memory.
+# A restart bounces ComfyUI, and an in-flight run then dies with ECONNREFUSED blaming the network.
 runs_in_flight() {
-  # Ask ComfyUI, not the filesystem.
-  #
-  # The first version of this guard looked for a recently-written run.log, and
-  # it never fired for the runs that actually mattered: run.log is written by
-  # the server when IT launches a run, so anything started from a shell was
-  # invisible to it. Three A/B legs died to that. ComfyUI's own queue is the
-  # one signal that is true regardless of who started the work.
+  # Ask ComfyUI's queue, not run.log: run.log exists only when the server launched the run.
   local body
   body=$(curl -s -m 2 "http://127.0.0.1:${COMFY_PORT}/queue" 2>/dev/null) || return 1
   [[ -n "$body" ]] || return 1
@@ -247,8 +216,7 @@ cmd_status() {
   for name in comfy ollama ui; do
     local pid=""
     [[ -f "$RUN_DIR/$name.pid" ]] && pid=" (pid $(cat "$RUN_DIR/$name.pid"))"
-    # Colour codes are printed outside the padded fields; %-Ns counts escape
-    # bytes as width and would misalign every coloured column.
+    # Colour codes are printed outside the padded fields; %-Ns counts escape bytes as width.
     printf "  %-8s %-28s " "$name" "$(home_for "$name")"
     if healthy "$name"; then
       printf "%sup%s%s\n" "$G" "$O" "$pid"
@@ -257,9 +225,7 @@ cmd_status() {
     fi
   done
   echo
-  # Match the python process itself. A bare -f search also hits any shell whose
-  # command line merely mentions run.py — a `wait` loop, an editor, this
-  # script — and reports a pipeline that is not running.
+  # Match the python process itself: a bare -f search also hits any shell mentioning run.py.
   local running
   running="$(pgrep -fl 'run\.py .*configs/' 2>/dev/null \
              | grep -vE '^[0-9]+ +/bin/(z|ba)?sh' \

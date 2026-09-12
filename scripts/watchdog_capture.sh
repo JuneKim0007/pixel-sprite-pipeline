@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# watchdog_capture.sh [--list|--watch]  collect a WindowServer watchdog event
-# Needs: sudo log config --mode "persist:info"  set BEFORE the event.
+# watchdog_capture.sh [--list|--watch] — needs `sudo log config --mode "persist:info"` set BEFORE the event.
 
 set -uo pipefail
 
